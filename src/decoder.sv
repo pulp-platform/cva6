@@ -54,7 +54,7 @@ module decoder import ariane_pkg::*; (
     // Immediate select
     // --------------------
     enum logic[3:0] {
-        NOIMM, IIMM, SIMM, SBIMM, UIMM, JIMM, RS3
+        NOIMM, IIMM, SIMM, SBIMM, UIMM, JIMM, RS3, INSN
     } imm_select;
 
     riscv::xlen_t imm_i_type;
@@ -71,6 +71,9 @@ module decoder import ariane_pkg::*; (
     logic is_rs1;
     logic is_rs2;
     logic is_rd;
+    logic is_fs1;
+    logic is_fs2;
+    logic is_fd;
 
     if (ENABLE_ACCELERATOR) begin: gen_accel_decoder
         // This module is responsible for a light-weight decoding of accelerator instructions,
@@ -81,13 +84,19 @@ module decoder import ariane_pkg::*; (
             .is_accel_o(is_accel),
             .is_rs1_o(is_rs1),
             .is_rs2_o(is_rs2),
-            .is_rd_o(is_rd)
+            .is_rd_o(is_rd),
+            .is_fs1_o(is_fs1),
+            .is_fs2_o(is_fs2),
+            .is_fd_o(is_fd)
         );
     end: gen_accel_decoder else begin
         assign is_accel = 1'b0;
         assign is_rs1   = 1'b0;
         assign is_rs2   = 1'b0;
         assign is_rd    = 1'b0;
+        assign is_fs1   = 1'b0;
+        assign is_fs2   = 1'b0;
+        assign is_fd    = 1'b0;
     end
 
     always_comb begin : decoder
@@ -640,7 +649,7 @@ module decoder import ariane_pkg::*; (
                         3'b000: instruction_o.op  = ariane_pkg::SB;
                         3'b001: instruction_o.op  = ariane_pkg::SH;
                         3'b010: instruction_o.op  = ariane_pkg::SW;
-                        3'b011: if (riscv::XLEN==64) instruction_o.op  = ariane_pkg::SD; 
+                        3'b011: if (riscv::XLEN==64) instruction_o.op  = ariane_pkg::SD;
                                 else illegal_instr = 1'b1;
                         default: illegal_instr = 1'b1;
                     endcase
@@ -659,7 +668,7 @@ module decoder import ariane_pkg::*; (
                         3'b100: instruction_o.op  = ariane_pkg::LBU;
                         3'b101: instruction_o.op  = ariane_pkg::LHU;
                         3'b110: instruction_o.op  = ariane_pkg::LWU;
-                        3'b011: if (riscv::XLEN==64) instruction_o.op  = ariane_pkg::LD; 
+                        3'b011: if (riscv::XLEN==64) instruction_o.op  = ariane_pkg::LD;
                                 else illegal_instr = 1'b1;
                         default: illegal_instr = 1'b1;
                     endcase
@@ -1043,10 +1052,19 @@ module decoder import ariane_pkg::*; (
                 instruction_o.rs2 = is_rs2 ? instr.rtype.rs2 : {REG_ADDR_SIZE{1'b0}};
                 instruction_o.rd  = is_rd ? instr.rtype.rd : {REG_ADDR_SIZE{1'b0}};
 
+                // Decode the vector operation
+                unique case ({is_fs1, is_fs2, is_fd})
+                    3'b100: instruction_o.op = ACCEL_OP_FS1;
+                    3'b001: instruction_o.op = ACCEL_OP_FD;
+                    3'b000: instruction_o.op = ACCEL_OP;
+                endcase
+
                 // Ensure the decoding is sane
                 is_control_flow_instr_o = 1'b0;
                 check_fprm = 1'b0;
-                imm_select = NOIMM;
+
+                // Forward the undecoded instruction in the `result` field
+                imm_select = INSN;
 
                 // At this step, consider the accelerator instructions are not illegal
                 illegal_instr = 1'b0;
@@ -1092,6 +1110,10 @@ module decoder import ariane_pkg::*; (
                 // result holds address of fp operand rs3
                 instruction_o.result = {{riscv::XLEN-5{1'b0}}, instr.r4type.rs3};
                 instruction_o.use_imm = 1'b0;
+            end
+            INSN : begin
+                // result holds the undecoded instruction
+                instruction_o.result = { {riscv::XLEN-32{1'b0}}, instruction_i[31:0] };
             end
             default: begin
                 instruction_o.result = {riscv::XLEN{1'b0}};
