@@ -167,6 +167,13 @@ package ariane_pkg;
 `endif
     localparam bit RVA = 1'b1; // Is A extension enabled
 
+    // Is there an accelerator?
+`ifdef ENABLE_ACCELERATOR
+    localparam bit ENABLE_ACCELERATOR = `ENABLE_ACCELERATOR;
+`else
+    localparam bit ENABLE_ACCELERATOR = 1'b0;
+`endif
+
     // Transprecision floating-point extensions configuration
     localparam bit XF16    = 1'b0; // Is half-precision float extension (Xf16) enabled
     localparam bit XF16ALT = 1'b0; // Is alternative half-precision float extension (Xf16alt) enabled
@@ -375,7 +382,8 @@ package ariane_pkg;
         MULT,      // 5
         CSR,       // 6
         FPU,       // 7
-        FPU_VEC    // 8
+        FPU_VEC,   // 8
+        ACCEL      // 9
     } fu_t;
 
     localparam EXC_OFF_RST      = 8'h80;
