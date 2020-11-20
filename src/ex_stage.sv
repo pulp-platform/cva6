@@ -341,26 +341,23 @@ module ex_stage import ariane_pkg::*; #(
         fu_data_t acc_data;
         assign acc_data = acc_valid_i ? fu_data_i : '0;
 
-        // Unpack fu_data_t into accelerator_req_t
-        assign acc_req_o = '{
-            insn: acc_data.imm[31:0], // Instruction is forwarded as an immediate
-            rs1: acc_data.operand_a,
-            rs2: acc_data.operand_b,
-            trans_id: acc_data.trans_id
-        };
-        assign acc_req_valid_o = acc_valid_i;
-        assign acc_ready_o = acc_req_ready_i;
-
-        // Unpack the accelerator response
-        assign acc_trans_id_o = acc_resp_i.trans_id;
-        assign acc_result_o = acc_resp_i.result;
-        assign acc_valid_o = acc_resp_valid_i;
-        assign acc_exception_o = '{
-            cause: riscv::ILLEGAL_INSTR,
-            tval: '0,
-            valid: acc_resp_i.error
-        };
-        assign acc_resp_ready_o = 1'b1; // Always ready to receive responses
+        cva6_accel_dispatcher i_accel_dispatcher (
+          .clk_i           (clk_i           ),
+          .rst_ni          (rst_ni          ),
+          .acc_data_i      (acc_data        ),
+          .acc_ready_o     (acc_ready_o     ),
+          .acc_valid_i     (acc_valid_i     ),
+          .acc_trans_id_o  (acc_trans_id_o  ),
+          .acc_result_o    (acc_result_o    ),
+          .acc_valid_o     (acc_valid_o     ),
+          .acc_exception_o (acc_exception_o ),
+          .acc_req_o       (acc_req_o       ),
+          .acc_req_valid_o (acc_req_valid_o ),
+          .acc_req_ready_i (acc_req_ready_i ),
+          .acc_resp_i      (acc_resp_i      ),
+          .acc_resp_valid_i(acc_resp_valid_i),
+          .acc_resp_ready_o(acc_resp_ready_o)
+        );
     end : gen_accelerator else begin: gen_no_accelerator
         assign acc_req_o        = '0;
         assign acc_req_valid_o  = 1'b0;
