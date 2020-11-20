@@ -88,6 +88,7 @@ module ex_stage import ariane_pkg::*; #(
 
     output logic                                   acc_ready_o,      // FU is ready
     input logic                                    acc_valid_i,      // Output is valid
+    input logic                                    acc_commit_i,
     output logic [TRANS_ID_BITS-1:0]               acc_trans_id_o,
     output riscv::xlen_t                           acc_result_o,
     output logic                                   acc_valid_o,
@@ -341,22 +342,24 @@ module ex_stage import ariane_pkg::*; #(
         fu_data_t acc_data;
         assign acc_data = acc_valid_i ? fu_data_i : '0;
 
-        cva6_accel_dispatcher i_accel_dispatcher (
-          .clk_i           (clk_i           ),
-          .rst_ni          (rst_ni          ),
-          .acc_data_i      (acc_data        ),
-          .acc_ready_o     (acc_ready_o     ),
-          .acc_valid_i     (acc_valid_i     ),
-          .acc_trans_id_o  (acc_trans_id_o  ),
-          .acc_result_o    (acc_result_o    ),
-          .acc_valid_o     (acc_valid_o     ),
-          .acc_exception_o (acc_exception_o ),
-          .acc_req_o       (acc_req_o       ),
-          .acc_req_valid_o (acc_req_valid_o ),
-          .acc_req_ready_i (acc_req_ready_i ),
-          .acc_resp_i      (acc_resp_i      ),
-          .acc_resp_valid_i(acc_resp_valid_i),
-          .acc_resp_ready_o(acc_resp_ready_o)
+        acc_dispatcher i_acc_dispatcher (
+          .clk_i                (clk_i           ),
+          .rst_ni               (rst_ni          ),
+          .acc_data_i           (acc_data        ),
+          .acc_ready_o          (acc_ready_o     ),
+          .acc_valid_i          (acc_valid_i     ),
+          .acc_commit_i         (acc_commit_i    ),
+          .acc_commit_trans_id_i(commit_tran_id_i),
+          .acc_trans_id_o       (acc_trans_id_o  ),
+          .acc_result_o         (acc_result_o    ),
+          .acc_valid_o          (acc_valid_o     ),
+          .acc_exception_o      (acc_exception_o ),
+          .acc_req_o            (acc_req_o       ),
+          .acc_req_valid_o      (acc_req_valid_o ),
+          .acc_req_ready_i      (acc_req_ready_i ),
+          .acc_resp_i           (acc_resp_i      ),
+          .acc_resp_valid_i     (acc_resp_valid_i),
+          .acc_resp_ready_o     (acc_resp_ready_o)
         );
     end : gen_accelerator else begin: gen_no_accelerator
         assign acc_req_o        = '0;
