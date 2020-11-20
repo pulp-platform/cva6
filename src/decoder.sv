@@ -35,6 +35,7 @@ module decoder import ariane_pkg::*; (
     input  logic               debug_mode_i,            // we are in debug mode
     input  riscv::xs_t         fs_i,                    // floating point extension status
     input  logic [2:0]         frm_i,                   // floating-point dynamic rounding mode
+    input  riscv::xs_t         vs_i,                    // vector extension status
     input  logic               tvm_i,                   // trap virtual memory
     input  logic               tw_i,                    // timeout wait
     input  logic               tsr_i,                   // trap sret
@@ -1045,7 +1046,8 @@ module decoder import ariane_pkg::*; (
         // Accelerator instructions.
         // These can overwrite the previous decoding entirely.
         if (ENABLE_ACCELERATOR) begin // only generate decoder if accelerators are enabled (static)
-            if (is_accel) begin
+            if (is_accel && vs_i != riscv::Off) begin // trigger illegal instruction if the vector extension is turned off
+                // TODO: Instruction going to other accelerators might need to distinguish whether the value of vs_i is needed or not.
                 // Send accelerator instructions to the coprocessor
                 instruction_o.fu  = ACCEL;
                 instruction_o.rs1 = is_rs1 ? instr.rtype.rs1 : {REG_ADDR_SIZE{1'b0}};
