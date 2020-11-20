@@ -217,7 +217,7 @@ package riscv;
     localparam OpcodeNmsub     = 7'b10_010_11;
     localparam OpcodeNmadd     = 7'b10_011_11;
     localparam OpcodeOpFp      = 7'b10_100_11;
-    localparam OpcodeRsrvd1    = 7'b10_101_11;
+    localparam OpcodeVec       = 7'b10_101_11;
     localparam OpcodeCustom2   = 7'b10_110_11;
     // Quadrant 3
     localparam OpcodeBranch    = 7'b11_000_11;
