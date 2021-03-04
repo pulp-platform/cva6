@@ -83,7 +83,7 @@ package riscv;
         xs_t          xs;     // extension register - hardwired to zero
         xs_t          fs;     // floating point extension register
         priv_lvl_t    mpp;    // holds the previous privilege mode up to machine
-        logic [1:0]   wpri2;  // writes preserved reads ignored
+        xs_t          vs;     // vector extension register
         logic         spp;    // holds the previous privilege mode up to supervisor
         logic         mpie;   // machine interrupts enable bit active prior to trap
         logic         wpri1;  // writes preserved reads ignored
@@ -217,7 +217,7 @@ package riscv;
     localparam OpcodeNmsub     = 7'b10_010_11;
     localparam OpcodeNmadd     = 7'b10_011_11;
     localparam OpcodeOpFp      = 7'b10_100_11;
-    localparam OpcodeRsrvd1    = 7'b10_101_11;
+    localparam OpcodeVec       = 7'b10_101_11;
     localparam OpcodeCustom2   = 7'b10_110_11;
     // Quadrant 3
     localparam OpcodeBranch    = 7'b11_000_11;
@@ -327,6 +327,14 @@ package riscv;
         CSR_FRM            = 12'h002,
         CSR_FCSR           = 12'h003,
         CSR_FTRAN          = 12'h800,
+        // Vector CSRs
+        CSR_VSTART         = 12'h008,
+        CSR_VXSAT          = 12'h009,
+        CSR_VXRM           = 12'h00A,
+        CSR_VCSR           = 12'h00F,
+        CSR_VL             = 12'hC20,
+        CSR_VTYPE          = 12'hC21,
+        CSR_VLENB          = 12'hC22,
         // Supervisor Mode CSRs
         CSR_SSTATUS        = 12'h100,
         CSR_SIE            = 12'h104,
@@ -410,6 +418,8 @@ package riscv;
         // Cache Control (platform specifc)
         CSR_DCACHE         = 12'h701,
         CSR_ICACHE         = 12'h700,
+        // Accelerator memory consistency (platform specific)
+        CSR_ACC_CONS       = 12'h702,
         // Triggers
         CSR_TSELECT        = 12'h7A0,
         CSR_TDATA1         = 12'h7A1,
