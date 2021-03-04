@@ -177,7 +177,7 @@ package ariane_pkg;
     localparam bit ENABLE_ACCELERATOR = RVV;
 
     // Transprecision floating-point extensions configuration
-    localparam bit XF16    = 1'b0; // Is half-precision float extension (Xf16) enabled
+    localparam bit XF16    = 1'b0 | RVV; // Is half-precision float extension (Xf16) enabled
     localparam bit XF16ALT = 1'b0; // Is alternative half-precision float extension (Xf16alt) enabled
     localparam bit XF8     = 1'b0; // Is quarter-precision float extension (Xf8) enabled
     localparam bit XFVEC   = 1'b0; // Is vectorial float extension (Xfvec) enabled
@@ -292,6 +292,7 @@ package ariane_pkg;
       riscv::instruction_t      insn;
       riscv::xlen_t             rs1;
       riscv::xlen_t             rs2;
+      fpnew_pkg::roundmode_e    frm;
       logic [TRANS_ID_BITS-1:0] trans_id;
       logic                     store_pending;
     } accelerator_req_t;
@@ -300,9 +301,14 @@ package ariane_pkg;
       riscv::xlen_t             result;
       logic [TRANS_ID_BITS-1:0] trans_id;
       logic                     error;
+
+      // Metadata
       logic                     store_pending;
       logic                     store_complete;
       logic                     load_complete;
+
+      logic               [4:0] fflags;
+      logic                     fflags_valid;
     } accelerator_resp_t;
 
     // ---------------
@@ -645,6 +651,7 @@ package ariane_pkg;
         branchpredict_sbe_t       bp;            // branch predict scoreboard data structure
         logic                     is_compressed; // signals a compressed instructions, we need this information at the commit stage if
                                                  // we want jump accordingly e.g.: +4, +2
+        logic                     vfp;           // is this a vector floating-point instruction?
     } scoreboard_entry_t;
 
     // --------------------
