@@ -1129,6 +1129,7 @@ module decoder import ariane_pkg::*; (
             INSN : begin
                 // result holds the undecoded instruction
                 instruction_o.result = { {riscv::XLEN-32{1'b0}}, instruction_i[31:0] };
+                instruction_o.use_imm = 1'b0;
             end
             default: begin
                 instruction_o.result = {riscv::XLEN{1'b0}};
