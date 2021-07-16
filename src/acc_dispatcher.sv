@@ -131,17 +131,19 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; (
   logic             acc_req_ready;
 
   accelerator_req_t acc_req_int;
-  spill_register #(
+  fall_through_register #(
     .T(accelerator_req_t)
   ) i_accelerator_req_register (
-    .clk_i  (clk_i          ),
-    .rst_ni (rst_ni         ),
-    .data_i (acc_req        ),
-    .valid_i(acc_req_valid  ),
-    .ready_o(acc_req_ready  ),
-    .data_o (acc_req_int    ),
-    .valid_o(acc_req_valid_o),
-    .ready_i(acc_req_ready_i)
+    .clk_i     (clk_i          ),
+    .rst_ni    (rst_ni         ),
+    .clr_i     (1'b0           ),
+    .testmode_i(1'b0           ),
+    .data_i    (acc_req        ),
+    .valid_i   (acc_req_valid  ),
+    .ready_o   (acc_req_ready  ),
+    .data_o    (acc_req_int    ),
+    .valid_o   (acc_req_valid_o),
+    .ready_i   (acc_req_ready_i)
   );
 
   assign acc_req_o = '{
@@ -162,7 +164,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; (
     acc_req_valid = 1'b0;
 
     // Unpack fu_data_t into accelerator_req_t
-    if (!acc_insn_queue_empty && acc_req_ready) begin
+    if (!acc_insn_queue_empty) begin
       acc_req = '{
         // Instruction is forwarded from the decoder as an immediate
         // -
@@ -177,8 +179,9 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; (
         default : '0
       };
       // Wait until the instruction is no longer speculative.
-      acc_req_valid      = !acc_insn_queue_empty && insn_ready_d[acc_insn_queue_o.trans_id];
-      acc_insn_queue_pop = acc_req_valid;
+      acc_req_valid      = insn_ready_q[acc_insn_queue_o.trans_id] ||
+                           (acc_commit_i && insn_pending_q[acc_commit_trans_id_i]);
+      acc_insn_queue_pop = acc_req_valid && acc_req_ready;
     end
   end
 
