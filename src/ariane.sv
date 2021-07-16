@@ -171,6 +171,7 @@ module ariane import ariane_pkg::*; #(
   logic                     amo_valid_commit;
   // ACCEL Commit
   logic                     acc_commit_commit_ex;
+  logic [TRANS_ID_BITS-1:0] acc_commit_trans_id;
   // --------------
   // ID <-> COMMIT
   // --------------
@@ -471,6 +472,7 @@ module ariane import ariane_pkg::*; #(
     .acc_st_disp_o          ( acc_st_disp_ex_id           ),
     .acc_flush_undisp_o     ( acc_flush_undisp_ex_id      ),
     .acc_commit_i           ( acc_commit_commit_ex        ),
+    .acc_commit_tran_id_i   ( acc_commit_trans_id         ), // from commit
     .acc_trans_id_o         ( acc_trans_id_ex_id          ),
     .acc_result_o           ( acc_result_ex_id            ),
     .acc_valid_o            ( acc_valid_ex_id             ),
@@ -531,6 +533,7 @@ module ariane import ariane_pkg::*; #(
     .commit_lsu_ready_i     ( lsu_commit_ready_ex_commit    ),
     .commit_tran_id_o       ( lsu_commit_trans_id           ),
     .commit_acc_o           ( acc_commit_commit_ex          ),
+    .commit_acc_tran_id_o   ( acc_commit_trans_id           ),
     .amo_valid_commit_o     ( amo_valid_commit              ),
     .amo_resp_i             ( amo_resp                      ),
     .commit_csr_o           ( csr_commit_commit_ex          ),

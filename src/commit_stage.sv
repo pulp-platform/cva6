@@ -18,42 +18,43 @@ module commit_stage import ariane_pkg::*; #(
 )(
     input  logic                                    clk_i,
     input  logic                                    rst_ni,
-    input  logic                                    halt_i,             // request to halt the core
-    input  logic                                    flush_dcache_i,     // request to flush dcache -> also flush the pipeline
-    output exception_t                              exception_o,        // take exception to controller
-    output logic                                    dirty_fp_state_o,   // mark the F state as dirty
-    output logic                                    dirty_v_state_o,    // mark the V state as dirty
-    input  logic                                    single_step_i,      // we are in single step debug mode
+    input  logic                                    halt_i,               // request to halt the core
+    input  logic                                    flush_dcache_i,       // request to flush dcache -> also flush the pipeline
+    output exception_t                              exception_o,          // take exception to controller
+    output logic                                    dirty_fp_state_o,     // mark the F state as dirty
+    output logic                                    dirty_v_state_o,      // mark the V state as dirty
+    input  logic                                    single_step_i,        // we are in single step debug mode
     // from scoreboard
-    input  scoreboard_entry_t [NR_COMMIT_PORTS-1:0] commit_instr_i,     // the instruction we want to commit
-    output logic [NR_COMMIT_PORTS-1:0]              commit_ack_o,       // acknowledge that we are indeed committing
+    input  scoreboard_entry_t [NR_COMMIT_PORTS-1:0] commit_instr_i,       // the instruction we want to commit
+    output logic [NR_COMMIT_PORTS-1:0]              commit_ack_o,         // acknowledge that we are indeed committing
     // to register file
-    output  logic [NR_COMMIT_PORTS-1:0][4:0]        waddr_o,            // register file write address
-    output  logic [NR_COMMIT_PORTS-1:0][riscv::XLEN-1:0] wdata_o,       // register file write data
-    output  logic [NR_COMMIT_PORTS-1:0]             we_gpr_o,           // register file write enable
-    output  logic [NR_COMMIT_PORTS-1:0]             we_fpr_o,           // floating point register enable
+    output  logic [NR_COMMIT_PORTS-1:0][4:0]        waddr_o,              // register file write address
+    output  logic [NR_COMMIT_PORTS-1:0][riscv::XLEN-1:0] wdata_o,         // register file write data
+    output  logic [NR_COMMIT_PORTS-1:0]             we_gpr_o,             // register file write enable
+    output  logic [NR_COMMIT_PORTS-1:0]             we_fpr_o,             // floating point register enable
     // Atomic memory operations
-    input  amo_resp_t                               amo_resp_i,         // result of AMO operation
+    input  amo_resp_t                               amo_resp_i,           // result of AMO operation
     // to CSR file and PC Gen (because on certain CSR instructions we'll need to flush the whole pipeline)
     output logic [riscv::VLEN-1:0]                  pc_o,
     // to/from CSR file
-    output fu_op                                    csr_op_o,           // decoded CSR operation
-    output riscv::xlen_t                            csr_wdata_o,        // data to write to CSR
-    input  riscv::xlen_t                            csr_rdata_i,        // data to read from CSR
-    input  exception_t                              csr_exception_i,    // exception or interrupt occurred in CSR stage (the same as commit)
-    output logic                                    csr_write_fflags_o, // write the fflags CSR
+    output fu_op                                    csr_op_o,             // decoded CSR operation
+    output riscv::xlen_t                            csr_wdata_o,          // data to write to CSR
+    input  riscv::xlen_t                            csr_rdata_i,          // data to read from CSR
+    input  exception_t                              csr_exception_i,      // exception or interrupt occurred in CSR stage (the same as commit)
+    output logic                                    csr_write_fflags_o,   // write the fflags CSR
     // commit signals to ex
-    output logic                                    commit_lsu_o,       // commit the pending store
-    input  logic                                    commit_lsu_ready_i, // commit buffer of LSU is ready
-    output logic [TRANS_ID_BITS-1:0]                commit_tran_id_o,   // transaction id of first commit port
-    output logic                                    commit_acc_o,       // commit the pending accelerator instruction
-    output logic                                    amo_valid_commit_o, // valid AMO in commit stage
-    input  logic                                    no_st_pending_i,    // there is no store pending
-    output logic                                    commit_csr_o,       // commit the pending CSR instruction
-    output logic                                    fence_i_o,          // flush I$ and pipeline
-    output logic                                    fence_o,            // flush D$ and pipeline
-    output logic                                    flush_commit_o,     // request a pipeline flush
-    output logic                                    sfence_vma_o        // flush TLBs and pipeline
+    output logic                                    commit_lsu_o,         // commit the pending store
+    input  logic                                    commit_lsu_ready_i,   // commit buffer of LSU is ready
+    output logic [TRANS_ID_BITS-1:0]                commit_tran_id_o,     // transaction id of first commit port
+    output logic                                    commit_acc_o,         // commit the pending accelerator instruction
+    output logic [TRANS_ID_BITS-1:0]                commit_acc_tran_id_o, // transaction id of the last invalid instruction
+    output logic                                    amo_valid_commit_o,   // valid AMO in commit stage
+    input  logic                                    no_st_pending_i,      // there is no store pending
+    output logic                                    commit_csr_o,         // commit the pending CSR instruction
+    output logic                                    fence_i_o,            // flush I$ and pipeline
+    output logic                                    fence_o,              // flush D$ and pipeline
+    output logic                                    flush_commit_o,       // request a pipeline flush
+    output logic                                    sfence_vma_o          // flush TLBs and pipeline
 );
 
 // ila_0 i_ila_commit (
@@ -93,7 +94,9 @@ module commit_stage import ariane_pkg::*; #(
       end
     end
 
-    assign commit_tran_id_o = commit_instr_i[0].trans_id;
+    assign commit_tran_id_o     = commit_instr_i[0].trans_id;
+    assign commit_acc_tran_id_o = !commit_instr_i[0].valid ? commit_instr_i[0].trans_id
+                                                           : commit_instr_i[1].trans_id;
 
     logic instr_0_is_amo;
     assign instr_0_is_amo = is_amo(commit_instr_i[0].op);
@@ -228,6 +231,9 @@ module commit_stage import ariane_pkg::*; #(
         // it reached the top of the scoreboard and it hasn't been
         // issued yet
         if (!commit_instr_i[0].valid && commit_instr_i[0].fu == ACCEL)
+            commit_acc_o = 1'b1;
+        if (commit_instr_i[0].valid &&
+            !commit_instr_i[1].valid && commit_instr_i[1].fu == ACCEL)
             commit_acc_o = 1'b1;
 
         if (NR_COMMIT_PORTS > 1) begin
