@@ -25,6 +25,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigBExtEn = 0;
   localparam CVA6ConfigVExtEn = 1;
   localparam CVA6ConfigSclicExtEn = 0;
+  localparam CVA6ConfigHExtEn = 0;  // hypervisor extension disabled by default
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 64;
@@ -86,6 +87,7 @@ package cva6_config_pkg;
       RVA: bit'(CVA6ConfigAExtEn),
       RVV: bit'(CVA6ConfigVExtEn),
       RVC: bit'(CVA6ConfigCExtEn),
+      RVH: bit'(CVA6ConfigHExtEn),
       RVZCB: bit'(CVA6ConfigZcbExtEn),
       XFVec: bit'(CVA6ConfigFVecEn),
       CvxifEn: bit'(CVA6ConfigCvxifEn),

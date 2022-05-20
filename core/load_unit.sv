@@ -38,6 +38,9 @@ module load_unit
     // MMU -> Address Translation
     output logic translation_req_o,  // request address translation
     output logic [riscv::VLEN-1:0] vaddr_o,  // virtual address out
+    output logic [riscv::XLEN-1:0] tinst_o,  // transformed instruction out
+    output logic hs_ld_st_inst_o,  // instruction is a hyp load store instruction
+    output logic hlvx_inst_o,  // hyp load store with execute permissions
     input logic [riscv::PLEN-1:0] paddr_i,  // physical address in
     input  exception_t               ex_i,                // exception which may has happened earlier. for example: mis-aligned exception
     input logic dtlb_hit_i,  // hit on the dtlb, send in the same cycle as the request
@@ -161,6 +164,10 @@ module load_unit
   assign page_offset_o = lsu_ctrl_i.vaddr[11:0];
   // feed-through the virtual address for VA translation
   assign vaddr_o = lsu_ctrl_i.vaddr;
+  assign hs_ld_st_inst_o = lsu_ctrl_i.hs_ld_st_inst;
+  assign hlvx_inst_o = lsu_ctrl_i.hlvx_inst;
+  // feed-through the transformed instruction for mmu
+  assign tinst_o = lsu_ctrl_i.tinst;
   // this is a read-only interface so set the write enable to 0
   assign req_port_o.data_we = 1'b0;
   assign req_port_o.data_wdata = '0;
@@ -180,6 +187,9 @@ module load_unit
   // directly forward exception fields (valid bit is set below)
   assign ex_o.cause = ex_i.cause;
   assign ex_o.tval = ex_i.tval;
+  assign ex_o.tval2 = ex_i.tval2;
+  assign ex_o.tinst = ex_i.tinst;
+  assign ex_o.gva = ex_i.gva;
 
   // Check that NI operations follow the necessary conditions
   logic paddr_ni;
@@ -457,10 +467,10 @@ module load_unit
 
 
   // prepare these signals for faster selection in the next cycle
-  assign rdata_is_signed    =   ldbuf_rdata.operation inside {ariane_pkg::LW,  ariane_pkg::LH,  ariane_pkg::LB};
+  assign rdata_is_signed    =   ldbuf_rdata.operation inside {ariane_pkg::LW,  ariane_pkg::LH,  ariane_pkg::LB, ariane_pkg::HLV_W, ariane_pkg::HLV_H, ariane_pkg::HLV_B};
   assign rdata_is_fp_signed =   ldbuf_rdata.operation inside {ariane_pkg::FLW, ariane_pkg::FLH, ariane_pkg::FLB};
-  assign rdata_offset       = ((ldbuf_rdata.operation inside {ariane_pkg::LW,  ariane_pkg::FLW}) & riscv::IS_XLEN64) ? ldbuf_rdata.address_offset + 3 :
-                                ( ldbuf_rdata.operation inside {ariane_pkg::LH,  ariane_pkg::FLH})                     ? ldbuf_rdata.address_offset + 1 :
+  assign rdata_offset       = ((ldbuf_rdata.operation inside {ariane_pkg::LW,  ariane_pkg::FLW, ariane_pkg::HLV_W}) & riscv::IS_XLEN64) ? ldbuf_rdata.address_offset + 3 :
+                                ( ldbuf_rdata.operation inside {ariane_pkg::LH,  ariane_pkg::FLH, ariane_pkg::HLV_H})                     ? ldbuf_rdata.address_offset + 1 :
                                                                                                                          ldbuf_rdata.address_offset;
 
   for (genvar i = 0; i < (riscv::XLEN / 8); i++) begin : gen_sign_bits
@@ -475,11 +485,11 @@ module load_unit
   // result mux
   always_comb begin
     unique case (ldbuf_rdata.operation)
-      ariane_pkg::LW, ariane_pkg::LWU:
+      ariane_pkg::LW, ariane_pkg::LWU, ariane_pkg::HLV_W, ariane_pkg::HLV_WU, ariane_pkg::HLVX_WU:
       result_o = {{riscv::XLEN - 32{rdata_sign_bit}}, shifted_data[31:0]};
-      ariane_pkg::LH, ariane_pkg::LHU:
+      ariane_pkg::LH, ariane_pkg::LHU, ariane_pkg::HLV_H, ariane_pkg::HLV_HU, ariane_pkg::HLVX_HU:
       result_o = {{riscv::XLEN - 32 + 16{rdata_sign_bit}}, shifted_data[15:0]};
-      ariane_pkg::LB, ariane_pkg::LBU:
+      ariane_pkg::LB, ariane_pkg::LBU, ariane_pkg::HLV_B, ariane_pkg::HLV_BU:
       result_o = {{riscv::XLEN - 32 + 24{rdata_sign_bit}}, shifted_data[7:0]};
       default: begin
         // FLW, FLH and FLB have been defined here in default case to improve Code Coverage
@@ -518,16 +528,16 @@ module load_unit
   // check invalid offsets, but only issue a warning as these conditions actually trigger a load address misaligned exception
   addr_offset0 :
   assert property (@(posedge clk_i) disable iff (~rst_ni)
-        ldbuf_w |->  (ldbuf_wdata.operation inside {ariane_pkg::LW, ariane_pkg::LWU}) |-> ldbuf_wdata.address_offset < 5)
-  else $fatal(1, "invalid address offset used with {LW, LWU}");
+        ldbuf_w |->  (ldbuf_wdata.operation inside {ariane_pkg::LW, ariane_pkg::LWU, ariane_pkg::HLV_W, ariane_pkg::HLV_WU, ariane_pkg::HLVX_WU}) |-> ldbuf_wdata.address_offset < 5)
+  else $fatal(1, "invalid address offset used with {LW, LWU, HLV_W, HLV_WU, HLVX_WU}");
   addr_offset1 :
   assert property (@(posedge clk_i) disable iff (~rst_ni)
-        ldbuf_w |->  (ldbuf_wdata.operation inside {ariane_pkg::LH, ariane_pkg::LHU}) |-> ldbuf_wdata.address_offset < 7)
-  else $fatal(1, "invalid address offset used with {LH, LHU}");
+        ldbuf_w |->  (ldbuf_wdata.operation inside {ariane_pkg::LH, ariane_pkg::LHU, ariane_pkg::HLV_H, ariane_pkg::HLV_HU, ariane_pkg::HLVX_HU}) |-> ldbuf_wdata.address_offset < 7)
+  else $fatal(1, "invalid address offset used with {LH, LHU, HLV_H, HLV_HU, HLVX_HU}");
   addr_offset2 :
   assert property (@(posedge clk_i) disable iff (~rst_ni)
-        ldbuf_w |->  (ldbuf_wdata.operation inside {ariane_pkg::LB, ariane_pkg::LBU}) |-> ldbuf_wdata.address_offset < 8)
-  else $fatal(1, "invalid address offset used with {LB, LBU}");
+        ldbuf_w |->  (ldbuf_wdata.operation inside {ariane_pkg::LB, ariane_pkg::LBU, ariane_pkg::HLV_B, ariane_pkg::HLV_BU}) |-> ldbuf_wdata.address_offset < 8)
+  else $fatal(1, "invalid address offset used with {LB, LBU, HLV_B, HLV_BU}");
 `endif
   //pragma translate_on
 

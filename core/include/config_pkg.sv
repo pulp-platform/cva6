@@ -54,6 +54,7 @@ package config_pkg;
     bit                          RVA;
     bit                          RVV;
     bit                          RVC;
+    bit                          RVH;
     bit                          RVZCB;
     bit                          XFVec;
     bit                          CvxifEn;
