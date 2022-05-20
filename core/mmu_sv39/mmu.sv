@@ -228,6 +228,11 @@ module mmu
           icache_areq_o.fetch_exception.tval = {
             {riscv::XLEN - riscv::VLEN{1'b0}}, icache_areq_i.fetch_vaddr
           };
+        if (CVA6Cfg.RVH) begin
+          icache_areq_o.fetch_exception.tval2 = {riscv::GPLEN{1'b0}};
+          icache_areq_o.fetch_exception.tinst = {riscv::XLEN{1'b0}};
+          icache_areq_o.fetch_exception.gva   = 1'b0;
+        end
       end
 
       icache_areq_o.fetch_valid = 1'b0;
@@ -258,6 +263,11 @@ module mmu
             icache_areq_o.fetch_exception.tval = {
               {riscv::XLEN - riscv::VLEN{1'b0}}, icache_areq_i.fetch_vaddr
             };
+          if (CVA6Cfg.RVH) begin
+            icache_areq_o.fetch_exception.tval2 = {riscv::GPLEN{1'b0}};
+            icache_areq_o.fetch_exception.tinst = {riscv::XLEN{1'b0}};
+            icache_areq_o.fetch_exception.gva   = 1'b0;
+          end
         end else if (!pmp_instr_allow) begin
           icache_areq_o.fetch_exception.cause = riscv::INSTR_ACCESS_FAULT;
           icache_areq_o.fetch_exception.valid = 1'b1;
@@ -265,6 +275,11 @@ module mmu
             icache_areq_o.fetch_exception.tval = {
               {riscv::XLEN - riscv::VLEN{1'b0}}, icache_areq_i.fetch_vaddr
             };
+          if (CVA6Cfg.RVH) begin
+            icache_areq_o.fetch_exception.tval2 = {riscv::GPLEN{1'b0}};
+            icache_areq_o.fetch_exception.tinst = {riscv::XLEN{1'b0}};
+            icache_areq_o.fetch_exception.gva   = 1'b0;
+          end
         end
       end else
       // ---------
@@ -278,11 +293,21 @@ module mmu
           icache_areq_o.fetch_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
             icache_areq_o.fetch_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, update_vaddr};
+          if (CVA6Cfg.RVH) begin
+            icache_areq_o.fetch_exception.tval2 = {riscv::GPLEN{1'b0}};
+            icache_areq_o.fetch_exception.tinst = {riscv::XLEN{1'b0}};
+            icache_areq_o.fetch_exception.gva   = 1'b0;
+          end
         end else begin
           icache_areq_o.fetch_exception.cause = riscv::INSTR_ACCESS_FAULT;
           icache_areq_o.fetch_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
             icache_areq_o.fetch_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, update_vaddr};
+          if (CVA6Cfg.RVH) begin
+            icache_areq_o.fetch_exception.tval2 = {riscv::GPLEN{1'b0}};
+            icache_areq_o.fetch_exception.tinst = {riscv::XLEN{1'b0}};
+            icache_areq_o.fetch_exception.gva   = 1'b0;
+          end
         end
       end
     end
@@ -295,6 +320,11 @@ module mmu
         icache_areq_o.fetch_exception.tval = {
           {riscv::XLEN - riscv::PLEN{1'b0}}, icache_areq_o.fetch_paddr
         };
+      if (CVA6Cfg.RVH) begin
+        icache_areq_o.fetch_exception.tval2 = {riscv::GPLEN{1'b0}};
+        icache_areq_o.fetch_exception.tinst = {riscv::XLEN{1'b0}};
+        icache_areq_o.fetch_exception.gva   = 1'b0;
+      end
     end
   end
 
@@ -401,6 +431,11 @@ module mmu
               lsu_exception_o.tval = {
                 {riscv::XLEN - riscv::VLEN{lsu_vaddr_q[riscv::VLEN-1]}}, lsu_vaddr_q
               };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
             // Check if any PMPs are violated
           end else if (!pmp_data_allow) begin
             lsu_exception_o.cause = riscv::ST_ACCESS_FAULT;
@@ -409,6 +444,11 @@ module mmu
               lsu_exception_o.tval = {
                 {riscv::XLEN - riscv::VLEN{lsu_vaddr_q[riscv::VLEN-1]}}, lsu_vaddr_q
               };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
           end
 
           // this is a load
@@ -421,6 +461,11 @@ module mmu
               lsu_exception_o.tval = {
                 {riscv::XLEN - riscv::VLEN{lsu_vaddr_q[riscv::VLEN-1]}}, lsu_vaddr_q
               };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
             // Check if any PMPs are violated
           end else if (!pmp_data_allow) begin
             lsu_exception_o.cause = riscv::LD_ACCESS_FAULT;
@@ -429,6 +474,11 @@ module mmu
               lsu_exception_o.tval = {
                 {riscv::XLEN - riscv::VLEN{lsu_vaddr_q[riscv::VLEN-1]}}, lsu_vaddr_q
               };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
           end
         end
       end else
@@ -450,6 +500,11 @@ module mmu
               lsu_exception_o.tval = {
                 {riscv::XLEN - riscv::VLEN{lsu_vaddr_q[riscv::VLEN-1]}}, update_vaddr
               };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
           end else begin
             lsu_exception_o.cause = riscv::LOAD_PAGE_FAULT;
             lsu_exception_o.valid = 1'b1;
@@ -457,6 +512,11 @@ module mmu
               lsu_exception_o.tval = {
                 {riscv::XLEN - riscv::VLEN{lsu_vaddr_q[riscv::VLEN-1]}}, update_vaddr
               };
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
           end
         end
 
@@ -469,11 +529,21 @@ module mmu
             lsu_exception_o.valid = 1'b1;
             if (CVA6Cfg.TvalEn)
               lsu_exception_o.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_vaddr_n};
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
           end else begin
             lsu_exception_o.cause = riscv::LD_ACCESS_FAULT;
             lsu_exception_o.valid = 1'b1;
             if (CVA6Cfg.TvalEn)
               lsu_exception_o.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_vaddr_n};
+            if (CVA6Cfg.RVH) begin
+              lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+              lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+              lsu_exception_o.gva   = 1'b0;
+            end
           end
         end
       end
@@ -483,10 +553,20 @@ module mmu
         lsu_exception_o.cause = riscv::ST_ACCESS_FAULT;
         lsu_exception_o.valid = 1'b1;
         if (CVA6Cfg.TvalEn) lsu_exception_o.tval = {{riscv::XLEN - riscv::PLEN{1'b0}}, lsu_paddr_o};
+        if (CVA6Cfg.RVH) begin
+          lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+          lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+          lsu_exception_o.gva   = 1'b0;
+        end
       end else begin
         lsu_exception_o.cause = riscv::LD_ACCESS_FAULT;
         lsu_exception_o.valid = 1'b1;
         if (CVA6Cfg.TvalEn) lsu_exception_o.tval = {{riscv::XLEN - riscv::PLEN{1'b0}}, lsu_paddr_o};
+        if (CVA6Cfg.RVH) begin
+          lsu_exception_o.tval2 = {riscv::GPLEN{1'b0}};
+          lsu_exception_o.tinst = {riscv::XLEN{1'b0}};
+          lsu_exception_o.gva   = 1'b0;
+        end
       end
     end
   end
