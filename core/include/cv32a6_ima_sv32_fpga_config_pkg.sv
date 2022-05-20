@@ -26,6 +26,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigVExtEn = 0;
   localparam CVA6ConfigZiCondExtEn = 0;
   localparam CVA6ConfigSclicExtEn = 0;
+  localparam CVA6ConfigHExtEn = 0;  // always disabled
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 64;

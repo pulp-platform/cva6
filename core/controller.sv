@@ -21,6 +21,7 @@ module controller
     input  logic clk_i,
     input  logic rst_ni,
     output logic rst_uarch_no,
+    input  logic v_i,                     // Virtualization mode
     output logic set_pc_commit_o,         // Set PC om PC Gen
     output logic flush_if_o,              // Flush the IF stage
     output logic flush_unissued_instr_o,  // Flush un-issued instructions of the scoreboard
@@ -31,6 +32,8 @@ module controller
     output logic flush_dcache_o,          // Flush DCache
     input  logic flush_dcache_ack_i,      // Acknowledge the whole DCache Flush
     output logic flush_tlb_o,             // Flush TLBs
+    output logic flush_tlb_vvma_o,        // Flush TLBs
+    output logic flush_tlb_gvma_o,        // Flush TLBs
 
     input logic [riscv::VLEN-1:0] boot_addr_i,
     output logic [riscv::VLEN-1:0] rst_addr_o,
@@ -55,6 +58,8 @@ module controller
     input logic fence_i,  // fence in
     input logic fence_t_i,  // fence.t in
     input logic sfence_vma_i,  // We got an instruction to flush the TLBs and pipeline
+    input logic hfence_vvma_i,  // We got an instruction to flush the TLBs and pipeline
+    input logic hfence_gvma_i,  // We got an instruction to flush the TLBs and pipeline
     input logic flush_commit_i,  // Flush request from commit stage
     input logic flush_acc_i  // Flush request from accelerator
 );
@@ -103,6 +108,8 @@ module controller
     flush_dcache           = 1'b0;
     flush_icache_o         = 1'b0;
     flush_tlb_o            = 1'b0;
+    flush_tlb_vvma_o       = 1'b0;
+    flush_tlb_gvma_o       = 1'b0;
     flush_bp_o             = 1'b0;
     // ------------
     // Mis-predict
@@ -171,8 +178,34 @@ module controller
       flush_unissued_instr_o = 1'b1;
       flush_id_o             = 1'b1;
       flush_ex_o             = 1'b1;
+      if (ariane_pkg::RVH && v_i) flush_tlb_vvma_o = 1'b1;
+      else flush_tlb_o = 1'b1;
+    end
 
-      flush_tlb_o            = 1'b1;
+    // ---------------------------------
+    // HFENCE.VVMA
+    // ---------------------------------
+    if (ariane_pkg::RVH && hfence_vvma_i) begin
+      set_pc_commit_o        = 1'b1;
+      flush_if_o             = 1'b1;
+      flush_unissued_instr_o = 1'b1;
+      flush_id_o             = 1'b1;
+      flush_ex_o             = 1'b1;
+
+      flush_tlb_vvma_o       = 1'b1;
+    end
+
+    // ---------------------------------
+    // HFENCE.GVMA
+    // ---------------------------------
+    if (ariane_pkg::RVH && hfence_gvma_i) begin
+      set_pc_commit_o        = 1'b1;
+      flush_if_o             = 1'b1;
+      flush_unissued_instr_o = 1'b1;
+      flush_id_o             = 1'b1;
+      flush_ex_o             = 1'b1;
+
+      flush_tlb_gvma_o       = 1'b1;
     end
 
     // ---------------------------------
