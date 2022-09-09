@@ -27,7 +27,7 @@ module ariane_testharness #(
 `endif
   parameter int unsigned NUM_WORDS         = 2**25,         // memory size
   parameter bit          StallRandomOutput = 1'b0,
-  parameter bit          StallRandomInput  = 1'b0
+  parameter bit          StallRandomInput  = 1'b0,
 ) (
   input  logic                           clk_i,
   input  logic                           rtc_i,
@@ -501,6 +501,7 @@ module ariane_testharness #(
     '{ idx: ariane_soc::Ethernet, start_addr: ariane_soc::EthernetBase, end_addr: ariane_soc::EthernetBase + ariane_soc::EthernetLength },
     '{ idx: ariane_soc::GPIO,     start_addr: ariane_soc::GPIOBase,     end_addr: ariane_soc::GPIOBase + ariane_soc::GPIOLength         },
     '{ idx: ariane_soc::DRAM,     start_addr: ariane_soc::DRAMBase,     end_addr: ariane_soc::DRAMBase + ariane_soc::DRAMLength         }
+    '{ idx: ariane_soc::CLIC,     start_addr: ariane_soc::CLICBase,     end_addr: ariane_soc::CLICBase + ariane_soc::CLICLength         }
   };
 
   localparam axi_pkg::xbar_cfg_t AXI_XBAR_CFG = '{
@@ -532,36 +533,6 @@ module ariane_testharness #(
     .en_default_mst_port_i ( '0         ),
     .default_mst_port_i    ( '0         )
   );
-
-  // ---------------
-  // CLINT
-  // ---------------
-  logic ipi;
-  logic timer_irq;
-
-  ariane_axi_soc::req_slv_t  axi_clint_req;
-  ariane_axi_soc::resp_slv_t axi_clint_resp;
-
-  clint #(
-    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH          ),
-    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH             ),
-    .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave   ),
-    .NR_CORES       ( 1                          ),
-    .axi_req_t      ( ariane_axi_soc::req_slv_t  ),
-    .axi_resp_t     ( ariane_axi_soc::resp_slv_t )
-  ) i_clint (
-    .clk_i       ( clk_i          ),
-    .rst_ni      ( ndmreset_n     ),
-    .testmode_i  ( test_en        ),
-    .axi_req_i   ( axi_clint_req  ),
-    .axi_resp_o  ( axi_clint_resp ),
-    .rtc_i       ( rtc_i          ),
-    .timer_irq_o ( timer_irq      ),
-    .ipi_o       ( ipi            )
-  );
-
-  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
-  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
 
   // ---------------
   // Peripherals
@@ -616,12 +587,337 @@ module ariane_testharness #(
 
   uart_bus #(.BAUD_RATE(115200), .PARITY_EN(0)) i_uart_bus (.rx(tx), .tx(rx), .rx_en(1'b1));
 
+
   // ---------------
   // Core
   // ---------------
   ariane_axi_soc::req_t    axi_ariane_req;
   ariane_axi_soc::resp_t   axi_ariane_resp;
   ariane_rvfi_pkg::rvfi_port_t rvfi;
+
+if (ariane_soc::CLICEnable) begin : clic_plic
+
+  // Interrupt sources
+  logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
+                                                                  // Privilege Spec. v. 20211203, pag. 39
+  logic [ariane_soc::NumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
+
+  // core interface signals
+  logic                                           core_irq_req, core_irq_ack; // interrupt handshake
+  logic                                           core_irq_shv;               // selective hardware vectoring
+  logic [$clog2(ariane_soc::NumInterruptSrc)-1:0] core_irq_id;                // interrupt id
+  logic [7:0]                                     core_irq_level;             // interrupt level
+  logic [ariane_soc::NumInterruptSrc-1:0]         core_irq_onehot;            // one-hot encoding
+                                                                              // of interrupts, to
+                                                                              // the core
+
+  // Machine and Supervisor External interrupts
+  // External interrupts. When not in CLIC mode, they are seen as global
+  // interrupts and routed through the PLIC to meip/seip.
+  assign meip = irqs[0];
+  assign seip = irqs[1];
+
+  // Machine Timer interrupt
+  // Generate timer interrupt from a real-time clock (rtc).
+  // When in CLIC mode, the timer interrupt is routed through the CLIC and not
+  // directly to the HART
+  localparam int unsigned NumTimerIrq = 1; // 1 target, cva6
+  logic [NumTimerIrq-1:0]    mtip;
+
+  // Machine Software interrupt
+  // When in CLIC mode, msip can be fired by writing to the corresponding
+  // memory-mapped register in the CLIC
+
+  // XLEN regular CLINT interrupts
+  assign clint_irqs = {
+    {(riscv::XLEN - 15){1'b0}}, // 64 - 15 = 48, designated for platform use
+    {4{1'b0}},                  // reserved
+    seip,                       // seip
+    1'b0,                       // reserved
+    meip,                       // meip
+    1'b0,                       // reserved, seip, reserved, meip
+    mtip,                       // mtip
+    {3{1'b0}},                  // reserved, stip, reserved
+    {4{1'b0}}                   // reserved, ssip, reserved, msip
+  };
+
+  // local interrupts with CLIC
+  assign clic_irqs = {
+    {(ariane_soc::NumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
+    clint_irqs                               // 64  (XLEN regular clint interrupts)
+  };
+
+  // axi2apb interface
+  logic         clic_penable;
+  logic         clic_pwrite;
+  logic [31:0]  clic_paddr;
+  logic         clic_psel;
+  logic [31:0]  clic_pwdata;
+  logic [31:0]  clic_prdata;
+  logic         clic_pready;
+  logic         clic_pslverr;
+
+  axi2apb_64_32 #(
+      .AXI4_ADDRESS_WIDTH ( AXI_ADDRESS_WIDTH  ),
+      .AXI4_RDATA_WIDTH   ( AXI_DATA_WIDTH  ),
+      .AXI4_WDATA_WIDTH   ( AXI_DATA_WIDTH  ),
+      .AXI4_ID_WIDTH      ( ariane_soc::IdWidthSlave ),
+      .AXI4_USER_WIDTH    ( 1             ),
+      .BUFF_DEPTH_SLAVE   ( 2             ),
+      .APB_ADDR_WIDTH     ( 32            )
+  ) i_axi2apb_64_32_plic (
+      .ACLK      ( clk_i          ),
+      .ARESETn   ( rst_ni         ),
+      .test_en_i ( 1'b0           ),
+      .AWID_i    ( master[ariane_soc::CLIC].aw_id     ),
+      .AWADDR_i  ( master[ariane_soc::CLIC].aw_addr   ),
+      .AWLEN_i   ( master[ariane_soc::CLIC].aw_len    ),
+      .AWSIZE_i  ( master[ariane_soc::CLIC].aw_size   ),
+      .AWBURST_i ( master[ariane_soc::CLIC].aw_burst  ),
+      .AWLOCK_i  ( master[ariane_soc::CLIC].aw_lock   ),
+      .AWCACHE_i ( master[ariane_soc::CLIC].aw_cache  ),
+      .AWPROT_i  ( master[ariane_soc::CLIC].aw_prot   ),
+      .AWREGION_i( master[ariane_soc::CLIC].aw_region ),
+      .AWUSER_i  ( master[ariane_soc::CLIC].aw_user   ),
+      .AWQOS_i   ( master[ariane_soc::CLIC].aw_qos    ),
+      .AWVALID_i ( master[ariane_soc::CLIC].aw_valid  ),
+      .AWREADY_o ( master[ariane_soc::CLIC].aw_ready  ),
+      .WDATA_i   ( master[ariane_soc::CLIC].w_data    ),
+      .WSTRB_i   ( master[ariane_soc::CLIC].w_strb    ),
+      .WLAST_i   ( master[ariane_soc::CLIC].w_last    ),
+      .WUSER_i   ( master[ariane_soc::CLIC].w_user    ),
+      .WVALID_i  ( master[ariane_soc::CLIC].w_valid   ),
+      .WREADY_o  ( master[ariane_soc::CLIC].w_ready   ),
+      .BID_o     ( master[ariane_soc::CLIC].b_id      ),
+      .BRESP_o   ( master[ariane_soc::CLIC].b_resp    ),
+      .BVALID_o  ( master[ariane_soc::CLIC].b_valid   ),
+      .BUSER_o   ( master[ariane_soc::CLIC].b_user    ),
+      .BREADY_i  ( master[ariane_soc::CLIC].b_ready   ),
+      .ARID_i    ( master[ariane_soc::CLIC].ar_id     ),
+      .ARADDR_i  ( master[ariane_soc::CLIC].ar_addr   ),
+      .ARLEN_i   ( master[ariane_soc::CLIC].ar_len    ),
+      .ARSIZE_i  ( master[ariane_soc::CLIC].ar_size   ),
+      .ARBURST_i ( master[ariane_soc::CLIC].ar_burst  ),
+      .ARLOCK_i  ( master[ariane_soc::CLIC].ar_lock   ),
+      .ARCACHE_i ( master[ariane_soc::CLIC].ar_cache  ),
+      .ARPROT_i  ( master[ariane_soc::CLIC].ar_prot   ),
+      .ARREGION_i( master[ariane_soc::CLIC].ar_region ),
+      .ARUSER_i  ( master[ariane_soc::CLIC].ar_user   ),
+      .ARQOS_i   ( master[ariane_soc::CLIC].ar_qos    ),
+      .ARVALID_i ( master[ariane_soc::CLIC].ar_valid  ),
+      .ARREADY_o ( master[ariane_soc::CLIC].ar_ready  ),
+      .RID_o     ( master[ariane_soc::CLIC].r_id      ),
+      .RDATA_o   ( master[ariane_soc::CLIC].r_data    ),
+      .RRESP_o   ( master[ariane_soc::CLIC].r_resp    ),
+      .RLAST_o   ( master[ariane_soc::CLIC].r_last    ),
+      .RUSER_o   ( master[ariane_soc::CLIC].r_user    ),
+      .RVALID_o  ( master[ariane_soc::CLIC].r_valid   ),
+      .RREADY_i  ( master[ariane_soc::CLIC].r_ready   ),
+      .PENABLE   ( clic_penable   ),
+      .PWRITE    ( clic_pwrite    ),
+      .PADDR     ( clic_paddr     ),
+      .PSEL      ( clic_psel      ),
+      .PWDATA    ( clic_pwdata    ),
+      .PRDATA    ( clic_prdata    ),
+      .PREADY    ( clic_pready    ),
+      .PSLVERR   ( clic_pslverr   )
+  );
+
+  // apb2reg interface
+
+  REG_BUS #(
+      .ADDR_WIDTH ( 32 ),
+      .DATA_WIDTH ( 32 )
+  ) reg_bus (clk_i);
+
+  apb_to_reg i_apb_to_reg (
+      .clk_i     ( clk_i        ),
+      .rst_ni    ( rst_ni       ),
+      .penable_i ( clic_penable ),
+      .pwrite_i  ( clic_pwrite  ),
+      .paddr_i   ( clic_paddr   ),
+      .psel_i    ( clic_psel    ),
+      .pwdata_i  ( clic_pwdata  ),
+      .prdata_o  ( clic_prdata  ),
+      .pready_o  ( clic_pready  ),
+      .pslverr_o ( clic_pslverr ),
+      .reg_o     ( reg_bus      )
+  );
+
+  // wrap register interface as req/resp for clic
+  localparam int unsigned REG_BUS_ADDR_WIDTH = 32;
+  localparam int unsigned REG_BUS_DATA_WIDTH = 32;
+
+`define REG_BUS_TYPEDEF_REQ(req_t, addr_t, data_t, strb_t) \
+    typedef struct packed { \
+        addr_t addr; \
+        logic  write; \
+        data_t wdata; \
+        strb_t wstrb; \
+        logic  valid; \
+    } req_t;
+
+`define REG_BUS_TYPEDEF_RSP(rsp_t, data_t) \
+    typedef struct packed { \
+        data_t rdata; \
+        logic  error; \
+        logic  ready; \
+    } rsp_t;
+
+  typedef logic [REG_BUS_ADDR_WIDTH-1:0] addr_t;
+  typedef logic [REG_BUS_DATA_WIDTH-1:0] data_t;
+  typedef logic [REG_BUS_DATA_WIDTH/8-1:0] strb_t;
+
+  `REG_BUS_TYPEDEF_REQ(reg_a32_d32_req_t, addr_t, data_t, strb_t)
+  `REG_BUS_TYPEDEF_RSP(reg_a32_d32_rsp_t, data_t)
+
+  reg_a32_d32_req_t clic_req;
+  reg_a32_d32_rsp_t clic_rsp;
+
+  assign clic_req.addr  = reg_bus.addr;
+  assign clic_req.write = reg_bus.write;
+  assign clic_req.wdata = reg_bus.wdata;
+  assign clic_req.wstrb = reg_bus.wstrb;
+  assign clic_req.valid = reg_bus.valid;
+
+  assign reg_bus.rdata = clic_rsp.rdata;
+  assign reg_bus.error = clic_rsp.error;
+  assign reg_bus.ready = clic_rsp.ready;
+
+  // clic
+  clic #(
+    .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
+    .INTCTLBITS(ariane_soc::CLICIntCtlBits),
+    .reg_req_t (reg_a32_d32_req_t),
+    .reg_rsp_t (reg_a32_d32_rsp_t)
+  ) i_clic (
+    .clk_i(clk_i),
+    .rst_ni(ndmreset_n),
+    // Bus Interface
+    .reg_req_i(clic_req),
+    .reg_rsp_o(clic_rsp),
+    // Interrupt Sources
+    .intr_src_i (clic_irqs),
+    // Interrupt notification to core
+    .irq_valid_o(core_irq_req),
+    .irq_ready_i(core_irq_ack),
+    .irq_id_o   (core_irq_id),
+    .irq_level_o(core_irq_level),
+    .irq_shv_o  (core_irq_shv)
+  );
+
+  // Generate one-hot encoded interrupt request for the core, since the clic
+  // is the only source of interrupts
+  // When bit x is 1, interrupt with id = x is sending a request to the core
+  always_comb begin : gen_core_irq_onehot
+      core_irq_onehot = '0;
+      if (core_irq_req) begin
+          core_irq_onehot[core_irq_id] = 1'b1;
+      end
+  end
+
+  // ariane
+  ariane #(
+    .ArianeCfg  ( ariane_soc::ArianeSocCfg )
+  ) i_ariane (
+    .clk_i                ( clk_i               ),
+    .rst_ni               ( ndmreset_n          ),
+    .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
+    .hart_id_i            ( '0                  ),
+    // Interrupt interface to core
+    .irq_i        ( core_irq_onehot     ),
+    .irq_level_i  ( core_irq_level      ),
+    .irq_shv_i    ( core_irq_shv        ),
+    .irq_ack_o    ( core_irq_ack        ),
+// Disable Debug when simulating with Spike
+`ifdef SPIKE_TANDEM
+    .debug_req_i          ( 1'b0                ),
+`else
+    .debug_req_i          ( debug_req_core      ),
+`endif
+    .axi_req_o            ( axi_ariane_req      ),
+    .axi_resp_i           ( axi_ariane_resp     )
+  );
+
+  axi_master_connect i_axi_master_connect_ariane (
+    .axi_req_i(axi_ariane_req),
+    .axi_resp_o(axi_ariane_resp),
+    .master(slave[0])
+  );
+
+  // Generate timer interrupt
+  // TODO: since we use the clic to generate software interrupts, we do not
+  // need memory mapped registers in the clint for it as well.
+  // The cleaner way would be to integrate mtime/mtimecmp registers in the
+  // clic, or remove the memory mapped registers for msip from the clint when
+  // used in clic, because it is redundant.
+
+  // logic mtip;
+
+  // always_ff @(posedge clk_i or negedge ndmreset_n) begin
+    // if (~ndmreset_n) begin
+      // rtc <= 0;
+    // end else begin
+      // rtc <= rtc ^ 1'b1;
+    // end
+  // end
+
+  ariane_axi::req_t    axi_clint_req;
+  ariane_axi::resp_t   axi_clint_resp;
+
+  clint #(
+    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH        ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH           ),
+    .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave ),
+    .NR_CORES       ( 1                        )
+  ) i_clint (
+    .clk_i       ( clk_i          ),
+    .rst_ni      ( ndmreset_n     ),
+    .testmode_i  ( test_en        ),
+    .axi_req_i   ( axi_clint_req  ),
+    .axi_resp_o  ( axi_clint_resp ),
+    .rtc_i       ( rtc_i          ),
+    .timer_irq_o ( mtip           ),
+    .ipi_o       (                ) // use the clic for machine software interrup
+  );
+
+  axi_slave_connect i_axi_slave_connect_clint (
+    .axi_req_o(axi_clint_req),
+    .axi_resp_i(axi_clint_resp),
+    .slave(master[ariane_soc::CLINT])
+  );
+
+end else begin : clint_plic // legacy clint + plic, ariane not in CLIC mode
+  // ---------------
+  // CLINT
+  // ---------------
+  logic ipi;
+  logic timer_irq;
+
+  ariane_axi::req_t    axi_clint_req;
+  ariane_axi::resp_t   axi_clint_resp;
+
+  clint #(
+    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH        ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH           ),
+    .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave ),
+    .NR_CORES       ( 1                        )
+  ) i_clint (
+    .clk_i       ( clk_i          ),
+    .rst_ni      ( ndmreset_n     ),
+    .testmode_i  ( test_en        ),
+    .axi_req_i   ( axi_clint_req  ),
+    .axi_resp_o  ( axi_clint_resp ),
+    .rtc_i       ( rtc_i          ),
+    .timer_irq_o ( timer_irq      ),
+    .ipi_o       ( ipi            )
+  );
+
+  axi_slave_connect i_axi_slave_connect_clint (
+    .axi_req_o(axi_clint_req),
+    .axi_resp_i(axi_clint_resp),
+    .slave(master[ariane_soc::CLINT])
+  );
 
   ariane #(
     .ArianeCfg  ( ariane_soc::ArianeSocCfg )
@@ -648,6 +944,7 @@ module ariane_testharness #(
 
   `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
   `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
+end // block: clint_plic
 
   // -------------
   // Simulation Helper Functions

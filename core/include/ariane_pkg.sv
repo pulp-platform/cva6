@@ -49,6 +49,11 @@ package ariane_pkg;
       // cache config
       bit                               AxiCompliant;          // set to 1 when using in conjunction with 64bit AXI bus adapter
       bit                               SwapEndianess;         // set to 1 to swap endianess inside L1.5 openpiton adapter
+      // CLIC
+      bit                               CLICEnable;            // set to 1 to enable CLIC support
+      logic [63:0]                      CLICBase;              // base address of the CLIC
+      int unsigned                      CLICNumInterruptSrc;   // number of interrupt signals from the CLIC
+      int unsigned                      CLICIntCtlBits;        // TODO(@niwis,@alex96295): specify
       //
       logic [63:0]                      DmBaseAddress;         // offset of the debug module
       int unsigned                      NrPMPEntries;          // Number of PMP entries
@@ -70,6 +75,11 @@ package ariane_pkg;
       NrCachedRegionRules:    1,
       CachedRegionAddrBase:  {64'h8000_0000},
       CachedRegionLength:    {64'h40000000},
+      // CLIC
+      CLICEnable:             1'b0,
+      CLICBase:               64'h5000_0000,
+      CLICNumInterruptSrc:    256,
+      CLICIntCtlBits:         8,
       //  cache config
       AxiCompliant:           1'b1,
       SwapEndianess:          1'b0,

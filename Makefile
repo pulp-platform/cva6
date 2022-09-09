@@ -154,6 +154,12 @@ src :=  corev_apu/tb/axi_adapter.sv                                             
         corev_apu/rv_plic/rtl/rv_plic_gateway.sv                                     \
         corev_apu/rv_plic/rtl/plic_regmap.sv                                         \
         corev_apu/rv_plic/rtl/plic_top.sv                                            \
+        corev_apu/clic/src/clic_reg_pkg.sv                                           \
+        corev_apu/clic/src/clic_reg_top.sv                                           \
+        corev_apu/clic/src/clic_reg_adapter.sv                                       \
+        corev_apu/clic/src/clic_gateway.sv                                           \
+        corev_apu/clic/src/clic_target.sv                                            \
+        corev_apu/clic/src/clic.sv                                                   \
         corev_apu/riscv-dbg/src/dmi_cdc.sv                                           \
         corev_apu/riscv-dbg/src/dmi_jtag.sv                                          \
         corev_apu/riscv-dbg/src/dmi_jtag_tap.sv                                      \
