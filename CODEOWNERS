@@ -1,16 +1,3 @@
 # Global Owners
-*  @JeanRochCoulon @zarubaf
+*  @niwis
 
-# Core
-
-core/mmu_sv39 @sjthales
-core/cvxif_example @Gchauvon
-core/cvxif_fu.sv @Gchauvon
-
-# APU
-
-corev_apu/openpiton @Jbalkind
-
-## Documentation
-
-docs/ @jquevremont
