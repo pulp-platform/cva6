@@ -22,7 +22,7 @@ package ariane_axi;
 
     localparam IdWidth   = 4; // Recommended by AXI standard
     localparam UserWidth = ariane_pkg::AXI_USER_WIDTH;
-    localparam AddrWidth = 64;
+    localparam AddrWidth = 48;
     localparam DataWidth = 64;
     localparam StrbWidth = DataWidth / 8;
 
