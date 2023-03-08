@@ -232,7 +232,7 @@ module csr_regfile import ariane_pkg::*; #(
                 end
                 riscv::CSR_SIE:                csr_rdata = clic_mode_o ? '0 : (mie_q & mideleg_q);
                 riscv::CSR_SIP:                csr_rdata = clic_mode_o ? '0 : (mip_q & mideleg_q);
-                riscv::CSR_STVEC:              csr_rdata = clic_mode_o ? {stvec_q[riscv::XLEN-1:6], 6'b11} : stvec_q;
+                riscv::CSR_STVEC:              csr_rdata = clic_mode_o ? {stvec_q[riscv::XLEN-1:6], 6'b11} : {stvec_q[riscv::XLEN-1:6], 5'b0, stvec_q[0]};
                 riscv::CSR_SCOUNTEREN:         csr_rdata = scounteren_q;
                 riscv::CSR_STVT:               csr_rdata = stvt_q;
                 riscv::CSR_SSCRATCH:           csr_rdata = sscratch_q;
@@ -557,7 +557,7 @@ module csr_regfile import ariane_pkg::*; #(
                     end
                 end
 
-                riscv::CSR_STVEC:              stvec_d     = {csr_wdata[riscv::XLEN-1:2], 1'b0, csr_wdata[0]};
+                riscv::CSR_STVEC:              stvec_d     = clic_mode_o ? {csr_wdata[riscv::XLEN-1:2], 2'b11} : {csr_wdata[riscv::XLEN-1:2], 1'b0, csr_wdata[0]};
                 riscv::CSR_SCOUNTEREN:         scounteren_d = {{riscv::XLEN-32{1'b0}}, csr_wdata[31:0]};
                 riscv::CSR_STVT:               stvt_d      = {csr_wdata[riscv::XLEN-1:8], 8'b0};
                 riscv::CSR_SSCRATCH:           sscratch_d  = csr_wdata;
