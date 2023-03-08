@@ -838,6 +838,8 @@ if (ariane_soc::CLICEnable) begin : clic_plic
 `else
     .debug_req_i          ( debug_req_core      ),
 `endif
+    .cvxif_req_o          (                     ),
+    .cvxif_resp_i         ( '0                  ),
     .axi_req_o            ( axi_ariane_req      ),
     .axi_resp_i           ( axi_ariane_resp     )
   );
