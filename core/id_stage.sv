@@ -101,7 +101,7 @@ module id_stage #(
     // irq threshold and global interrupt are enabled (otherwise it wont' fire).
     // The effective interrupt threshold is the maximum of mintstatus.mil and
     // mintthresh, because interrupts with higher level have priority.
-    logic [7:0] max_thresh;
+    logic [7:0] max_mthresh, max_sthresh;
     logic       clic_irq_req_ctrl;
 
     assign max_mthresh = mintthresh_i > mintstatus_i.mil ? mintthresh_i : mintstatus_i.mil;
