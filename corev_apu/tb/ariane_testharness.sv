@@ -614,6 +614,7 @@ if (ariane_soc::CLICEnable) begin : clic_plic
   // Machine and Supervisor External interrupts
   // External interrupts. When not in CLIC mode, they are seen as global
   // interrupts and routed through the PLIC to meip/seip.
+  logic meip, seip;
   assign meip = irqs[0];
   assign seip = irqs[1];
 
