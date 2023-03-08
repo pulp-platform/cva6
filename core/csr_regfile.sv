@@ -626,8 +626,8 @@ module csr_regfile import ariane_pkg::*; #(
                     // we are in vector mode, this implementation requires the additional
                     // alignment constraint of 64 * 4 bytes
                     if (csr_wdata[0]) mtvec_d = {csr_wdata[riscv::XLEN-1:8], 7'b0, csr_wdata[0]};
-                    // we are in CLINT mode.
-                    if (&csr_wdata[1:0]) mtvec_d = {csr_wdata[riscv::XLEN-1:8], 6'b0, csr_wdata[1:0]};
+                    // we are in CLIC mode.
+                    if (ArianeCfg.CLICEnable & &csr_wdata[1:0]) mtvec_d = {csr_wdata[riscv::XLEN-1:8], 6'b0, csr_wdata[1:0]};
                 end
                 riscv::CSR_MCOUNTEREN:         mcounteren_d = {{riscv::XLEN-32{1'b0}}, csr_wdata[31:0]};
                 riscv::CSR_MTVT:               mtvt_d      = {csr_wdata[riscv::XLEN-1:8], 8'b0};
