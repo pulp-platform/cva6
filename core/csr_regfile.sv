@@ -139,6 +139,7 @@ module csr_regfile import ariane_pkg::*; #(
     riscv::xlen_t mtval_q,     mtval_d;
 
     riscv::xlen_t stvec_q,     stvec_d;
+    riscv::intthresh_rv_t sintthresh_q, sintthresh_d;
     riscv::xlen_t scounteren_q,scounteren_d;
     riscv::xlen_t stvt_q,      stvt_d;
     riscv::xlen_t sscratch_q,  sscratch_d;
@@ -233,6 +234,21 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_SIE:                csr_rdata = clic_mode_o ? '0 : (mie_q & mideleg_q);
                 riscv::CSR_SIP:                csr_rdata = clic_mode_o ? '0 : (mip_q & mideleg_q);
                 riscv::CSR_STVEC:              csr_rdata = clic_mode_o ? {stvec_q[riscv::XLEN-1:6], 6'b11} : {stvec_q[riscv::XLEN-1:6], 5'b0, stvec_q[0]};
+                riscv::CSR_SINTSTATUS: begin
+                    if (clic_mode_o) begin
+                        // Return a restricted view of mintstatus (sil and uil)
+                        csr_rdata = {{riscv::XLEN-16{1'b0}}, mintstatus_q[15:0]};
+                    end else begin
+                        read_access_exception = 1'b1;
+                    end
+                end
+                riscv::CSR_SINTTHRESH: begin
+                    if (clic_mode_o) begin
+                        csr_rdata = {{riscv::XLEN-8{1'b0}}, sintthresh_q};
+                    end else begin
+                        read_access_exception = 1'b1;
+                    end
+                end
                 riscv::CSR_SCOUNTEREN:         csr_rdata = scounteren_q;
                 riscv::CSR_STVT:               csr_rdata = stvt_q;
                 riscv::CSR_SSCRATCH:           csr_rdata = sscratch_q;
@@ -453,6 +469,7 @@ module csr_regfile import ariane_pkg::*; #(
         sepc_d                  = sepc_q;
         scause_d                = scause_q;
         stvec_d                 = stvec_q;
+        sintthresh_d            = sintthresh_q;
         scounteren_d            = scounteren_q;
         stvt_d                  = stvt_q;
         sscratch_d              = sscratch_q;
@@ -560,6 +577,13 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_STVEC:              stvec_d     = clic_mode_o ? {csr_wdata[riscv::XLEN-1:2], 2'b11} : {csr_wdata[riscv::XLEN-1:2], 1'b0, csr_wdata[0]};
                 riscv::CSR_SCOUNTEREN:         scounteren_d = {{riscv::XLEN-32{1'b0}}, csr_wdata[31:0]};
                 riscv::CSR_STVT:               stvt_d      = {csr_wdata[riscv::XLEN-1:8], 8'b0};
+                riscv::CSR_SINTTHRESH: begin
+                    if (clic_mode_o) begin
+                        sintthresh_d.th = csr_wdata[7:0];
+                    end else begin
+                        update_access_exception = 1'b1;
+                    end
+                end
                 riscv::CSR_SSCRATCH:           sscratch_d  = csr_wdata;
                 riscv::CSR_SEPC:               sepc_d      = {csr_wdata[riscv::XLEN-1:1], 1'b0};
                 riscv::CSR_SCAUSE:             scause_d    = csr_wdata;
@@ -1227,6 +1251,7 @@ module csr_regfile import ariane_pkg::*; #(
             sepc_q                 <= {riscv::XLEN{1'b0}};
             scause_q               <= {riscv::XLEN{1'b0}};
             stvec_q                <= {riscv::XLEN{1'b0}};
+            sintthresh_q           <= 8'b0;
             scounteren_q           <= {riscv::XLEN{1'b0}};
             stvt_q                 <= {riscv::XLEN{1'b0}};
             sscratch_q             <= {riscv::XLEN{1'b0}};
@@ -1276,6 +1301,7 @@ module csr_regfile import ariane_pkg::*; #(
             sepc_q                 <= sepc_d;
             scause_q               <= scause_d;
             stvec_q                <= stvec_d;
+            sintthresh_q           <= sintthresh_d;
             scounteren_q           <= scounteren_d;
             stvt_q                 <= stvt_d;
             sscratch_q             <= sscratch_d;

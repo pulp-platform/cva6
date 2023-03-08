@@ -371,6 +371,7 @@ package riscv;
         CSR_SCAUSE         = 12'h142,
         CSR_STVAL          = 12'h143,
         CSR_SIP            = 12'h144,
+        CSR_SINTTHRESH     = 12'h147,
         CSR_SATP           = 12'h180,
         // Machine Mode CSRs
         CSR_MSTATUS        = 12'h300,
@@ -499,7 +500,9 @@ package riscv;
         CSR_HPM_COUNTER_28 = 12'hC1C,  // reserved
         CSR_HPM_COUNTER_29 = 12'hC1D,  // reserved
         CSR_HPM_COUNTER_30 = 12'hC1E,  // reserved
-        CSR_HPM_COUNTER_31 = 12'hC1F  // reserved
+        CSR_HPM_COUNTER_31 = 12'hC1F, // reserved
+        // CLIC CSRs (Supervisor Mode)
+        CSR_SINTSTATUS     = 12'hDB1
     } csr_reg_t;
 
     localparam logic [63:0] SSTATUS_UIE  = 'h00000001;
