@@ -38,8 +38,10 @@ module id_stage #(
     input  ariane_pkg::irq_ctrl_t         irq_ctrl_i,
     //CLIC
     input  logic [ArianeCfg.CLICNumInterruptSrc-1:0] clic_irq_i,
-    input  logic [7:0]                    clic_irq_level_i,         // interrupt level
-    input  logic [7:0]                    mintthresh_i,        // interrupt threshold
+    input  logic [7:0]                    clic_irq_level_i,    // interrupt level
+    input  riscv::priv_lvl_t              clic_irq_priv_i,     // CLIC interrupt privilege level
+    input  logic [7:0]                    mintthresh_i,        // M-mode interrupt threshold
+    input  logic [7:0]                    sintthresh_i,        // S-mode interrupt threshold
     input  riscv::intstatus_rv_t          mintstatus_i,        // interrupt status
     input  logic                          clic_mode_i,
     input  logic                          debug_mode_i,        // we are in debug mode
@@ -66,7 +68,7 @@ module id_stage #(
     // requesting interrupts). Extract interrupt request and interrupt id.
     localparam int unsigned IrqIdWidth = $clog2(ArianeCfg.CLICNumInterruptSrc);
     logic [ArianeCfg.CLICNumInterruptSrc-1:0] clic_irq_q;
-    logic [7:0] clic_irq_level, clic_irq_level_ctrl;
+    logic [7:0] clic_irq_level;
     logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] clic_irq_id_ctrl;
     // register all interrupt inputs
     always_ff @(posedge clk_i, negedge rst_ni) begin
@@ -101,9 +103,37 @@ module id_stage #(
     // mintthresh, because interrupts with higher level have priority.
     logic [7:0] max_thresh;
     logic       clic_irq_req_ctrl;
-    assign max_thresh = mintthresh_i > mintstatus_i.mil ? mintthresh_i : mintstatus_i.mil;
-    assign clic_irq_req_ctrl = (clic_irq_level > max_thresh) && (|clic_irq_q) && irq_ctrl_i.mie;
-    assign clic_irq_level_ctrl = clic_irq_level;
+
+    assign max_mthresh = mintthresh_i > mintstatus_i.mil ? mintthresh_i : mintstatus_i.mil;
+    assign max_sthresh = sintthresh_i > mintstatus_i.sil ? sintthresh_i : mintstatus_i.sil;
+
+    // Determine if CLIC interrupt shall be accepted
+    always_comb begin : clic_irq_accept
+      unique case (priv_lvl_i)
+        riscv::PRIV_LVL_M: begin
+          // Take M-mode interrupts with higher level
+          if (clic_irq_priv_i == riscv::PRIV_LVL_M) begin
+            clic_irq_req_ctrl = (clic_irq_level > max_mthresh) && (|clic_irq_q) && irq_ctrl_i.mie;
+          end
+        end
+        riscv::PRIV_LVL_S: begin
+          // Take all M-mode interrupts
+          if (clic_irq_priv_i == riscv::PRIV_LVL_M) begin
+            clic_irq_req_ctrl = (|clic_irq_q) && irq_ctrl_i.mie;
+          // Take S-mode interrupts with higher level
+          end else if (clic_irq_priv_i == riscv::PRIV_LVL_S) begin
+            clic_irq_req_ctrl = (clic_irq_level > max_sthresh) && (|clic_irq_q) && irq_ctrl_i.sie;
+          end
+        end
+        riscv::PRIV_LVL_U: begin
+          // Take all M-mode and S-mode interrupts
+          clic_irq_req_ctrl = ((|clic_irq_q) &&
+                               ((clic_irq_priv_i == riscv::PRIV_LVL_M && irq_ctrl_i.mie) ||
+                                (clic_irq_priv_i == riscv::PRIV_LVL_S && irq_ctrl_i.sie)));
+
+        end
+      endcase
+    end
 
     if (ariane_pkg::RVC) begin
       // ---------------------------------------------------------
@@ -128,9 +158,9 @@ module id_stage #(
     ) decoder_i (
         .debug_req_i,
         .irq_ctrl_i,
-        .clic_irq_req_ctrl_i     ( clic_irq_req_ctrl                    ),
+        .clic_irq_req_ctrl_i     ( clic_irq_req_ctrl               ),
         .clic_irq_id_ctrl_i      ( clic_irq_id_ctrl                ),
-        .clic_irq_level_ctrl_i   ( clic_irq_level_ctrl             ),
+        .clic_irq_level_ctrl_i   ( clic_irq_level                  ),
         .clic_mode_i,
         .irq_i,
         .pc_i                    ( fetch_entry_i.address           ),

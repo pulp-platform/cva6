@@ -80,6 +80,7 @@ module ariane import ariane_pkg::*; #(
     .debug_req_i          ( debug_req_i               ),
     .clic_irq_i           ( '0                        ),
     .clic_irq_level_i     ( '0                        ),
+    .clic_irq_priv_i      ( riscv::PRIV_LVL_M         ),
     .clic_irq_shv_i       ( 1'b0                      ),
     .clic_irq_ack_o       (                           ),
 `ifdef RVFI_TRACE

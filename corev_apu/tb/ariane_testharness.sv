@@ -838,6 +838,7 @@ if (ariane_soc::CLICEnable) begin : clic_plic
     // CLIC
     .clic_irq_i           ( core_irq_onehot     ),
     .clic_irq_level_i     ( core_irq_level      ),
+    .clic_irq_priv_i      ( riscv::PRIV_LVL_M   ), // TODO: connect with CLIC when implemented
     .clic_irq_shv_i       ( core_irq_shv        ),
     .clic_irq_ack_o       ( core_irq_ack        ),
     .cvxif_req_o          (                     ),

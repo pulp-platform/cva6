@@ -49,6 +49,7 @@ module cva6 import ariane_pkg::*; #(
   // CLIC inputs
   input  logic [ArianeCfg.CLICNumInterruptSrc-1:0] clic_irq_i,       // interrupt source, onehot encoded (req + id information)
   input  logic [7:0]                               clic_irq_level_i, // interrupt level is 8-bit from CLIC spec
+  input  riscv::priv_lvl_t                         clic_irq_priv_i,  // CLIC interrupt privilege level
   input  logic                                     clic_irq_shv_i,   // selective hardware vectoring bit
   output logic                                     clic_irq_ack_o,   // core side interrupt hanshake (ready)
   // RISC-V formal interface port (`rvfi`):
@@ -203,6 +204,7 @@ module cva6 import ariane_pkg::*; #(
   logic                     clic_mode;
   riscv::intstatus_rv_t     mintstatus_csr_id;
   logic [7:0]               mintthresh_csr_id;
+  logic [7:0]               sintthresh_csr_id;
   logic                     dcache_en_csr_nbdcache;
   logic                     csr_write_fflags_commit_cs;
   logic                     icache_en_csr;
@@ -337,7 +339,9 @@ module cva6 import ariane_pkg::*; #(
     .irq_ctrl_i                 ( irq_ctrl_csr_id            ),
     .clic_irq_i                 ( clic_irq_i                 ),
     .clic_irq_level_i           ( clic_irq_level_i           ),
+    .clic_irq_priv_i            ( clic_irq_priv_i            ),
     .mintthresh_i               ( mintthresh_csr_id          ),
+    .sintthresh_i               ( sintthresh_csr_id          ),
     .mintstatus_i               ( mintstatus_csr_id          ),
     .clic_mode_i                ( clic_mode                  ),
     .debug_mode_i               ( debug_mode                 ),
@@ -625,6 +629,7 @@ module cva6 import ariane_pkg::*; #(
     .clic_mode_o            ( clic_mode                     ),
     .mintstatus_o           ( mintstatus_csr_id             ),
     .mintthresh_o           ( mintthresh_csr_id             ),
+    .sintthresh_o           ( sintthresh_csr_id             ),
     .clic_irq_shv_i         ( clic_irq_shv_i                ),
     .clic_irq_ack_o         ( clic_irq_ack_o                ),
     .ld_st_priv_lvl_o       ( ld_st_priv_lvl_csr_ex         ),
