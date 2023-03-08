@@ -17,7 +17,8 @@ module csr_regfile import ariane_pkg::*; #(
     parameter logic [63:0] DmBaseAddress   = 64'h0, // debug module base address
     parameter int          AsidWidth       = 1,
     parameter int unsigned NrCommitPorts   = 2,
-    parameter int unsigned NrPMPEntries    = 8
+    parameter int unsigned NrPMPEntries    = 8,
+    parameter ariane_pkg::ariane_cfg_t ArianeCfg = ariane_pkg::ArianeDefaultConfig
 ) (
     input  logic                  clk_i,                      // Clock
     input  logic                  rst_ni,                     // Asynchronous reset active low
@@ -288,7 +289,7 @@ module csr_regfile import ariane_pkg::*; #(
                         read_access_exception = 1'b1;
                     end
                 end
-                riscv::CSR_MCLICBASE:          csr_rdata = ariane_soc::CLICBase;
+                riscv::CSR_MCLICBASE:          csr_rdata = ArianeCfg.CLICBase;
                 riscv::CSR_MVENDORID:          csr_rdata = OPENHWGROUP_MVENDORID;
                 riscv::CSR_MARCHID:            csr_rdata = ARIANE_MARCHID;
                 riscv::CSR_MIMPID:             csr_rdata = '0; // not implemented

@@ -13,7 +13,9 @@
 // Description: Instruction decode, contains the logic for decode,
 //              issue and read operands.
 
-module id_stage import ariane_soc::*; (
+module id_stage #(
+    parameter ariane_pkg::ariane_cfg_t ArianeCfg = ariane_pkg::ArianeDefaultConfig
+) (
     input  logic                          clk_i,
     input  logic                          rst_ni,
 
@@ -32,7 +34,7 @@ module id_stage import ariane_soc::*; (
     input  riscv::priv_lvl_t              priv_lvl_i,          // current privilege level
     input  riscv::xs_t                    fs_i,                // floating point extension status
     input  logic [2:0]                    frm_i,               // floating-point dynamic rounding mode
-    input  logic [NumInterruptSrc-1:0]    irq_i,
+    input  logic [ArianeCfg.CLICNumInterruptSrc-1:0]    irq_i,
     input  logic [7:0]                    irq_level_i,         // interrupt level
     input  logic [7:0]                    mintthresh_i,        // interrupt threshold
     input  riscv::intstatus_rv_t          mintstatus_i,        // interrupt status
@@ -61,10 +63,10 @@ module id_stage import ariane_soc::*; (
 
     // irq_i is one hot encoded (due to how clic is the only source
     // requesting interrupts). Extract interrupt request and interrupt id.
-    localparam int unsigned IrqIdWidth = $clog2(NumInterruptSrc);
-    logic [NumInterruptSrc-1:0] irq_q;
+    localparam int unsigned IrqIdWidth = $clog2(ArianeCfg.CLICNumInterruptSrc);
+    logic [ArianeCfg.CLICNumInterruptSrc-1:0] irq_q;
     logic [7:0] irq_level, irq_level_ctrl;
-    logic [$clog2(NumInterruptSrc)-1:0] irq_id_ctrl;
+    logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] irq_id_ctrl;
     // register all interrupt inputs
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (rst_ni == 1'b0) begin
@@ -78,8 +80,8 @@ module id_stage import ariane_soc::*; (
     // decode one-hot to get request + id information
     // TODO: Directly pass req and id to the core interrupt interface
     for (genvar j = 0; j < IrqIdWidth; j++) begin : jl
-      logic [NumInterruptSrc-1:0] tmp_mask;
-      for (genvar i = 0; i < NumInterruptSrc; i++) begin : il
+      logic [ArianeCfg.CLICNumInterruptSrc-1:0] tmp_mask;
+      for (genvar i = 0; i < ArianeCfg.CLICNumInterruptSrc; i++) begin : il
         logic [IrqIdWidth-1:0] tmp_i;
         assign tmp_i = i;
         assign tmp_mask[i] = tmp_i[j];
@@ -119,7 +121,9 @@ module id_stage import ariane_soc::*; (
     // ---------------------------------------------------------
     // 2. Decode and emit instruction to issue stage
     // ---------------------------------------------------------
-    decoder decoder_i (
+    decoder #(
+        .ArianeCfg               ( ArianeCfg                       )
+    ) decoder_i (
         .debug_req_i,
         .irq_ctrl_i,
         .irq_req_ctrl_i          ( irq_req_ctrl                    ),

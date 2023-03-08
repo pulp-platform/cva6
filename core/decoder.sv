@@ -19,7 +19,9 @@
 //              This also includes all the forwarding logic
 //
 
-module decoder import ariane_pkg::*; (
+module decoder import ariane_pkg::*; #(
+    parameter ariane_pkg::ariane_cfg_t ArianeCfg = ariane_pkg::ArianeDefaultConfig
+) (
     input  logic               debug_req_i,             // external debug request
     input  logic [riscv::VLEN-1:0] pc_i,                // PC from IF
     input  logic               is_compressed_i,         // is a compressed instruction
@@ -31,7 +33,7 @@ module decoder import ariane_pkg::*; (
     input  logic [1:0]         irq_i,                   // external interrupt
     input  irq_ctrl_t          irq_ctrl_i,              // interrupt control and status information from CSRs
     input  logic               irq_req_ctrl_i,
-    input  logic [$clog2(ariane_soc::NumInterruptSrc)-1:0] irq_id_ctrl_i,
+    input  logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] irq_id_ctrl_i,
     input  logic [7:0]         irq_level_ctrl_i,
     output logic               irq_ack_o,
     input  logic               clic_mode_i,
@@ -1260,7 +1262,7 @@ module decoder import ariane_pkg::*; (
                 irq_ack_o       = 1'b1;
                 interrupt_cause[riscv::XLEN-1] = 1'b1;
                 interrupt_cause[23:16]         = irq_level_ctrl_i;
-                interrupt_cause[$clog2(ariane_soc::NumInterruptSrc)-1:0] = irq_id_ctrl_i;
+                interrupt_cause[$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] = irq_id_ctrl_i;
             end else begin
                 // we have three interrupt sources: external interrupts, software interrupts, timer interrupts (order of precedence)
                 // for two privilege levels: Supervisor and Machine Mode

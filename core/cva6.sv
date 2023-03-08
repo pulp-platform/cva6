@@ -308,7 +308,9 @@ module cva6 import ariane_pkg::*; #(
   // ---------
   // ID
   // ---------
-  id_stage id_stage_i (
+  id_stage #(
+    .ArianeCfg                  ( ArianeCfg                  )
+  ) id_stage_i (
     .clk_i,
     .rst_ni                     ( rst_uarch_n                ),
     .flush_i                    ( flush_ctrl_if              ),
@@ -587,7 +589,8 @@ module cva6 import ariane_pkg::*; #(
     .AsidWidth              ( ASID_WIDTH                    ),
     .DmBaseAddress          ( ArianeCfg.DmBaseAddress       ),
     .NrCommitPorts          ( NR_COMMIT_PORTS               ),
-    .NrPMPEntries           ( ArianeCfg.NrPMPEntries        )
+    .NrPMPEntries           ( ArianeCfg.NrPMPEntries        ),
+    .ArianeCfg              ( ArianeCfg                     )
   ) csr_regfile_i (
     .flush_o                ( flush_csr_ctrl                ),
     .halt_csr_o             ( halt_csr_ctrl                 ),
