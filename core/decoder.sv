@@ -32,10 +32,9 @@ module decoder import ariane_pkg::*; #(
     input  exception_t         ex_i,                    // if an exception occured in if
     input  logic [1:0]         irq_i,                   // external interrupt
     input  irq_ctrl_t          irq_ctrl_i,              // interrupt control and status information from CSRs
-    input  logic               irq_req_ctrl_i,
-    input  logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] irq_id_ctrl_i,
-    input  logic [7:0]         irq_level_ctrl_i,
-    output logic               irq_ack_o,
+    input  logic               clic_irq_req_ctrl_i,
+    input  logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] clic_irq_id_ctrl_i,
+    input  logic [7:0]         clic_irq_level_ctrl_i,
     input  logic               clic_mode_i,
     // From CSR
     input  riscv::priv_lvl_t   priv_lvl_i,              // current privilege level
@@ -1220,7 +1219,6 @@ module decoder import ariane_pkg::*; #(
     always_comb begin : exception_handling
         interrupt_cause       = '0;
         instruction_o.ex      = ex_i;
-        irq_ack_o             = 1'b0;
         // look if we didn't already get an exception in any previous
         // stage - we should not overwrite it as we retain order regarding the exception
         if (~ex_i.valid) begin
@@ -1257,12 +1255,11 @@ module decoder import ariane_pkg::*; #(
             // -----------------
             // we decode an interrupt the same as an exception, hence it will be taken if the instruction did not
             // throw any previous exception.
-            if (clic_mode_i && irq_req_ctrl_i) begin
+            if (clic_mode_i && clic_irq_req_ctrl_i) begin
                 // CLIC mode: Acknowledge the interrupt. Set interrupt bit and 
-                irq_ack_o       = 1'b1;
                 interrupt_cause[riscv::XLEN-1] = 1'b1;
-                interrupt_cause[23:16]         = irq_level_ctrl_i;
-                interrupt_cause[$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] = irq_id_ctrl_i;
+                interrupt_cause[23:16]         = clic_irq_level_ctrl_i;
+                interrupt_cause[$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] = clic_irq_id_ctrl_i;
             end else begin
                 // we have three interrupt sources: external interrupts, software interrupts, timer interrupts (order of precedence)
                 // for two privilege levels: Supervisor and Machine Mode

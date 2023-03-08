@@ -41,11 +41,16 @@ module cva6 import ariane_pkg::*; #(
   input  logic [riscv::XLEN-1:0]       hart_id_i,    // hart id in a multicore environment (reflected in a CSR)
 
   // Interrupt inputs
-  input  logic [ArianeCfg.CLICNumInterruptSrc-1:0] irq_i,       // interrupt source, onehot encoded (req + id information)
-  input  logic [7:0]                               irq_level_i, // interrupt level is 8-bit from CLIC spec
-  input  logic                                     irq_shv_i,   // selective hardware vectoring bit
-  output logic                                     irq_ack_o,   // core side interrupt hanshake (ready)
+  input  logic [1:0]                   irq_i,        // level sensitive IR lines, mip & sip (async)
+  input  logic                         ipi_i,        // inter-processor interrupts (async)
+  // Timer facilities
+  input  logic                         time_irq_i,   // timer interrupt in (async)
   input  logic                         debug_req_i,  // debug request (async)
+  // CLIC inputs
+  input  logic [ArianeCfg.CLICNumInterruptSrc-1:0] clic_irq_i,       // interrupt source, onehot encoded (req + id information)
+  input  logic [7:0]                               clic_irq_level_i, // interrupt level is 8-bit from CLIC spec
+  input  logic                                     clic_irq_shv_i,   // selective hardware vectoring bit
+  output logic                                     clic_irq_ack_o,   // core side interrupt hanshake (ready)
   // RISC-V formal interface port (`rvfi`):
   // Can be left open when formal tracing is not needed.
   output ariane_rvfi_pkg::rvfi_port_t  rvfi_o,
@@ -329,11 +334,11 @@ module cva6 import ariane_pkg::*; #(
     .fs_i                       ( fs                         ),
     .frm_i                      ( frm_csr_id_issue_ex        ),
     .irq_i                      ( irq_i                      ),
-    .irq_level_i                ( irq_level_i                ),
+    .irq_ctrl_i                 ( irq_ctrl_csr_id            ),
+    .clic_irq_i                 ( clic_irq_i                 ),
+    .clic_irq_level_i           ( clic_irq_level_i           ),
     .mintthresh_i               ( mintthresh_csr_id          ),
     .mintstatus_i               ( mintstatus_csr_id          ),
-    .irq_ack_o                  (                            ),
-    .irq_ctrl_i                 ( irq_ctrl_csr_id            ),
     .clic_mode_i                ( clic_mode                  ),
     .debug_mode_i               ( debug_mode                 ),
     .tvm_i                      ( tvm_csr_id                 ),
@@ -620,7 +625,8 @@ module cva6 import ariane_pkg::*; #(
     .clic_mode_o            ( clic_mode                     ),
     .mintstatus_o           ( mintstatus_csr_id             ),
     .mintthresh_o           ( mintthresh_csr_id             ),
-    .clic_irq_ack_o         ( irq_ack_o                     ),
+    .clic_irq_shv_i         ( clic_irq_shv_i                ),
+    .clic_irq_ack_o         ( clic_irq_ack_o                ),
     .ld_st_priv_lvl_o       ( ld_st_priv_lvl_csr_ex         ),
     .en_translation_o       ( enable_translation_csr_ex     ),
     .en_ld_st_translation_o ( en_ld_st_translation_csr_ex   ),
@@ -645,10 +651,9 @@ module cva6 import ariane_pkg::*; #(
     .pmpcfg_o               ( pmpcfg                        ),
     .pmpaddr_o              ( pmpaddr                       ),
     .debug_req_i,
-    .ipi_i                  ( '0                            ),
-    .irq_i                  ( '0                            ),
-    .irq_shv_i,
-    .time_irq_i             ( '0                            ),
+    .ipi_i,
+    .irq_i,
+    .time_irq_i,
     .*
   );
 

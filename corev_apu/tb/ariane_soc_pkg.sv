@@ -19,7 +19,7 @@ package ariane_soc;
 
   // CLIC
   localparam bit          CLICEnable = 1'b0;
-  localparam int unsigned NumInterruptSrc = 256;
+  localparam int unsigned CLICNumInterruptSrc = 256;
   localparam int unsigned CLICIntCtlBits = 8;
 
   localparam NrSlaves = 2; // actually masters, but slaves on the crossbar
@@ -98,7 +98,7 @@ package ariane_soc;
     // CLIC
     CLICEnable:             CLICEnable,
     CLICBase:               CLICBase,
-    CLICNumInterruptSrc:    NumInterruptSrc,
+    CLICNumInterruptSrc:    CLICNumInterruptSrc,
     CLICIntCtlBits:         CLICIntCtlBits,
     // debug
     DmBaseAddress:          DebugBase,

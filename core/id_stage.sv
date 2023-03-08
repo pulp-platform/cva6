@@ -34,12 +34,13 @@ module id_stage #(
     input  riscv::priv_lvl_t              priv_lvl_i,          // current privilege level
     input  riscv::xs_t                    fs_i,                // floating point extension status
     input  logic [2:0]                    frm_i,               // floating-point dynamic rounding mode
-    input  logic [ArianeCfg.CLICNumInterruptSrc-1:0]    irq_i,
-    input  logic [7:0]                    irq_level_i,         // interrupt level
+    input  logic [1:0]                    irq_i,
+    input  ariane_pkg::irq_ctrl_t         irq_ctrl_i,
+    //CLIC
+    input  logic [ArianeCfg.CLICNumInterruptSrc-1:0] clic_irq_i,
+    input  logic [7:0]                    clic_irq_level_i,         // interrupt level
     input  logic [7:0]                    mintthresh_i,        // interrupt threshold
     input  riscv::intstatus_rv_t          mintstatus_i,        // interrupt status
-    output logic                          irq_ack_o,           // core side interrupt handshake (ready)
-    input  ariane_pkg::irq_ctrl_t         irq_ctrl_i,
     input  logic                          clic_mode_i,
     input  logic                          debug_mode_i,        // we are in debug mode
     input  logic                          tvm_i,
@@ -61,20 +62,20 @@ module id_stage #(
     logic                [31:0] instruction;
     logic                is_compressed;
 
-    // irq_i is one hot encoded (due to how clic is the only source
+    // clic_irq_i is one hot encoded (due to how clic is the only source
     // requesting interrupts). Extract interrupt request and interrupt id.
     localparam int unsigned IrqIdWidth = $clog2(ArianeCfg.CLICNumInterruptSrc);
-    logic [ArianeCfg.CLICNumInterruptSrc-1:0] irq_q;
-    logic [7:0] irq_level, irq_level_ctrl;
-    logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] irq_id_ctrl;
+    logic [ArianeCfg.CLICNumInterruptSrc-1:0] clic_irq_q;
+    logic [7:0] clic_irq_level, clic_irq_level_ctrl;
+    logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] clic_irq_id_ctrl;
     // register all interrupt inputs
     always_ff @(posedge clk_i, negedge rst_ni) begin
       if (rst_ni == 1'b0) begin
-        irq_q     <= '0;
-        irq_level <= '0;
+        clic_irq_q     <= '0;
+        clic_irq_level <= '0;
       end else begin
-        irq_q     <= irq_i;
-        irq_level <= irq_level_i;
+        clic_irq_q     <= clic_irq_i;
+        clic_irq_level <= clic_irq_level_i;
       end
     end
     // decode one-hot to get request + id information
@@ -86,12 +87,12 @@ module id_stage #(
         assign tmp_i = i;
         assign tmp_mask[i] = tmp_i[j];
       end
-      assign irq_id_ctrl[j] = |(tmp_mask & irq_q);
+      assign clic_irq_id_ctrl[j] = |(tmp_mask & clic_irq_q);
     end
     // pragma translate_off
 `ifndef VERILATOR
-      assert final ($onehot0(irq_q)) else
-        $fatal(1, "[cva6] More than two bit set in irq_i (one-hot)");
+      assert final ($onehot0(clic_irq_q)) else
+        $fatal(1, "[cva6] More than two bit set in clic_irq_i (one-hot)");
 `endif
     // pragma translate_on
     // Check if the interrupt level of the current interrupt exceeds the current
@@ -99,9 +100,10 @@ module id_stage #(
     // The effective interrupt threshold is the maximum of mintstatus.mil and
     // mintthresh, because interrupts with higher level have priority.
     logic [7:0] max_thresh;
+    logic       clic_irq_req_ctrl;
     assign max_thresh = mintthresh_i > mintstatus_i.mil ? mintthresh_i : mintstatus_i.mil;
-    assign irq_req_ctrl = (irq_level > max_thresh) && (|irq_q) && irq_ctrl_i.mie;
-    assign irq_level_ctrl = irq_level;
+    assign clic_irq_req_ctrl = (clic_irq_level > max_thresh) && (|clic_irq_q) && irq_ctrl_i.mie;
+    assign clic_irq_level_ctrl = clic_irq_level;
 
     if (ariane_pkg::RVC) begin
       // ---------------------------------------------------------
@@ -126,12 +128,11 @@ module id_stage #(
     ) decoder_i (
         .debug_req_i,
         .irq_ctrl_i,
-        .irq_req_ctrl_i          ( irq_req_ctrl                    ),
-        .irq_id_ctrl_i           ( irq_id_ctrl                     ),
-        .irq_level_ctrl_i        ( irq_level_ctrl                  ),
-        .irq_ack_o,
-        .irq_i                   ( '0                              ),
+        .clic_irq_req_ctrl_i     ( clic_irq_req_ctrl                    ),
+        .clic_irq_id_ctrl_i      ( clic_irq_id_ctrl                ),
+        .clic_irq_level_ctrl_i   ( clic_irq_level_ctrl             ),
         .clic_mode_i,
+        .irq_i,
         .pc_i                    ( fetch_entry_i.address           ),
         .is_compressed_i         ( is_compressed                   ),
         .is_illegal_i            ( is_illegal                      ),

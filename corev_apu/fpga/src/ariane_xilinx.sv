@@ -1033,7 +1033,8 @@ end else begin : clint_plic // legacy clint + plic, ariane not in CLIC mode
       .ipi_o       ( ipi            )
   );
 
-  axi_slave_connect i_axi_slave_connect_clint (.axi_req_o(axi_clint_req), .axi_resp_i(axi_clint_resp), .slave(master[ariane_soc::CLINT]));
+  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
+  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
 end // block: clint_plic
 
 // ---------------

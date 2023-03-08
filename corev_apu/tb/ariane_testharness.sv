@@ -27,7 +27,7 @@ module ariane_testharness #(
 `endif
   parameter int unsigned NUM_WORDS         = 2**25,         // memory size
   parameter bit          StallRandomOutput = 1'b0,
-  parameter bit          StallRandomInput  = 1'b0,
+  parameter bit          StallRandomInput  = 1'b0
 ) (
   input  logic                           clk_i,
   input  logic                           rtc_i,
@@ -500,7 +500,7 @@ module ariane_testharness #(
     '{ idx: ariane_soc::SPI,      start_addr: ariane_soc::SPIBase,      end_addr: ariane_soc::SPIBase + ariane_soc::SPILength           },
     '{ idx: ariane_soc::Ethernet, start_addr: ariane_soc::EthernetBase, end_addr: ariane_soc::EthernetBase + ariane_soc::EthernetLength },
     '{ idx: ariane_soc::GPIO,     start_addr: ariane_soc::GPIOBase,     end_addr: ariane_soc::GPIOBase + ariane_soc::GPIOLength         },
-    '{ idx: ariane_soc::DRAM,     start_addr: ariane_soc::DRAMBase,     end_addr: ariane_soc::DRAMBase + ariane_soc::DRAMLength         }
+    '{ idx: ariane_soc::DRAM,     start_addr: ariane_soc::DRAMBase,     end_addr: ariane_soc::DRAMBase + ariane_soc::DRAMLength         },
     '{ idx: ariane_soc::CLIC,     start_addr: ariane_soc::CLICBase,     end_addr: ariane_soc::CLICBase + ariane_soc::CLICLength         }
   };
 
@@ -600,14 +600,14 @@ if (ariane_soc::CLICEnable) begin : clic_plic
   // Interrupt sources
   logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
                                                                   // Privilege Spec. v. 20211203, pag. 39
-  logic [ariane_soc::NumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
+  logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
 
   // core interface signals
-  logic                                           core_irq_req, core_irq_ack; // interrupt handshake
-  logic                                           core_irq_shv;               // selective hardware vectoring
-  logic [$clog2(ariane_soc::NumInterruptSrc)-1:0] core_irq_id;                // interrupt id
-  logic [7:0]                                     core_irq_level;             // interrupt level
-  logic [ariane_soc::NumInterruptSrc-1:0]         core_irq_onehot;            // one-hot encoding
+  logic                                               core_irq_req, core_irq_ack; // interrupt handshake
+  logic                                               core_irq_shv;               // selective hardware vectoring
+  logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
+  logic [7:0]                                         core_irq_level;             // interrupt level
+  logic [ariane_soc::CLICNumInterruptSrc-1:0]         core_irq_onehot;            // one-hot encoding
                                                                               // of interrupts, to
                                                                               // the core
 
@@ -643,7 +643,7 @@ if (ariane_soc::CLICEnable) begin : clic_plic
 
   // local interrupts with CLIC
   assign clic_irqs = {
-    {(ariane_soc::NumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
+    {(ariane_soc::CLICNumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
     clint_irqs                               // 64  (XLEN regular clint interrupts)
   };
 
@@ -839,11 +839,8 @@ if (ariane_soc::CLICEnable) begin : clic_plic
     .axi_resp_i           ( axi_ariane_resp     )
   );
 
-  axi_master_connect i_axi_master_connect_ariane (
-    .axi_req_i(axi_ariane_req),
-    .axi_resp_o(axi_ariane_resp),
-    .master(slave[0])
-  );
+  `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
+  `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
 
   // Generate timer interrupt
   // TODO: since we use the clic to generate software interrupts, we do not
@@ -881,11 +878,8 @@ if (ariane_soc::CLICEnable) begin : clic_plic
     .ipi_o       (                ) // use the clic for machine software interrup
   );
 
-  axi_slave_connect i_axi_slave_connect_clint (
-    .axi_req_o(axi_clint_req),
-    .axi_resp_i(axi_clint_resp),
-    .slave(master[ariane_soc::CLINT])
-  );
+  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
+  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
 
 end else begin : clint_plic // legacy clint + plic, ariane not in CLIC mode
   // ---------------
@@ -913,11 +907,8 @@ end else begin : clint_plic // legacy clint + plic, ariane not in CLIC mode
     .ipi_o       ( ipi            )
   );
 
-  axi_slave_connect i_axi_slave_connect_clint (
-    .axi_req_o(axi_clint_req),
-    .axi_resp_i(axi_clint_resp),
-    .slave(master[ariane_soc::CLINT])
-  );
+  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
+  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
 
   ariane #(
     .ArianeCfg  ( ariane_soc::ArianeSocCfg )
