@@ -827,17 +827,18 @@ if (ariane_soc::CLICEnable) begin : clic_plic
     // Interrupt interface to core
     .irq_i                ( 2'b0                ),
     .ipi_i                ( 1'b0                ),
-    // CLIC
-    .clic_irq_i           ( core_irq_onehot     ),
-    .clic_irq_level_i     ( core_irq_level      ),
-    .clic_irq_shv_i       ( core_irq_shv        ),
-    .clic_irq_ack_o       ( core_irq_ack        ),
+    .time_irq_i           ( 1'b0                ),
 // Disable Debug when simulating with Spike
 `ifdef SPIKE_TANDEM
     .debug_req_i          ( 1'b0                ),
 `else
     .debug_req_i          ( debug_req_core      ),
 `endif
+    // CLIC
+    .clic_irq_i           ( core_irq_onehot     ),
+    .clic_irq_level_i     ( core_irq_level      ),
+    .clic_irq_shv_i       ( core_irq_shv        ),
+    .clic_irq_ack_o       ( core_irq_ack        ),
     .cvxif_req_o          (                     ),
     .cvxif_resp_i         ( '0                  ),
     .axi_req_o            ( axi_ariane_req      ),
