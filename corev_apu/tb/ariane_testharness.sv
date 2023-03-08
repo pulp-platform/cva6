@@ -817,7 +817,7 @@ if (ariane_soc::CLICEnable) begin : clic_plic
   end
 
   // ariane
-  ariane #(
+  cva6 #(
     .ArianeCfg  ( ariane_soc::ArianeSocCfg )
   ) i_ariane (
     .clk_i                ( clk_i               ),
@@ -825,10 +825,13 @@ if (ariane_soc::CLICEnable) begin : clic_plic
     .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
     .hart_id_i            ( '0                  ),
     // Interrupt interface to core
-    .irq_i        ( core_irq_onehot     ),
-    .irq_level_i  ( core_irq_level      ),
-    .irq_shv_i    ( core_irq_shv        ),
-    .irq_ack_o    ( core_irq_ack        ),
+    .irq_i                ( 2'b0                ),
+    .ipi_i                ( 1'b0                ),
+    // CLIC
+    .clic_irq_i           ( core_irq_onehot     ),
+    .clic_irq_level_i     ( core_irq_level      ),
+    .clic_irq_shv_i       ( core_irq_shv        ),
+    .clic_irq_ack_o       ( core_irq_ack        ),
 // Disable Debug when simulating with Spike
 `ifdef SPIKE_TANDEM
     .debug_req_i          ( 1'b0                ),
