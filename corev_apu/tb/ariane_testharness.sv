@@ -535,6 +535,36 @@ module ariane_testharness #(
   );
 
   // ---------------
+  // CLINT
+  // ---------------
+  logic ipi;
+  logic timer_irq;
+
+  ariane_axi_soc::req_slv_t  axi_clint_req;
+  ariane_axi_soc::resp_slv_t axi_clint_resp;
+
+  clint #(
+    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH          ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH             ),
+    .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave   ),
+    .NR_CORES       ( 1                          ),
+    .axi_req_t      ( ariane_axi_soc::req_slv_t  ),
+    .axi_resp_t     ( ariane_axi_soc::resp_slv_t )
+  ) i_clint (
+    .clk_i       ( clk_i          ),
+    .rst_ni      ( ndmreset_n     ),
+    .testmode_i  ( test_en        ),
+    .axi_req_i   ( axi_clint_req  ),
+    .axi_resp_o  ( axi_clint_resp ),
+    .rtc_i       ( rtc_i          ),
+    .timer_irq_o ( timer_irq      ),
+    .ipi_o       ( ipi            )
+  );
+
+  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
+  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
+
+  // ---------------
   // Peripherals
   // ---------------
   logic tx, rx;
@@ -587,15 +617,12 @@ module ariane_testharness #(
 
   uart_bus #(.BAUD_RATE(115200), .PARITY_EN(0)) i_uart_bus (.rx(tx), .tx(rx), .rx_en(1'b1));
 
-
   // ---------------
   // Core
   // ---------------
   ariane_axi_soc::req_t    axi_ariane_req;
   ariane_axi_soc::resp_t   axi_ariane_resp;
   ariane_rvfi_pkg::rvfi_port_t rvfi;
-
-if (ariane_soc::CLICEnable) begin : clic_plic
 
   // Interrupt sources
   logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
@@ -824,11 +851,13 @@ if (ariane_soc::CLICEnable) begin : clic_plic
     .clk_i                ( clk_i               ),
     .rst_ni               ( ndmreset_n          ),
     .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
-    .hart_id_i            ( '0                  ),
-    // Interrupt interface to core
-    .irq_i                ( 2'b0                ),
-    .ipi_i                ( 1'b0                ),
-    .time_irq_i           ( 1'b0                ),
+    .hart_id_i            ( {56'h0, hart_id}    ),
+    .irq_i                ( irqs                ),
+    .ipi_i                ( ipi                 ),
+    .time_irq_i           ( timer_irq           ),
+`ifdef RVFI_TRACE
+    .rvfi_o               ( rvfi                ),
+`endif
 // Disable Debug when simulating with Spike
 `ifdef SPIKE_TANDEM
     .debug_req_i          ( 1'b0                ),
@@ -849,101 +878,6 @@ if (ariane_soc::CLICEnable) begin : clic_plic
 
   `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
   `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
-
-  // Generate timer interrupt
-  // TODO: since we use the clic to generate software interrupts, we do not
-  // need memory mapped registers in the clint for it as well.
-  // The cleaner way would be to integrate mtime/mtimecmp registers in the
-  // clic, or remove the memory mapped registers for msip from the clint when
-  // used in clic, because it is redundant.
-
-  // logic mtip;
-
-  // always_ff @(posedge clk_i or negedge ndmreset_n) begin
-    // if (~ndmreset_n) begin
-      // rtc <= 0;
-    // end else begin
-      // rtc <= rtc ^ 1'b1;
-    // end
-  // end
-
-  ariane_axi::req_t    axi_clint_req;
-  ariane_axi::resp_t   axi_clint_resp;
-
-  clint #(
-    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH        ),
-    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH           ),
-    .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave ),
-    .NR_CORES       ( 1                        )
-  ) i_clint (
-    .clk_i       ( clk_i          ),
-    .rst_ni      ( ndmreset_n     ),
-    .testmode_i  ( test_en        ),
-    .axi_req_i   ( axi_clint_req  ),
-    .axi_resp_o  ( axi_clint_resp ),
-    .rtc_i       ( rtc_i          ),
-    .timer_irq_o ( mtip           ),
-    .ipi_o       (                ) // use the clic for machine software interrup
-  );
-
-  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
-  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
-
-end else begin : clint_plic // legacy clint + plic, ariane not in CLIC mode
-  // ---------------
-  // CLINT
-  // ---------------
-  logic ipi;
-  logic timer_irq;
-
-  ariane_axi::req_t    axi_clint_req;
-  ariane_axi::resp_t   axi_clint_resp;
-
-  clint #(
-    .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH        ),
-    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH           ),
-    .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave ),
-    .NR_CORES       ( 1                        )
-  ) i_clint (
-    .clk_i       ( clk_i          ),
-    .rst_ni      ( ndmreset_n     ),
-    .testmode_i  ( test_en        ),
-    .axi_req_i   ( axi_clint_req  ),
-    .axi_resp_o  ( axi_clint_resp ),
-    .rtc_i       ( rtc_i          ),
-    .timer_irq_o ( timer_irq      ),
-    .ipi_o       ( ipi            )
-  );
-
-  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
-  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
-
-  ariane #(
-    .ArianeCfg  ( ariane_soc::ArianeSocCfg )
-  ) i_ariane (
-    .clk_i                ( clk_i               ),
-    .rst_ni               ( ndmreset_n          ),
-    .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
-    .hart_id_i            ( {56'h0, hart_id}    ),
-    .irq_i                ( irqs                ),
-    .ipi_i                ( ipi                 ),
-    .time_irq_i           ( timer_irq           ),
-`ifdef RVFI_TRACE
-    .rvfi_o               ( rvfi                ),
-`endif
-// Disable Debug when simulating with Spike
-`ifdef SPIKE_TANDEM
-    .debug_req_i          ( 1'b0                ),
-`else
-    .debug_req_i          ( debug_req_core      ),
-`endif
-    .axi_req_o            ( axi_ariane_req      ),
-    .axi_resp_i           ( axi_ariane_resp     )
-  );
-
-  `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
-  `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
-end // block: clint_plic
 
   // -------------
   // Simulation Helper Functions
