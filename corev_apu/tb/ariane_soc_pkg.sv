@@ -18,7 +18,7 @@ package ariane_soc;
   localparam int unsigned MaxPriority = 7;
 
   // CLIC
-  localparam bit          CLICEnable = 1'b0;
+  localparam bit          CLICEnable = 1'b1;
   localparam int unsigned CLICNumInterruptSrc = 256;
   localparam int unsigned CLICIntCtlBits = 8;
 
