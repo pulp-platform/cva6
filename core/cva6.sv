@@ -843,29 +843,35 @@ module cva6 import ariane_pkg::*; #(
   // -------------------
   // CLIC Controller
   // -------------------
-  cva6_clic_controller #(
-    .ArianeCfg (ArianeCfg)
-  ) i_clic_controller (
-    .clk_i            ( clk_i             ),
-    .rst_ni           ( rst_ni            ),
-    // from CSR file
-    .priv_lvl_i       ( priv_lvl          ),
-    .irq_ctrl_i       ( irq_ctrl_csr_id   ),
-    .mintthresh_i     ( mintthresh_csr    ),
-    .sintthresh_i     ( sintthresh_csr    ),
-    .mintstatus_i     ( mintstatus_csr    ),
-    // from/to CLIC
-    .clic_irq_valid_i ( clic_irq_valid_i  ),
-    .clic_irq_ready_i ( clic_irq_ready_o  ),
-    .clic_irq_id_i    ( clic_irq_id_i     ),
-    .clic_irq_level_i ( clic_irq_level_i  ),
-    .clic_irq_priv_i  ( clic_irq_priv_i   ),
-    .clic_kill_req_i  ( clic_kill_req_i   ),
-    .clic_kill_ack_o  ( clic_kill_ack_o   ),
-    // to ID stage
-    .clic_irq_req_o   ( clic_irq_req_id   ),
-    .clic_irq_cause_o ( clic_irq_cause_id )
-  );
+  if (ArianeCfg.CLICEnable) begin : gen_clic_controller
+    cva6_clic_controller #(
+      .ArianeCfg (ArianeCfg)
+    ) i_clic_controller (
+      .clk_i            ( clk_i             ),
+      .rst_ni           ( rst_ni            ),
+      // from CSR file
+      .priv_lvl_i       ( priv_lvl          ),
+      .irq_ctrl_i       ( irq_ctrl_csr_id   ),
+      .mintthresh_i     ( mintthresh_csr    ),
+      .sintthresh_i     ( sintthresh_csr    ),
+      .mintstatus_i     ( mintstatus_csr    ),
+      // from/to CLIC
+      .clic_irq_valid_i ( clic_irq_valid_i  ),
+      .clic_irq_ready_i ( clic_irq_ready_o  ),
+      .clic_irq_id_i    ( clic_irq_id_i     ),
+      .clic_irq_level_i ( clic_irq_level_i  ),
+      .clic_irq_priv_i  ( clic_irq_priv_i   ),
+      .clic_kill_req_i  ( clic_kill_req_i   ),
+      .clic_kill_ack_o  ( clic_kill_ack_o   ),
+      // to ID stage
+      .clic_irq_req_o   ( clic_irq_req_id   ),
+      .clic_irq_cause_o ( clic_irq_cause_id )
+    );
+  end else begin : gen_dummy_clic_controller
+    assign clic_kill_ack_o   = 1'b0;
+    assign clic_irq_req_id   = 1'b0;
+    assign clic_irq_cause_id = '0;
+  end
 
   // -------------------
   // Parameter Check

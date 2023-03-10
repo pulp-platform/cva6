@@ -1243,7 +1243,7 @@ module decoder import ariane_pkg::*; #(
             // -----------------
             // we decode an interrupt the same as an exception, hence it will be taken if the instruction did not
             // throw any previous exception.
-            if (clic_mode_i && clic_irq_req_i) begin
+            if (ArianeCfg.CLICEnable && clic_mode_i && clic_irq_req_i) begin
                 interrupt_cause = clic_irq_cause_i;
             end else begin
                 // we have three interrupt sources: external interrupts, software interrupts, timer interrupts (order of precedence)
