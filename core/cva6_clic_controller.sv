@@ -88,7 +88,7 @@ module cva6_clic_controller #(
   assign clic_kill_ack_o = clic_kill_req_i & ~irq_inflight_q & ~clic_irq_req_o;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
+    if (!rst_ni) begin
       irq_inflight_q <= 1'b0;
     end else begin
       irq_inflight_q <= irq_inflight_d;
