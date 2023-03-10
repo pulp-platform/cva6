@@ -74,7 +74,7 @@ module csr_regfile import ariane_pkg::*; #(
     output riscv::intstatus_rv_t  mintstatus_o,
     output logic [7:0]            mintthresh_o,
     output logic [7:0]            sintthresh_o,
-    output logic                  clic_irq_ack_o,
+    output logic                  clic_irq_ready_o,
     output logic                  set_debug_pc_o,
     // Virtualization Support
     output logic                  tvm_o,                      // trap virtual memory
@@ -180,7 +180,7 @@ module csr_regfile import ariane_pkg::*; #(
     assign mintstatus_o = mintstatus_q;
     assign mintthresh_o = mintthresh_q.th;
     assign sintthresh_o = sintthresh_q.th;
-    assign clic_irq_ack_o = clic_mode_o & ex_i.valid & ex_i.cause[riscv::XLEN-1];
+    assign clic_irq_ready_o = clic_mode_o & ex_i.valid & ex_i.cause[riscv::XLEN-1];
 
     always_comb begin : csr_read_process
         // a read access exception can only occur if we attempt to read a CSR which does not exist

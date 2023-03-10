@@ -630,13 +630,10 @@ module ariane_testharness #(
   logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
 
   // core interface signals
-  logic                                               core_irq_req, core_irq_ack; // interrupt handshake
+  logic                                               core_irq_valid, core_irq_ready; // interrupt handshake
   logic                                               core_irq_shv;               // selective hardware vectoring
   logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
   logic [7:0]                                         core_irq_level;             // interrupt level
-  logic [ariane_soc::CLICNumInterruptSrc-1:0]         core_irq_onehot;            // one-hot encoding
-                                                                              // of interrupts, to
-                                                                              // the core
 
   // Machine and Supervisor External interrupts
   // External interrupts. When not in CLIC mode, they are seen as global
@@ -828,22 +825,12 @@ module ariane_testharness #(
     // Interrupt Sources
     .intr_src_i (clic_irqs),
     // Interrupt notification to core
-    .irq_valid_o(core_irq_req),
-    .irq_ready_i(core_irq_ack),
+    .irq_valid_o(core_irq_valid),
+    .irq_ready_i(core_irq_ready),
     .irq_id_o   (core_irq_id),
     .irq_level_o(core_irq_level),
     .irq_shv_o  (core_irq_shv)
   );
-
-  // Generate one-hot encoded interrupt request for the core, since the clic
-  // is the only source of interrupts
-  // When bit x is 1, interrupt with id = x is sending a request to the core
-  always_comb begin : gen_core_irq_onehot
-      core_irq_onehot = '0;
-      if (core_irq_req) begin
-          core_irq_onehot[core_irq_id] = 1'b1;
-      end
-  end
 
   // ariane
   cva6 #(
@@ -866,11 +853,12 @@ module ariane_testharness #(
     .debug_req_i          ( debug_req_core      ),
 `endif
     // CLIC
-    .clic_irq_i           ( core_irq_onehot     ),
+    .clic_irq_valid_i     ( core_irq_valid      ),
+    .clic_irq_id_i        ( core_irq_id         ),
     .clic_irq_level_i     ( core_irq_level      ),
     .clic_irq_priv_i      ( riscv::PRIV_LVL_M   ), // TODO: connect with CLIC when implemented
     .clic_irq_shv_i       ( core_irq_shv        ),
-    .clic_irq_ack_o       ( core_irq_ack        ),
+    .clic_irq_ready_o     ( core_irq_ready      ),
     .cvxif_req_o          (                     ),
     .cvxif_resp_i         ( '0                  ),
     .axi_req_o            ( axi_ariane_req      ),
