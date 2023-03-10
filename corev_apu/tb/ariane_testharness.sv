@@ -664,9 +664,10 @@ module ariane_testharness #(
     1'b0,                       // reserved
     meip,                       // meip
     1'b0,                       // reserved, seip, reserved, meip
-    mtip,                       // mtip
+    timer_irq,                  // mtip
     {3{1'b0}},                  // reserved, stip, reserved
-    {4{1'b0}}                   // reserved, ssip, reserved, msip
+    ipi,                        // msip
+    {3{1'b0}}                   // reserved, ssip, reserved
   };
 
   // local interrupts with CLIC
@@ -693,7 +694,7 @@ module ariane_testharness #(
       .AXI4_USER_WIDTH    ( 1             ),
       .BUFF_DEPTH_SLAVE   ( 2             ),
       .APB_ADDR_WIDTH     ( 32            )
-  ) i_axi2apb_64_32_plic (
+  ) i_axi2apb_64_32_clic (
       .ACLK      ( clk_i          ),
       .ARESETn   ( rst_ni         ),
       .test_en_i ( 1'b0           ),
