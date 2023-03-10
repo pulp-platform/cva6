@@ -53,6 +53,8 @@ module cva6 import ariane_pkg::*; #(
   input  riscv::priv_lvl_t             clic_irq_priv_i,  // CLIC interrupt privilege level
   input  logic                         clic_irq_shv_i,   // selective hardware vectoring bit
   output logic                         clic_irq_ready_o, // core side interrupt hanshake (ready)
+  input  logic                         clic_kill_req_i,  // kill request
+  output logic                         clic_kill_ack_o,  // kill acknowledge
   // RISC-V formal interface port (`rvfi`):
   // Can be left open when formal tracing is not needed.
   output ariane_rvfi_pkg::rvfi_port_t  rvfi_o,
@@ -844,17 +846,22 @@ module cva6 import ariane_pkg::*; #(
   cva6_clic_controller #(
     .ArianeCfg (ArianeCfg)
   ) i_clic_controller (
+    .clk_i            ( clk_i             ),
+    .rst_ni           ( rst_ni            ),
     // from CSR file
     .priv_lvl_i       ( priv_lvl          ),
     .irq_ctrl_i       ( irq_ctrl_csr_id   ),
     .mintthresh_i     ( mintthresh_csr    ),
     .sintthresh_i     ( sintthresh_csr    ),
     .mintstatus_i     ( mintstatus_csr    ),
-    // from CLIC
+    // from/to CLIC
     .clic_irq_valid_i ( clic_irq_valid_i  ),
+    .clic_irq_ready_i ( clic_irq_ready_o  ),
     .clic_irq_id_i    ( clic_irq_id_i     ),
     .clic_irq_level_i ( clic_irq_level_i  ),
     .clic_irq_priv_i  ( clic_irq_priv_i   ),
+    .clic_kill_req_i  ( clic_kill_req_i   ),
+    .clic_kill_ack_o  ( clic_kill_ack_o   ),
     // to ID stage
     .clic_irq_req_o   ( clic_irq_req_id   ),
     .clic_irq_cause_o ( clic_irq_cause_id )
