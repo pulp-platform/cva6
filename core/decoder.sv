@@ -1201,18 +1201,6 @@ module decoder import ariane_pkg::*; #(
     // ---------------------
     riscv::xlen_t interrupt_cause;
 
-    // logic [$clog(cva6_ariane_pkg::NumInterruptSrc)-1] irq_id;
-    // logic irq_req;
-
-    // lsz #(
-    //     .WIDTH ( cva6_ariane_pkg::NumInterruptSrc ),
-    //     .MODE  ( 0                                )
-    // ) lsz_irq (
-    //     .in_i    ( irq_i    ),
-    //     .cnt_o   ( irq_id   ),
-    //     .empty_o ( ~irq_req )
-    //  );
-
     // this instruction has already executed if the exception is valid
     assign instruction_o.valid   = instruction_o.ex.valid;
 
