@@ -113,13 +113,13 @@ module id_stage #(
         riscv::PRIV_LVL_M: begin
           // Take M-mode interrupts with higher level
           if (clic_irq_priv_i == riscv::PRIV_LVL_M) begin
-            clic_irq_req_ctrl = (clic_irq_level > max_mthresh) && (|clic_irq_q) && irq_ctrl_i.mie;
+            clic_irq_req_ctrl = (clic_irq_level > max_mthresh) && (|clic_irq_q);
           end
         end
         riscv::PRIV_LVL_S: begin
           // Take all M-mode interrupts
           if (clic_irq_priv_i == riscv::PRIV_LVL_M) begin
-            clic_irq_req_ctrl = (|clic_irq_q) && irq_ctrl_i.mie;
+            clic_irq_req_ctrl = (|clic_irq_q);
           // Take S-mode interrupts with higher level
           end else if (clic_irq_priv_i == riscv::PRIV_LVL_S) begin
             clic_irq_req_ctrl = (clic_irq_level > max_sthresh) && (|clic_irq_q) && irq_ctrl_i.sie;
@@ -128,7 +128,7 @@ module id_stage #(
         riscv::PRIV_LVL_U: begin
           // Take all M-mode and S-mode interrupts
           clic_irq_req_ctrl = ((|clic_irq_q) &&
-                               ((clic_irq_priv_i == riscv::PRIV_LVL_M && irq_ctrl_i.mie) ||
+                               ((clic_irq_priv_i == riscv::PRIV_LVL_M) ||
                                 (clic_irq_priv_i == riscv::PRIV_LVL_S && irq_ctrl_i.sie)));
 
         end
