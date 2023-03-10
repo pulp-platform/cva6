@@ -203,9 +203,9 @@ module cva6 import ariane_pkg::*; #(
   logic                     tsr_csr_id;
   irq_ctrl_t                irq_ctrl_csr_id;
   logic                     clic_mode;
-  riscv::intstatus_rv_t     mintstatus_csr_id;
-  logic [7:0]               mintthresh_csr_id;
-  logic [7:0]               sintthresh_csr_id;
+  riscv::intstatus_rv_t     mintstatus_csr;
+  logic [7:0]               mintthresh_csr;
+  logic [7:0]               sintthresh_csr;
   logic                     dcache_en_csr_nbdcache;
   logic                     csr_write_fflags_commit_cs;
   logic                     icache_en_csr;
@@ -286,6 +286,12 @@ module cva6 import ariane_pkg::*; #(
     end
   end
 
+  // ---------------------
+  // CLIC Controller <-> *
+  // ---------------------
+  logic         clic_irq_req_id;
+  riscv::xlen_t clic_irq_cause_id;
+
   // --------------
   // Frontend
   // --------------
@@ -338,14 +344,9 @@ module cva6 import ariane_pkg::*; #(
     .frm_i                      ( frm_csr_id_issue_ex        ),
     .irq_i                      ( irq_i                      ),
     .irq_ctrl_i                 ( irq_ctrl_csr_id            ),
-    .clic_irq_valid_i           ( clic_irq_valid_i           ),
-    .clic_irq_id_i              ( clic_irq_id_i              ),
-    .clic_irq_level_i           ( clic_irq_level_i           ),
-    .clic_irq_priv_i            ( clic_irq_priv_i            ),
-    .mintthresh_i               ( mintthresh_csr_id          ),
-    .sintthresh_i               ( sintthresh_csr_id          ),
-    .mintstatus_i               ( mintstatus_csr_id          ),
     .clic_mode_i                ( clic_mode                  ),
+    .clic_irq_req_i             ( clic_irq_req_id            ),
+    .clic_irq_cause_i           ( clic_irq_cause_id          ),
     .debug_mode_i               ( debug_mode                 ),
     .tvm_i                      ( tvm_csr_id                 ),
     .tw_i                       ( tw_csr_id                  ),
@@ -629,9 +630,9 @@ module cva6 import ariane_pkg::*; #(
     .fprec_o                ( fprec_csr_ex                  ),
     .irq_ctrl_o             ( irq_ctrl_csr_id               ),
     .clic_mode_o            ( clic_mode                     ),
-    .mintstatus_o           ( mintstatus_csr_id             ),
-    .mintthresh_o           ( mintthresh_csr_id             ),
-    .sintthresh_o           ( sintthresh_csr_id             ),
+    .mintstatus_o           ( mintstatus_csr                ),
+    .mintthresh_o           ( mintthresh_csr                ),
+    .sintthresh_o           ( sintthresh_csr                ),
     .clic_irq_shv_i         ( clic_irq_shv_i                ),
     .clic_irq_ready_o       ( clic_irq_ready_o              ),
     .ld_st_priv_lvl_o       ( ld_st_priv_lvl_csr_ex         ),
@@ -836,6 +837,28 @@ module cva6 import ariane_pkg::*; #(
   );
   assign dcache_commit_wbuffer_not_ni = 1'b1;
   end
+
+  // -------------------
+  // CLIC Controller
+  // -------------------
+  cva6_clic_controller #(
+    .ArianeCfg (ArianeCfg)
+  ) i_clic_controller (
+    // from CSR file
+    .priv_lvl_i       ( priv_lvl          ),
+    .irq_ctrl_i       ( irq_ctrl_csr_id   ),
+    .mintthresh_i     ( mintthresh_csr    ),
+    .sintthresh_i     ( sintthresh_csr    ),
+    .mintstatus_i     ( mintstatus_csr    ),
+    // from CLIC
+    .clic_irq_valid_i ( clic_irq_valid_i  ),
+    .clic_irq_id_i    ( clic_irq_id_i     ),
+    .clic_irq_level_i ( clic_irq_level_i  ),
+    .clic_irq_priv_i  ( clic_irq_priv_i   ),
+    // to ID stage
+    .clic_irq_req_o   ( clic_irq_req_id   ),
+    .clic_irq_cause_o ( clic_irq_cause_id )
+  );
 
   // -------------------
   // Parameter Check

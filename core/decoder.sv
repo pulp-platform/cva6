@@ -32,10 +32,10 @@ module decoder import ariane_pkg::*; #(
     input  exception_t         ex_i,                    // if an exception occured in if
     input  logic [1:0]         irq_i,                   // external interrupt
     input  irq_ctrl_t          irq_ctrl_i,              // interrupt control and status information from CSRs
-    input  logic               clic_irq_req_i,
-    input  logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,
-    input  logic [7:0]         clic_irq_level_i,
+    // from CLIC Controller
     input  logic               clic_mode_i,
+    input  logic               clic_irq_req_i,
+    input  riscv::xlen_t       clic_irq_cause_i,
     // From CSR
     input  riscv::priv_lvl_t   priv_lvl_i,              // current privilege level
     input  logic               debug_mode_i,            // we are in debug mode
@@ -1256,10 +1256,7 @@ module decoder import ariane_pkg::*; #(
             // we decode an interrupt the same as an exception, hence it will be taken if the instruction did not
             // throw any previous exception.
             if (clic_mode_i && clic_irq_req_i) begin
-                // CLIC mode: Acknowledge the interrupt. Set interrupt bit and 
-                interrupt_cause[riscv::XLEN-1] = 1'b1;
-                interrupt_cause[23:16]         = clic_irq_level_i;
-                interrupt_cause[$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] = clic_irq_id_i;
+                interrupt_cause = clic_irq_cause_i;
             end else begin
                 // we have three interrupt sources: external interrupts, software interrupts, timer interrupts (order of precedence)
                 // for two privilege levels: Supervisor and Machine Mode
