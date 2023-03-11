@@ -11,6 +11,9 @@
 // Description: Xilinx FPGA top-level
 // Author: Florian Zaruba <zarubaf@iis.ee.ethz.ch>
 
+`include "axi/assign.svh"
+`include "axi/typedef.svh"
+
 module ariane_xilinx (
 `ifdef GENESYSII
   input  logic         sys_clk_p   ,
@@ -194,6 +197,8 @@ logic test_en;
 logic ndmreset;
 logic ndmreset_n;
 logic debug_req_irq;
+logic timer_irq;
+logic ipi;
 
 logic clk;
 logic eth_clk;
@@ -271,7 +276,7 @@ assign addr_map = '{
   '{ idx: ariane_soc::SPI,      start_addr: ariane_soc::SPIBase,      end_addr: ariane_soc::SPIBase + ariane_soc::SPILength           },
   '{ idx: ariane_soc::Ethernet, start_addr: ariane_soc::EthernetBase, end_addr: ariane_soc::EthernetBase + ariane_soc::EthernetLength },
   '{ idx: ariane_soc::GPIO,     start_addr: ariane_soc::GPIOBase,     end_addr: ariane_soc::GPIOBase + ariane_soc::GPIOLength         },
-  '{ idx: ariane_soc::DRAM,     start_addr: ariane_soc::DRAMBase,     end_addr: ariane_soc::DRAMBase + ariane_soc::DRAMLength         }
+  '{ idx: ariane_soc::DRAM,     start_addr: ariane_soc::DRAMBase,     end_addr: ariane_soc::DRAMBase + ariane_soc::DRAMLength         },
   '{ idx: ariane_soc::CLIC,     start_addr: ariane_soc::CLICBase,     end_addr: ariane_soc::CLICBase + ariane_soc::CLICLength         }
 };
 
@@ -696,346 +701,278 @@ end
 ariane_axi::req_t    axi_ariane_req;
 ariane_axi::resp_t   axi_ariane_resp;
 
-if (ariane_soc::CLIC) begin : clic_plic
+// Interrupt sources
+logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
+                                                                // Privilege Spec. v. 20211203, pag. 39
+logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;          // other local interrupts routed through the CLIC
 
-  // Interrupt sources
-  logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
-                                                                  // Privilege Spec. v. 20211203, pag. 39
-  logic [ariane_soc::NumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
+// core interface signals
+logic                                               core_irq_req, core_irq_ack; // interrupt handshake
+logic                                               core_irq_shv;               // selective hardware vectoring
+logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
+logic [7:0]                                         core_irq_level;             // interrupt level
 
-  // core interface signals
-  logic                                 core_irq_req, core_irq_ack; // interrupt handshake
-  logic                                 core_irq_shv;               // selective hardware vectoring
-  logic [$clog2(ariane_soc::NumInterruptSrc)-1:0] core_irq_id;     // interrupt id
-  logic [7:0]                           core_irq_level;             // interrupt level
-  logic [ariane_soc::NumInterruptSrc-1:0]         core_irq_onehot; // one-hot encoding
-                                                                    // of interrupts, to
-                                                                    // the core
+// Machine and Supervisor External interrupts
+// External interrupts. When not in CLIC mode, they are seen as global
+// interrupts and routed through the PLIC to meip/seip.
+assign meip = irq[0];
+assign seip = irq[1];
 
-  // Machine and Supervisor External interrupts
-  // External interrupts. When not in CLIC mode, they are seen as global
-  // interrupts and routed through the PLIC to meip/seip.
-  assign meip = irq[0];
-  assign seip = irq[1];
+// Machine Timer interrupt
+// Generate timer interrupt from a real-time clock (rtc).
+// When in CLIC mode, the timer interrupt is routed through the CLIC and not
+// directly to the HART
+localparam int unsigned NumTimerIrq = 1; // 1 target, cva6
+logic timer_irq;
 
-  // Machine Timer interrupt
-  // Generate timer interrupt from a real-time clock (rtc).
-  // When in CLIC mode, the timer interrupt is routed through the CLIC and not
-  // directly to the HART
-  localparam int unsigned NumTimerIrq = 1; // 1 target, cva6
-  logic mtip;
+// Machine Software interrupt
+// When in CLIC mode, msip can be fired by writing to the corresponding
+// memory-mapped register in the CLIC
 
-  // Machine Software interrupt
-  // When in CLIC mode, msip can be fired by writing to the corresponding
-  // memory-mapped register in the CLIC
+// XLEN regular CLINT interrupts
+assign clint_irqs = {
+  {(riscv::XLEN - 15){1'b0}}, // 64 - 15 = 48, designated for platform use
+  {4{1'b0}},                  // reserved
+  seip,                       // seip
+  1'b0,                       // reserved
+  meip,                       // meip
+  1'b0,                       // reserved, seip, reserved, meip
+  timer_irq,                  // mtip
+  {3{1'b0}},                  // reserved, stip, reserved
+  ipi,                        // msip
+  {3{1'b0}}                   // reserved, ssip, reserved
+};
 
-  // XLEN regular CLINT interrupts
-  assign clint_irqs = {
-    {(riscv::XLEN - 15){1'b0}}, // 64 - 15 = 48, designated for platform use
-    {4{1'b0}},                  // reserved
-    seip,                       // seip
-    1'b0,                       // reserved
-    meip,                       // meip
-    1'b0,                       // reserved, seip, reserved, meip
-    mtip,                       // mtip
-    {3{1'b0}},                  // reserved, stip, reserved
-    {4{1'b0}}                   // reserved, ssip, reserved, msip
-  };
+// local interrupts with CLIC
+assign clic_irqs = {
+  {(ariane_soc::CLICNumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
+  clint_irqs                               // 64  (XLEN regular clint interrupts)
+};
 
-  // local interrupts with CLIC
-  assign clic_irqs = {
-    {(ariane_soc::NumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
-    clint_irqs                               // 64  (XLEN regular clint interrupts)
-  };
+// axi2apb interface
+logic         clic_penable;
+logic         clic_pwrite;
+logic [31:0]  clic_paddr;
+logic         clic_psel;
+logic [31:0]  clic_pwdata;
+logic [31:0]  clic_prdata;
+logic         clic_pready;
+logic         clic_pslverr;
 
-  // axi2apb interface
-  logic         clic_penable;
-  logic         clic_pwrite;
-  logic [31:0]  clic_paddr;
-  logic         clic_psel;
-  logic [31:0]  clic_pwdata;
-  logic [31:0]  clic_prdata;
-  logic         clic_pready;
-  logic         clic_pslverr;
+axi2apb_64_32 #(
+    .AXI4_ADDRESS_WIDTH ( AxiAddrWidth ),
+    .AXI4_RDATA_WIDTH   ( AxiDataWidth ),
+    .AXI4_WDATA_WIDTH   ( AxiDataWidth ),
+    .AXI4_ID_WIDTH      ( ariane_soc::IdWidthSlave ),
+    .AXI4_USER_WIDTH    ( 1             ),
+    .BUFF_DEPTH_SLAVE   ( 2             ),
+    .APB_ADDR_WIDTH     ( 32            )
+) i_axi2apb_64_32_plic (
+    .ACLK      ( clk            ),
+    .ARESETn   ( ndmreset_n     ),
+    .test_en_i ( 1'b0           ),
+    .AWID_i    ( master[ariane_soc::CLIC].aw_id     ),
+    .AWADDR_i  ( master[ariane_soc::CLIC].aw_addr   ),
+    .AWLEN_i   ( master[ariane_soc::CLIC].aw_len    ),
+    .AWSIZE_i  ( master[ariane_soc::CLIC].aw_size   ),
+    .AWBURST_i ( master[ariane_soc::CLIC].aw_burst  ),
+    .AWLOCK_i  ( master[ariane_soc::CLIC].aw_lock   ),
+    .AWCACHE_i ( master[ariane_soc::CLIC].aw_cache  ),
+    .AWPROT_i  ( master[ariane_soc::CLIC].aw_prot   ),
+    .AWREGION_i( master[ariane_soc::CLIC].aw_region ),
+    .AWUSER_i  ( master[ariane_soc::CLIC].aw_user   ),
+    .AWQOS_i   ( master[ariane_soc::CLIC].aw_qos    ),
+    .AWVALID_i ( master[ariane_soc::CLIC].aw_valid  ),
+    .AWREADY_o ( master[ariane_soc::CLIC].aw_ready  ),
+    .WDATA_i   ( master[ariane_soc::CLIC].w_data    ),
+    .WSTRB_i   ( master[ariane_soc::CLIC].w_strb    ),
+    .WLAST_i   ( master[ariane_soc::CLIC].w_last    ),
+    .WUSER_i   ( master[ariane_soc::CLIC].w_user    ),
+    .WVALID_i  ( master[ariane_soc::CLIC].w_valid   ),
+    .WREADY_o  ( master[ariane_soc::CLIC].w_ready   ),
+    .BID_o     ( master[ariane_soc::CLIC].b_id      ),
+    .BRESP_o   ( master[ariane_soc::CLIC].b_resp    ),
+    .BVALID_o  ( master[ariane_soc::CLIC].b_valid   ),
+    .BUSER_o   ( master[ariane_soc::CLIC].b_user    ),
+    .BREADY_i  ( master[ariane_soc::CLIC].b_ready   ),
+    .ARID_i    ( master[ariane_soc::CLIC].ar_id     ),
+    .ARADDR_i  ( master[ariane_soc::CLIC].ar_addr   ),
+    .ARLEN_i   ( master[ariane_soc::CLIC].ar_len    ),
+    .ARSIZE_i  ( master[ariane_soc::CLIC].ar_size   ),
+    .ARBURST_i ( master[ariane_soc::CLIC].ar_burst  ),
+    .ARLOCK_i  ( master[ariane_soc::CLIC].ar_lock   ),
+    .ARCACHE_i ( master[ariane_soc::CLIC].ar_cache  ),
+    .ARPROT_i  ( master[ariane_soc::CLIC].ar_prot   ),
+    .ARREGION_i( master[ariane_soc::CLIC].ar_region ),
+    .ARUSER_i  ( master[ariane_soc::CLIC].ar_user   ),
+    .ARQOS_i   ( master[ariane_soc::CLIC].ar_qos    ),
+    .ARVALID_i ( master[ariane_soc::CLIC].ar_valid  ),
+    .ARREADY_o ( master[ariane_soc::CLIC].ar_ready  ),
+    .RID_o     ( master[ariane_soc::CLIC].r_id      ),
+    .RDATA_o   ( master[ariane_soc::CLIC].r_data    ),
+    .RRESP_o   ( master[ariane_soc::CLIC].r_resp    ),
+    .RLAST_o   ( master[ariane_soc::CLIC].r_last    ),
+    .RUSER_o   ( master[ariane_soc::CLIC].r_user    ),
+    .RVALID_o  ( master[ariane_soc::CLIC].r_valid   ),
+    .RREADY_i  ( master[ariane_soc::CLIC].r_ready   ),
+    .PENABLE   ( clic_penable   ),
+    .PWRITE    ( clic_pwrite    ),
+    .PADDR     ( clic_paddr     ),
+    .PSEL      ( clic_psel      ),
+    .PWDATA    ( clic_pwdata    ),
+    .PRDATA    ( clic_prdata    ),
+    .PREADY    ( clic_pready    ),
+    .PSLVERR   ( clic_pslverr   )
+);
 
-  axi2apb_64_32 #(
-      .AXI4_ADDRESS_WIDTH ( AxiAddrWidth ),
-      .AXI4_RDATA_WIDTH   ( AxiDataWidth ),
-      .AXI4_WDATA_WIDTH   ( AxiDataWidth ),
-      .AXI4_ID_WIDTH      ( ariane_soc::IdWidthSlave ),
-      .AXI4_USER_WIDTH    ( 1             ),
-      .BUFF_DEPTH_SLAVE   ( 2             ),
-      .APB_ADDR_WIDTH     ( 32            )
-  ) i_axi2apb_64_32_plic (
-      .ACLK      ( clk            ),
-      .ARESETn   ( ndmreset_n     ),
-      .test_en_i ( 1'b0           ),
-      .AWID_i    ( master[ariane_soc::CLIC].aw_id     ),
-      .AWADDR_i  ( master[ariane_soc::CLIC].aw_addr   ),
-      .AWLEN_i   ( master[ariane_soc::CLIC].aw_len    ),
-      .AWSIZE_i  ( master[ariane_soc::CLIC].aw_size   ),
-      .AWBURST_i ( master[ariane_soc::CLIC].aw_burst  ),
-      .AWLOCK_i  ( master[ariane_soc::CLIC].aw_lock   ),
-      .AWCACHE_i ( master[ariane_soc::CLIC].aw_cache  ),
-      .AWPROT_i  ( master[ariane_soc::CLIC].aw_prot   ),
-      .AWREGION_i( master[ariane_soc::CLIC].aw_region ),
-      .AWUSER_i  ( master[ariane_soc::CLIC].aw_user   ),
-      .AWQOS_i   ( master[ariane_soc::CLIC].aw_qos    ),
-      .AWVALID_i ( master[ariane_soc::CLIC].aw_valid  ),
-      .AWREADY_o ( master[ariane_soc::CLIC].aw_ready  ),
-      .WDATA_i   ( master[ariane_soc::CLIC].w_data    ),
-      .WSTRB_i   ( master[ariane_soc::CLIC].w_strb    ),
-      .WLAST_i   ( master[ariane_soc::CLIC].w_last    ),
-      .WUSER_i   ( master[ariane_soc::CLIC].w_user    ),
-      .WVALID_i  ( master[ariane_soc::CLIC].w_valid   ),
-      .WREADY_o  ( master[ariane_soc::CLIC].w_ready   ),
-      .BID_o     ( master[ariane_soc::CLIC].b_id      ),
-      .BRESP_o   ( master[ariane_soc::CLIC].b_resp    ),
-      .BVALID_o  ( master[ariane_soc::CLIC].b_valid   ),
-      .BUSER_o   ( master[ariane_soc::CLIC].b_user    ),
-      .BREADY_i  ( master[ariane_soc::CLIC].b_ready   ),
-      .ARID_i    ( master[ariane_soc::CLIC].ar_id     ),
-      .ARADDR_i  ( master[ariane_soc::CLIC].ar_addr   ),
-      .ARLEN_i   ( master[ariane_soc::CLIC].ar_len    ),
-      .ARSIZE_i  ( master[ariane_soc::CLIC].ar_size   ),
-      .ARBURST_i ( master[ariane_soc::CLIC].ar_burst  ),
-      .ARLOCK_i  ( master[ariane_soc::CLIC].ar_lock   ),
-      .ARCACHE_i ( master[ariane_soc::CLIC].ar_cache  ),
-      .ARPROT_i  ( master[ariane_soc::CLIC].ar_prot   ),
-      .ARREGION_i( master[ariane_soc::CLIC].ar_region ),
-      .ARUSER_i  ( master[ariane_soc::CLIC].ar_user   ),
-      .ARQOS_i   ( master[ariane_soc::CLIC].ar_qos    ),
-      .ARVALID_i ( master[ariane_soc::CLIC].ar_valid  ),
-      .ARREADY_o ( master[ariane_soc::CLIC].ar_ready  ),
-      .RID_o     ( master[ariane_soc::CLIC].r_id      ),
-      .RDATA_o   ( master[ariane_soc::CLIC].r_data    ),
-      .RRESP_o   ( master[ariane_soc::CLIC].r_resp    ),
-      .RLAST_o   ( master[ariane_soc::CLIC].r_last    ),
-      .RUSER_o   ( master[ariane_soc::CLIC].r_user    ),
-      .RVALID_o  ( master[ariane_soc::CLIC].r_valid   ),
-      .RREADY_i  ( master[ariane_soc::CLIC].r_ready   ),
-      .PENABLE   ( clic_penable   ),
-      .PWRITE    ( clic_pwrite    ),
-      .PADDR     ( clic_paddr     ),
-      .PSEL      ( clic_psel      ),
-      .PWDATA    ( clic_pwdata    ),
-      .PRDATA    ( clic_prdata    ),
-      .PREADY    ( clic_pready    ),
-      .PSLVERR   ( clic_pslverr   )
-  );
+// apb2reg interface
 
-  `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
-  `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
+REG_BUS #(
+    .ADDR_WIDTH ( 32 ),
+    .DATA_WIDTH ( 32 )
+) reg_bus (clk);
 
-  // apb2reg interface
+apb_to_reg i_apb_to_reg (
+    .clk_i     ( clk          ),
+    .rst_ni    ( ndmreset_n   ),
+    .penable_i ( clic_penable ),
+    .pwrite_i  ( clic_pwrite  ),
+    .paddr_i   ( clic_paddr   ),
+    .psel_i    ( clic_psel    ),
+    .pwdata_i  ( clic_pwdata  ),
+    .prdata_o  ( clic_prdata  ),
+    .pready_o  ( clic_pready  ),
+    .pslverr_o ( clic_pslverr ),
+    .reg_o     ( reg_bus      )
+);
 
-  REG_BUS #(
-      .ADDR_WIDTH ( 32 ),
-      .DATA_WIDTH ( 32 )
-  ) reg_bus (clk);
-
-  apb_to_reg i_apb_to_reg (
-      .clk_i     ( clk          ),
-      .rst_ni    ( ndmreset_n   ),
-      .penable_i ( clic_penable ),
-      .pwrite_i  ( clic_pwrite  ),
-      .paddr_i   ( clic_paddr   ),
-      .psel_i    ( clic_psel    ),
-      .pwdata_i  ( clic_pwdata  ),
-      .prdata_o  ( clic_prdata  ),
-      .pready_o  ( clic_pready  ),
-      .pslverr_o ( clic_pslverr ),
-      .reg_o     ( reg_bus      )
-  );
-
-  // wrap register interface as req/resp for clic
-  localparam int unsigned REG_BUS_ADDR_WIDTH = 32;
-  localparam int unsigned REG_BUS_DATA_WIDTH = 32;
+// wrap register interface as req/resp for clic
+localparam int unsigned REG_BUS_ADDR_WIDTH = 32;
+localparam int unsigned REG_BUS_DATA_WIDTH = 32;
 
 `define REG_BUS_TYPEDEF_REQ(req_t, addr_t, data_t, strb_t) \
-    typedef struct packed { \
-        addr_t addr; \
-        logic  write; \
-        data_t wdata; \
-        strb_t wstrb; \
-        logic  valid; \
-    } req_t;
+  typedef struct packed { \
+      addr_t addr; \
+      logic  write; \
+      data_t wdata; \
+      strb_t wstrb; \
+      logic  valid; \
+  } req_t;
 
 `define REG_BUS_TYPEDEF_RSP(rsp_t, data_t) \
-    typedef struct packed { \
-        data_t rdata; \
-        logic  error; \
-        logic  ready; \
-    } rsp_t;
+  typedef struct packed { \
+      data_t rdata; \
+      logic  error; \
+      logic  ready; \
+  } rsp_t;
 
-  typedef logic [REG_BUS_ADDR_WIDTH-1:0] addr_t;
-  typedef logic [REG_BUS_DATA_WIDTH-1:0] data_t;
-  typedef logic [REG_BUS_DATA_WIDTH/8-1:0] strb_t;
+typedef logic [REG_BUS_ADDR_WIDTH-1:0] addr_t;
+typedef logic [REG_BUS_DATA_WIDTH-1:0] data_t;
+typedef logic [REG_BUS_DATA_WIDTH/8-1:0] strb_t;
 
-  `REG_BUS_TYPEDEF_REQ(reg_a32_d32_req_t, addr_t, data_t, strb_t)
-  `REG_BUS_TYPEDEF_RSP(reg_a32_d32_rsp_t, data_t)
+`REG_BUS_TYPEDEF_REQ(reg_a32_d32_req_t, addr_t, data_t, strb_t)
+`REG_BUS_TYPEDEF_RSP(reg_a32_d32_rsp_t, data_t)
 
-  reg_a32_d32_req_t clic_req;
-  reg_a32_d32_rsp_t clic_rsp;
+reg_a32_d32_req_t clic_req;
+reg_a32_d32_rsp_t clic_rsp;
 
-  assign clic_req.addr  = reg_bus.addr;
-  assign clic_req.write = reg_bus.write;
-  assign clic_req.wdata = reg_bus.wdata;
-  assign clic_req.wstrb = reg_bus.wstrb;
-  assign clic_req.valid = reg_bus.valid;
+assign clic_req.addr  = reg_bus.addr;
+assign clic_req.write = reg_bus.write;
+assign clic_req.wdata = reg_bus.wdata;
+assign clic_req.wstrb = reg_bus.wstrb;
+assign clic_req.valid = reg_bus.valid;
 
-  assign reg_bus.rdata = clic_rsp.rdata;
-  assign reg_bus.error = clic_rsp.error;
-  assign reg_bus.ready = clic_rsp.ready;
+assign reg_bus.rdata = clic_rsp.rdata;
+assign reg_bus.error = clic_rsp.error;
+assign reg_bus.ready = clic_rsp.ready;
 
-  // clic
-  clic #(
-    .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
-    .INTCTLBITS(ariane_soc::CLICIntCtlBits),
-    .reg_req_t (reg_a32_d32_req_t),
-    .reg_rsp_t (reg_a32_d32_rsp_t)
-  ) i_clic (
-    .clk_i(clk),
-    .rst_ni(ndmreset_n),
-    // Bus Interface
-    .reg_req_i(clic_req),
-    .reg_rsp_o(clic_rsp),
-    // Interrupt Sources
-    .intr_src_i (clic_irqs),
-    // Interrupt notification to core
-    .irq_valid_o(core_irq_req),
-    .irq_ready_i(core_irq_ack),
-    .irq_id_o   (core_irq_id),
-    .irq_level_o(core_irq_level),
-    .irq_shv_o  (core_irq_shv)
-  );
+// clic
+clic #(
+  .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
+  .INTCTLBITS(ariane_soc::CLICIntCtlBits),
+  .reg_req_t (reg_a32_d32_req_t),
+  .reg_rsp_t (reg_a32_d32_rsp_t)
+) i_clic (
+  .clk_i(clk),
+  .rst_ni(ndmreset_n),
+  // Bus Interface
+  .reg_req_i(clic_req),
+  .reg_rsp_o(clic_rsp),
+  // Interrupt Sources
+  .intr_src_i (clic_irqs),
+  // Interrupt notification to core
+  .irq_valid_o(core_irq_req),
+  .irq_ready_i(core_irq_ack),
+  .irq_id_o   (core_irq_id),
+  .irq_level_o(core_irq_level),
+  .irq_shv_o  (core_irq_shv)
+);
 
-  // Generate one-hot encoded interrupt request for the core, since the clic
-  // is the only source of interrupts
-  // When bit x is 1, interrupt with id = x is sending a request to the core
-  always_comb begin : gen_core_irq_onehot
-      core_irq_onehot = '0;
-      if (core_irq_req) begin
-          core_irq_onehot[core_irq_id] = 1'b1;
-      end
+// ariane
+cva6 #(
+    .ArianeCfg ( ariane_soc::ArianeSocCfg )
+) i_ariane (
+    .clk_i        ( clk                 ),
+    .rst_ni       ( ndmreset_n          ),
+    .boot_addr_i  ( ariane_soc::ROMBase ), // start fetching from ROM
+    .hart_id_i    ( '0                  ),
+    .irq_i        ( irq                 ),
+    .ipi_i        ( ipi                 ),
+    .time_irq_i   ( timer_irq           ),
+    // CLIC
+    .clic_irq_valid_i     ( core_irq_valid      ),
+    .clic_irq_id_i        ( core_irq_id         ),
+    .clic_irq_level_i     ( core_irq_level      ),
+    .clic_irq_priv_i      ( riscv::PRIV_LVL_M   ), // TODO: connect with CLIC when implemented
+    .clic_irq_shv_i       ( core_irq_shv        ),
+    .clic_irq_ready_o     ( core_irq_ready      ),
+    .clic_kill_req_i      ( 1'b0                ), // TODO: connect with CLIC when implemented
+    .clic_kill_ack_o      (                     ), // TODO: connect with CLIC when implemented
+    .cvxif_req_o          (                     ),
+    .cvxif_resp_i         ( '0                  ),
+    .debug_req_i  ( debug_req_irq       ),
+    .axi_req_o    ( axi_ariane_req      ),
+    .axi_resp_i   ( axi_ariane_resp     )
+);
+
+`AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
+`AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
+
+// ---------------
+// CLINT
+// ---------------
+// divide clock by two
+always_ff @(posedge clk or negedge ndmreset_n) begin
+  if (~ndmreset_n) begin
+    rtc <= 0;
+  end else begin
+    rtc <= rtc ^ 1'b1;
   end
+end
 
-  // ariane
-  ariane #(
-      .ArianeCfg ( ariane_soc::ArianeSocCfg )
-  ) i_ariane (
-      .clk_i        ( clk                 ),
-      .rst_ni       ( ndmreset_n          ),
-      .boot_addr_i  ( ariane_soc::ROMBase ), // start fetching from ROM
-      .hart_id_i    ( '0                  ),
+axi_slave_req_t  axi_clint_req;
+axi_slave_resp_t axi_clint_resp;
 
-      // Interrupt interface to core
-      .irq_i        ( core_irq_onehot     ),
-      .irq_level_i  ( core_irq_level      ),
-      .irq_shv_i    ( core_irq_shv        ),
-      .irq_ack_o    ( core_irq_ack        ),
+clint #(
+    .AXI_ADDR_WIDTH ( AxiAddrWidth     ),
+    .AXI_DATA_WIDTH ( AxiDataWidth     ),
+    .AXI_ID_WIDTH   ( AxiIdWidthSlaves ),
+    .NR_CORES       ( 1                ),
+    .axi_req_t      ( axi_slave_req_t  ),
+    .axi_resp_t     ( axi_slave_resp_t )
+) i_clint (
+    .clk_i       ( clk            ),
+    .rst_ni      ( ndmreset_n     ),
+    .testmode_i  ( test_en        ),
+    .axi_req_i   ( axi_clint_req  ),
+    .axi_resp_o  ( axi_clint_resp ),
+    .rtc_i       ( rtc            ),
+    .timer_irq_o ( timer_irq      ),
+    .ipi_o       ( ipi            )
+);
 
-      .debug_req_i  ( debug_req_irq       ),
-      .axi_req_o    ( axi_ariane_req      ),
-      .axi_resp_i   ( axi_ariane_resp     )
-  );
-
-  // Generate timer interrupt
-  // TODO: since we use the clic to generate software interrupts, we do not
-  // need memory mapped registers in the clint for it as well.
-  // The cleaner way would be to integrate mtime/mtimecmp registers in the
-  // clic, or remove the memory mapped registers for msip from the clint when
-  // used in clic, because it is redundant.
-
-  always_ff @(posedge clk or negedge ndmreset_n) begin
-    if (~ndmreset_n) begin
-      rtc <= 0;
-    end else begin
-      rtc <= rtc ^ 1'b1;
-    end
-  end
-
-  ariane_axi::req_t    axi_clint_req;
-  ariane_axi::resp_t   axi_clint_resp;
-
-  clint #(
-      .AXI_ADDR_WIDTH ( AxiAddrWidth     ),
-      .AXI_DATA_WIDTH ( AxiDataWidth     ),
-      .AXI_ID_WIDTH   ( AxiIdWidthSlaves ),
-      .NR_CORES       ( 1                )
-  ) i_clint (
-      .clk_i       ( clk            ),
-      .rst_ni      ( ndmreset_n     ),
-      .testmode_i  ( test_en        ),
-      .axi_req_i   ( axi_clint_req  ),
-      .axi_resp_o  ( axi_clint_resp ),
-      .rtc_i       ( rtc            ),
-      .timer_irq_o ( mtip           ),
-      .ipi_o       (                ) // use the clic for machine software interrupt
-  );
-
-  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
-  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
-
-end else begin : clint_plic // legacy clint + plic, ariane not in CLIC mode
-
-  logic timer_irq;
-  logic ipi;
-
-  ariane #(
-      .ArianeCfg ( ariane_soc::ArianeSocCfg )
-  ) i_ariane (
-      .clk_i        ( clk                 ),
-      .rst_ni       ( ndmreset_n          ),
-      .boot_addr_i  ( ariane_soc::ROMBase ), // start fetching from ROM
-      .hart_id_i    ( '0                  ),
-
-      // Interrupt interface to core
-      .irq_i        ( '0                  ),
-      .irq_level_i  ( '0                  ),
-      .irq_shv_i    ( '0                  ),
-      .irq_ack_o    (                     ),
-
-      .debug_req_i  ( debug_req_irq       ),
-      .axi_req_o    ( axi_ariane_req      ),
-      .axi_resp_i   ( axi_ariane_resp     )
-  );
-
-
-  // ---------------
-  // CLINT
-  // ---------------
-  // divide clock by two
-  always_ff @(posedge clk or negedge ndmreset_n) begin
-    if (~ndmreset_n) begin
-      rtc <= 0;
-    end else begin
-      rtc <= rtc ^ 1'b1;
-    end
-  end
-
-  ariane_axi::req_t    axi_clint_req;
-  ariane_axi::resp_t   axi_clint_resp;
-
-  clint #(
-      .AXI_ADDR_WIDTH ( AxiAddrWidth     ),
-      .AXI_DATA_WIDTH ( AxiDataWidth     ),
-      .AXI_ID_WIDTH   ( AxiIdWidthSlaves ),
-      .NR_CORES       ( 1                )
-  ) i_clint (
-      .clk_i       ( clk            ),
-      .rst_ni      ( ndmreset_n     ),
-      .testmode_i  ( test_en        ),
-      .axi_req_i   ( axi_clint_req  ),
-      .axi_resp_o  ( axi_clint_resp ),
-      .rtc_i       ( rtc            ),
-      .timer_irq_o ( timer_irq      ),
-      .ipi_o       ( ipi            )
-  );
-
-  `AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
-  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
-end // block: clint_plic
+`AXI_ASSIGN_TO_REQ(axi_clint_req, master[ariane_soc::CLINT])
+`AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLINT], axi_clint_resp)
 
 // ---------------
 // ROM
