@@ -315,7 +315,6 @@ module csr_regfile import ariane_pkg::*; #(
                         read_access_exception = 1'b1;
                     end
                 end
-                riscv::CSR_MCLICBASE:          csr_rdata = ArianeCfg.CLICBase;
                 riscv::CSR_MVENDORID:          csr_rdata = OPENHWGROUP_MVENDORID;
                 riscv::CSR_MARCHID:            csr_rdata = ARIANE_MARCHID;
                 riscv::CSR_MIMPID:             csr_rdata = '0; // not implemented

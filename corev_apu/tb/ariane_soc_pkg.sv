@@ -97,7 +97,6 @@ package ariane_soc;
     SwapEndianess:          1'b0,
     // CLIC
     CLICEnable:             CLICEnable,
-    CLICBase:               CLICBase,
     CLICNumInterruptSrc:    CLICNumInterruptSrc,
     CLICIntCtlBits:         CLICIntCtlBits,
     // debug

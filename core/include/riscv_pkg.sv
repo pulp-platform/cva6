@@ -389,7 +389,6 @@ package riscv;
         CSR_MIP            = 12'h344,
         CSR_MINTSTATUS     = 12'h346,
         CSR_MINTTHRESH     = 12'h347,
-        CSR_MCLICBASE      = 12'h350,
         CSR_PMPCFG0        = 12'h3A0,
         CSR_PMPCFG1        = 12'h3A1,
         CSR_PMPCFG2        = 12'h3A2,
