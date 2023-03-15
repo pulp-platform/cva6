@@ -245,22 +245,31 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_SIP:                csr_rdata = clic_mode_o ? '0 : (mip_q & mideleg_q);
                 riscv::CSR_STVEC:              csr_rdata = clic_mode_o ? {stvec_q[riscv::XLEN-1:6], 6'b11} : {stvec_q[riscv::XLEN-1:6], 5'b0, stvec_q[0]};
                 riscv::CSR_SINTSTATUS: begin
-                    if (ArianeCfg.CLICEnable && clic_mode_o) begin
+                    if (ArianeCfg.CLICEnable) begin
+                        // sintstatus reads 0 from CLINT mode
                         // Return a restricted view of mintstatus (sil and uil)
-                        csr_rdata = {{riscv::XLEN-16{1'b0}}, mintstatus_q[15:0]};
+                        csr_rdata = clic_mode_o ? {{riscv::XLEN-16{1'b0}}, mintstatus_q[15:0]} : '0;
                     end else begin
                         read_access_exception = 1'b1;
                     end
                 end
                 riscv::CSR_SINTTHRESH: begin
-                    if (ArianeCfg.CLICEnable && clic_mode_o) begin
-                        csr_rdata = {{riscv::XLEN-8{1'b0}}, sintthresh_q};
+                    if (ArianeCfg.CLICEnable) begin
+                        // sintthresh reads 0 from CLINT mode
+                        csr_rdata = clic_mode_o ? {{riscv::XLEN-8{1'b0}}, sintthresh_q} : '0;
                     end else begin
                         read_access_exception = 1'b1;
                     end
                 end
                 riscv::CSR_SCOUNTEREN:         csr_rdata = scounteren_q;
-                riscv::CSR_STVT:               csr_rdata = stvt_q;
+                riscv::CSR_STVT: begin
+                    if (ArianeCfg.CLICEnable) begin
+                        // stvt reads 0 from CLINT mode
+                        csr_rdata = clic_mode_o ? stvt_q : '0;
+                    end else begin
+                        read_access_exception = 1'b1;
+                    end
+                end
                 riscv::CSR_SSCRATCH:           csr_rdata = sscratch_q;
                 riscv::CSR_SEPC:               csr_rdata = sepc_q;
                 riscv::CSR_SCAUSE:             begin
@@ -302,15 +311,17 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_MTVAL:              csr_rdata = mtval_q;
                 riscv::CSR_MIP:                csr_rdata = clic_mode_o ? '0 : mip_q;
                 riscv::CSR_MINTSTATUS: begin
-                    if (ArianeCfg.CLICEnable && clic_mode_o) begin
-                        csr_rdata = {{riscv::XLEN-32{1'b0}}, mintstatus_q};
+                    if (ArianeCfg.CLICEnable) begin
+                        // mintstatus reads 0 from CLINT mode
+                        csr_rdata = clic_mode_o ? {{riscv::XLEN-32{1'b0}}, mintstatus_q} : '0;
                     end else begin
                         read_access_exception = 1'b1;
                     end
                 end
                 riscv::CSR_MINTTHRESH: begin
-                    if (ArianeCfg.CLICEnable && clic_mode_o) begin
-                        csr_rdata = {{riscv::XLEN-8{1'b0}}, mintthresh_q};
+                    if (ArianeCfg.CLICEnable) begin
+                        // mintthresh reads 0 from CLINT mode
+                        csr_rdata = clic_mode_o ? {{riscv::XLEN-8{1'b0}}, mintthresh_q} : '0;
                     end else begin
                         read_access_exception = 1'b1;
                     end
@@ -585,10 +596,22 @@ module csr_regfile import ariane_pkg::*; #(
 
                 riscv::CSR_STVEC:              stvec_d     = clic_mode_o ? {csr_wdata[riscv::XLEN-1:2], 2'b11} : {csr_wdata[riscv::XLEN-1:2], 1'b0, csr_wdata[0]};
                 riscv::CSR_SCOUNTEREN:         scounteren_d = {{riscv::XLEN-32{1'b0}}, csr_wdata[31:0]};
-                riscv::CSR_STVT:               stvt_d      = {csr_wdata[riscv::XLEN-1:8], 8'b0};
+                riscv::CSR_STVT: begin
+                    if (ArianeCfg.CLICEnable) begin
+                        // Writes are legal but ignored in CLINT mode
+                        if (clic_mode_o) begin
+                            stvt_d = {csr_wdata[riscv::XLEN-1:8], 8'b0};
+                        end
+                    end else begin
+                        update_access_exception = 1'b1;
+                    end
+                end
                 riscv::CSR_SINTTHRESH: begin
-                    if (clic_mode_o) begin
-                        sintthresh_d.th = csr_wdata[7:0];
+                    if (ArianeCfg.CLICEnable) begin
+                        // Writes are legal but ignored in CLINT mode
+                        if (clic_mode_o) begin
+                            sintthresh_d.th = csr_wdata[7:0];
+                        end
                     end else begin
                         update_access_exception = 1'b1;
                     end
@@ -663,7 +686,16 @@ module csr_regfile import ariane_pkg::*; #(
                     if (ArianeCfg.CLICEnable & &csr_wdata[1:0]) mtvec_d = {csr_wdata[riscv::XLEN-1:8], 6'b0, csr_wdata[1:0]};
                 end
                 riscv::CSR_MCOUNTEREN:         mcounteren_d = {{riscv::XLEN-32{1'b0}}, csr_wdata[31:0]};
-                riscv::CSR_MTVT:               mtvt_d      = {csr_wdata[riscv::XLEN-1:8], 8'b0};
+                riscv::CSR_MTVT: begin
+                    if (ArianeCfg.CLICEnable) begin
+                        // Writes are legal but ignored in CLINT mode
+                        if (clic_mode_o) begin
+                            mtvt_d      = {csr_wdata[riscv::XLEN-1:8], 8'b0};
+                        end
+                    end else begin
+                        update_access_exception = 1'b1;
+                    end
+                end
 
                 riscv::CSR_MSCRATCH:           mscratch_d  = csr_wdata;
                 riscv::CSR_MEPC:               mepc_d      = {csr_wdata[riscv::XLEN-1:1], 1'b0};
@@ -677,8 +709,11 @@ module csr_regfile import ariane_pkg::*; #(
                     end
                 end
                 riscv::CSR_MINTTHRESH: begin
-                    if (ArianeCfg.CLICEnable && clic_mode_o) begin
-                        mintthresh_d.th = csr_wdata[7:0];
+                    if (ArianeCfg.CLICEnable) begin
+                        // Writes are legal but ignored in CLINT mode
+                        if (clic_mode_o) begin
+                            mintthresh_d.th = csr_wdata[7:0];
+                        end
                     end else begin
                         update_access_exception = 1'b1;
                     end
