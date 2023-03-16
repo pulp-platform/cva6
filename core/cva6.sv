@@ -288,9 +288,9 @@ module cva6 import ariane_pkg::*; #(
     end
   end
 
-  // ---------------------
-  // CLIC Controller <-> *
-  // ---------------------
+  // ----------------------
+  // CLIC Controller <-> ID
+  // ----------------------
   logic         clic_irq_req_id;
   riscv::xlen_t clic_irq_cause_id;
 
