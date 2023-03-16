@@ -50,7 +50,6 @@ package ariane_pkg;
       bit                               AxiCompliant;          // set to 1 when using in conjunction with 64bit AXI bus adapter
       bit                               SwapEndianess;         // set to 1 to swap endianess inside L1.5 openpiton adapter
       // CLIC
-      bit                               CLICEnable;            // set to 1 to enable CLIC support
       int unsigned                      CLICNumInterruptSrc;   // number of interrupt signals from the CLIC
       int unsigned                      CLICIntCtlBits;        // TODO(@niwis,@alex96295): specify
       //
@@ -75,7 +74,6 @@ package ariane_pkg;
       CachedRegionAddrBase:  {64'h8000_0000},
       CachedRegionLength:    {64'h40000000},
       // CLIC
-      CLICEnable:             1'b0,
       CLICNumInterruptSrc:    256,
       CLICIntCtlBits:         8,
       //  cache config
@@ -173,6 +171,7 @@ package ariane_pkg;
     localparam bit RVD = (riscv::IS_XLEN64 ? 1:0) & riscv::FPU_EN;              // Is D extension enabled for only 64 bit CPU
 `endif
     localparam bit RVA = cva6_config_pkg::CVA6ConfigAExtEn; // Is A extension enabled
+    localparam bit RVSCLIC = cva6_config_pkg::CVA6ConfigSclicExtEn; // Is CLIC extension enabled
 
     // Transprecision floating-point extensions configuration
     localparam bit XF16    = cva6_config_pkg::CVA6ConfigF16En; // Is half-precision float extension (Xf16) enabled
