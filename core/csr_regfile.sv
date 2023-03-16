@@ -1180,6 +1180,10 @@ module csr_regfile import ariane_pkg::*; #(
         // we want to spare the costly addition. Furthermore check to which
         // privilege level we are jumping and whether the vectored mode is
         // activated for _that_ privilege level.
+        // Note for CLIC mode: according to the spec, we should actually jump to the address
+        // stored at trap_vector_base. Since this would have significant HW implications and no
+        // significant benefit, we conciously diverge from the spec here by jumping to
+        // trap_vector_base instead.
         if (ex_i.cause[riscv::XLEN-1] &&
                 ((trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0])
                 || (trap_to_priv_lvl == riscv::PRIV_LVL_S && stvec_q[0])
