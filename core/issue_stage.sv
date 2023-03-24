@@ -33,6 +33,8 @@ module issue_stage
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Microreset active low - CONTROLLER
+    input logic rst_uarch_ni,
     // Is scoreboard full - PERF_COUNTERS
     output logic sb_full_o,
     // TO_BE_COMPLETED - CONTROLLER
@@ -195,6 +197,8 @@ module issue_stage
       .exception_t(exception_t),
       .scoreboard_entry_t(scoreboard_entry_t)
   ) i_scoreboard (
+      .rst_ni(rst_uarch_ni),
+
       .sb_full_o               (sb_full_o),
       .x_transaction_accepted_i(x_transaction_accepted_iro_sb),
       .x_issue_writeback_i     (x_issue_writeback_iro_sb),
