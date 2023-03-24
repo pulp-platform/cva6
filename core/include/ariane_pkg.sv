@@ -312,6 +312,7 @@ package ariane_pkg;
     CSR_READ,
     CSR_SET,
     CSR_CLEAR,
+    FENCE_T,
     // LSU functions
     LD,
     SD,
