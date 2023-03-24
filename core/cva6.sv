@@ -380,6 +380,7 @@ module cva6
   logic                                         eret;
   logic             [CVA6Cfg.NrCommitPorts-1:0] commit_ack;
   logic             [CVA6Cfg.NrCommitPorts-1:0] commit_macro_ack;
+  logic                                         rst_uarch_n;
 
   localparam NumPorts = 4;
 
@@ -588,6 +589,9 @@ module cva6
   logic csr_write_fflags_commit_cs;
   logic icache_en_csr;
   logic acc_cons_en_csr;
+  logic [31:0] fence_t_pad_csr_ctrl;
+  logic fence_t_src_sel_csr_ctrl;
+  logic [31:0] fence_t_ceil_csr_ctrl;
   logic debug_mode;
   logic single_step_csr_commit;
   riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg;
@@ -632,6 +636,7 @@ module cva6
   logic sfence_vma_commit_controller;
   logic hfence_vvma_commit_controller;
   logic hfence_gvma_commit_controller;
+  logic fence_t_commit_controller;
   logic halt_ctrl;
   logic halt_frontend;
   logic halt_csr_ctrl;
@@ -640,6 +645,11 @@ module cva6
   logic set_debug_pc;
   logic flush_commit;
   logic flush_acc;
+  logic rst_uarch_controller_n;
+  logic [CVA6Cfg.VLEN-1:0] rst_addr_ctrl_if;
+  logic busy_cache_ctrl;
+  logic stall_ctrl_cache;
+  logic init_ctrl_cache_n;
 
   icache_areq_t icache_areq_ex_cache;
   icache_arsp_t icache_areq_cache_ex;
@@ -673,6 +683,14 @@ module cva6
   logic inval_valid;
   logic inval_ready;
 
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      rst_uarch_n <= 1'b0;
+    end else begin
+      rst_uarch_n <= rst_uarch_controller_n;
+    end
+  end
+
   // --------------
   // Frontend
   // --------------
@@ -684,8 +702,8 @@ module cva6
       .icache_drsp_t(icache_drsp_t)
   ) i_frontend (
       .clk_i,
-      .rst_ni,
-      .boot_addr_i        (boot_addr_i[CVA6Cfg.VLEN-1:0]),
+      .rst_ni             (rst_uarch_n),
+      .boot_addr_i        (rst_addr_ctrl_if),
       .flush_bp_i         (1'b0),
       .flush_i            (flush_ctrl_if),                  // not entirely correct
       .halt_i             (halt_ctrl),
@@ -725,7 +743,7 @@ module cva6
       .x_compressed_resp_t(x_compressed_resp_t)
   ) id_stage_i (
       .clk_i,
-      .rst_ni,
+      .rst_ni (rst_uarch_n),
       .flush_i(flush_ctrl_if),
       .debug_req_i,
 
@@ -864,6 +882,7 @@ module cva6
   ) issue_stage_i (
       .clk_i,
       .rst_ni,
+      .rst_uarch_ni            (rst_uarch_n),
       .sb_full_o               (sb_full),
       .flush_unissued_instr_i  (flush_unissued_instr_ctrl_id),
       .flush_i                 (flush_ctrl_id),
@@ -974,7 +993,7 @@ module cva6
       .cbo_t(cbo_t)
   ) ex_stage_i (
       .clk_i(clk_i),
-      .rst_ni(rst_ni),
+      .rst_ni(rst_uarch_n),
       .debug_mode_i(debug_mode),
       .flush_i(flush_ctrl_ex),
       .rs1_forwarding_i(rs1_forwarding_id_ex),
@@ -1116,7 +1135,7 @@ module cva6
       .scoreboard_entry_t(scoreboard_entry_t)
   ) commit_stage_i (
       .clk_i,
-      .rst_ni,
+      .rst_ni              (rst_uarch_n),
       .halt_i              (halt_ctrl),
       .flush_dcache_i      (dcache_flush_ctrl_cache),
       .exception_o         (ex_commit),
@@ -1149,7 +1168,8 @@ module cva6
       .sfence_vma_o        (sfence_vma_commit_controller),
       .hfence_vvma_o       (hfence_vvma_commit_controller),
       .hfence_gvma_o       (hfence_gvma_commit_controller),
-      .break_from_trigger_i(break_from_trigger)
+      .break_from_trigger_i(break_from_trigger),
+      .fence_t_o           (fence_t_commit_controller)
   );
 
   assign commit_ack = commit_macro_ack & ~commit_drop_id_commit;
@@ -1230,6 +1250,9 @@ module cva6
       .icache_en_o             (icache_en_csr),
       .dcache_en_o             (dcache_en_csr_nbdcache),
       .acc_cons_en_o           (acc_cons_en_csr),
+      .fence_t_pad_o           (fence_t_pad_csr_ctrl),
+      .fence_t_src_sel_o       (fence_t_src_sel_csr_ctrl),
+      .fence_t_ceil_i          (fence_t_ceil_csr_ctrl),
       .perf_addr_o             (addr_csr_perf),
       .perf_data_o             (data_csr_perf),
       .perf_data_i             (data_perf_csr),
@@ -1326,11 +1349,23 @@ module cva6
       .flush_tlb_o           (flush_tlb_ctrl_ex),
       .flush_tlb_vvma_o      (flush_tlb_vvma_ctrl_ex),
       .flush_tlb_gvma_o      (flush_tlb_gvma_ctrl_ex),
+      .rst_uarch_no          (rst_uarch_controller_n),
+      .rst_addr_o            (rst_addr_ctrl_if),
+      .cache_busy_i          (busy_cache_ctrl),
+      .stall_cache_o         (stall_ctrl_cache),
+      .cache_init_no         (init_ctrl_cache_n),
+      .fence_t_pad_i         (fence_t_pad_csr_ctrl),
+      .fence_t_src_sel_i     (fence_t_src_sel_csr_ctrl),
+      .fence_t_ceil_o        (fence_t_ceil_csr_ctrl),
+      .time_irq_i,
+      .priv_lvl_i            (priv_lvl),
       .halt_csr_i            (halt_csr_ctrl),
       .halt_acc_i            (halt_acc_ctrl),
       .halt_frontend_o       (halt_frontend),
       .halt_o                (halt_ctrl),
       // control ports
+      .boot_addr_i           (boot_addr_i[CVA6Cfg.VLEN-1:0]),
+      .pc_commit_i           (pc_commit),
       .eret_i                (eret),
       .ex_valid_i            (ex_commit.valid),
       .set_debug_pc_i        (set_debug_pc),
@@ -1338,6 +1373,7 @@ module cva6
       .flush_csr_i           (flush_csr_ctrl),
       .fence_i_i             (fence_i_commit_controller),
       .fence_i               (fence_commit_controller),
+      .fence_t_i             (fence_t_commit_controller),
       .sfence_vma_i          (sfence_vma_commit_controller),
       .hfence_vvma_i         (hfence_vvma_commit_controller),
       .hfence_gvma_i         (hfence_gvma_commit_controller),
@@ -1406,7 +1442,10 @@ module cva6
     ) i_cache_subsystem (
         // to D$
         .clk_i             (clk_i),
-        .rst_ni            (rst_ni),
+        .rst_ni            (rst_uarch_n),
+        .busy_o            (busy_cache_ctrl),
+        .stall_i           (stall_ctrl_cache),
+        .init_ni           (init_ctrl_cache_n),
         // I$
         .icache_en_i       (icache_en_csr),
         .icache_flush_i    (icache_flush_ctrl_cache),
@@ -1531,8 +1570,11 @@ module cva6
     ) i_cache_subsystem (
         // to D$
         .clk_i             (clk_i),
-        .rst_ni            (rst_ni),
+        .rst_ni            (rst_uarch_n),
         .priv_lvl_i        (priv_lvl),
+        .busy_o            (busy_cache_ctrl),
+        .stall_i           (stall_ctrl_cache),
+        .init_ni           (init_ctrl_cache_n),
         // I$
         .icache_en_i       (icache_en_csr),
         .icache_flush_i    (icache_flush_ctrl_cache),
