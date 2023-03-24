@@ -19,8 +19,9 @@ module issue_stage
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 ) (
-    input logic clk_i,  // Clock
-    input logic rst_ni, // Asynchronous reset active low
+    input logic clk_i,        // Clock
+    input logic rst_ni,       // Asynchronous reset active low
+    input logic rst_uarch_ni,
 
     output logic sb_full_o,
     input logic flush_unissued_instr_i,
@@ -133,6 +134,8 @@ module issue_stage
       .CVA6Cfg  (CVA6Cfg),
       .rs3_len_t(rs3_len_t)
   ) i_scoreboard (
+      .rst_ni(rst_uarch_ni),
+
       .sb_full_o          (sb_full_o),
       .unresolved_branch_i(1'b0),
       .rd_clobber_gpr_o   (rd_clobber_gpr_sb_iro),

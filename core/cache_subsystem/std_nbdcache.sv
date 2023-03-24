@@ -29,6 +29,9 @@ module std_nbdcache
     input logic flush_i,  // high until acknowledged
     output logic flush_ack_o,  // send a single cycle acknowledge signal when the cache is flushed
     output logic miss_o,  // we missed on a LD/ST
+    output logic busy_o,
+    input logic stall_i,  // stall new memory requests
+    input logic init_ni,
     // AMOs
     input amo_req_t amo_req_i,
     output amo_resp_t amo_resp_o,
@@ -89,6 +92,10 @@ module std_nbdcache
   cache_line_t [  DCACHE_SET_ASSOC-1:0]                         rdata_ram;
   cl_be_t                                                       be_ram;
 
+  // Busy signals
+  logic                                                         miss_handler_busy;
+  assign busy_o = |busy | miss_handler_busy;
+
   // ------------------
   // Cache Controller
   // ------------------
@@ -99,6 +106,7 @@ module std_nbdcache
       ) i_cache_ctrl (
           .bypass_i  (~enable_i),
           .busy_o    (busy[i]),
+          .stall_i   (stall_i | flush_i),
           // from core
           .req_port_i(req_ports_i[i]),
           .req_port_o(req_ports_o[i]),
@@ -139,6 +147,7 @@ module std_nbdcache
       .axi_req_t(axi_req_t),
       .axi_rsp_t(axi_rsp_t)
   ) i_miss_handler (
+      .busy_o               (miss_handler_busy),
       .flush_i              (flush_i),
       .busy_i               (|busy),
       // AMOs
