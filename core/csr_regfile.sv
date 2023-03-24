@@ -150,6 +150,12 @@ module csr_regfile
     output logic icache_en_o,
     // L1 DCache Enable - CACHE
     output logic dcache_en_o,
+    // Padding time of fence.t relative to time interrupt - CONTROLLER
+    output logic [31:0] fence_t_pad_o,
+    // Pad relative to selected source - CONTROLLER
+    output logic fence_t_src_sel_o,
+    // Largest recorded fence.t latency - CONTROLLER
+    input logic [31:0] fence_t_ceil_i,
     // Accelerator memory consistent mode - ACC_DISPATCHER
     output logic acc_cons_en_o,
     // read/write address to performance counter module - PERF_COUNTERS
@@ -265,6 +271,8 @@ module csr_regfile
 
   logic [CVA6Cfg.XLEN-1:0] dcache_q, dcache_d;
   logic [CVA6Cfg.XLEN-1:0] icache_q, icache_d;
+  logic [CVA6Cfg.XLEN-1:0] fence_t_pad_q, fence_t_pad_d;
+  logic [CVA6Cfg.XLEN-1:0] fence_t_ceil_q, fence_t_ceil_d;
   logic [CVA6Cfg.XLEN-1:0] acc_cons_q, acc_cons_d;
 
   logic wfi_d, wfi_q;
@@ -747,6 +755,8 @@ module csr_regfile
         // custom (non RISC-V) cache control
         riscv::CSR_DCACHE: csr_rdata = dcache_q;
         riscv::CSR_ICACHE: csr_rdata = icache_q;
+        riscv::CSR_FENCE_T_PAD: csr_rdata = fence_t_pad_q;
+        riscv::CSR_FENCE_T_CEIL: csr_rdata = fence_t_ceil_q;
         // custom (non RISC-V) accelerator memory consistency mode
         riscv::CSR_ACC_CONS: begin
           if (CVA6Cfg.EnableAccelerator) begin
@@ -955,9 +965,15 @@ module csr_regfile
       mtval2_d = mtval2_q;
     end
 
-    fiom_d     = fiom_q;
-    dcache_d   = dcache_q;
-    icache_d   = icache_q;
+    fence_t_pad_d = fence_t_pad_q;
+    fence_t_ceil_d = {
+      fence_t_ceil_q[63:32],
+      (fence_t_ceil_i > fence_t_ceil_q[31:0]) ? fence_t_ceil_i : fence_t_ceil_q[31:0]
+    };
+
+    fiom_d = fiom_q;
+    dcache_d = dcache_q;
+    icache_d = icache_q;
     acc_cons_d = acc_cons_q;
 
     if (CVA6Cfg.RVH) begin
@@ -1603,6 +1619,8 @@ module csr_regfile
 
         riscv::CSR_DCACHE: dcache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
         riscv::CSR_ICACHE: icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
+        riscv::CSR_FENCE_T_PAD: fence_t_pad_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
+        riscv::CSR_FENCE_T_CEIL: fence_t_ceil_d = {{CVA6Cfg.XLEN - 31{1'b0}}, csr_wdata[32:0]};
         riscv::CSR_ACC_CONS: begin
           if (CVA6Cfg.EnableAccelerator) begin
             acc_cons_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
@@ -2491,6 +2509,8 @@ module csr_regfile
 `endif
   assign dcache_en_o = dcache_q[0];
   assign acc_cons_en_o = CVA6Cfg.EnableAccelerator ? acc_cons_q[0] : 1'b0;
+  assign fence_t_pad_o = fence_t_pad_q[31:0];
+  assign fence_t_src_sel_o = fence_t_ceil_q[32];
 
   // determine if mprv needs to be considered if in debug mode
   assign mprv = (CVA6Cfg.DebugEn && debug_mode_q && !dcsr_q.mprven) ? 1'b0 : mstatus_q.mprv;
@@ -2531,6 +2551,8 @@ module csr_regfile
       icache_q         <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q  <= '0;
       acc_cons_q       <= {{CVA6Cfg.XLEN - 1{1'b0}}, CVA6Cfg.EnableAccelerator};
+      fence_t_pad_q    <= {CVA6Cfg.XLEN{1'b0}};
+      fence_t_ceil_q   <= {CVA6Cfg.XLEN{1'b0}};
       // supervisor mode registers
       if (CVA6Cfg.RVS) begin
         medeleg_q    <= {CVA6Cfg.XLEN{1'b0}};
@@ -2611,6 +2633,8 @@ module csr_regfile
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;
       acc_cons_q      <= acc_cons_d;
+      fence_t_pad_q   <= fence_t_pad_d;
+      fence_t_ceil_q  <= fence_t_ceil_d;
       // supervisor mode registers
       if (CVA6Cfg.RVS) begin
         medeleg_q    <= medeleg_d;

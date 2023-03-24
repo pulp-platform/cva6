@@ -33,6 +33,7 @@ module issue_read_operands
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    input logic rst_uarch_ni,
     // Prevent from issuing - CONTROLLER
     input logic flush_i,
     // Stall inserted by Acc dispatcher - ACC_DISPATCHER
@@ -778,8 +779,8 @@ module issue_read_operands
 
   // FU select, assert the correct valid out signal (in the next cycle)
   // This needs to be like this to make verilator happy. I know its ugly.
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
+  always_ff @(posedge clk_i or negedge rst_uarch_ni) begin
+    if (!rst_uarch_ni) begin
       alu_valid_q    <= '0;
       lsu_valid_q    <= '0;
       mult_valid_q   <= '0;
@@ -1094,8 +1095,8 @@ module issue_read_operands
   // ----------------------
   // Registers (ID <-> EX)
   // ----------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
+  always_ff @(posedge clk_i or negedge rst_uarch_ni) begin
+    if (!rst_uarch_ni) begin
       fu_data_q <= '0;
       if (CVA6Cfg.RVH) begin
         tinst_q <= '0;
