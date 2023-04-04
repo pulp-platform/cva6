@@ -657,7 +657,7 @@ module ariane_testharness #(
 
   // XLEN regular CLINT interrupts
   assign clint_irqs = {
-    {(riscv::XLEN - 15){1'b0}}, // 64 - 15 = 48, designated for platform use
+    {(riscv::XLEN - 16){1'b0}}, // 64 - 16 = 48, designated for platform use
     {4{1'b0}},                  // reserved
     seip,                       // seip
     1'b0,                       // reserved
