@@ -18,7 +18,7 @@ package ariane_soc;
   localparam int unsigned MaxPriority = 7;
 
   // CLIC
-  localparam int unsigned CLICNumInterruptSrc = 256;
+  localparam int unsigned CLICNumInterruptSrc = 64;
   localparam int unsigned CLICIntCtlBits = 8;
 
   localparam NrSlaves = 2; // actually masters, but slaves on the crossbar
