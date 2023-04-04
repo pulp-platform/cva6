@@ -711,6 +711,9 @@ logic                                               core_irq_req, core_irq_ack; 
 logic                                               core_irq_shv;               // selective hardware vectoring
 logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
 logic [7:0]                                         core_irq_level;             // interrupt level
+logic [1:0]                                         core_irq_priv;              // interrupt privilege
+logic                                               core_irq_kill_req;
+logic                                               core_irq_kill_ack;
 
 // Machine and Supervisor External interrupts
 // External interrupts. When not in CLIC mode, they are seen as global
@@ -891,7 +894,9 @@ clic #(
   .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
   .INTCTLBITS(ariane_soc::CLICIntCtlBits),
   .reg_req_t (reg_a32_d32_req_t),
-  .reg_rsp_t (reg_a32_d32_rsp_t)
+  .reg_rsp_t (reg_a32_d32_rsp_t),
+  .SSCLIC    (1),
+  .USCLIC    (0)
 ) i_clic (
   .clk_i(clk),
   .rst_ni(ndmreset_n),
@@ -905,7 +910,10 @@ clic #(
   .irq_ready_i(core_irq_ack),
   .irq_id_o   (core_irq_id),
   .irq_level_o(core_irq_level),
-  .irq_shv_o  (core_irq_shv)
+  .irq_shv_o  (core_irq_shv),
+  .irq_priv_o (core_irq_priv),
+  .irq_kill_req_o (core_irq_kill_req),
+  .irq_kill_ack_i (core_irq_kill_ack)
 );
 
 // ariane
@@ -923,11 +931,11 @@ cva6 #(
     .clic_irq_valid_i     ( core_irq_valid      ),
     .clic_irq_id_i        ( core_irq_id         ),
     .clic_irq_level_i     ( core_irq_level      ),
-    .clic_irq_priv_i      ( riscv::PRIV_LVL_M   ), // TODO: connect with CLIC when implemented
+    .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
     .clic_irq_shv_i       ( core_irq_shv        ),
     .clic_irq_ready_o     ( core_irq_ready      ),
-    .clic_kill_req_i      ( 1'b0                ), // TODO: connect with CLIC when implemented
-    .clic_kill_ack_o      (                     ), // TODO: connect with CLIC when implemented
+    .clic_kill_req_i      ( core_irq_kill_req   ),
+    .clic_kill_ack_o      ( core_irq_kill_ack   ),
     .cvxif_req_o          (                     ),
     .cvxif_resp_i         ( '0                  ),
     .debug_req_i  ( debug_req_irq       ),
