@@ -155,8 +155,10 @@ src :=  corev_apu/tb/axi_adapter.sv                                             
         corev_apu/rv_plic/rtl/prim_subreg.sv                                         \
         corev_apu/rv_plic/rtl/plic_regmap.sv                                         \
         corev_apu/rv_plic/rtl/plic_top.sv                                            \
-        corev_apu/clic/src/clic_reg_pkg.sv                                           \
-        corev_apu/clic/src/clic_reg_top.sv                                           \
+        corev_apu/clic/src/mclic_reg_pkg.sv                                          \
+        corev_apu/clic/src/mclic_reg_top.sv                                          \
+        corev_apu/clic/src/clicint_reg_pkg.sv                                        \
+        corev_apu/clic/src/clicint_reg_top.sv                                        \
         corev_apu/clic/src/clic_reg_adapter.sv                                       \
         corev_apu/clic/src/clic_gateway.sv                                           \
         corev_apu/clic/src/clic_target.sv                                            \
