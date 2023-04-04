@@ -852,6 +852,8 @@ module ariane_testharness #(
     .time_irq_i           ( timer_irq           ),
 `ifdef RVFI_TRACE
     .rvfi_o               ( rvfi                ),
+`else
+    .rvfi_o               (                     ),
 `endif
 // Disable Debug when simulating with Spike
 `ifdef SPIKE_TANDEM
@@ -870,6 +872,8 @@ module ariane_testharness #(
     .clic_kill_ack_o      ( core_irq_kill_ack   ),
     .cvxif_req_o          (                     ),
     .cvxif_resp_i         ( '0                  ),
+    .l15_req_o            (                     ),
+    .l15_rtrn_i           ( '0                  ),
     .axi_req_o            ( axi_ariane_req      ),
     .axi_resp_i           ( axi_ariane_resp     )
   );

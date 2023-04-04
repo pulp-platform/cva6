@@ -927,6 +927,7 @@ cva6 #(
     .irq_i        ( irq                 ),
     .ipi_i        ( ipi                 ),
     .time_irq_i   ( timer_irq           ),
+    .rvfi_o       (                     ),
     // CLIC
     .clic_irq_valid_i     ( core_irq_valid      ),
     .clic_irq_id_i        ( core_irq_id         ),
@@ -938,6 +939,8 @@ cva6 #(
     .clic_kill_ack_o      ( core_irq_kill_ack   ),
     .cvxif_req_o          (                     ),
     .cvxif_resp_i         ( '0                  ),
+    .l15_req_o            (                     ),
+    .l15_rtrn_i           ( '0                  ),
     .debug_req_i  ( debug_req_irq       ),
     .axi_req_o    ( axi_ariane_req      ),
     .axi_resp_i   ( axi_ariane_resp     )
