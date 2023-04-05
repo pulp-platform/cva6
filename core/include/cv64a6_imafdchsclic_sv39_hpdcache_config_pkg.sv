@@ -12,7 +12,7 @@
 //
 // Author: Cesar Fuguet - CEA
 // Date: August, 2023
-// Description: CVA6 configuration package using the HPDcache as cache subsystem
+// Description: CVA6 configuration package using the HPDcache as cache subsystem (CLIC variant)
 
 
 package cva6_config_pkg;
@@ -25,16 +25,16 @@ package cva6_config_pkg;
   localparam CVA6ConfigF8En = 0;
   localparam CVA6ConfigFVecEn = 0;
 
-  localparam CVA6ConfigCvxifEn = 1;
+  localparam CVA6ConfigCvxifEn = 0;
   localparam CVA6ConfigCExtEn = 1;
   localparam CVA6ConfigZcbExtEn = 1;
   localparam CVA6ConfigZcmpExtEn = 0;
   localparam CVA6ConfigAExtEn = 1;
-  localparam CVA6ConfigBExtEn = 1;
+  localparam CVA6ConfigHExtEn = 1;
+  localparam CVA6ConfigBExtEn = 0;
   localparam CVA6ConfigVExtEn = 0;
-  localparam CVA6ConfigHExtEn = 0;
   localparam CVA6ConfigRVZiCond = 1;
-  localparam CVA6ConfigSclicExtEn = 0;
+  localparam CVA6ConfigSclicExtEn = 1;
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 64;
@@ -42,7 +42,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigFetchUserEn = 0;
   localparam CVA6ConfigFetchUserWidth = CVA6ConfigXlen;
   localparam CVA6ConfigDataUserEn = 0;
-  localparam CVA6ConfigDataUserWidth = CVA6ConfigXlen;
+  localparam CVA6ConfigDataUserWidth = 1;
 
   localparam CVA6ConfigIcacheByteSize = 16384;
   localparam CVA6ConfigIcacheSetAssoc = 4;
