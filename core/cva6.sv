@@ -131,6 +131,15 @@ module cva6
     input logic time_irq_i,
     // Debug (async) request - SUBSYSTEM
     input logic debug_req_i,
+    // CLIC interface
+    input logic clic_irq_valid_i,  // CLIC interrupt request
+    input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,  // interrupt source ID
+    input logic [7:0] clic_irq_level_i,  // interrupt level is 8-bit from CLIC spec
+    input riscv::priv_lvl_t clic_irq_priv_i,  // CLIC interrupt privilege level
+    input logic clic_irq_shv_i,  // selective hardware vectoring bit
+    output logic clic_irq_ready_o,  // core side interrupt hanshake (ready)
+    input logic clic_kill_req_i,  // kill request
+    output logic clic_kill_ack_o,  // kill acknowledge
     // Probes to build RVFI, can be left open when not used - RVFI
     output rvfi_probes_t rvfi_probes_o,
     // CVXIF request - SUBSYSTEM
@@ -191,6 +200,7 @@ module cva6
     CVA6Cfg.XFVec,
     CVA6Cfg.CvxifEn,
     CVA6Cfg.ZiCondExtEn,
+    CVA6Cfg.RVSCLIC,
     // Extended
     bit'(RVF),
     bit'(RVD),
@@ -218,6 +228,7 @@ module cva6
     CVA6Cfg.PMPAddrRstVal,
     CVA6Cfg.PMPEntryReadOnly,
     CVA6Cfg.NOCType,
+    CVA6Cfg.CLICNumInterruptSrc,
     CVA6Cfg.NrNonIdempotentRules,
     CVA6Cfg.NonIdempotentAddrBase,
     CVA6Cfg.NonIdempotentLength,
@@ -411,6 +422,10 @@ module cva6
   logic tsr_csr_id;
   logic hu;
   irq_ctrl_t irq_ctrl_csr_id;
+  logic clic_mode;
+  riscv::intstatus_rv_t mintstatus_csr;
+  logic [7:0] mintthresh_csr;
+  logic [7:0] sintthresh_csr;
   logic dcache_en_csr_nbdcache;
   logic csr_write_fflags_commit_cs;
   logic icache_en_csr;
@@ -508,6 +523,12 @@ module cva6
     end
   end
 
+  // ----------------------
+  // CLIC Controller <-> ID
+  // ----------------------
+  logic         clic_irq_req_id;
+  riscv::xlen_t clic_irq_cause_id;
+
   // --------------
   // Frontend
   // --------------
@@ -559,20 +580,23 @@ module cva6
 
       .rvfi_is_compressed_o(rvfi_is_compressed),
 
-      .priv_lvl_i  (priv_lvl),
-      .v_i         (v),
-      .fs_i        (fs),
-      .vfs_i       (vfs),
-      .frm_i       (frm_csr_id_issue_ex),
-      .vs_i        (vs),
-      .irq_i       (irq_i),
-      .irq_ctrl_i  (irq_ctrl_csr_id),
-      .debug_mode_i(debug_mode),
-      .tvm_i       (tvm_csr_id),
-      .tw_i        (tw_csr_id),
-      .vtw_i       (vtw_csr_id),
-      .tsr_i       (tsr_csr_id),
-      .hu_i        (hu)
+      .priv_lvl_i      (priv_lvl),
+      .v_i             (v),
+      .fs_i            (fs),
+      .vfs_i           (vfs),
+      .frm_i           (frm_csr_id_issue_ex),
+      .vs_i            (vs),
+      .irq_i           (irq_i),
+      .irq_ctrl_i      (irq_ctrl_csr_id),
+      .clic_mode_i     (clic_mode),
+      .clic_irq_req_i  (clic_irq_req_id),
+      .clic_irq_cause_i(clic_irq_cause_id),
+      .debug_mode_i    (debug_mode),
+      .tvm_i           (tvm_csr_id),
+      .tw_i            (tw_csr_id),
+      .vtw_i           (vtw_csr_id),
+      .tsr_i           (tsr_csr_id),
+      .hu_i            (hu)
   );
 
   logic [NrWbPorts-1:0][TRANS_ID_BITS-1:0] trans_id_ex_id;
@@ -925,6 +949,12 @@ module cva6
       .fprec_o                 (fprec_csr_ex),
       .vs_o                    (vs),
       .irq_ctrl_o              (irq_ctrl_csr_id),
+      .clic_mode_o             (clic_mode),
+      .mintstatus_o            (mintstatus_csr),
+      .mintthresh_o            (mintthresh_csr),
+      .sintthresh_o            (sintthresh_csr),
+      .clic_irq_shv_i          (clic_irq_shv_i),
+      .clic_irq_ready_o        (clic_irq_ready_o),
       .ld_st_priv_lvl_o        (ld_st_priv_lvl_csr_ex),
       .ld_st_v_o               (ld_st_v_csr_ex),
       .csr_hs_ld_st_inst_i     (csr_hs_ld_st_inst_ex),
@@ -1318,6 +1348,39 @@ module cva6
     assign cvxif_req_o                = cvxif_req;
     assign cvxif_resp                 = cvxif_resp_i;
   end : gen_no_accelerator
+
+  // -------------------
+  // CLIC Controller
+  // -------------------
+  if (CVA6Cfg.RVSCLIC) begin : gen_clic_controller
+    cva6_clic_controller #(
+        .CVA6Cfg(CVA6Cfg)
+    ) i_clic_controller (
+        .clk_i           (clk_i),
+        .rst_ni          (rst_ni),
+        // from CSR file
+        .priv_lvl_i      (priv_lvl),
+        .irq_ctrl_i      (irq_ctrl_csr_id),
+        .mintthresh_i    (mintthresh_csr),
+        .sintthresh_i    (sintthresh_csr),
+        .mintstatus_i    (mintstatus_csr),
+        // from/to CLIC
+        .clic_irq_valid_i(clic_irq_valid_i),
+        .clic_irq_ready_i(clic_irq_ready_o),
+        .clic_irq_id_i   (clic_irq_id_i),
+        .clic_irq_level_i(clic_irq_level_i),
+        .clic_irq_priv_i (clic_irq_priv_i),
+        .clic_kill_req_i (clic_kill_req_i),
+        .clic_kill_ack_o (clic_kill_ack_o),
+        // to ID stage
+        .clic_irq_req_o  (clic_irq_req_id),
+        .clic_irq_cause_o(clic_irq_cause_id)
+    );
+  end else begin : gen_dummy_clic_controller
+    assign clic_kill_ack_o   = 1'b0;
+    assign clic_irq_req_id   = 1'b0;
+    assign clic_irq_cause_id = '0;
+  end
 
   // -------------------
   // Parameter Check

@@ -74,6 +74,8 @@ package config_pkg;
     bit                          CvxifEn;
     // Zicond RISC-V extension
     bit                          ZiCondExtEn;
+    // CLIC extension
+    bit                          RVSCLIC;
     // Single precision FP RISC-V extension
     bit                          RVF;
     // Double precision FP RISC-V extension
@@ -126,6 +128,8 @@ package config_pkg;
     bit [15:0]                   PMPEntryReadOnly;
     // NOC bus type
     noc_type_e                   NOCType;
+    // Number of interrupt signals from the CLIC.
+    int unsigned                 CLICNumInterruptSrc;
     // Number of PMA non idempotent rules
     int unsigned                 NrNonIdempotentRules;
     // PMA NonIdempotent region base address

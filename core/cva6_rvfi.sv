@@ -73,6 +73,7 @@ module cva6_rvfi
     CVA6Cfg.XFVec,
     CVA6Cfg.CvxifEn,
     CVA6Cfg.ZiCondExtEn,
+    CVA6Cfg.RVSCLIC,
     // Extended
     bit'(RVF),
     bit'(RVD),
@@ -100,6 +101,7 @@ module cva6_rvfi
     CVA6Cfg.PMPAddrRstVal,
     CVA6Cfg.PMPEntryReadOnly,
     CVA6Cfg.NOCType,
+    CVA6Cfg.CLICNumInterruptSrc,
     CVA6Cfg.NrNonIdempotentRules,
     CVA6Cfg.NonIdempotentAddrBase,
     CVA6Cfg.NonIdempotentLength,
