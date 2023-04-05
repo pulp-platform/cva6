@@ -59,6 +59,7 @@ package config_pkg;
     bit                          XFVec;
     bit                          CvxifEn;
     bit                          ZiCondExtEn;
+    bit                          RVSCLIC;
     // Calculated
     bit                          RVF;
     bit                          RVD;
@@ -97,6 +98,8 @@ package config_pkg;
     bit [15:0]                   PMPEntryReadOnly;
     /// Set to the bus type in use.
     noc_type_e                   NOCType;
+    /// Number of interrupt signals from the CLIC.
+    int unsigned                 CLICNumInterruptSrc;
     /// Physical Memory Attributes (PMAs)
     /// Number of non idempotent rules.
     int unsigned                 NrNonIdempotentRules;

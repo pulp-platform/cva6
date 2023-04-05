@@ -32,6 +32,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigBExtEn = 1;
   localparam CVA6ConfigVExtEn = 0;
   localparam CVA6ConfigZiCondExtEn = 1;
+  localparam CVA6ConfigSclicExtEn = 0;
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 64;
@@ -100,6 +101,7 @@ package cva6_config_pkg;
       XFVec: bit'(CVA6ConfigFVecEn),
       CvxifEn: bit'(CVA6ConfigCvxifEn),
       ZiCondExtEn: bit'(CVA6ConfigZiCondExtEn),
+      RVSCLIC: bit'(CVA6ConfigSclicExtEn),
       // Extended
       RVF:
       bit'(
@@ -130,6 +132,7 @@ package cva6_config_pkg;
       PMPAddrRstVal: {16{64'h0}},
       PMPEntryReadOnly: 16'd0,
       NOCType: config_pkg::NOC_TYPE_AXI4_ATOP,
+      CLICNumInterruptSrc: unsigned'(256),
       // idempotent region
       NrNonIdempotentRules:
       unsigned'(
