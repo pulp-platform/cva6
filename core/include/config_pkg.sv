@@ -62,6 +62,8 @@ package config_pkg;
     bit                          RVZCB;
     // Zcmp RISC-V extension
     bit                          RVZCMP;
+    // CLIC extension
+    bit                          RVSCLIC;
     // Zicond RISC-V extension
     bit                          RVZiCond;
     // Zicntr RISC-V extension
@@ -130,6 +132,8 @@ package config_pkg;
     bit                          CvxifEn;
     // NOC bus type
     noc_type_e                   NOCType;
+    // Number of interrupt signals from the CLIC.
+    int unsigned                 CLICNumInterruptSrc;
     // AXI address width
     int unsigned                 AxiAddrWidth;
     // AXI data width
