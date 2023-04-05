@@ -34,6 +34,10 @@ module decoder
     input exception_t ex_i,  // if an exception occured in if
     input logic [1:0] irq_i,  // external interrupt
     input irq_ctrl_t irq_ctrl_i,  // interrupt control and status information from CSRs
+    // from CLIC Controller
+    input logic clic_mode_i,
+    input logic clic_irq_req_i,
+    input riscv::xlen_t clic_irq_cause_i,
     // From CSR
     input riscv::priv_lvl_t priv_lvl_i,  // current privilege level
     input logic debug_mode_i,  // we are in debug mode
@@ -1387,7 +1391,8 @@ module decoder
         // However, if bit i in mideleg is set, interrupts are considered to be globally enabled if the hart’s current privilege
         // mode equals the delegated privilege mode (S or U) and that mode’s interrupt enable bit
         // (SIE or UIE in mstatus) is set, or if the current privilege mode is less than the delegated privilege mode.
-        if (irq_ctrl_i.mideleg[interrupt_cause[$clog2(riscv::XLEN)-1:0]]) begin
+        // In CLIC mode, xideleg ceases to have effect.
+        if (irq_ctrl_i.mideleg[interrupt_cause[$clog2(riscv::XLEN)-1:0]] && !clic_mode_i) begin
           if ((CVA6Cfg.RVS && irq_ctrl_i.sie && priv_lvl_i == riscv::PRIV_LVL_S) || (CVA6Cfg.RVU && priv_lvl_i == riscv::PRIV_LVL_U)) begin
             instruction_o.ex.valid = 1'b1;
             instruction_o.ex.cause = interrupt_cause;
