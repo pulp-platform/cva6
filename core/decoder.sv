@@ -56,6 +56,12 @@ module decoder
     input logic [1:0] irq_i,
     // Interrupt control status - CSR_REGFILE
     input irq_ctrl_t irq_ctrl_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic clic_mode_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic clic_irq_req_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_i,
     // Current privilege level - CSR_REGFILE
     input riscv::priv_lvl_t priv_lvl_i,
     // Current virtualization mode - CSR_REGFILE
@@ -1602,57 +1608,63 @@ module decoder
       // we have three interrupt sources: external interrupts, software interrupts, timer interrupts (order of precedence)
       // for two privilege levels: Supervisor and Machine Mode
       // Virtual Supervisor Timer Interrupt
-      if (CVA6Cfg.RVH) begin
-        if (irq_ctrl_i.mie[riscv::IRQ_VS_TIMER] && irq_ctrl_i.mip[riscv::IRQ_VS_TIMER]) begin
-          interrupt_cause = INTERRUPTS.VS_TIMER;
+      if (CVA6Cfg.RVSCLIC && clic_mode_i) begin
+        if (clic_irq_req_i) begin
+          interrupt_cause = clic_irq_cause_i;
         end
-        // Virtual Supervisor Software Interrupt
-        if (irq_ctrl_i.mie[riscv::IRQ_VS_SOFT] && irq_ctrl_i.mip[riscv::IRQ_VS_SOFT]) begin
-          interrupt_cause = INTERRUPTS.VS_SW;
+      end else begin
+        if (CVA6Cfg.RVH) begin
+          if (irq_ctrl_i.mie[riscv::IRQ_VS_TIMER] && irq_ctrl_i.mip[riscv::IRQ_VS_TIMER]) begin
+            interrupt_cause = INTERRUPTS.VS_TIMER;
+          end
+          // Virtual Supervisor Software Interrupt
+          if (irq_ctrl_i.mie[riscv::IRQ_VS_SOFT] && irq_ctrl_i.mip[riscv::IRQ_VS_SOFT]) begin
+            interrupt_cause = INTERRUPTS.VS_SW;
+          end
+          // Virtual Supervisor External Interrupt
+          if (irq_ctrl_i.mie[riscv::IRQ_VS_EXT] && (irq_ctrl_i.mip[riscv::IRQ_VS_EXT])) begin
+            interrupt_cause = INTERRUPTS.VS_EXT;
+          end
+          // Hypervisor Guest External Interrupts
+          if (irq_ctrl_i.mie[riscv::IRQ_HS_EXT] && irq_ctrl_i.mip[riscv::IRQ_HS_EXT]) begin
+            interrupt_cause = INTERRUPTS.HS_EXT;
+          end
         end
-        // Virtual Supervisor External Interrupt
-        if (irq_ctrl_i.mie[riscv::IRQ_VS_EXT] && (irq_ctrl_i.mip[riscv::IRQ_VS_EXT])) begin
-          interrupt_cause = INTERRUPTS.VS_EXT;
+        if (CVA6Cfg.RVS) begin
+          // Supervisor Timer Interrupt
+          if (irq_ctrl_i.mie[riscv::IRQ_S_TIMER] && irq_ctrl_i.mip[riscv::IRQ_S_TIMER]) begin
+            interrupt_cause = INTERRUPTS.S_TIMER;
+          end
+          // Supervisor Software Interrupt
+          if (irq_ctrl_i.mie[riscv::IRQ_S_SOFT] && irq_ctrl_i.mip[riscv::IRQ_S_SOFT]) begin
+            interrupt_cause = INTERRUPTS.S_SW;
+          end
+          // Supervisor External Interrupt
+          // The logical-OR of the software-writable bit and the signal from the external interrupt controller is
+          // used to generate external interrupts to the supervisor
+          if (irq_ctrl_i.mie[riscv::IRQ_S_EXT] && (irq_ctrl_i.mip[riscv::IRQ_S_EXT] | irq_i[ariane_pkg::SupervisorIrq])) begin
+            interrupt_cause = INTERRUPTS.S_EXT;
+          end
         end
-        // Hypervisor Guest External Interrupts
-        if (irq_ctrl_i.mie[riscv::IRQ_HS_EXT] && irq_ctrl_i.mip[riscv::IRQ_HS_EXT]) begin
-          interrupt_cause = INTERRUPTS.HS_EXT;
+        // Machine Timer Interrupt
+        if (irq_ctrl_i.mip[riscv::IRQ_M_TIMER] && irq_ctrl_i.mie[riscv::IRQ_M_TIMER]) begin
+          interrupt_cause = INTERRUPTS.M_TIMER;
+        end
+        // Machine Mode Software Interrupt
+        if (irq_ctrl_i.mip[riscv::IRQ_M_SOFT] && irq_ctrl_i.mie[riscv::IRQ_M_SOFT]) begin
+          interrupt_cause = INTERRUPTS.M_SW;
+        end
+        // Machine Mode External Interrupt
+        if (irq_ctrl_i.mip[riscv::IRQ_M_EXT] && irq_ctrl_i.mie[riscv::IRQ_M_EXT]) begin
+          interrupt_cause = INTERRUPTS.M_EXT;
         end
       end
-      if (CVA6Cfg.RVS) begin
-        // Supervisor Timer Interrupt
-        if (irq_ctrl_i.mie[riscv::IRQ_S_TIMER] && irq_ctrl_i.mip[riscv::IRQ_S_TIMER]) begin
-          interrupt_cause = INTERRUPTS.S_TIMER;
-        end
-        // Supervisor Software Interrupt
-        if (irq_ctrl_i.mie[riscv::IRQ_S_SOFT] && irq_ctrl_i.mip[riscv::IRQ_S_SOFT]) begin
-          interrupt_cause = INTERRUPTS.S_SW;
-        end
-        // Supervisor External Interrupt
-        // The logical-OR of the software-writable bit and the signal from the external interrupt controller is
-        // used to generate external interrupts to the supervisor
-        if (irq_ctrl_i.mie[riscv::IRQ_S_EXT] && (irq_ctrl_i.mip[riscv::IRQ_S_EXT] | irq_i[ariane_pkg::SupervisorIrq])) begin
-          interrupt_cause = INTERRUPTS.S_EXT;
-        end
-      end
-      // Machine Timer Interrupt
-      if (irq_ctrl_i.mip[riscv::IRQ_M_TIMER] && irq_ctrl_i.mie[riscv::IRQ_M_TIMER]) begin
-        interrupt_cause = INTERRUPTS.M_TIMER;
-      end
-      // Machine Mode Software Interrupt
-      if (irq_ctrl_i.mip[riscv::IRQ_M_SOFT] && irq_ctrl_i.mie[riscv::IRQ_M_SOFT]) begin
-        interrupt_cause = INTERRUPTS.M_SW;
-      end
-      // Machine Mode External Interrupt
-      if (irq_ctrl_i.mip[riscv::IRQ_M_EXT] && irq_ctrl_i.mie[riscv::IRQ_M_EXT]) begin
-        interrupt_cause = INTERRUPTS.M_EXT;
-      end
-
       if (interrupt_cause[CVA6Cfg.XLEN-1] && irq_ctrl_i.global_enable) begin
         // However, if bit i in mideleg is set, interrupts are considered to be globally enabled if the hart’s current privilege
         // mode equals the delegated privilege mode (S or U) and that mode’s interrupt enable bit
         // (SIE or UIE in mstatus) is set, or if the current privilege mode is less than the delegated privilege mode.
-        if (irq_ctrl_i.mideleg[interrupt_cause[$clog2(CVA6Cfg.XLEN)-1:0]]) begin
+        // In CLIC mode, xideleg ceases to have effect.
+        if (irq_ctrl_i.mideleg[interrupt_cause[$clog2(CVA6Cfg.XLEN)-1:0]] && !clic_mode_i) begin
           if (CVA6Cfg.RVH) begin : hyp_int_gen
             if (v_i && irq_ctrl_i.hideleg[interrupt_cause[$clog2(CVA6Cfg.XLEN)-1:0]]) begin
               if ((irq_ctrl_i.sie && priv_lvl_i == riscv::PRIV_LVL_S) || priv_lvl_i == riscv::PRIV_LVL_U) begin
