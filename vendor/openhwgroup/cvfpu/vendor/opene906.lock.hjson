@@ -8,7 +8,7 @@
 {
   upstream:
   {
-    url: https://github.com/pulp-platform/cvfpu
-    rev: f231041c610f270ffc03cbdac38739ddb6426572
+    url: https://github.com/T-head-Semi/opene906
+    rev: d45f0634d6a3638f39984899b0adb0b69726646e
   }
 }

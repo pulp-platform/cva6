@@ -25,6 +25,7 @@ package fpnew_pkg;
   // | FP16       | IEEE binary16    | 16 bit | 5        | 10
   // | FP8        | binary8          |  8 bit | 5        | 2
   // | FP16ALT    | binary16alt      | 16 bit | 8        | 7
+  // | FP8ALT     | binary8alt       |  8 bit | 4        | 3
   // *NOTE:* Add new formats only at the end of the enumeration for backwards compatibilty!
 
   // Encoding for a format
@@ -33,7 +34,7 @@ package fpnew_pkg;
     int unsigned man_bits;
   } fp_encoding_t;
 
-  localparam int unsigned NUM_FP_FORMATS = 5; // change me to add formats
+  localparam int unsigned NUM_FP_FORMATS = 6; // change me to add formats
   localparam int unsigned FP_FORMAT_BITS = $clog2(NUM_FP_FORMATS);
 
   // FP formats
@@ -42,7 +43,8 @@ package fpnew_pkg;
     FP64    = 'd1,
     FP16    = 'd2,
     FP8     = 'd3,
-    FP16ALT = 'd4
+    FP16ALT = 'd4,
+    FP8ALT  = 'd5
     // add new formats here
   } fp_format_e;
 
@@ -52,14 +54,18 @@ package fpnew_pkg;
     '{11, 52}, // IEEE binary64 (double)
     '{5,  10}, // IEEE binary16 (half)
     '{5,  2},  // custom binary8
-    '{8,  7}   // custom binary16alt
+    '{8,  7},  // custom binary16alt
+    '{4,  3}   // custom binary8alt
     // add new formats here
   };
 
   typedef logic [0:NUM_FP_FORMATS-1]       fmt_logic_t;    // Logic indexed by FP format (for masks)
   typedef logic [0:NUM_FP_FORMATS-1][31:0] fmt_unsigned_t; // Unsigned indexed by FP format
 
-  localparam fmt_logic_t CPK_FORMATS = 5'b11000; // FP32 and FP64 can provide CPK only
+  localparam fmt_logic_t CPK_FORMATS  = 6'b110000; // FP32 and FP64 can provide CPK only
+  // FP32, FP64 cannot be provided for DOTP
+  // Small hack: FP32 only enabled for wide enough wrapper input widths for vsum.s instruction
+  localparam fmt_logic_t DOTP_FORMATS = 6'b101111;
 
   // ---------
   // INT TYPES
@@ -107,16 +113,17 @@ package fpnew_pkg;
   // --------------
   // FP OPERATIONS
   // --------------
-  localparam int unsigned NUM_OPGROUPS = 4;
+  localparam int unsigned NUM_OPGROUPS = 5;
 
   // Each FP operation belongs to an operation group
-  typedef enum logic [1:0] {
-    ADDMUL, DIVSQRT, NONCOMP, CONV
+  typedef enum logic [2:0] {
+    ADDMUL, DIVSQRT, NONCOMP, CONV, DOTP
   } opgroup_e;
 
-  localparam int unsigned OP_BITS = 4;
+  localparam int unsigned OP_BITS = 5;
 
   typedef enum logic [OP_BITS-1:0] {
+    SDOTP, EXVSUM, VSUM,         // DOTP operation group
     FMADD, FNMSUB, ADD, MUL,     // ADDMUL operation group
     DIV, SQRT,                   // DIVSQRT operation group
     SGNJ, MINMAX, CMP, CLASSIFY, // NONCOMP operation group
@@ -134,6 +141,7 @@ package fpnew_pkg;
     RUP = 3'b011,
     RMM = 3'b100,
     ROD = 3'b101,  // This mode is not defined in RISC-V FP-SPEC
+    RSR = 3'b110,  // This mode is not defined in RISC-V FP-SPEC
     DYN = 3'b111
   } roundmode_e;
 
@@ -145,6 +153,12 @@ package fpnew_pkg;
     logic UF; // Underflow
     logic NX; // Inexact
   } status_t;
+
+  // CSR encoded alternate fp formats
+  typedef struct packed {
+    logic src; // Source format selection
+    logic dst; // Destination format selection
+  } fmt_mode_t;
 
   // Information about a floating point value
   typedef struct packed {
@@ -211,7 +225,7 @@ package fpnew_pkg;
     Width:         64,
     EnableVectors: 1'b0,
     EnableNanBox:  1'b1,
-    FpFmtMask:     5'b11000,
+    FpFmtMask:     6'b110000,
     IntFmtMask:    4'b0011
   };
 
@@ -219,7 +233,7 @@ package fpnew_pkg;
     Width:         64,
     EnableVectors: 1'b1,
     EnableNanBox:  1'b1,
-    FpFmtMask:     5'b11000,
+    FpFmtMask:     6'b110000,
     IntFmtMask:    4'b0010
   };
 
@@ -227,7 +241,7 @@ package fpnew_pkg;
     Width:         32,
     EnableVectors: 1'b0,
     EnableNanBox:  1'b1,
-    FpFmtMask:     5'b10000,
+    FpFmtMask:     6'b100000,
     IntFmtMask:    4'b0010
   };
 
@@ -235,7 +249,7 @@ package fpnew_pkg;
     Width:         64,
     EnableVectors: 1'b1,
     EnableNanBox:  1'b1,
-    FpFmtMask:     5'b11111,
+    FpFmtMask:     6'b111111,
     IntFmtMask:    4'b1111
   };
 
@@ -243,7 +257,7 @@ package fpnew_pkg;
     Width:         32,
     EnableVectors: 1'b1,
     EnableNanBox:  1'b1,
-    FpFmtMask:     5'b10111,
+    FpFmtMask:     6'b101111,
     IntFmtMask:    4'b1110
   };
 
@@ -251,7 +265,7 @@ package fpnew_pkg;
     Width:         32,
     EnableVectors: 1'b1,
     EnableNanBox:  1'b1,
-    FpFmtMask:     5'b10001,
+    FpFmtMask:     6'b100010,
     IntFmtMask:    4'b0110
   };
 
@@ -268,7 +282,8 @@ package fpnew_pkg;
     UnitTypes:  '{'{default: PARALLEL}, // ADDMUL
                   '{default: MERGED},   // DIVSQRT
                   '{default: PARALLEL}, // NONCOMP
-                  '{default: MERGED}},  // CONV
+                  '{default: MERGED},   // CONV
+                  '{default: DISABLED}},  // DOTP
     PipeConfig: BEFORE
   };
 
@@ -277,8 +292,28 @@ package fpnew_pkg;
     UnitTypes:  '{'{default: PARALLEL}, // ADDMUL
                   '{default: DISABLED}, // DIVSQRT
                   '{default: PARALLEL}, // NONCOMP
-                  '{default: MERGED}},  // CONV
+                  '{default: MERGED},   // CONV
+                  '{default: MERGED}},  // DOTP
     PipeConfig: BEFORE
+  };
+
+  // Stochastic rounding only supported by DOTP operation group block
+  typedef struct packed {
+    logic        EnableRSR;             // Enable RSR adding an LFSR in the SDOTP rounding modules
+    int unsigned RsrPrecision;          // Number of bits considered for the stochastic rounding decision
+    int unsigned LfsrInternalPrecision; // LFSR internal bitwidth setting the pseudorandom number periodicity
+  } rsr_impl_t;
+
+  localparam rsr_impl_t DEFAULT_NO_RSR = '{
+    EnableRSR:           1'b0,
+    RsrPrecision:          12,
+    LfsrInternalPrecision: 32
+  };
+
+  localparam rsr_impl_t DEFAULT_RSR = '{
+    EnableRSR:           1'b1,
+    RsrPrecision:          12,
+    LfsrInternalPrecision: 32
   };
 
   // -----------------------
@@ -311,6 +346,15 @@ package fpnew_pkg;
     for (int unsigned i = 0; i < NUM_FP_FORMATS; i++)
       if (cfg[i])
         res = unsigned'(maximum(res, fp_width(fp_format_e'(i))));
+    return res;
+  endfunction
+
+
+  function automatic int unsigned max_dotp_dst_fp_width(fmt_logic_t cfg);
+    automatic int unsigned res = 0;
+    for (int unsigned i = 0; i < NUM_FP_FORMATS; i++)
+      if (cfg[i])
+        res = unsigned'(maximum(res, fp_format_e'(i)));
     return res;
   endfunction
 
@@ -371,6 +415,7 @@ package fpnew_pkg;
       DIV, SQRT:                   return DIVSQRT;
       SGNJ, MINMAX, CMP, CLASSIFY: return NONCOMP;
       F2F, F2I, I2F, CPKAB, CPKCD: return CONV;
+      SDOTP, EXVSUM, VSUM:         return DOTP;
       default:                     return NONCOMP;
     endcase
   endfunction
@@ -382,6 +427,7 @@ package fpnew_pkg;
       DIVSQRT: return 2;
       NONCOMP: return 2;
       CONV:    return 3; // vectorial casts use 3 operands
+      DOTP:    return 3; // splitting into 5 operands done in wrapper
       default: return 0;
     endcase
   endfunction
@@ -434,6 +480,41 @@ package fpnew_pkg;
       // Mask active formats with the number of lanes for that format, CPK at least twice
       res[fmt] = cfg[fmt] && ((width / fp_width(fp_format_e'(fmt)) > lane_no) ||
                              (CPK_FORMATS[fmt] && (lane_no < 2)));
+    return res;
+  endfunction
+
+  //Returns how many DOTP lanes should be generated
+  function automatic int num_dotp_lanes(int unsigned width,
+                                        fmt_logic_t cfg);
+    return (cfg[FP16] || cfg[FP16ALT]) && (cfg[FP32] || cfg[FP8] || cfg[FP8ALT]) ?
+               (width / (2*min_fp_width(cfg))) : 0;
+  endfunction
+
+  // Returns a mask of active FP formats that are currenlty supported for DOTP operations
+  function automatic fmt_logic_t get_dotp_lane_formats(int unsigned width,
+                                                       fmt_logic_t cfg,
+                                                       int unsigned lane_no);
+    automatic fmt_logic_t res;
+    automatic fmt_logic_t mask;
+    int unsigned nr_16to32bit_lanes = (cfg[FP32]) ? (width / 32) : 0;
+    if (lane_no < nr_16to32bit_lanes)
+      mask = 6'b101111;  //lane should be 16-bit -> 32-bit
+    else
+      mask = 6'b001111;  //lane should be  8-bit -> 16-bit
+    res = cfg & mask;
+    return res;
+  endfunction
+
+  // Returns the dotp dest FP format string
+  function automatic fmt_logic_t get_dotp_dst_fmts(fmt_logic_t cfg, fmt_logic_t src_cfg);
+    automatic fmt_logic_t res;
+    res = { cfg[FP32] && (src_cfg[FP16] || src_cfg[FP16ALT] || src_cfg[FP8] || src_cfg[FP8ALT]),
+            1'b0,                                               // FP64 not supported as dstFmt
+            cfg[FP16] && (src_cfg[FP8] || src_cfg[FP8ALT]),
+            cfg[FP8],                                           // FP8 supported as dstFmt for VSUM
+            cfg[FP16ALT] && (src_cfg[FP8] || src_cfg[FP8ALT]),
+            cfg[FP8ALT]                                         // FP8ALT supported as dstFmt for VSUM
+    };
     return res;
   endfunction
 
