@@ -29,6 +29,7 @@
         "ips_list.yml",
         "src_files.yml",
         "tb",
+        "vendor",
     ]
 }
 
