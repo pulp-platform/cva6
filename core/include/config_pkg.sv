@@ -56,6 +56,8 @@ package config_pkg;
     bit                          XF16ALT;
     // Non standard 8bits Floating Point
     bit                          XF8;
+    // TO_BE_COMPLETED
+    bit                          XF8ALT;
     // Atomic RISC-V extension
     bit                          RVA;
     // Bit manipulation RISC-V extension

@@ -8,7 +8,7 @@
 {
   upstream:
   {
-    url: https://github.com/openhwgroup/cvfpu
-    rev: 3116391bf66660f806b45e212b9949c528b4e270
+    url: https://github.com/pulp-platform/cvfpu
+    rev: f231041c610f270ffc03cbdac38739ddb6426572
   }
 }
