@@ -62,35 +62,28 @@ module fpu_wrap
         Width: unsigned'(riscv::XLEN),  // parameterized using XLEN
         EnableVectors: CVA6Cfg.XFVec,
         EnableNanBox: 1'b1,
-        FpFmtMask: {CVA6Cfg.RVF, CVA6Cfg.RVD, CVA6Cfg.XF16, CVA6Cfg.XF8, CVA6Cfg.XF16ALT},
-        IntFmtMask: {
-          CVA6Cfg.XFVec && CVA6Cfg.XF8,
-          CVA6Cfg.XFVec && (CVA6Cfg.XF16 || CVA6Cfg.XF16ALT),
-          1'b1,
-          1'b1
-        }
+      FpFmtMask:     {CVA6Cfg.RVF, CVA6Cfg.RVD, CVA6Cfg.XF16, CVA6Cfg.XF8, CVA6Cfg.XF16ALT, CVA6Cfg.XF8ALT},
+      IntFmtMask:    {CVA6Cfg.XFVec && CVA6Cfg.XF8, CVA6Cfg.XFVec && (CVA6Cfg.XF16 || CVA6Cfg.XF16ALT), 1'b1, 1'b1}
     };
 
     // Implementation (number of registers etc)
     localparam fpnew_pkg::fpu_implementation_t FPU_IMPLEMENTATION = '{
-        PipeRegs: '{  // FP32, FP64, FP16, FP8, FP16alt
-            '{
-                unsigned'(LAT_COMP_FP32),
-                unsigned'(LAT_COMP_FP64),
-                unsigned'(LAT_COMP_FP16),
-                unsigned'(LAT_COMP_FP8),
-                unsigned'(LAT_COMP_FP16ALT)
-            },  // ADDMUL
+      PipeRegs:  '{// FP32, FP64, FP16, FP8, FP16alt, FP8alt
+                 '{unsigned'(LAT_COMP_FP32   ),
+                   unsigned'(LAT_COMP_FP64   ),
+                   unsigned'(LAT_COMP_FP16   ),
+                   unsigned'(LAT_COMP_FP8    ),
+                   unsigned'(LAT_COMP_FP16ALT),
+                   unsigned'(LAT_COMP_FP8ALT)}, // ADDMUL
             '{default: unsigned'(LAT_DIVSQRT)},  // DIVSQRT
             '{default: unsigned'(LAT_NONCOMP)},  // NONCOMP
-            '{default: unsigned'(LAT_CONV)}
-        },  // CONV
-        UnitTypes: '{
-            '{default: fpnew_pkg::PARALLEL},  // ADDMUL
+                 '{default: unsigned'(LAT_CONV)},    // CONV
+                 '{default: unsigned'(LAT_SDOTP)}},  // DOTP
+      UnitTypes: '{'{default: fpnew_pkg::PARALLEL}, // ADDMUL
             '{default: fpnew_pkg::MERGED},  // DIVSQRT
             '{default: fpnew_pkg::PARALLEL},  // NONCOMP
-            '{default: fpnew_pkg::MERGED}
-        },  // CONV
+                   '{default: fpnew_pkg::MERGED},   // CONV
+                   '{default: fpnew_pkg::DISABLED}},  // DOTP
         PipeConfig: fpnew_pkg::DISTRIBUTED
     };
 
@@ -533,18 +526,19 @@ module fpu_wrap
     ) i_fpnew_bulk (
         .clk_i,
         .rst_ni,
-        .operands_i    (fpu_operands),
-        .rnd_mode_i    (fpnew_pkg::roundmode_e'(fpu_rm)),
-        .op_i          (fpnew_pkg::operation_e'(fpu_op)),
-        .op_mod_i      (fpu_op_mod),
-        .src_fmt_i     (fpnew_pkg::fp_format_e'(fpu_srcfmt)),
-        .dst_fmt_i     (fpnew_pkg::fp_format_e'(fpu_dstfmt)),
-        .int_fmt_i     (fpnew_pkg::int_format_e'(fpu_ifmt)),
-        .vectorial_op_i(fpu_vec_op),
-        .tag_i         (fpu_tag),
-        .simd_mask_i   (1'b1),
-        .in_valid_i    (fpu_in_valid),
-        .in_ready_o    (fpu_in_ready),
+      .hart_id_i      ( '0                                  ),
+      .operands_i     ( fpu_operands                        ),
+      .rnd_mode_i     ( fpnew_pkg::roundmode_e'(fpu_rm)     ),
+      .op_i           ( fpnew_pkg::operation_e'(fpu_op)     ),
+      .op_mod_i       ( fpu_op_mod                          ),
+      .src_fmt_i      ( fpnew_pkg::fp_format_e'(fpu_srcfmt) ),
+      .dst_fmt_i      ( fpnew_pkg::fp_format_e'(fpu_dstfmt) ),
+      .int_fmt_i      ( fpnew_pkg::int_format_e'(fpu_ifmt)  ),
+      .vectorial_op_i ( fpu_vec_op                          ),
+      .tag_i          ( fpu_tag                             ),
+      .simd_mask_i    ( '1                                  ),
+      .in_valid_i     ( fpu_in_valid                        ),
+      .in_ready_o     ( fpu_in_ready                        ),
         .flush_i,
         .result_o,
         .status_o      (fpu_status),

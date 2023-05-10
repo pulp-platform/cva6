@@ -62,9 +62,11 @@ package ariane_pkg;
   localparam int unsigned LAT_COMP_FP16 = 'd1;
   localparam int unsigned LAT_COMP_FP16ALT = 'd1;
   localparam int unsigned LAT_COMP_FP8 = 'd1;
+    localparam int unsigned LAT_COMP_FP8ALT  = 'd1;
   localparam int unsigned LAT_DIVSQRT = 'd2;
   localparam int unsigned LAT_NONCOMP = 'd1;
   localparam int unsigned LAT_CONV = 'd2;
+    localparam int unsigned LAT_SDOTP        = 'd2;
 
   localparam riscv::xlen_t OPENHWGROUP_MVENDORID = {{riscv::XLEN - 32{1'b0}}, 32'h0602};
   localparam riscv::xlen_t ARIANE_MARCHID = {{riscv::XLEN - 32{1'b0}}, 32'd3};
