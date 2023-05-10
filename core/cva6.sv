@@ -185,6 +185,7 @@ module cva6
     CVA6Cfg.XF16,
     CVA6Cfg.XF16ALT,
     CVA6Cfg.XF8,
+    CVA6Cfg.XF8ALT,
     CVA6Cfg.RVA,
     CVA6Cfg.RVV,
     CVA6Cfg.RVC,

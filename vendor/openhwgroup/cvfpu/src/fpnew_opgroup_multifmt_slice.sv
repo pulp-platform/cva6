@@ -22,9 +22,11 @@ module fpnew_opgroup_multifmt_slice #(
   parameter fpnew_pkg::fmt_logic_t   FpFmtConfig   = '1,
   parameter fpnew_pkg::ifmt_logic_t  IntFmtConfig  = '1,
   parameter logic                    EnableVectors = 1'b1,
+  parameter logic                    PulpDivsqrt   = 1'b1,
   parameter int unsigned             NumPipeRegs   = 0,
   parameter fpnew_pkg::pipe_config_t PipeConfig    = fpnew_pkg::BEFORE,
   parameter type                     TagType       = logic,
+  parameter fpnew_pkg::rsr_impl_t    StochasticRndImplementation = fpnew_pkg::DEFAULT_NO_RSR,
   // Do not change
   localparam int unsigned NUM_OPERANDS = fpnew_pkg::num_operands(OpGroup),
   localparam int unsigned NUM_FORMATS  = fpnew_pkg::NUM_FP_FORMATS,
@@ -33,6 +35,7 @@ module fpnew_opgroup_multifmt_slice #(
 ) (
   input logic                                     clk_i,
   input logic                                     rst_ni,
+  input logic [31:0]                              hart_id_i,
   // Input signals
   input logic [NUM_OPERANDS-1:0][Width-1:0]       operands_i,
   input logic [NUM_FORMATS-1:0][NUM_OPERANDS-1:0] is_boxed_i,
@@ -61,14 +64,30 @@ module fpnew_opgroup_multifmt_slice #(
   output logic                                    busy_o
 );
 
+  if ((OpGroup == fpnew_pkg::DIVSQRT) && !PulpDivsqrt &&
+      !((FpFmtConfig[0] == 1) && (FpFmtConfig[1:NUM_FORMATS-1] == '0))) begin
+    $fatal(1, "T-Head-based DivSqrt unit supported only in FP32-only configurations. \
+Set PulpDivsqrt to 1 not to use the PULP DivSqrt unit \
+or set Features.FpFmtMask to support only FP32");
+  end
+
+  if ((OpGroup == fpnew_pkg::DOTP) &&
+      !(FpFmtConfig[0] && (FpFmtConfig[2] || FpFmtConfig[4]) && (FpFmtConfig[3] || FpFmtConfig[5]))) begin
+    $fatal(1, "SDOTP only supported on 32b and 64b CVFPU instances in which at \
+least one 16b and one 8b format are supported. \
+The SDOTP operations compute on 8b inputs producing 16b outputs \
+or on 16b inputs producing 32b outputs");
+  end
+
   localparam int unsigned MAX_FP_WIDTH   = fpnew_pkg::max_fp_width(FpFmtConfig);
   localparam int unsigned MAX_INT_WIDTH  = fpnew_pkg::max_int_width(IntFmtConfig);
   localparam int unsigned NUM_LANES = fpnew_pkg::max_num_lanes(Width, FpFmtConfig, 1'b1);
+  localparam int unsigned NUM_DOTP_LANES = fpnew_pkg::num_dotp_lanes(Width, FpFmtConfig);
   localparam int unsigned NUM_INT_FORMATS = fpnew_pkg::NUM_INT_FORMATS;
   // We will send the format information along with the data
   localparam int unsigned FMT_BITS =
       fpnew_pkg::maximum($clog2(NUM_FORMATS), $clog2(NUM_INT_FORMATS));
-  localparam int unsigned AUX_BITS = FMT_BITS + 2; // also add vectorial and integer flags
+  localparam int unsigned AUX_BITS = FMT_BITS + 4; // also add vectorial and integer flags
 
   logic [NUM_LANES-1:0] lane_in_ready, lane_out_valid, divsqrt_done, divsqrt_ready; // Handshake signals for the lanes
   logic                 vectorial_op;
@@ -78,12 +97,12 @@ module fpnew_opgroup_multifmt_slice #(
   // additional flags for CONV
   logic       dst_fmt_is_int, dst_is_cpk;
   logic [1:0] dst_vec_op; // info for vectorial results (for packing)
-  logic [2:0] target_aux_d, target_aux_q;
+  logic [1:0] target_aux_d, target_aux_q;
   logic       is_up_cast, is_down_cast;
 
-  logic [NUM_FORMATS-1:0][Width-1:0]     fmt_slice_result;
-  logic [NUM_INT_FORMATS-1:0][Width-1:0] ifmt_slice_result;
-  logic [Width-1:0]                      conv_slice_result;
+  logic [NUM_FORMATS-1:0][Width-1:0]      fmt_slice_result;
+  logic [NUM_INT_FORMATS-1:0][Width-1:0]  ifmt_slice_result;
+  logic [NUM_FORMATS-1:0][3:0][Width-1:0] fmt_conv_cpk_result;
 
 
   logic [Width-1:0] conv_target_d, conv_target_q; // vectorial conversions update a register
@@ -95,16 +114,20 @@ module fpnew_opgroup_multifmt_slice #(
   logic   [NUM_LANES-1:0][AUX_BITS-1:0] lane_aux; // only the first one is actually used
   logic   [NUM_LANES-1:0]               lane_busy; // dito
 
-  logic                result_is_vector;
+  logic                result_is_vector, result_is_vsum, op_is_vsum;
   logic [FMT_BITS-1:0] result_fmt;
   logic                result_fmt_is_int, result_is_cpk;
   logic [1:0]          result_vec_op; // info for vectorial results (for packing)
 
   logic simd_synch_rdy, simd_synch_done;
+  fpnew_pkg::roundmode_e rnd_mode;
 
   // -----------
   // Input Side
   // -----------
+  // RSR supported only on SDOTP module
+  assign rnd_mode = (rnd_mode_i == fpnew_pkg::RSR) ? fpnew_pkg::RNE : rnd_mode_i;
+
   assign in_ready_o   = lane_in_ready[0]; // Upstream ready is given by first lane
   assign vectorial_op = vectorial_op_i & EnableVectors; // only do vectorial stuff if enabled
 
@@ -112,17 +135,18 @@ module fpnew_opgroup_multifmt_slice #(
   assign dst_fmt_is_int = (OpGroup == fpnew_pkg::CONV) & (op_i == fpnew_pkg::F2I);
   assign dst_is_cpk     = (OpGroup == fpnew_pkg::CONV) & (op_i == fpnew_pkg::CPKAB ||
                                                           op_i == fpnew_pkg::CPKCD);
-  assign dst_vec_op     = (OpGroup == fpnew_pkg::CONV) & {(op_i == fpnew_pkg::CPKCD), op_mod_i};
+  assign dst_vec_op     = {2{(OpGroup == fpnew_pkg::CONV)}} & {(op_i == fpnew_pkg::CPKCD), op_mod_i};
 
   assign is_up_cast   = (fpnew_pkg::fp_width(dst_fmt_i) > fpnew_pkg::fp_width(src_fmt_i));
   assign is_down_cast = (fpnew_pkg::fp_width(dst_fmt_i) < fpnew_pkg::fp_width(src_fmt_i));
+  assign op_is_vsum   = op_i == fpnew_pkg::VSUM ? 1'b1 : 1'b0;
 
   // The destination format is the int format for F2I casts
   assign dst_fmt    = dst_fmt_is_int ? int_fmt_i : dst_fmt_i;
 
   // The data sent along consists of the vectorial flag and format bits
-  assign aux_data      = {dst_fmt_is_int, vectorial_op, dst_fmt};
-  assign target_aux_d  = {dst_vec_op, dst_is_cpk};
+  assign aux_data      = {dst_is_cpk, dst_fmt_is_int, vectorial_op, dst_fmt, op_is_vsum};
+  assign target_aux_d  = dst_vec_op;
 
   // CONV passes one operand for assembly after the unit: opC for cpk, opB for others
   if (OpGroup == fpnew_pkg::CONV) begin : conv_target
@@ -159,22 +183,33 @@ module fpnew_opgroup_multifmt_slice #(
         fpnew_pkg::get_conv_lane_int_formats(Width, FpFmtConfig, IntFmtConfig, LANE);
     localparam int unsigned CONV_WIDTH = fpnew_pkg::max_fp_width(CONV_FORMATS);
 
+    // Dotp-specific parameters
+    localparam fpnew_pkg::fmt_logic_t DOTP_FORMATS =
+        fpnew_pkg::get_dotp_lane_formats(Width, FpFmtConfig, LANE);
+    localparam int unsigned DOTP_MAX_FMT_WIDTH = fpnew_pkg::max_fp_width(DOTP_FORMATS);
+    localparam int unsigned DOTP_WIDTH = fpnew_pkg::minimum(2*DOTP_MAX_FMT_WIDTH, Width);
+
     // Lane parameters from Opgroup
-    localparam fpnew_pkg::fmt_logic_t LANE_FORMATS = (OpGroup == fpnew_pkg::CONV)
-                                                     ? CONV_FORMATS : ACTIVE_FORMATS;
-    localparam int unsigned LANE_WIDTH = (OpGroup == fpnew_pkg::CONV) ? CONV_WIDTH : MAX_WIDTH;
+    localparam fpnew_pkg::fmt_logic_t LANE_FORMATS = (OpGroup == fpnew_pkg::CONV) ? CONV_FORMATS :
+                                                     (OpGroup == fpnew_pkg::DOTP) ? DOTP_FORMATS :
+                                                                                    ACTIVE_FORMATS;
+    localparam int unsigned LANE_WIDTH = (OpGroup == fpnew_pkg::CONV) ? CONV_WIDTH :
+                                         (OpGroup == fpnew_pkg::DOTP) ? DOTP_WIDTH : MAX_WIDTH;
 
     logic [LANE_WIDTH-1:0] local_result; // lane-local results
 
     // Generate instances only if needed, lane 0 always generated
-    if ((lane == 0) || EnableVectors) begin : active_lane
+    if ((lane == 0) || (EnableVectors & !(OpGroup == fpnew_pkg::DOTP && (lane >= NUM_DOTP_LANES)))) begin : active_lane
       logic in_valid, out_valid, out_ready; // lane-local handshake
 
       logic [NUM_OPERANDS-1:0][LANE_WIDTH-1:0] local_operands;  // lane-local oprands
       logic [LANE_WIDTH-1:0]                   op_result;       // lane-local results
       fpnew_pkg::status_t                      op_status;
 
-      assign in_valid = in_valid_i & ((lane == 0) | vectorial_op); // upper lanes only for vectors
+      logic lane_is_used;
+      assign lane_is_used = (ACTIVE_FORMATS[src_fmt_i] & ~is_up_cast) |
+                            (ACTIVE_FORMATS[dst_fmt_i] &  is_up_cast) | (OpGroup == fpnew_pkg::DIVSQRT);
+      assign in_valid = in_valid_i & ((lane == 0) | vectorial_op) & lane_is_used; // upper lanes only for vectors
 
       // Slice out the operands for this lane, upper bits are ignored in the unit
       always_comb begin : prepare_input
@@ -182,8 +217,15 @@ module fpnew_opgroup_multifmt_slice #(
           local_operands[i] = operands_i[i] >> LANE*fpnew_pkg::fp_width(src_fmt_i);
         end
 
-        // override operand 0 for some conversions
-        if (OpGroup == fpnew_pkg::CONV) begin
+        if (OpGroup == fpnew_pkg::DOTP) begin
+          for (int unsigned i = 0; i < NUM_OPERANDS; i++) begin
+            if (i == 2) begin
+              local_operands[i] = operands_i[i] >> LANE*fpnew_pkg::fp_width(dst_fmt_i); // expanded format the width of dst_fmt
+            end else begin
+              local_operands[i] = operands_i[i] >> LANE*2*fpnew_pkg::fp_width(src_fmt_i); // twice the width of src_fmt
+            end
+          end
+        end else if (OpGroup == fpnew_pkg::CONV) begin // override operand 0 for some conversions
           // Source is an integer
           if (op_i == fpnew_pkg::I2F) begin
             local_operands[0] = operands_i[0] >> LANE*fpnew_pkg::int_width(int_fmt_i);
@@ -196,7 +238,7 @@ module fpnew_opgroup_multifmt_slice #(
           // CPK
           end else if (dst_is_cpk) begin
             if (lane == 1) begin
-              local_operands[0] = operands_i[1][LANE_WIDTH-1:0]; // using opB as second argument
+              local_operands[0] = operands_i[1];
             end
           end
         end
@@ -214,6 +256,42 @@ module fpnew_opgroup_multifmt_slice #(
           .clk_i,
           .rst_ni,
           .operands_i      ( local_operands  ),
+          .is_boxed_i,
+          .rnd_mode_i      ( rnd_mode        ),
+          .op_i,
+          .op_mod_i,
+          .src_fmt_i,
+          .dst_fmt_i,
+          .tag_i,
+          .mask_i          ( simd_mask_i[lane]   ),
+          .aux_i           ( aux_data            ),
+          .in_valid_i      ( in_valid            ),
+          .in_ready_o      ( lane_in_ready[lane] ),
+          .flush_i,
+          .result_o        ( op_result           ),
+          .status_o        ( op_status           ),
+          .extension_bit_o ( lane_ext_bit[lane]  ),
+          .tag_o           ( lane_tags[lane]     ),
+          .mask_o          ( lane_masks[lane]    ),
+          .aux_o           ( lane_aux[lane]      ),
+          .out_valid_o     ( out_valid           ),
+          .out_ready_i     ( out_ready           ),
+          .busy_o          ( lane_busy[lane]     )
+        );
+      end else if (OpGroup == fpnew_pkg::DOTP) begin : lane_instance
+        fpnew_sdotp_multi_wrapper #(
+          .LaneWidth   ( LANE_WIDTH           ),
+          .FpFmtConfig ( LANE_FORMATS         ), // fp64 and fp32 not supported
+          .NumPipeRegs ( NumPipeRegs          ),
+          .PipeConfig  ( PipeConfig           ),
+          .TagType     ( TagType              ),
+          .AuxType     ( logic [AUX_BITS-1:0] ),
+          .StochasticRndImplementation ( StochasticRndImplementation )
+        ) i_fpnew_sdotp_multi_wrapper (
+          .clk_i,
+          .rst_ni,
+          .sdotp_hart_id_i ( {hart_id_i, 2'b00} + lane ),
+          .operands_i      ( local_operands[2:0] ), // 3 operands
           .is_boxed_i,
           .rnd_mode_i,
           .op_i,
@@ -236,42 +314,73 @@ module fpnew_opgroup_multifmt_slice #(
           .out_ready_i     ( out_ready           ),
           .busy_o          ( lane_busy[lane]     )
         );
-
       end else if (OpGroup == fpnew_pkg::DIVSQRT) begin : lane_instance
-        fpnew_divsqrt_multi #(
-          .FpFmtConfig ( LANE_FORMATS         ),
-          .NumPipeRegs ( NumPipeRegs          ),
-          .PipeConfig  ( PipeConfig           ),
-          .TagType     ( TagType              ),
-          .AuxType     ( logic [AUX_BITS-1:0] )
-        ) i_fpnew_divsqrt_multi (
-          .clk_i,
-          .rst_ni,
-          .operands_i      ( local_operands[1:0] ), // 2 operands
-          .is_boxed_i      ( is_boxed_2op        ), // 2 operands
-          .rnd_mode_i,
-          .op_i,
-          .dst_fmt_i,
-          .tag_i,
-          .mask_i          ( simd_mask_i[lane]   ),
-          .aux_i           ( aux_data            ),
-          .in_valid_i      ( in_valid            ),
-          .in_ready_o      ( lane_in_ready[lane] ),
-          .divsqrt_done_o   ( divsqrt_done[lane] ),
-          .simd_synch_done_i( simd_synch_done    ),
-          .divsqrt_ready_o  ( divsqrt_ready[lane]),
-          .simd_synch_rdy_i( simd_synch_rdy    ),
-          .flush_i,
-          .result_o        ( op_result           ),
-          .status_o        ( op_status           ),
-          .extension_bit_o ( lane_ext_bit[lane]  ),
-          .tag_o           ( lane_tags[lane]     ),
-          .mask_o          ( lane_masks[lane]    ),
-          .aux_o           ( lane_aux[lane]      ),
-          .out_valid_o     ( out_valid           ),
-          .out_ready_i     ( out_ready           ),
-          .busy_o          ( lane_busy[lane]     )
-        );
+        if (!PulpDivsqrt) begin : gen_th_32_divsqrt
+          // The T-head-based DivSqrt unit is supported only in FP32-only configurations
+          fpnew_divsqrt_th_32 #(
+            .NumPipeRegs ( NumPipeRegs          ),
+            .PipeConfig  ( PipeConfig           ),
+            .TagType     ( TagType              ),
+            .AuxType     ( logic [AUX_BITS-1:0] )
+          ) i_fpnew_divsqrt_multi_th (
+            .clk_i,
+            .rst_ni,
+            .operands_i      ( local_operands[1:0] ), // 2 operands
+            .is_boxed_i      ( is_boxed_2op        ), // 2 operands
+            .rnd_mode_i      ( rnd_mode            ),
+            .op_i,
+            .tag_i,
+            .mask_i          ( simd_mask_i[lane]   ),
+            .aux_i           ( aux_data            ),
+            .in_valid_i      ( in_valid            ),
+            .in_ready_o      ( lane_in_ready[lane] ),
+            .flush_i,
+            .result_o        ( op_result           ),
+            .status_o        ( op_status           ),
+            .extension_bit_o ( lane_ext_bit[lane]  ),
+            .tag_o           ( lane_tags[lane]     ),
+            .mask_o          ( lane_masks[lane]    ),
+            .aux_o           ( lane_aux[lane]      ),
+            .out_valid_o     ( out_valid           ),
+            .out_ready_i     ( out_ready           ),
+            .busy_o          ( lane_busy[lane]     )
+          );
+        end else begin : gen_pulp_divsqrt
+          fpnew_divsqrt_multi #(
+            .FpFmtConfig ( LANE_FORMATS         ),
+            .NumPipeRegs ( NumPipeRegs          ),
+            .PipeConfig  ( PipeConfig           ),
+            .TagType     ( TagType              ),
+            .AuxType     ( logic [AUX_BITS-1:0] )
+          ) i_fpnew_divsqrt_multi (
+            .clk_i,
+            .rst_ni,
+            .operands_i       ( local_operands[1:0] ), // 2 operands
+            .is_boxed_i       ( is_boxed_2op        ), // 2 operands
+            .rnd_mode_i       ( rnd_mode            ),
+            .op_i,
+            .dst_fmt_i,
+            .tag_i,
+            .mask_i           ( simd_mask_i[lane]   ),
+            .aux_i            ( aux_data            ),
+            .in_valid_i       ( in_valid            ),
+            .in_ready_o       ( lane_in_ready[lane] ),
+            .divsqrt_done_o   ( divsqrt_done[lane]  ),
+            .simd_synch_done_i( simd_synch_done     ),
+            .divsqrt_ready_o  ( divsqrt_ready[lane] ),
+            .simd_synch_rdy_i ( simd_synch_rdy      ),
+            .flush_i,
+            .result_o         ( op_result           ),
+            .status_o         ( op_status           ),
+            .extension_bit_o  ( lane_ext_bit[lane]  ),
+            .tag_o            ( lane_tags[lane]     ),
+            .mask_o           ( lane_masks[lane]    ),
+            .aux_o            ( lane_aux[lane]      ),
+            .out_valid_o      ( out_valid           ),
+            .out_ready_i      ( out_ready           ),
+            .busy_o           ( lane_busy[lane]     )
+          );
+        end
       end else if (OpGroup == fpnew_pkg::NONCOMP) begin : lane_instance
 
       end else if (OpGroup == fpnew_pkg::CONV) begin : lane_instance
@@ -287,7 +396,7 @@ module fpnew_opgroup_multifmt_slice #(
           .rst_ni,
           .operands_i      ( local_operands[0]   ),
           .is_boxed_i      ( is_boxed_1op        ),
-          .rnd_mode_i,
+          .rnd_mode_i      ( rnd_mode            ),
           .op_i,
           .op_mod_i,
           .src_fmt_i,
@@ -316,14 +425,18 @@ module fpnew_opgroup_multifmt_slice #(
       assign lane_out_valid[lane] = out_valid & ((lane == 0) | result_is_vector);
 
       // Properly NaN-box or sign-extend the slice result if not in use
-      assign local_result      = lane_out_valid[lane] ? op_result : '{default: lane_ext_bit[0]};
+      assign local_result      = lane_out_valid[lane] ? op_result : {(LANE_WIDTH){lane_ext_bit[0]}};
       assign lane_status[lane] = lane_out_valid[lane] ? op_status : '0;
 
     // Otherwise generate constant sign-extension
     end else begin : inactive_lane
       assign lane_out_valid[lane] = 1'b0; // unused lane
       assign lane_in_ready[lane]  = 1'b0; // unused lane
-      assign local_result         = '{default: lane_ext_bit[0]}; // sign-extend/nan box
+      assign lane_aux[lane]       = 1'b0; // unused lane
+      assign lane_masks[lane]     = 1'b1; // unused lane
+      assign lane_tags[lane]      = 1'b0; // unused lane
+      assign lane_ext_bit[lane]   = 1'b1; // NaN-box unused lane
+      assign local_result         = {(LANE_WIDTH){lane_ext_bit[0]}}; // sign-extend/nan box
       assign lane_status[lane]    = '0;
       assign lane_busy[lane]      = 1'b0;
     end
@@ -331,17 +444,38 @@ module fpnew_opgroup_multifmt_slice #(
     // Generate result packing depending on float format
     for (genvar fmt = 0; fmt < NUM_FORMATS; fmt++) begin : pack_fp_result
       // Set up some constants
-      localparam int unsigned FP_WIDTH = fpnew_pkg::fp_width(fpnew_pkg::fp_format_e'(fmt));
-      // only for active formats within the lane
-      if (ACTIVE_FORMATS[fmt]) begin
-        assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
-            local_result[FP_WIDTH-1:0];
-      end else if ((LANE+1)*FP_WIDTH <= Width) begin
-        assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
-            '{default: lane_ext_bit[LANE]};
-      end else if (LANE*FP_WIDTH < Width) begin
-        assign fmt_slice_result[fmt][Width-1:LANE*FP_WIDTH] =
-            '{default: lane_ext_bit[LANE]};
+      if (OpGroup == fpnew_pkg::DOTP) begin
+        localparam int unsigned INACTIVE_MASK = fpnew_pkg::fp_width(fpnew_pkg::fp_format_e'(LANE_FORMATS[fmt]));
+        localparam int unsigned FP_WIDTH      = fpnew_pkg::minimum(INACTIVE_MASK, fpnew_pkg::fp_width(fpnew_pkg::fp_format_e'(fmt)));
+        // only for active formats within the lane
+        if (ACTIVE_FORMATS[fmt] && (LANE_WIDTH>0)) begin
+          if (FP_WIDTH==INACTIVE_MASK) begin
+            assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
+                local_result[FP_WIDTH-1:0];
+          end else begin
+            assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
+                local_result[FP_WIDTH-1:0];
+          end
+        end else if ((LANE+1)*FP_WIDTH <= Width) begin
+          assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
+              '{default: lane_ext_bit[LANE]};
+        end else if (LANE*FP_WIDTH < Width) begin
+          assign fmt_slice_result[fmt][Width-1:LANE*FP_WIDTH] =
+              '{default: lane_ext_bit[LANE]};
+        end
+      end else begin
+        localparam int unsigned FP_WIDTH = fpnew_pkg::fp_width(fpnew_pkg::fp_format_e'(fmt));
+        // only for active formats within the lane
+        if (ACTIVE_FORMATS[fmt]) begin
+          assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
+              local_result[FP_WIDTH-1:0];
+        end else if ((LANE+1)*FP_WIDTH <= Width) begin
+          assign fmt_slice_result[fmt][(LANE+1)*FP_WIDTH-1:LANE*FP_WIDTH] =
+              '{default: lane_ext_bit[LANE]};
+        end else if (LANE*FP_WIDTH < Width) begin
+          assign fmt_slice_result[fmt][Width-1:LANE*FP_WIDTH] =
+              '{default: lane_ext_bit[LANE]};
+        end
       end
     end
 
@@ -381,7 +515,7 @@ module fpnew_opgroup_multifmt_slice #(
   if (OpGroup == fpnew_pkg::CONV) begin : target_regs
     // Bypass pipeline signals, index i holds signal after i register stages
     logic [0:NumPipeRegs][Width-1:0] byp_pipe_target_q;
-    logic [0:NumPipeRegs][2:0]       byp_pipe_aux_q;
+    logic [0:NumPipeRegs][1:0]       byp_pipe_aux_q;
     logic [0:NumPipeRegs]            byp_pipe_valid_q;
     // Ready signal is combinatorial for all stages
     logic [0:NumPipeRegs] byp_pipe_ready;
@@ -412,23 +546,51 @@ module fpnew_opgroup_multifmt_slice #(
     assign conv_target_q = byp_pipe_target_q[NumPipeRegs];
 
     // decode the aux data
-    assign {result_vec_op, result_is_cpk} = byp_pipe_aux_q[NumPipeRegs];
+    assign result_vec_op = byp_pipe_aux_q[NumPipeRegs];
+
+    for (genvar fmt = 0; fmt < NUM_FORMATS; fmt++) begin : pack_conv_cpk_result
+      localparam int unsigned FP_WIDTH = fpnew_pkg::fp_width(fpnew_pkg::fp_format_e'(fmt));
+
+      for (genvar op_idx = 0; op_idx < 4; op_idx++) begin : pack_conv_cpk_result_operands
+        localparam int unsigned UPPER_LEFT  = 2*(op_idx+1)*FP_WIDTH;
+        localparam int unsigned LOWER_LEFT  = 2*op_idx*FP_WIDTH;
+        localparam int unsigned UPPER_RIGHT = 2*FP_WIDTH;
+
+        if(UPPER_LEFT <= Width) begin
+          always_comb begin : pack_conv_cpk
+            fmt_conv_cpk_result[fmt][op_idx] = conv_target_q; // rd pre-load
+            fmt_conv_cpk_result[fmt][op_idx][UPPER_LEFT-1:LOWER_LEFT] = fmt_slice_result[fmt][UPPER_RIGHT-1:0*FP_WIDTH]; // vfcpk
+          end
+        end else begin
+          assign fmt_conv_cpk_result[fmt][op_idx] = '0;
+        end
+      end
+    end
+
   end else begin : no_conv
-    assign {result_vec_op, result_is_cpk} = '0;
+    assign result_vec_op = '0;
+    assign fmt_conv_cpk_result = '0;
   end
 
-  // Synch lanes if there is more than one
-  assign simd_synch_rdy  = EnableVectors ? &divsqrt_ready : divsqrt_ready[0];
-  assign simd_synch_done = EnableVectors ? &divsqrt_done  : divsqrt_done[0];
+  if (PulpDivsqrt && (OpGroup == fpnew_pkg::DIVSQRT)) begin
+    // Synch lanes if there is more than one
+    assign simd_synch_rdy  = EnableVectors ? &divsqrt_ready : divsqrt_ready[0];
+    assign simd_synch_done = EnableVectors ? &divsqrt_done  : divsqrt_done[0];
+  end else begin
+    // Unused (alternative divider only supported for scalar FP32 divsqrt)
+    assign simd_synch_rdy  = '0;
+    assign simd_synch_done = '0;
+  end
 
   // ------------
   // Output Side
   // ------------
-  assign {result_fmt_is_int, result_is_vector, result_fmt} = lane_aux[0];
+  assign {result_is_cpk, result_fmt_is_int, result_is_vector, result_fmt, result_is_vsum} = lane_aux[0];
 
-  assign result_o = result_fmt_is_int
-                    ? ifmt_slice_result[result_fmt]
-                    : fmt_slice_result[result_fmt];
+  assign result_o = result_fmt_is_int ? ifmt_slice_result[result_fmt]                   :
+                    result_is_cpk     ? fmt_conv_cpk_result[result_fmt][result_vec_op]  :
+                    (result_is_vsum  && (Width == 64)) ? {{(Width/2){1'b1}}, {fmt_slice_result[result_fmt][Width/2-1:0]}} :
+                                        fmt_slice_result[result_fmt];
 
   assign extension_bit_o = lane_ext_bit[0]; // don't care about upper ones
   assign tag_o           = lane_tags[0];    // don't care about upper ones
