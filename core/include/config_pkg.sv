@@ -86,6 +86,8 @@ package config_pkg;
     bit                          XF16ALT;
     // Non standard 8bits Floating Point extension
     bit                          XF8;
+    // TO_BE_COMPLETED
+    bit                          XF8ALT;
     // Non standard Vector Floating Point extension
     bit                          XFVec;
     // Perf counters
@@ -252,6 +254,7 @@ package config_pkg;
     bit          XF16;
     bit          XF16ALT;
     bit          XF8;
+    bit          XF8ALT;
     bit          RVA;
     bit          RVB;
     bit          ZKN;
@@ -277,6 +280,7 @@ package config_pkg;
     bit          XF16Vec;
     bit          XF16ALTVec;
     bit          XF8Vec;
+    bit          XF8ALTVec;
     int unsigned NrRgprPorts;
     int unsigned NrWbPorts;
     bit          EnableAccelerator;
