@@ -39,7 +39,8 @@
 	url = https://github.com/openhwgroup/core-v-verif
 [submodule "core/cvfpu"]
 	path = core/cvfpu
-	url = https://github.com/openhwgroup/cvfpu.git
+	url = https://github.com/pulp-platform/cvfpu.git
+	branch = pulp-v0.2.3
 [submodule "core/cache_subsystem/hpdcache"]
 	path = core/cache_subsystem/hpdcache
 	url = https://github.com/paulsc96/cv-hpdcache.git
