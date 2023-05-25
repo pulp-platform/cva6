@@ -88,6 +88,8 @@ module load_unit import ariane_pkg::*; #(
     assign ex_o.tval2 = ex_i.tval2;
     assign ex_o.tinst = ex_i.tinst;
     assign ex_o.gva   = ex_i.gva;
+    assign ex_o.priv_lvl  = ex_i.priv_lvl;
+    assign ex_o.trap_to_v = ex_i.trap_to_v;
 
     // Check that NI operations follow the necessary conditions
     logic paddr_ni;

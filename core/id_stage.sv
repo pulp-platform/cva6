@@ -41,6 +41,8 @@ module id_stage #(
     // from CLIC Controller
     input  logic                          clic_mode_i,
     input  logic                          clic_irq_req_i,
+    input  riscv::priv_lvl_t              clic_irq_priv_i,
+    input  logic                          clic_irq_v_i,
     input  riscv::xlen_t                  clic_irq_cause_i,
     input  logic                          debug_mode_i,        // we are in debug mode
     input  logic                          tvm_i,
@@ -89,6 +91,8 @@ module id_stage #(
         .irq_ctrl_i,
         .clic_mode_i             ( clic_mode_i                     ),
         .clic_irq_req_i          ( clic_irq_req_i                  ),
+        .clic_irq_priv_i         ( clic_irq_priv_i                 ),
+        .clic_irq_v_i            ( clic_irq_v_i                    ),
         .clic_irq_cause_i        ( clic_irq_cause_i                ),
         .irq_i,
         .pc_i                    ( fetch_entry_i.address           ),

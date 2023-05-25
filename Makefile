@@ -157,6 +157,10 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/clic/src/mclic_reg_top.sv                                          \
         corev_apu/clic/src/clicint_reg_pkg.sv                                        \
         corev_apu/clic/src/clicint_reg_top.sv                                        \
+        corev_apu/clic/src/clicintv_reg_pkg.sv                                       \
+        corev_apu/clic/src/clicintv_reg_top.sv                                       \
+        corev_apu/clic/src/clicvs_reg_pkg.sv                                         \
+        corev_apu/clic/src/clicvs_reg_top.sv                                         \
         corev_apu/clic/src/clic_reg_adapter.sv                                       \
         corev_apu/clic/src/clic_gateway.sv                                           \
         corev_apu/clic/src/clic_target.sv                                            \

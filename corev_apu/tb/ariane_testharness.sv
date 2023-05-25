@@ -754,6 +754,8 @@ module ariane_testharness #(
     logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
     logic [7:0]                                         core_irq_level;             // interrupt level
     logic [1:0]                                         core_irq_priv;              // interrupt privilege
+    logic                                               core_irq_v;
+    logic [5:0]                                         core_irq_vsid;
     logic                                               core_irq_kill_req;
     logic                                               core_irq_kill_ack;
     // Machine and Supervisor External interrupts
@@ -812,7 +814,10 @@ module ariane_testharness #(
       .reg_req_t  ( reg_req_t                       ),
       .reg_rsp_t  ( reg_rsp_t                       ),
       .SSCLIC     ( 1                               ),
-      .USCLIC     ( 0                               )
+      .USCLIC     ( 0                               ),
+      .VSCLIC     ( 1                               ),
+      .VSPRIO     ( 1                               ),
+      .N_VSCTXTS  ( 2                               )
     ) i_clic (
       .clk_i          ( clk_i            ),
       .rst_ni         ( ndmreset_n       ),
@@ -828,6 +833,8 @@ module ariane_testharness #(
       .irq_level_o    (core_irq_level    ),
       .irq_shv_o      (core_irq_shv      ),
       .irq_priv_o     (core_irq_priv     ),
+      .irq_v_o        (core_irq_v        ),
+      .irq_vsid_o     (core_irq_vsid     ),
       .irq_kill_req_o (core_irq_kill_req ),
       .irq_kill_ack_i (core_irq_kill_ack )
     );
@@ -861,6 +868,8 @@ module ariane_testharness #(
       .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
       .clic_irq_shv_i       ( core_irq_shv        ),
       .clic_irq_ready_o     ( core_irq_ready      ),
+      .clic_irq_v_i         ( core_irq_v          ),
+      .clic_irq_vsid_i      ( core_irq_vsid       ),
       .clic_kill_req_i      ( core_irq_kill_req   ),
       .clic_kill_ack_o      ( core_irq_kill_ack   ),
       .cvxif_req_o          ( cvxif_req           ),

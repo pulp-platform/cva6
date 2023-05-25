@@ -301,11 +301,17 @@ package ariane_pkg;
                                                     | riscv::HSTATUS_SPV
                                                     | riscv::HSTATUS_SPVP
                                                     | riscv::HSTATUS_HU
+                                                    | riscv::HSTATUS_VGEIN
                                                     | riscv::HSTATUS_VTVM
                                                     | riscv::HSTATUS_VTW
                                                     | riscv::HSTATUS_VTSR;
 
     localparam logic [63:0] ENVCFG_WRITE_MASK       = riscv::MENVCFG_FIOM;
+
+    localparam logic [63:0] HIE_MASK                = riscv::MIP_VSSIP
+                                                    | riscv::MIP_VSTIP
+                                                    | riscv::MIP_VSEIP
+                                                    | riscv::MIP_SGEIP;
 
     // hypervisor delegable interrupts
     localparam logic [riscv::XLEN-1:0] HS_DELEG_INTERRUPTS = riscv::MIP_VSSIP
@@ -356,6 +362,8 @@ package ariane_pkg;
          riscv::xlen_t       tinst;  // transformed instruction information
          logic        gva;          // signals when a guest virtual address is written to tval
          logic        valid;
+         riscv::priv_lvl_t priv_lvl; // In CLIC mode, keeps information about incoming interrupt target privilege level
+         logic             trap_to_v;
     } exception_t;
 
     typedef enum logic [2:0] {
@@ -445,6 +453,9 @@ package ariane_pkg;
       riscv::xlen_t       mideleg;
       riscv::xlen_t       hideleg;
       logic        sie;
+      logic        sgeie;
+      riscv::xlen_t hgeie;
+      logic [5:0]  vgein; // Current VS external interrupt ID
       logic        global_enable;
     } irq_ctrl_t;
 

@@ -87,6 +87,7 @@ module csr_regfile import ariane_pkg::*; #(
     output riscv::intstatus_rv_t  mintstatus_o,
     output logic [7:0]            mintthresh_o,
     output logic [7:0]            sintthresh_o,
+    output logic [7:0]            vsintthresh_o,
     output logic                  clic_irq_ready_o,
     output logic                  set_debug_pc_o,
     // Virtualization Support
@@ -189,6 +190,7 @@ module csr_regfile import ariane_pkg::*; #(
     riscv::xlen_t vsepc_q,     vsepc_d;
     riscv::xlen_t vscause_q,   vscause_d;
     riscv::xlen_t vstval_q,    vstval_d;
+    riscv::intthresh_rv_t vsintthresh_q, vsintthresh_d;
 
     // Environment Configuration Registers
     riscv::envcfg_rv_t menvcfg_q, menvcfg_d;
@@ -236,12 +238,14 @@ module csr_regfile import ariane_pkg::*; #(
         assign mintstatus_o = mintstatus_q;
         assign mintthresh_o = mintthresh_q.th;
         assign sintthresh_o = sintthresh_q.th;
+        assign vsintthresh_o = vsintthresh_q.th;
         assign clic_irq_ready_o = clic_mode_o & ex_i.valid & ex_i.cause[riscv::XLEN-1];
     end else begin : gen_dummy_clic_csr_signals
         assign clic_mode_o  = 1'b0;
         assign mintstatus_o = '0;
         assign mintthresh_o = '0;
         assign sintthresh_o = '0;
+        assign vsintthresh_o = '0;
         assign clic_irq_ready_o = 1'b0;
     end
 
@@ -304,6 +308,14 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_VSIP: begin
                     if(~ariane_pkg::RVH) read_access_exception = 1'b1;           
                     else csr_rdata = (mip_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1;
+                end
+                riscv::CSR_VSINTTHRESH: begin
+                    if (ariane_pkg::RVH && ariane_pkg::RVSCLIC) begin
+                        // vsintthresh reads 0 from CLINT mode
+                        csr_rdata = clic_mode_o ? {{riscv::XLEN-8{1'b0}}, vsintthresh_q} : '0;
+                    end else begin
+                        read_access_exception = 1'b1;
+                    end
                 end
                 riscv::CSR_VSTVEC: begin
                     if(~ariane_pkg::RVH) read_access_exception = 1'b1;           
@@ -407,7 +419,7 @@ module csr_regfile import ariane_pkg::*; #(
                 end
                 riscv::CSR_HIE: begin
                     if(~ariane_pkg::RVH) read_access_exception = 1'b1;           
-                    else csr_rdata = mie_q & HS_DELEG_INTERRUPTS;
+                    else csr_rdata = mie_q & HIE_MASK;
                 end
                 riscv::CSR_HIP: begin
                     if(~ariane_pkg::RVH) read_access_exception = 1'b1;           
@@ -431,7 +443,7 @@ module csr_regfile import ariane_pkg::*; #(
                 end
                 riscv::CSR_HGEIE: begin
                     if(~ariane_pkg::RVH) read_access_exception = 1'b1;           
-                    else csr_rdata = '0;
+                    else csr_rdata = {hgeie_q[riscv::XLEN-1:1], 1'b0};
                 end
                 riscv::CSR_HGEIP: begin
                     if(~ariane_pkg::RVH) read_access_exception = 1'b1;           
@@ -728,6 +740,8 @@ module csr_regfile import ariane_pkg::*; #(
             vscause_d           = vscause_q;
             vstval_d            = vstval_q;
             vsatp_d             = vsatp_q;
+            vsintthresh_d       = vsintthresh_q;
+
         end
 
         sepc_d                  = sepc_q;
@@ -855,6 +869,16 @@ module csr_regfile import ariane_pkg::*; #(
                         // only the virtual supervisor software interrupt is write-able, iff delegated
                         mask = riscv::MIP_VSSIP & hideleg_q;
                         mip_d = (mip_q & ~mask) | ((csr_wdata << 1) & mask);
+                    end
+                end
+                riscv::CSR_VSINTTHRESH: begin
+                    if (ariane_pkg::RVH && ariane_pkg::RVSCLIC) begin
+                        // Writes are legal but ignored in CLINT mode
+                        if (clic_mode_o) begin
+                            vsintthresh_d.th = csr_wdata[7:0];
+                        end
+                    end else begin
+                        update_access_exception = 1'b1;
                     end
                 end
                 riscv::CSR_VSTVEC: begin
@@ -1033,7 +1057,7 @@ module csr_regfile import ariane_pkg::*; #(
                     if(~ariane_pkg::RVH) begin 
                         update_access_exception = 1'b1;
                     end else begin 
-                        mask = HS_DELEG_INTERRUPTS;
+                        mask = HIE_MASK;
                         mie_d = (mie_q & ~mask) | (csr_wdata & mask);
                     end
                 end
@@ -1078,6 +1102,8 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_HGEIE: begin
                     if(~ariane_pkg::RVH) begin 
                         update_access_exception = 1'b1;
+                    end else begin
+                        hgeie_d = {csr_wdata[riscv::XLEN-1:1], 1'b0};
                     end
                 end
                 riscv::CSR_HGATP: begin
@@ -1432,6 +1458,9 @@ module csr_regfile import ariane_pkg::*; #(
                     trap_to_priv_lvl = (priv_lvl_o == riscv::PRIV_LVL_M) ? riscv::PRIV_LVL_M : riscv::PRIV_LVL_S;
                     // trap to VS only if it is  the currently active mode
                     trap_to_v   = v_q;
+                end else if (ex_i.cause[riscv::XLEN-1] && clic_mode_o) begin
+                    trap_to_priv_lvl = ex_i.priv_lvl;
+                    trap_to_v        = ex_i.trap_to_v;
                 end
             end else begin
                 // In CLIC mode, xideleg ceases to have effect.
@@ -1440,6 +1469,8 @@ module csr_regfile import ariane_pkg::*; #(
                     // traps never transition from a more-privileged mode to a less privileged mode
                     // so if we are already in M mode, stay there
                     trap_to_priv_lvl = (priv_lvl_o == riscv::PRIV_LVL_M) ? riscv::PRIV_LVL_M : riscv::PRIV_LVL_S;
+                end else if (ex_i.cause[riscv::XLEN-1] && clic_mode_o) begin
+                    trap_to_priv_lvl = ex_i.priv_lvl;
                 end
             end
 
@@ -1452,7 +1483,7 @@ module csr_regfile import ariane_pkg::*; #(
                     // this can either be user or supervisor mode
                     vsstatus_d.spp  = priv_lvl_q[0];
                     // set cause
-                    vscause_d       = ex_i.cause[riscv::XLEN-1] ? {ex_i.cause[riscv::XLEN-1:2],2'b01} : ex_i.cause;
+                    vscause_d       = (~clic_mode_o & ex_i.cause[riscv::XLEN-1]) ? {ex_i.cause[riscv::XLEN-1:2],2'b01} : ex_i.cause;
                     // set epc
                     vsepc_d         = {{riscv::XLEN-riscv::VLEN{pc_i[riscv::VLEN-1]}},pc_i};
                     // set vstval
@@ -1819,6 +1850,9 @@ module csr_regfile import ariane_pkg::*; #(
     assign irq_ctrl_o.mie = mie_q;
     assign irq_ctrl_o.mip = mip_q;
     assign irq_ctrl_o.sie = v_q ? vsstatus_q.sie : mstatus_q.sie;
+    assign irq_ctrl_o.sgeie = ariane_pkg::RVH ? mie_q[riscv::IRQ_HS_EXT] : '0;
+    assign irq_ctrl_o.hgeie = ariane_pkg::RVH ? hgeie_q : '0;
+    assign irq_ctrl_o.vgein = ariane_pkg::RVH ? hstatus_q.vgein : '0;
     assign irq_ctrl_o.mideleg = mideleg_q;
     assign irq_ctrl_o.hideleg = (ariane_pkg::RVH) ? hideleg_q : '0;
     assign irq_ctrl_o.global_enable = (~debug_mode_q)
@@ -1904,7 +1938,7 @@ module csr_regfile import ariane_pkg::*; #(
     // ----------------------
     always_comb begin : exception_ctrl
         csr_exception_o = {
-            '0, '0, '0, '0, 1'b0, 1'b0
+            '0, '0, '0, '0, 1'b0, 1'b0, riscv::PRIV_LVL_M, 1'b0
         };
         // ----------------------------------
         // Illegal Access (decode exception)
@@ -1975,13 +2009,13 @@ module csr_regfile import ariane_pkg::*; #(
         // significant benefit, we conciously diverge from the spec here by jumping to
         // trap_vector_base instead.
         if (ex_i.cause[riscv::XLEN-1] &&
-                ((trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0])
-               || (trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0])
+                ((trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0] && !clic_mode_o)
+               || (trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0] && !clic_mode_o)
                || (ariane_pkg::RVSCLIC && clic_mode_o && clic_irq_shv_i))) begin
             trap_vector_base_o[7:2] = ex_i.cause[5:0];
         end
         if (ariane_pkg::RVH && ex_i.cause[riscv::XLEN-1] &&
-                trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0]) begin
+                trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0] && !clic_mode_o) begin
             trap_vector_base_o[7:2] = {ex_i.cause[5:2],2'b01};
         end
 
@@ -2135,6 +2169,7 @@ module csr_regfile import ariane_pkg::*; #(
             vsscratch_q            <= {riscv::XLEN{1'b0}};
             vstval_q               <= {riscv::XLEN{1'b0}};
             vsatp_q                <= {riscv::XLEN{1'b0}};
+            vsintthresh_q           <= 8'b0;
             // timer and counters
             cycle_q                <= {riscv::XLEN{1'b0}};
             instret_q              <= {riscv::XLEN{1'b0}};
@@ -2209,6 +2244,7 @@ module csr_regfile import ariane_pkg::*; #(
             vsscratch_q            <= vsscratch_d;
             vstval_q               <= vstval_d;
             vsatp_q                <= vsatp_d;
+            vsintthresh_q          <= vsintthresh_d;
             // timer and counters
             cycle_q                <= cycle_d;
             instret_q              <= instret_d;

@@ -129,11 +129,11 @@ module instr_tracer (
           // check if the write back is valid, if not we need to source the result from the register file
           // as the most recent version of this register will be there.
           if (tracer_if.pck.we_gpr[i] || tracer_if.pck.we_fpr[i]) begin
-            printInstr(issue_sbe, issue_commit_instruction, tracer_if.pck.wdata[i], address_mapping, tracer_if.pck.priv_lvl, tracer_if.pck.debug_mode, bp_instruction);
+            printInstr(issue_sbe, issue_commit_instruction, tracer_if.pck.wdata[i], address_mapping, tracer_if.pck.priv_lvl, tracer_if.pck.v, tracer_if.pck.debug_mode, bp_instruction);
           end else if (ariane_pkg::is_rd_fpr(commit_instruction.op)) begin
-            printInstr(issue_sbe, issue_commit_instruction, fp_reg_file[commit_instruction.rd], address_mapping, tracer_if.pck.priv_lvl, tracer_if.pck.debug_mode, bp_instruction);
+            printInstr(issue_sbe, issue_commit_instruction, fp_reg_file[commit_instruction.rd], address_mapping, tracer_if.pck.priv_lvl, tracer_if.pck.v, tracer_if.pck.debug_mode, bp_instruction);
           end else begin
-            printInstr(issue_sbe, issue_commit_instruction, gp_reg_file[commit_instruction.rd], address_mapping, tracer_if.pck.priv_lvl, tracer_if.pck.debug_mode, bp_instruction);
+            printInstr(issue_sbe, issue_commit_instruction, gp_reg_file[commit_instruction.rd], address_mapping, tracer_if.pck.priv_lvl, tracer_if.pck.v, tracer_if.pck.debug_mode, bp_instruction);
           end
         end
       end
@@ -188,8 +188,8 @@ module instr_tracer (
   endfunction
 
   // pragma translate_off
-  function void printInstr(ariane_pkg::scoreboard_entry_t sbe, logic [31:0] instr, logic [63:0] result, logic [riscv::PLEN-1:0] paddr, riscv::priv_lvl_t priv_lvl, logic debug_mode, ariane_pkg::bp_resolve_t bp);
-    automatic instr_trace_item iti = new ($time, clk_ticks, sbe, instr, gp_reg_file, fp_reg_file, result, paddr, priv_lvl, debug_mode, bp);
+  function void printInstr(ariane_pkg::scoreboard_entry_t sbe, logic [31:0] instr, logic [63:0] result, logic [riscv::PLEN-1:0] paddr, riscv::priv_lvl_t priv_lvl, logic v, logic debug_mode, ariane_pkg::bp_resolve_t bp);
+    automatic instr_trace_item iti = new ($time, clk_ticks, sbe, instr, gp_reg_file, fp_reg_file, result, paddr, priv_lvl, v, debug_mode, bp);
     // print instruction to console
     automatic string print_instr = iti.printInstr();
     if (ariane_pkg::ENABLE_SPIKE_COMMIT_LOG && !debug_mode) begin

@@ -287,7 +287,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     {{riscv::XLEN{1'b0}}},
                     v_i,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end
 
@@ -316,7 +318,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                         itlb_gpaddr[riscv::GPLEN-1:0],
                         {riscv::XLEN{1'b0}},
                         v_i,
-                        1'b1
+                        1'b1,
+                        riscv::PRIV_LVL_M,
+                        1'b0
                     };
                     // we got an access error
                 end else if (iaccess_err) begin
@@ -327,7 +331,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                         {riscv::GPLEN{1'b0}},
                         {riscv::XLEN{1'b0}},
                         v_i,
-                        1'b1
+                        1'b1,
+                        riscv::PRIV_LVL_M,
+                        1'b0
                     };
                 end else if (!pmp_instr_allow) begin
                     icache_areq_o.fetch_exception = {
@@ -336,7 +342,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                         {riscv::GPLEN{1'b0}},
                         {riscv::XLEN{1'b0}},
                         v_i,
-                        1'b1
+                        1'b1,
+                        riscv::PRIV_LVL_M,
+                        1'b0
                     };
                 end
             end else
@@ -354,7 +362,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             ptw_bad_gpaddr[riscv::GPLEN-1:0],
                             (ptw_err_at_g_int_st ? (riscv::IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : {riscv::XLEN{1'b0}}),
                             v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end else begin
                         icache_areq_o.fetch_exception = {
@@ -363,7 +373,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
                 end
@@ -374,7 +386,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                           {riscv::GPLEN{1'b0}},
                           {riscv::XLEN{1'b0}},
                           v_i,
-                          1'b1
+                          1'b1,
+                          riscv::PRIV_LVL_M,
+                          1'b0
                       };
             end
         end
@@ -387,7 +401,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
               {riscv::GPLEN{1'b0}},
               {riscv::XLEN{1'b0}},
               v_i,
-              1'b1
+              1'b1,
+              riscv::PRIV_LVL_M,
+              1'b0
           };
         end
     end
@@ -503,7 +519,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             lsu_gpaddr_q[riscv::GPLEN-1:0],
                             {riscv::XLEN{1'b0}},
                             ld_st_v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end else if (en_ld_st_translation_i && (!dtlb_pte_q.w || daccess_err || !dtlb_pte_q.d)) begin
                         lsu_exception_o = {
@@ -512,7 +530,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             lsu_tinst_q,
                             ld_st_v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     // Check if any PMPs are violated
                     end else if (!pmp_data_allow) begin
@@ -522,7 +542,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             lsu_tinst_q,
                             ld_st_v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
 
@@ -535,7 +557,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             lsu_gpaddr_q[riscv::GPLEN-1:0],
                             {riscv::XLEN{1'b0}},
                             ld_st_v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     // check for sufficient access privileges - throw a page fault if necessary
                     end else if (daccess_err) begin
@@ -545,7 +569,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             lsu_tinst_q,
                             ld_st_v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     // Check if any PMPs are violated
                     end else if (!pmp_data_allow) begin
@@ -555,7 +581,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             lsu_tinst_q,
                             ld_st_v_i,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
                 end
@@ -579,7 +607,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                                 ptw_bad_gpaddr[riscv::GPLEN-1:0],
                                 (ptw_err_at_g_int_st ? (riscv::IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : {riscv::XLEN{1'b0}}),
                                 ld_st_v_i,
-                                1'b1
+                                1'b1,
+                                riscv::PRIV_LVL_M,
+                                1'b0
                             };
                         end else begin
                             lsu_exception_o = {
@@ -588,7 +618,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                                 {riscv::GPLEN{1'b0}},
                                 lsu_tinst_q,
                                 ld_st_v_i,
-                                1'b1
+                                1'b1,
+                                riscv::PRIV_LVL_M,
+                                1'b0
                             };
                         end
                     end else begin
@@ -599,7 +631,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                                 ptw_bad_gpaddr[riscv::GPLEN-1:0],
                                 (ptw_err_at_g_int_st ? (riscv::IS_XLEN64 ? riscv::READ_64_PSEUDOINSTRUCTION : riscv::READ_32_PSEUDOINSTRUCTION) : {riscv::XLEN{1'b0}}),
                                 ld_st_v_i,
-                                1'b1
+                                1'b1,
+                                riscv::PRIV_LVL_M,
+                                1'b0
                             };
                         end else begin
                             lsu_exception_o = {
@@ -608,7 +642,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                                 {riscv::GPLEN{1'b0}},
                                 lsu_tinst_q,
                                 ld_st_v_i,
-                                1'b1
+                                1'b1,
+                                riscv::PRIV_LVL_M,
+                                1'b0
                             };
                         end
                     end
@@ -624,7 +660,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                         {riscv::GPLEN{1'b0}},
                         lsu_tinst_q,
                         ld_st_v_i,
-                        1'b1
+                        1'b1,
+                        riscv::PRIV_LVL_M,
+                        1'b0
                     };
                 end
             end
@@ -638,7 +676,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     lsu_tinst_q,
                     ld_st_v_i,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end else begin
                 lsu_exception_o = {
@@ -647,7 +687,9 @@ module cva6_mmu_sv39x4 import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     lsu_tinst_q,
                     ld_st_v_i,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end
         end
