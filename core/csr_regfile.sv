@@ -1975,7 +1975,7 @@ module csr_regfile import ariane_pkg::*; #(
         // significant benefit, we conciously diverge from the spec here by jumping to
         // trap_vector_base instead.
         if (ex_i.cause[riscv::XLEN-1] &&
-                ((trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0])
+                ((trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0] && !clic_mode_o)
                || (trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0])
                || (ariane_pkg::RVSCLIC && clic_mode_o && clic_irq_shv_i))) begin
             trap_vector_base_o[7:2] = ex_i.cause[5:0];
