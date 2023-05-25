@@ -1037,6 +1037,7 @@ module cva6 import ariane_pkg::*; #(
   assign tracer_if.exception         = commit_stage_i.exception_o;
   // assign current privilege level
   assign tracer_if.priv_lvl          = priv_lvl;
+  assign tracer_if.v                 = v;
   assign tracer_if.debug_mode        = debug_mode;
 
   instr_tracer instr_tracer_i (
