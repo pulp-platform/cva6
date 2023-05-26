@@ -298,6 +298,7 @@ ariane_pkg::FETCH_FIFO_DEPTH
       fetch_entry_o.ex.tval2 = '0;
       fetch_entry_o.ex.gva = 1'b0;
       fetch_entry_o.ex.tinst = '0;
+      fetch_entry_o.ex.priv_lvl = riscv::PRIV_LVL_M; // Only meaningful when receiving CLIC interrupts
       fetch_entry_o.branch_predict.predict_address = address_out;
       fetch_entry_o.branch_predict.cf = ariane_pkg::NoCF;
       // output mux select
@@ -343,6 +344,7 @@ ariane_pkg::FETCH_FIFO_DEPTH
       fetch_entry_o.ex.gva = 1'b0;
 
       fetch_entry_o.ex.valid = instr_data_out[0].ex != ariane_pkg::FE_NONE;
+      fetch_entry_o.ex.priv_lvl = riscv::PRIV_LVL_M; // Only meaningful when receiving CLIC interrupts
       if (instr_data_out[0].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
         fetch_entry_o.ex.cause = riscv::INSTR_ACCESS_FAULT;
       end else begin
