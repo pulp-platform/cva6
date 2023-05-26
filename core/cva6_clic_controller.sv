@@ -25,6 +25,7 @@ module cva6_clic_controller #(
   output logic                  clic_kill_ack_o,     // kill acknowledge
   // to ID stage
   output logic                  clic_irq_req_o,
+  output riscv::priv_lvl_t      clic_irq_priv_o,
   output riscv::xlen_t          clic_irq_cause_o
 );
   // -------
@@ -60,7 +61,9 @@ module cva6_clic_controller #(
       end
       riscv::PRIV_LVL_U: begin
         // Take all M-mode and S-mode interrupts
-        clic_irq_req_o = clic_irq_valid_i;
+        clic_irq_req_o = ((clic_irq_valid_i) &&
+                          ((clic_irq_priv_i == riscv::PRIV_LVL_M) ||
+                           (clic_irq_priv_i == riscv::PRIV_LVL_S && irq_ctrl_i.sie)));
       end
       default: ;
     endcase
@@ -75,6 +78,9 @@ module cva6_clic_controller #(
                               clic_irq_level_i,                                 // to mintstatus.mil
                               {16-$clog2(ArianeCfg.CLICNumInterruptSrc){1'b0}}, // 15...IDWidth
                               clic_irq_id_i };                                  // to mcause
+
+  // IRQ priv mode
+  assign clic_irq_priv_o = clic_irq_priv_i;
 
   // ------------
   // Kill Control
