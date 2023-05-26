@@ -644,9 +644,9 @@ module ariane_testharness #(
   assign clint_irqs = {
     {(riscv::XLEN - 16){1'b0}}, // 64 - 16 = 48, designated for platform use
     {4{1'b0}},                  // reserved
-    seip,                       // seip
-    1'b0,                       // reserved
     meip,                       // meip
+    1'b0,                       // reserved
+    seip,                       // seip
     1'b0,                       // reserved, seip, reserved, meip
     timer_irq,                  // mtip
     {3{1'b0}},                  // reserved, stip, reserved

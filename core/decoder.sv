@@ -35,6 +35,7 @@ module decoder import ariane_pkg::*; #(
     // from CLIC Controller
     input  logic               clic_mode_i,
     input  logic               clic_irq_req_i,
+    input  riscv::priv_lvl_t   clic_irq_priv_i,
     input  riscv::xlen_t       clic_irq_cause_i,
     // From CSR
     input  riscv::priv_lvl_t   priv_lvl_i,              // current privilege level
@@ -1470,6 +1471,7 @@ module decoder import ariane_pkg::*; #(
                 end else begin
                     instruction_o.ex.valid = 1'b1;
                     instruction_o.ex.cause = interrupt_cause;
+                    instruction_o.ex.priv_lvl = clic_irq_priv_i;
                 end
             end
         end

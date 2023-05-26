@@ -305,8 +305,9 @@ module cva6 import ariane_pkg::*; #(
   // ----------------------
   // CLIC Controller <-> ID
   // ----------------------
-  logic         clic_irq_req_id;
-  riscv::xlen_t clic_irq_cause_id;
+  logic             clic_irq_req_id;
+  riscv::priv_lvl_t clic_irq_priv_id;
+  riscv::xlen_t     clic_irq_cause_id;
 
   // --------------
   // Frontend
@@ -364,6 +365,7 @@ module cva6 import ariane_pkg::*; #(
     .irq_ctrl_i                 ( irq_ctrl_csr_id            ),
     .clic_mode_i                ( clic_mode                  ),
     .clic_irq_req_i             ( clic_irq_req_id            ),
+    .clic_irq_priv_i            ( clic_irq_priv_id           ),
     .clic_irq_cause_i           ( clic_irq_cause_id          ),
     .debug_mode_i               ( debug_mode                 ),
     .tvm_i                      ( tvm_csr_id                 ),
@@ -934,11 +936,13 @@ module cva6 import ariane_pkg::*; #(
       .clic_kill_ack_o  ( clic_kill_ack_o   ),
       // to ID stage
       .clic_irq_req_o   ( clic_irq_req_id   ),
+      .clic_irq_priv_o  ( clic_irq_priv_id  ),
       .clic_irq_cause_o ( clic_irq_cause_id )
     );
   end else begin : gen_dummy_clic_controller
     assign clic_kill_ack_o   = 1'b0;
     assign clic_irq_req_id   = 1'b0;
+    assign clic_irq_priv_id  = riscv::PRIV_LVL_M;
     assign clic_irq_cause_id = '0;
   end
 

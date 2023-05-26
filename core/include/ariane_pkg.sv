@@ -356,6 +356,7 @@ package ariane_pkg;
          riscv::xlen_t       tinst;  // transformed instruction information
          logic        gva;          // signals when a guest virtual address is written to tval
          logic        valid;
+         riscv::priv_lvl_t priv_lvl; // In CLIC mode, keeps information about incoming interrupt target privilege level
     } exception_t;
 
     typedef enum logic [2:0] {
