@@ -9,7 +9,10 @@ _start:
   slli s0, s0, 31
   csrr a0, mhartid
   la a1, _dtb
-  jr s0
+  # jr s0
+1:
+  wfi
+  j 1b
 
 .section .text.hang, "ax", @progbits
 .globl _hang
