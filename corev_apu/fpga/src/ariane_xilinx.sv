@@ -245,6 +245,8 @@ logic dmactive;
 
 // IRQ
 logic [1:0] irq;
+logic uart_irq;
+logic [3:0] apb_timer_irqs;
 assign test_en    = 1'b0;
 
 logic [NBSlave-1:0] pc_asserted;
@@ -708,11 +710,13 @@ logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN c
 logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;          // other local interrupts routed through the CLIC
 
 // core interface signals
-logic                                               core_irq_req, core_irq_ack; // interrupt handshake
+logic                                               core_irq_valid, core_irq_ready; // interrupt handshake
 logic                                               core_irq_shv;               // selective hardware vectoring
 logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
 logic [7:0]                                         core_irq_level;             // interrupt level
 logic [1:0]                                         core_irq_priv;              // interrupt privilege
+logic                                               core_irq_v;                 // interrupt virtualization bit
+logic [5:0]                                         core_irq_vsid; 
 logic                                               core_irq_kill_req;
 logic                                               core_irq_kill_ack;
 
@@ -734,11 +738,13 @@ localparam int unsigned NumTimerIrq = 1; // 1 target, cva6
 
 // XLEN regular CLINT interrupts
 assign clint_irqs = {
-  {(riscv::XLEN - 16){1'b0}}, // 64 - 16 = 48, designated for platform use
+  {(riscv::XLEN - 21){1'b0}}, // 64 - 16 = 48, designated for platform use
+  apb_timer_irqs,             // 20:17 -> APB timer IRQs
+  uart_irq,                   // 16    -> Ariane UART IRQ
   {4{1'b0}},                  // reserved
-  seip,                       // seip
-  1'b0,                       // reserved
   meip,                       // meip
+  1'b0,                       // reserved
+  seip,                       // seip
   1'b0,                       // reserved, seip, reserved, meip
   timer_irq,                  // mtip
   {3{1'b0}},                  // reserved, stip, reserved
@@ -907,7 +913,8 @@ clic #(
   .reg_req_t (reg_a32_d32_req_t),
   .reg_rsp_t (reg_a32_d32_rsp_t),
   .SSCLIC    (1),
-  .USCLIC    (0)
+  .USCLIC    (0),
+  .VCLIC     (1)
 ) i_clic (
   .clk_i(clk),
   .rst_ni(ndmreset_n),
@@ -917,12 +924,14 @@ clic #(
   // Interrupt Sources
   .intr_src_i (clic_irqs),
   // Interrupt notification to core
-  .irq_valid_o(core_irq_req),
-  .irq_ready_i(core_irq_ack),
+  .irq_valid_o(core_irq_valid),
+  .irq_ready_i(core_irq_ready),
   .irq_id_o   (core_irq_id),
   .irq_level_o(core_irq_level),
   .irq_shv_o  (core_irq_shv),
   .irq_priv_o (core_irq_priv),
+  .irq_v_o    (core_irq_v),
+  .irq_vsid_o (core_irq_vsid),
   .irq_kill_req_o (core_irq_kill_req),
   .irq_kill_ack_i (core_irq_kill_ack)
 );
@@ -944,6 +953,8 @@ cva6 #(
     .clic_irq_id_i        ( core_irq_id         ),
     .clic_irq_level_i     ( core_irq_level      ),
     .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
+    .clic_irq_v_i         ( core_irq_v          ),
+    .clic_irq_vsid_i      ( core_irq_vsid       ),
     .clic_irq_shv_i       ( core_irq_shv        ),
     .clic_irq_ready_o     ( core_irq_ready      ),
     .clic_kill_req_i      ( core_irq_kill_req   ),
@@ -1074,6 +1085,8 @@ ariane_peripherals #(
     .irq_o        ( irq                          ),
     .rx_i         ( rx                           ),
     .tx_o         ( tx                           ),
+    .uart_irq_o   ( uart_irq                     ),
+    .timer_irqs_o ( apb_timer_irqs               ),
     .eth_txck,
     .eth_rxck,
     .eth_rxctl,

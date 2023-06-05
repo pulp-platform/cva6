@@ -37,6 +37,9 @@ module ariane_peripherals #(
     // UART
     input  logic       rx_i            ,
     output logic       tx_o            ,
+    output logic       uart_irq_o      , // Expose UART IRQ -> for CLIC
+    // Timer
+    output logic [3:0] timer_irqs_o    ,
     // Ethernet
     input  logic       eth_clk_i       ,
     input  wire        eth_rxck        ,
@@ -68,6 +71,8 @@ module ariane_peripherals #(
 
     // Unused interrupt sources
     assign irq_sources[ariane_soc::NumSources-1:7] = '0;
+    assign uart_irq_o = irq_sources[0]; // Expose UART IRQ to CLIC
+    assign timer_irqs_o = irq_sources[6:3];
 
     REG_BUS #(
         .ADDR_WIDTH ( 32 ),
