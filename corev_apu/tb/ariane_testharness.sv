@@ -553,6 +553,8 @@ module ariane_testharness #(
   // Peripherals
   // ---------------
   logic tx, rx;
+  logic uart_irq;
+  logic [3:0] apb_timer_irqs;
   logic [1:0] irqs;
 
   ariane_peripherals #(
@@ -583,6 +585,8 @@ module ariane_testharness #(
     .irq_o     ( irqs                         ),
     .rx_i      ( rx                           ),
     .tx_o      ( tx                           ),
+    .uart_irq_o( uart_irq                     ),
+    .timer_irqs_o( apb_timer_irqs             ),
     .eth_txck  ( ),
     .eth_rxck  ( ),
     .eth_rxctl ( ),
@@ -644,7 +648,9 @@ module ariane_testharness #(
 
   // XLEN regular CLINT interrupts
   assign clint_irqs = {
-    {(riscv::XLEN - 16){1'b0}}, // 64 - 16 = 48, designated for platform use
+    {(riscv::XLEN - 21){1'b0}}, // 64 - 16 = 48, designated for platform use
+    apb_timer_irqs,             // 20:17 -> APB timer IRQs
+    uart_irq,                   // 16    -> Ariane UART IRQ
     {4{1'b0}},                  // reserved
     meip,                       // meip
     1'b0,                       // reserved
