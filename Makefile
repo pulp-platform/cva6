@@ -741,6 +741,9 @@ clean:
 	rm -f tmp/*.ucdb tmp/*.log *.wlf *vstf wlft* *.ucdb
 	cd corev_apu/fpga && make clean && cd ../..
 
+clean-fpga:
+	cd corev_apu/fpga && make clean && cd ../..
+
 .PHONY:
 	build sim sim-verilate clean                                              \
 	$(riscv-asm-tests) $(addsuffix _verilator,$(riscv-asm-tests))             \
