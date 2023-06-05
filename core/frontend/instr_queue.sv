@@ -282,6 +282,7 @@ module instr_queue import ariane_pkg::*; (
       // tinst hardwire to 0 for Instruction page fault and access fault exceptions
       fetch_entry_o.ex.tinst = '0;
       fetch_entry_o.ex.priv_lvl = riscv::PRIV_LVL_M; // Only meaningful when receiving CLIC interrupts
+      fetch_entry_o.ex.trap_to_v = '0; // Only meaningful when receiving CLIC interrupts
       fetch_entry_o.branch_predict.predict_address = address_out;
       fetch_entry_o.branch_predict.cf = ariane_pkg::NoCF;
       // output mux select
@@ -318,6 +319,7 @@ module instr_queue import ariane_pkg::*; (
     
       fetch_entry_o.ex.valid = instr_data_out[0].ex != ariane_pkg::FE_NONE;
       fetch_entry_o.ex.priv_lvl = riscv::PRIV_LVL_M; // Only meaningful when receiving CLIC interrupts
+      fetch_entry_o.ex.trap_to_v = '0; // Only meaningful when receiving CLIC interrupts
       if (instr_data_out[0].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
         fetch_entry_o.ex.cause = riscv::INSTR_ACCESS_FAULT;
       end else begin
