@@ -63,7 +63,9 @@ module id_stage #(
     // TO_BE_COMPLETED - CLIC_CTRL
     input logic clic_irq_req_i,
     // TO_BE_COMPLETED - CLIC_CTRL
-    input  riscv::priv_lvl_t clic_irq_priv_i,
+    input riscv::priv_lvl_t clic_irq_priv_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic clic_irq_v_i,
     // TO_BE_COMPLETED - CLIC_CTRL
     input riscv::xlen_t clic_irq_cause_i,
     // Is current mode debug ? - CSR_REGFILE
@@ -126,6 +128,7 @@ module id_stage #(
       .clic_mode_i            (clic_mode_i),
       .clic_irq_req_i         (clic_irq_req_i),
       .clic_irq_priv_i        (clic_irq_priv_i),
+      .clic_irq_v_i           (clic_irq_v_i),
       .clic_irq_cause_i       (clic_irq_cause_i),
       .irq_i,
       .pc_i                   (fetch_entry_i.address),
