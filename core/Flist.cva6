@@ -41,9 +41,12 @@ ${CVA6_REPO_DIR}/core/include/ariane_dm_pkg.sv
 ${CVA6_REPO_DIR}/core/include/ariane_pkg.sv
 // TODO: ariane_axi_pkg is dependent on this.
 ${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_pkg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/ace_pkg.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/snoop_pkg.sv
 
 // Packages
 ${CVA6_REPO_DIR}/core/include/ariane_axi_pkg.sv
+${CVA6_REPO_DIR}/core/include/ariane_ace_pkg.sv
 ${CVA6_REPO_DIR}/core/include/wt_cache_pkg.sv
 ${CVA6_REPO_DIR}/core/include/std_cache_pkg.sv
 ${CVA6_REPO_DIR}/core/include/axi_intf.sv
@@ -153,6 +156,7 @@ ${CVA6_REPO_DIR}/core/cache_subsystem/tag_cmp.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/axi_adapter.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/miss_handler.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/cache_ctrl.sv
+${CVA6_REPO_DIR}/core/cache_subsystem/snoop_cache_ctrl.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/cva6_icache_axi_wrapper.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/std_cache_subsystem.sv
 ${CVA6_REPO_DIR}/core/cache_subsystem/std_nbdcache.sv

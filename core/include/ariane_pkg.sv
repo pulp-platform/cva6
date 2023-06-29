@@ -46,6 +46,9 @@ package ariane_pkg;
       int unsigned                      NrCachedRegionRules;   // Number of regions which have cached property
       logic [NrMaxRules-1:0][63:0]      CachedRegionAddrBase;  // base which needs to match
       logic [NrMaxRules-1:0][63:0]      CachedRegionLength;    // bit mask which bits to consider when matching the rule
+      int unsigned                      NrSharedRegionRules;   // Number of regions which have shared data
+      logic [NrMaxRules-1:0][63:0]      SharedRegionAddrBase;  // base which needs to match
+      logic [NrMaxRules-1:0][63:0]      SharedRegionLength;    // bit mask which bits to consider when matching the rule
       // cache config
       bit                               AxiCompliant;          // set to 1 when using in conjunction with 64bit AXI bus adapter
       bit                               SwapEndianess;         // set to 1 to swap endianess inside L1.5 openpiton adapter
@@ -73,6 +76,10 @@ package ariane_pkg;
       NrCachedRegionRules:   unsigned'(1),
       CachedRegionAddrBase:  1024'({64'h8000_0000}),
       CachedRegionLength:    1024'({64'h40000000}),
+      // shared region
+      NrSharedRegionRules:   unsigned'(1),
+      SharedRegionAddrBase:  1024'({64'h8000_0000}),
+      SharedRegionLength:    1024'({64'h40000000}),
       // CLIC
       CLICNumInterruptSrc:    256,
       CLICIntCtlBits:         8,
@@ -132,6 +139,15 @@ package ariane_pkg;
       end
       return |pass;
     endfunction : is_inside_cacheable_regions
+
+  function automatic logic is_inside_shareable_regions (ariane_cfg_t Cfg, logic[63:0] address);
+    automatic logic[NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrSharedRegionRules; k++) begin
+      pass[k] = range_check(Cfg.SharedRegionAddrBase[k], Cfg.SharedRegionLength[k], address);
+    end
+    return |pass;
+  endfunction : is_inside_shareable_regions
 
     // TODO: Slowly move those parameters to the new system.
     localparam NR_SB_ENTRIES = cva6_config_pkg::CVA6ConfigNrScoreboardEntries; // number of scoreboard entries

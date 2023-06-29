@@ -74,6 +74,24 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
 
     assign busy_o = icache_busy | dcache_busy;
 
+    ariane_ace::m2s_nosnoop_t axi_req_bypass;
+    ariane_ace::s2m_nosnoop_t axi_resp_bypass;
+    ariane_ace::m2s_nosnoop_t axi_req_data;
+    ariane_ace::s2m_nosnoop_t axi_resp_data;
+
+    ariane_ace::snoop_req_t snoop_port_i;
+    ariane_ace::snoop_resp_t snoop_port_o;
+
+    assign snoop_port_i.ac = axi_resp_i.ac;
+    assign snoop_port_i.ac_valid = axi_resp_i.ac_valid;
+    assign snoop_port_i.cr_ready = axi_resp_i.cr_ready;
+    assign snoop_port_i.cd_ready = axi_resp_i.cd_ready;
+    assign axi_req_o.ac_ready = snoop_port_o.ac_ready;
+    assign axi_req_o.cr_valid = snoop_port_o.cr_valid;
+    assign axi_req_o.cr_resp = snoop_port_o.cr_resp;
+    assign axi_req_o.cd_valid = snoop_port_o.cd_valid;
+    assign axi_req_o.cd = snoop_port_o.cd;
+
     cva6_icache_axi_wrapper #(
         .ArianeCfg    ( ArianeCfg    ),
         .AxiAddrWidth ( AxiAddrWidth ),
@@ -108,8 +126,8 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
       .AXI_ADDR_WIDTH   ( AxiAddrWidth ),
       .AXI_DATA_WIDTH   ( AxiDataWidth ),
       .AXI_ID_WIDTH     ( AxiIdWidth   ),
-      .axi_req_t        ( axi_req_t    ),
-      .axi_rsp_t        ( axi_rsp_t    )
+      .axi_req_t        ( ariane_ace::m2s_nosnoop_t ),
+      .axi_rsp_t        ( ariane_ace::s2m_nosnoop_t )
    ) i_nbdcache (
       .clk_i,
       .rst_ni,
@@ -127,7 +145,9 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
       .req_ports_i  ( dcache_req_ports_i     ),
       .req_ports_o  ( dcache_req_ports_o     ),
       .amo_req_i,
-      .amo_resp_o
+      .amo_resp_o,
+      .snoop_port_i,
+      .snoop_port_o
    );
 
     // -----------------------
@@ -135,7 +155,6 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
     // -----------------------
     logic [1:0] w_select, w_select_fifo, w_select_arbiter;
     logic w_fifo_empty;
-
 
     // AR Channel
     stream_arbiter #(
@@ -300,6 +319,33 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
               j, dcache_req_ports_o[j].data_rdata);
      end
   endgenerate
+
+  // check AXI IDs
+  a_axi_icache_awid: assert property (
+    @(posedge clk_i) disable iff (~rst_ni) axi_req_icache.aw_valid |-> (axi_req_icache.aw.id == 4'b0000))
+      else $error("Unexpected icache AWID %4b",axi_req_icache.aw.id);
+
+  a_axi_icache_arid: assert property (
+    @(posedge clk_i) disable iff (~rst_ni) axi_req_icache.ar_valid |-> (axi_req_icache.ar.id == 4'b0000))
+      else $error("Unexpected icache ARID %4b",axi_req_icache.ar.id);
+
+  a_axi_data_awid: assert property (
+    @(posedge clk_i) disable iff (~rst_ni) axi_req_data.aw_valid |-> (axi_req_data.aw.id == 4'b1100))
+      else $error("Unexpected data AWID %4b",axi_req_data.aw.id);
+
+  a_axi_data_arid: assert property (
+    @(posedge clk_i) disable iff (~rst_ni) axi_req_data.ar_valid |-> (axi_req_data.ar.id == 4'b1100))
+      else $error("Unexpected data ARID %4b",axi_req_data.ar.id);
+
+  a_axi_bypass_awid: assert property (
+    @(posedge clk_i) disable iff (~rst_ni) axi_req_bypass.aw_valid |-> (axi_req_bypass.aw.id inside {4'b1000, 4'b1001, 4'b1010, 4'b1011}))
+      else $error("Unexpected bypass AWID %4b",axi_req_bypass.aw.id);
+
+  a_axi_bypass_arid: assert property (
+    @(posedge clk_i) disable iff (~rst_ni) axi_req_bypass.ar_valid |-> (axi_req_bypass.ar.id inside {4'b1000, 4'b1001, 4'b1010, 4'b1011}))
+      else $error("Unexpected bypass ARID %4b",axi_req_bypass.ar.id);
+
+
 
 `endif
 //pragma translate_on

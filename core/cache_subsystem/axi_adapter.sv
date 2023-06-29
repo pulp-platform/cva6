@@ -32,6 +32,7 @@ module axi_adapter #(
   output logic                             busy_o,
   input  logic                             req_i,
   input  ariane_axi::ad_req_t              type_i,
+  input  ariane_ace::ace_req_t             trans_type_i,
   input  ariane_pkg::amo_t                 amo_i,
   output logic                             gnt_o,
   input  logic [riscv::XLEN-1:0]           addr_i,
@@ -44,6 +45,8 @@ module axi_adapter #(
   output logic                             valid_o,
   output logic [(DATA_WIDTH/AXI_DATA_WIDTH)-1:0][AXI_DATA_WIDTH-1:0] rdata_o,
   output logic [AXI_ID_WIDTH-1:0]          id_o,
+  output logic                             dirty_o,
+  output logic                             shared_o,
   // critical word - read port
   output logic [AXI_DATA_WIDTH-1:0]        critical_word_o,
   output logic                             critical_word_valid_o,
@@ -72,6 +75,9 @@ module axi_adapter #(
 
   // Busy if we're not idle
   assign busy_o = state_q != IDLE;
+
+  logic       dirty_d, dirty_q;
+  logic       shared_d, shared_q;
 
   always_comb begin : axi_fsm
     // Default assignments
@@ -125,10 +131,14 @@ module axi_adapter #(
     critical_word_o       = axi_resp_i.r.data;
     critical_word_valid_o = 1'b0;
     rdata_o               = cache_line_q;
+    dirty_o               = dirty_q;
+    shared_o              = shared_q;
 
     state_d       = state_q;
     cnt_d         = cnt_q;
     cache_line_d  = cache_line_q;
+    dirty_d       = dirty_q;
+    shared_d      = shared_q;
     addr_offset_d = addr_offset_q;
     id_d          = id_q;
     amo_d         = amo_q;
@@ -379,6 +389,8 @@ module axi_adapter #(
           // this is the last read
           if (axi_resp_i.r.last) begin
             id_d    = axi_resp_i.r.id;
+            dirty_d = axi_resp_i.r.resp[2];
+            shared_d = axi_resp_i.r.resp[3];
             state_d = COMPLETE_READ;
           end
 
@@ -404,6 +416,86 @@ module axi_adapter #(
     endcase
   end
 
+  generate
+  if ($bits(axi_req_t) == $bits(ariane_ace::m2s_nosnoop_t)) begin
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (~rst_ni) begin
+        axi_req_o.wack <= 1'b0;
+        axi_req_o.rack <= 1'b0;
+      end
+      else begin
+        axi_req_o.wack <= 1'b0;
+        axi_req_o.rack <= 1'b0;
+        // set RACK the cycle after the BVALID/BREADY handshake is finished
+        if (axi_req_o.b_ready & axi_resp_i.b_valid)
+          axi_req_o.wack <= 1'b1;
+        // set RACK the cycle after the RVALID/RREADY handshake is finished
+        if (axi_req_o.r_ready & axi_resp_i.r_valid)
+          axi_req_o.rack <= 1'b1;
+      end
+    end
+
+    always_comb begin
+      // Default assignments
+      axi_req_o.aw.snoop  = '0;
+      axi_req_o.aw.bar   = '0;
+      axi_req_o.aw.domain   = '0;
+      axi_req_o.aw.awunique = '0;
+      axi_req_o.ar.snoop  = '0;
+      axi_req_o.ar.bar   = '0;
+      axi_req_o.ar.domain   = '0;
+
+      case (trans_type_i)
+
+        ariane_ace::READ_SHARED: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b0001;
+        end
+
+        ariane_ace::READ_ONCE: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b0000;
+        end
+
+        ariane_ace::READ_UNIQUE: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b0111;
+        end
+
+        ariane_ace::READ_NO_SNOOP: begin
+          axi_req_o.ar.domain   = 2'b00;
+          axi_req_o.ar.snoop   = 4'b0000;
+        end
+
+        ariane_ace::CLEAN_UNIQUE: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b1011;
+        end
+
+        ariane_ace::WRITE_UNIQUE: begin
+          axi_req_o.aw.domain   = 2'b01;
+          axi_req_o.aw.snoop   = 3'b000;
+        end
+
+        ariane_ace::WRITE_NO_SNOOP: begin
+          axi_req_o.aw.domain   = 2'b00;
+          axi_req_o.aw.snoop   = 3'b000;
+        end
+
+        ariane_ace::WRITEBACK: begin
+          axi_req_o.aw.domain   = 2'b00;
+          axi_req_o.aw.snoop   = 3'b011;
+        end
+
+      endcase // case (trans_type_i)
+
+    end
+
+  end
+  endgenerate
+
+
   // ----------------
   // Registers
   // ----------------
@@ -417,6 +509,8 @@ module axi_adapter #(
       id_q          <= '0;
       amo_q         <= ariane_pkg::AMO_NONE;
       size_q        <= '0;
+      dirty_q <= '0;
+      shared_q <= '0;
     end else begin
       state_q       <= state_d;
       cnt_q         <= cnt_d;
@@ -425,6 +519,8 @@ module axi_adapter #(
       id_q          <= id_d;
       amo_q         <= amo_d;
       size_q        <= size_d;
+      dirty_q <= dirty_d;
+      shared_q <= shared_d;
     end
   end
 

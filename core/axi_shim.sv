@@ -274,6 +274,44 @@ module axi_shim #(
   assign rd_exokay_o         = (axi_resp_i.r.resp == axi_pkg::RESP_EXOKAY);
 
 
+///////////////////////////////////////////////////////
+// AMBA ACE
+///////////////////////////////////////////////////////
+
+  if ($bits(axi_req_t) == $bits(ariane_ace::m2s_t)) begin : ACE
+    // RACK / WACK
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (~rst_ni) begin
+        axi_req_o.wack <= 1'b0;
+        axi_req_o.rack <= 1'b0;
+      end else begin
+        axi_req_o.wack <= 1'b0;
+        axi_req_o.rack <= 1'b0;
+        // assert WACK the cycle after the BVALID/BREADY handshake is finished
+        if (axi_req_o.b_ready & axi_resp_i.b_valid)
+          axi_req_o.wack <= 1'b1;
+        // assert RACK the cycle after the RVALID/RREADY handshake is finished
+        if (axi_req_o.r_ready & axi_resp_i.r_valid)
+          axi_req_o.rack <= 1'b1;
+      end
+    end
+
+    assign axi_req_o.aw.snoop = '0;
+    assign axi_req_o.aw.bar = '0;
+    assign axi_req_o.aw.domain = '0;
+    assign axi_req_o.aw.awunique = '0;
+    assign axi_req_o.ar.snoop = '0;
+    assign axi_req_o.ar.bar = '0;
+    assign axi_req_o.ar.domain = '0;
+    assign axi_req_o.ac_ready = '0;
+    assign axi_req_o.cr_valid = '0;
+    assign axi_req_o.cr_resp = '0;
+    assign axi_req_o.cd_valid = '0;
+    assign axi_req_o.cd = '0;
+  end
+
+
+
   // ----------------
   // Registers
   // ----------------
