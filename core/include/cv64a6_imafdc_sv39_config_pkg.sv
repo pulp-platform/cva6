@@ -72,7 +72,7 @@ package cva6_config_pkg;
 
     localparam CVA6ConfigPerfCounterEn = 1;
 
-    localparam CVA6ConfigDcacheType = WT;
+    localparam CVA6ConfigDcacheType = WB;
 
     localparam CVA6ConfigMmuPresent = 1;
 
