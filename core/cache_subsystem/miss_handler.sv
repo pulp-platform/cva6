@@ -322,7 +322,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
               case ({mshr_q.we, is_inside_shareable_regions(ArianeCfg, mshr_q.addr)})
                     2'b00: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
                     2'b01: req_fsm_miss_type = ariane_ace::READ_SHARED;
-                    2'b10: req_fsm_miss_type = ariane_ace::WRITE_NO_SNOOP;
+                    2'b10: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
                     2'b11: req_fsm_miss_type = ariane_ace::READ_UNIQUE;
                 endcase
                 // start a ReadUnique also if we reached this state after a colliding invalidation
