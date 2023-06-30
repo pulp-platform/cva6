@@ -885,6 +885,11 @@ module cva6 import ariane_pkg::*; #(
     assign acc_exception_ex_id   = '0;
     assign acc_resp_fflags       = '0;
     assign acc_resp_fflags_valid = '0;
+    assign stall_acc_id          = '0;
+    assign dirty_v_state         = '0;
+    assign acc_valid_acc_ex      = '0;
+    assign halt_acc_ctrl         = '0;
+    assign acc_req               = '0;
 
     // No invalidation interface
     assign inval_valid = '0;
