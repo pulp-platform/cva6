@@ -41,8 +41,8 @@ ${CVA6_REPO_DIR}/core/include/ariane_dm_pkg.sv
 ${CVA6_REPO_DIR}/core/include/ariane_pkg.sv
 // TODO: ariane_axi_pkg is dependent on this.
 ${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/axi_pkg.sv
-${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/ace_pkg.sv
-${CVA6_REPO_DIR}/vendor/pulp-platform/axi/src/snoop_pkg.sv
+${CVA6_REPO_DIR}/vendor/planv/ace/src/ace_pkg.sv
+${CVA6_REPO_DIR}/vendor/planv/ace/src/snoop_pkg.sv
 
 // Packages
 ${CVA6_REPO_DIR}/core/include/ariane_axi_pkg.sv

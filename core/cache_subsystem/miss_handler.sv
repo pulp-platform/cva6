@@ -55,6 +55,9 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     output axi_req_t                                    axi_data_o,
     input  axi_rsp_t                                    axi_data_i,
 
+    input  logic                                        snoop_invalidate_i,
+    input  logic [63:0]                                 snoop_invalidate_addr_i,
+
     input  logic [NR_PORTS-1:0][55:0]                   mshr_addr_i,
     output logic [NR_PORTS-1:0]                         mshr_addr_matches_o,
     output logic [NR_PORTS-1:0]                         mshr_index_matches_o,
