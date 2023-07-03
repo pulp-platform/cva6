@@ -7,7 +7,7 @@ package:
 
 dependencies:
   axi: { git: "https://github.com/pulp-platform/axi.git", version: 0.39.0-beta.2 }
-  ace: { git: "https://github.com/planvtech/ace.git", rev: 6091c1aa03203ac009f525646bdc5fa0584b9650 }
+  ace: { git: "https://github.com/planvtech/ace.git", rev: 0.0.1-pulp }
   common_cells:
     { git: "https://github.com/pulp-platform/common_cells", version: 1.23.0 }
   fpnew: { git: "https://github.com/pulp-platform/cvfpu.git", rev: pulp-v0.1.1 }
