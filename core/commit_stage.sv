@@ -304,6 +304,8 @@ module commit_stage import ariane_pkg::*; #(
         exception_o.tval2 = '0;
         exception_o.tinst = '0;
         exception_o.gva   = 1'b0;
+        exception_o.priv_lvl  = riscv::PRIV_LVL_M;
+        exception_o.trap_to_v = 1'b0;
 
         // we need a valid instruction in the commit stage
         if (commit_instr_i[0].valid) begin
