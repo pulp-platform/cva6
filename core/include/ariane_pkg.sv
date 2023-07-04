@@ -453,7 +453,6 @@ package ariane_pkg;
       riscv::xlen_t       mideleg;
       riscv::xlen_t       hideleg;
       logic        sie;
-      logic        vsie;  // VS global interrupt enable
       logic        sgeie;
       riscv::xlen_t hgeie;
       logic [5:0]  vgein; // Current VS external interrupt ID
