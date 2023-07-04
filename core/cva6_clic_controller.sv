@@ -98,9 +98,8 @@ module cva6_clic_controller #(
       end
       riscv::PRIV_LVL_U: begin
         // Take all M-mode and S-mode interrupts
-        clic_irq_req_o = ((clic_irq_valid_i) &&
-                          ((clic_irq_priv_i == riscv::PRIV_LVL_M) ||
-                           (clic_irq_priv_i == riscv::PRIV_LVL_S && irq_ctrl_i.sie)));
+        clic_irq_req_o = clic_irq_valid_i;
+        clic_irq_v_o   = clic_irq_v_i;
       end
       default: ;
     endcase
