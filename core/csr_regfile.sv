@@ -1849,8 +1849,7 @@ module csr_regfile import ariane_pkg::*; #(
 
     assign irq_ctrl_o.mie = mie_q;
     assign irq_ctrl_o.mip = mip_q;
-    assign irq_ctrl_o.sie = mstatus_q.sie; // v_q ? vsstatus_q.sie : mstatus_q.sie;
-    assign irq_ctrl_o.vsie = vsstatus_q.sie;
+    assign irq_ctrl_o.sie = v_q ? vsstatus_q.sie : mstatus_q.sie;
     assign irq_ctrl_o.sgeie = ariane_pkg::RVH ? mie_q[riscv::IRQ_HS_EXT] : '0;
     assign irq_ctrl_o.hgeie = ariane_pkg::RVH ? hgeie_q : '0;
     assign irq_ctrl_o.vgein = ariane_pkg::RVH ? hstatus_q.vgein : '0;

@@ -71,7 +71,7 @@ module cva6_clic_controller #(
               // Virtual interrrupt
               if (clic_irq_vsid_i == irq_ctrl_i.vgein) begin
                 // VS-mode interrupt is for currently running VS
-                clic_irq_req_o = (clic_irq_level_i > max_vsthresh) && (clic_irq_valid_i) && irq_ctrl_i.vsie;
+                clic_irq_req_o = (clic_irq_level_i > max_vsthresh) && (clic_irq_valid_i) && irq_ctrl_i.sie;
                 clic_irq_v_o = 1'b1;
               end else begin
                 // Received IRQ delegated to a differet VS: trap to hypervisor if SGEIE == 1 (from hie). 
