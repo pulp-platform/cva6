@@ -71,6 +71,8 @@ module cvxif_fu import ariane_pkg::*; (
       x_exception_o.tinst   = '0;
       x_exception_o.tval2   = '0;
       x_exception_o.gva     = '0;
+      x_exception_o.priv_lvl  = riscv::PRIV_LVL_M;
+      x_exception_o.trap_to_v = 1'b0;
       x_we_o                = x_valid_o ? cvxif_resp_i.x_result.we : '0;
       if (illegal_n) begin
         if (~x_valid_o) begin
@@ -83,6 +85,8 @@ module cvxif_fu import ariane_pkg::*; (
           x_exception_o.tinst   = '0;
           x_exception_o.tval2   = '0;
           x_exception_o.gva     = '0;
+          x_exception_o.priv_lvl  = riscv::PRIV_LVL_M;
+          x_exception_o.trap_to_v = 1'b0;
           x_we_o                = '0;
           illegal_n             = '0; // Reset flag for illegal instr. illegal_id and illegal instr values are a don't care, no need to reset it.
         end

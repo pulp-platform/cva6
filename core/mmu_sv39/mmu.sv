@@ -224,7 +224,9 @@ module mmu import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     {riscv::XLEN{1'b0}},
                     1'b0,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end
 
@@ -256,7 +258,9 @@ module mmu import ariane_pkg::*; #(
                         {riscv::GPLEN{1'b0}},
                         {riscv::XLEN{1'b0}},
                         1'b0,
-                        1'b1
+                        1'b1,
+                        riscv::PRIV_LVL_M,
+                        1'b0
                     };
                 end else if (!pmp_instr_allow) begin
                     icache_areq_o.fetch_exception = {
@@ -265,7 +269,9 @@ module mmu import ariane_pkg::*; #(
                         {riscv::GPLEN{1'b0}},
                         {riscv::XLEN{1'b0}},
                         1'b0,
-                        1'b1
+                        1'b1,
+                        riscv::PRIV_LVL_M,
+                        1'b0
                     };
                 end
             end else
@@ -281,7 +287,9 @@ module mmu import ariane_pkg::*; #(
                                     {riscv::GPLEN{1'b0}},
                                     {riscv::XLEN{1'b0}},
                                     1'b0,
-                                    1'b1
+                                    1'b1,
+                                    riscv::PRIV_LVL_M,
+                                    1'b0
                                 };
                 // TODO(moschn,zarubaf): What should the value of tval be in this case?
                 else icache_areq_o.fetch_exception = {
@@ -290,7 +298,9 @@ module mmu import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     {riscv::XLEN{1'b0}},
                     1'b0,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end
         end
@@ -303,7 +313,9 @@ module mmu import ariane_pkg::*; #(
                 {riscv::GPLEN{1'b0}},
                 {riscv::XLEN{1'b0}},
                 1'b0,
-                1'b1
+                1'b1,
+                riscv::PRIV_LVL_M,
+                1'b0
             };
         end
     end
@@ -408,7 +420,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     // Check if any PMPs are violated
                     end else if (!pmp_data_allow) begin
@@ -418,7 +432,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
 
@@ -432,7 +448,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     // Check if any PMPs are violated
                     end else if (!pmp_data_allow) begin
@@ -442,7 +460,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
                 end
@@ -465,7 +485,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end else begin
                         lsu_exception_o = {
@@ -474,7 +496,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
                 end
@@ -490,7 +514,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end else begin
                         lsu_exception_o = {
@@ -499,7 +525,9 @@ module mmu import ariane_pkg::*; #(
                             {riscv::GPLEN{1'b0}},
                             {riscv::XLEN{1'b0}},
                             1'b0,
-                            1'b1
+                            1'b1,
+                            riscv::PRIV_LVL_M,
+                            1'b0
                         };
                     end
                 end
@@ -514,7 +542,9 @@ module mmu import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     {riscv::XLEN{1'b0}},
                     1'b0,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end else begin
                 lsu_exception_o = {
@@ -523,7 +553,9 @@ module mmu import ariane_pkg::*; #(
                     {riscv::GPLEN{1'b0}},
                     {riscv::XLEN{1'b0}},
                     1'b0,
-                    1'b1
+                    1'b1,
+                    riscv::PRIV_LVL_M,
+                    1'b0
                 };
             end
         end
