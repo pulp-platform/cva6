@@ -544,6 +544,8 @@ module load_store_unit
       {riscv::GPLEN{1'b0}},
       {riscv::XLEN{1'b0}},
       1'b0,
+      1'b0,
+      riscv::PRIV_LVL_M,
       1'b0
     };
     data_misaligned = 1'b0;
@@ -591,6 +593,9 @@ module load_store_unit
         misaligned_exception.tval2 = '0;
         misaligned_exception.tinst = lsu_ctrl.tinst;
         misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.valid     = 1'b1;
+        misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
+        misaligned_exception.trap_to_v = 1'b0;
 
       end else if (lsu_ctrl.fu == STORE) begin
         misaligned_exception.cause = riscv::ST_ADDR_MISALIGNED;
@@ -600,6 +605,9 @@ module load_store_unit
         misaligned_exception.tval2 = '0;
         misaligned_exception.tinst = lsu_ctrl.tinst;
         misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.valid     = 1'b1;
+        misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
+        misaligned_exception.trap_to_v = 1'b0;
       end
     end
 
@@ -613,6 +621,9 @@ module load_store_unit
         misaligned_exception.tval2 = '0;
         misaligned_exception.tinst = lsu_ctrl.tinst;
         misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.valid     = 1'b1;
+        misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
+        misaligned_exception.trap_to_v = 1'b0;
 
       end else if (lsu_ctrl.fu == STORE) begin
         misaligned_exception.cause = riscv::ST_ACCESS_FAULT;
@@ -622,6 +633,9 @@ module load_store_unit
         misaligned_exception.tval2 = '0;
         misaligned_exception.tinst = lsu_ctrl.tinst;
         misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.valid     = 1'b1;
+        misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
+        misaligned_exception.trap_to_v = 1'b0;
       end
     end
 
@@ -635,6 +649,9 @@ module load_store_unit
         misaligned_exception.tval2 = '0;
         misaligned_exception.tinst = lsu_ctrl.tinst;
         misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.valid     = 1'b1;
+        misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
+        misaligned_exception.trap_to_v = 1'b0;
       end else if (lsu_ctrl.fu == STORE) begin
         misaligned_exception.cause = riscv::STORE_GUEST_PAGE_FAULT;
         misaligned_exception.valid = 1'b1;
@@ -643,6 +660,9 @@ module load_store_unit
         misaligned_exception.tval2 = '0;
         misaligned_exception.tinst = lsu_ctrl.tinst;
         misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.valid     = 1'b1;
+        misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
+        misaligned_exception.trap_to_v = 1'b0;
       end
     end
   end

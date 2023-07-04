@@ -2260,6 +2260,8 @@ module csr_regfile
       {riscv::GPLEN{1'b0}},
       {riscv::XLEN{1'b0}},
       1'b0,
+      1'b0,
+      riscv::PRIV_LVL_M,
       1'b0
     };
     // ----------------------------------
