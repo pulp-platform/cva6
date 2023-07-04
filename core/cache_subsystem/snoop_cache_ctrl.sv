@@ -170,47 +170,8 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
       WAIT_GNT: begin
         if (!updating_cache_i) begin
           req_o = '1;
-          if (gnt_i) begin
-//            state_d = EVAL_FLAGS;
-            hit_way_d = hit_way_i;
-            shared_way_d = shared_way_i;
-            dirty_way_d = dirty_way_i;
-            if (|hit_way_i) begin
-              cr_resp_d.dataTransfer = 1'b1;
-              cr_resp_d.passDirty = 1'b0; //dirty;
-              cache_data_d = cl_i;
-              case (ac_snoop_q)
-                snoop_pkg::CLEAN_INVALID: begin
-                  cr_resp_d.dataTransfer = dirty;
-                  cr_resp_d.passDirty = dirty;
-                  cr_resp_d.isShared = 1'b0;
-                  state_d = INVALIDATE;
-                end
-                snoop_pkg::READ_ONCE: begin
-                  cr_resp_d.isShared = shared;
-                  state_d = SEND_CR_RESP;
-                end
-                snoop_pkg::READ_SHARED: begin
-                  cr_resp_d.isShared = 1'b1;
-                  state_d = UPDATE_SHARED;
-                end
-                default : begin // snoop_pkg::READ_UNIQUE
-                  cr_resp_d.passDirty = dirty;
-                  cr_resp_d.isShared = 1'b0;
-                  state_d = INVALIDATE;
-                  assert (ac_snoop_q == snoop_pkg::READ_UNIQUE) else
-                    $error("Unexpected snoop type");
-                end
-              endcase
-            end
-            // Miss
-            else begin
-              cr_resp_d.dataTransfer = 1'b0;
-              cr_resp_d.passDirty = 1'b0;
-              cr_resp_d.isShared = 1'b0;
-              state_d = SEND_CR_RESP;
-            end
-          end
+          if (gnt_i)
+            state_d = EVAL_FLAGS;
         end
       end
 

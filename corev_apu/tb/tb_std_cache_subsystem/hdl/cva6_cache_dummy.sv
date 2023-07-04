@@ -25,29 +25,38 @@ module cva6
   parameter type axi_req_t = ariane_axi::req_t,
   parameter type axi_rsp_t = ariane_axi::resp_t
 ) (
-  input  logic                         clk_i,
-  input  logic                         rst_ni,
+  input logic                                             clk_i,
+  input logic                                             rst_ni,
   // Core ID, Cluster ID and boot address are considered more or less static
-  input  logic [riscv::VLEN-1:0]       boot_addr_i,  // reset boot address
-  input  logic [riscv::XLEN-1:0]       hart_id_i,    // hart id in a multicore environment (reflected in a CSR)
+  input logic [riscv::VLEN-1:0]                           boot_addr_i, // reset boot address
+  input logic [riscv::XLEN-1:0]                           hart_id_i, // hart id in a multicore environment (reflected in a CSR)
 
   // Interrupt inputs
-  input  logic [1:0]                   irq_i,        // level sensitive IR lines, mip & sip (async)
-  input  logic                         ipi_i,        // inter-processor interrupts (async)
+  input logic [1:0]                                       irq_i, // level sensitive IR lines, mip & sip (async)
+  input logic                                             ipi_i, // inter-processor interrupts (async)
   // Timer facilities
-  input  logic                         time_irq_i,   // timer interrupt in (async)
-  input  logic                         debug_req_i,  // debug request (async)
+  input logic                                             time_irq_i, // timer interrupt in (async)
+  input logic                                             debug_req_i, // debug request (async)
+   // CLIC interface - unused
+  input logic                                             clic_irq_valid_i, // CLIC interrupt request
+  input logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i, // interrupt source ID
+  input logic [7:0]                                       clic_irq_level_i, // interrupt level is 8-bit from CLIC spec
+  input                                                   riscv::priv_lvl_t clic_irq_priv_i, // CLIC interrupt privilege level
+  input logic                                             clic_irq_shv_i, // selective hardware vectoring bit
+  output logic                                            clic_irq_ready_o, // core side interrupt hanshake (ready)
+  input logic                                             clic_kill_req_i, // kill request
+  output logic                                            clic_kill_ack_o, // kill acknowledge
   // RISC-V formal interface port (`rvfi`):
   // Can be left open when formal tracing is not needed.
-  output ariane_pkg::rvfi_port_t       rvfi_o,
-  output cvxif_pkg::cvxif_req_t        cvxif_req_o,
-  input  cvxif_pkg::cvxif_resp_t       cvxif_resp_i,
+  output                                                  ariane_pkg::rvfi_port_t rvfi_o,
+  output                                                  cvxif_pkg::cvxif_req_t cvxif_req_o,
+  input                                                   cvxif_pkg::cvxif_resp_t cvxif_resp_i,
   // L15 (memory side)
-  output wt_cache_pkg::l15_req_t       l15_req_o,
-  input  wt_cache_pkg::l15_rtrn_t      l15_rtrn_i,
+  output                                                  wt_cache_pkg::l15_req_t l15_req_o,
+  input                                                   wt_cache_pkg::l15_rtrn_t l15_rtrn_i,
   // memory side, AXI Master
-  output axi_req_t                     axi_req_o,
-  input  axi_rsp_t                     axi_resp_i
+  output                                                  axi_req_t axi_req_o,
+  input                                                   axi_rsp_t axi_resp_i
 );
 
   riscv::priv_lvl_t         priv_lvl;
@@ -151,6 +160,9 @@ module cva6
     .clk_i                 ( clk_i                       ),
     .rst_ni                ( rst_ni                      ),
     .priv_lvl_i            ( priv_lvl                    ),
+    .busy_o                (                             ),
+    .stall_i               ( 1'b0                        ),
+    .init_ni               ( 1'b0                        ),
     // I$
     .icache_en_i           ( icache_en_csr               ),
     .icache_flush_i        ( icache_flush_ctrl_cache     ),

@@ -64,15 +64,6 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
 
     axi_req_t axi_req_icache;
     axi_rsp_t axi_resp_icache;
-    axi_req_t axi_req_bypass;
-    axi_rsp_t axi_resp_bypass;
-    axi_req_t axi_req_data;
-    axi_rsp_t axi_resp_data;
-
-    logic              icache_busy;
-    logic              dcache_busy;
-
-    assign busy_o = icache_busy | dcache_busy;
 
     ariane_ace::m2s_nosnoop_t axi_req_bypass;
     ariane_ace::s2m_nosnoop_t axi_resp_bypass;
@@ -81,6 +72,11 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
 
     ariane_ace::snoop_req_t snoop_port_i;
     ariane_ace::snoop_resp_t snoop_port_o;
+
+    logic              icache_busy;
+    logic              dcache_busy;
+
+    assign busy_o = icache_busy | dcache_busy;
 
     assign snoop_port_i.ac = axi_resp_i.ac;
     assign snoop_port_i.ac_valid = axi_resp_i.ac_valid;
