@@ -914,7 +914,8 @@ clic #(
   .reg_rsp_t (reg_a32_d32_rsp_t),
   .SSCLIC    (1),
   .USCLIC    (0),
-  .VCLIC     (1)
+  .VSCLIC    (1),
+  .N_VSCTXTS (2)
 ) i_clic (
   .clk_i(clk),
   .rst_ni(ndmreset_n),
