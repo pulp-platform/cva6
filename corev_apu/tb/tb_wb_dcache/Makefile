@@ -17,10 +17,17 @@ toplevel     ?= tb
 src-list     := tb.list
 inc-path     := $(shell pwd)/hdl/
 src          := $(shell xargs printf '\n%s' < $(src-list)  | cut -b 1-)
-compile_flag += +cover+i_dut -incr -64 -nologo -svinputport=compat -override_timescale 1ns/1ps -suppress 2583 -suppress 13262 +cover
+compile_flag += +cover+i_dut -incr -64 -nologo -svinputport=compat -override_timescale 1ns/1ps -suppress 2583 -suppress 13262 -suppress 2986 +cover
 sim_opts     += -64 -coverage -classdebug -voptargs="+acc"
 questa_version ?= ${QUESTASIM_VERSION}
-incdir       += ../common/ ../../axi/include/
+incdir       += ../common/ ../../../vendor/pulp-platform/axi/include/
+wave         := wave.do
+ifeq ($(toplevel),tb_ace)
+	wave         := wave_ace.do
+endif
+ifeq ($(toplevel),tb_ace_direct)
+	wave         := wave_ace_direct.do
+endif
 
 # Iterate over all include directories and write them with +incdir+ prefixed
 # +incdir+ works for Verilator and QuestaSim
@@ -33,7 +40,7 @@ build: clean
 
 # this starts modelsim with gui
 sim: build
-	vsim${questa_version} -lib $(library) $(toplevel) -do "do wave.do" $(sim_opts)
+	vsim${questa_version} -lib $(library) $(toplevel) -do "do $(wave)" $(sim_opts)
 
 # batch mode without gui
 simc: build

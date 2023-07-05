@@ -3,10 +3,12 @@ CROSSCOMPILE ?= riscv64-unknown-elf-
 CC = ${CROSSCOMPILE}gcc
 
 ifeq ($(XLEN), 64)
-CFLAGS = -Os -ggdb -march=rv64imac -mabi=lp64 -Wall -mcmodel=medany -mexplicit-relocs
+CFLAGS = -Os -ggdb -march=rv64imac -mabi=lp64 -Wall -mcmodel=medany -mexplicit-relocs -fno-builtin
 else
 CFLAGS = -O2 -ggdb  -march=rv32im -mabi=ilp32 -W -Wall -mcmodel=medany -mexplicit-relocs -fno-builtin
 endif
+
+CORES ?= 1
 
 CCASFLAGS = -mcmodel=medany -mexplicit-relocs
 LDFLAGS = -nostdlib -nodefaultlibs -nostartfiles
@@ -24,6 +26,7 @@ MAIN_IMG = $(MAIN:.elf=.img)
 MAIN_SV = $(MAIN:.elf=.sv)
 
 DTB = cv$(XLEN)a6.dtb
+DTS = cv$(XLEN)a6.dts
 
 #.PHONY: clean
 
@@ -44,6 +47,10 @@ $(MAIN): $(DTB) $(OBJS_C) $(OBJS_S) linker.lds
 %.o: %.S
 	@$(CC) $(CFLAGS) $(CCASFLAGS) $(INCLUDES) -c $<  -o $@
 	@echo "CC    <= $<"
+
+%.dts:
+	$(PYTHON) ./gen_dts.py $(CORES)
+	mv ariane.dts $@
 
 %.dtb: %.dts
 	dtc -I dts $< -O dtb -o $@
