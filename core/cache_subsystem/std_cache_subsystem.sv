@@ -78,6 +78,7 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
 
     assign busy_o = icache_busy | dcache_busy;
 
+  if (type(axi_req_t) == type(ariane_ace::m2s_t)) begin
     assign snoop_port_i.ac = axi_resp_i.ac;
     assign snoop_port_i.ac_valid = axi_resp_i.ac_valid;
     assign snoop_port_i.cr_ready = axi_resp_i.cr_ready;
@@ -87,6 +88,9 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
     assign axi_req_o.cr_resp = snoop_port_o.cr_resp;
     assign axi_req_o.cd_valid = snoop_port_o.cd_valid;
     assign axi_req_o.cd = snoop_port_o.cd;
+  end else begin
+    assign snoop_port_i = '0;
+  end
 
     cva6_icache_axi_wrapper #(
         .ArianeCfg    ( ArianeCfg    ),
