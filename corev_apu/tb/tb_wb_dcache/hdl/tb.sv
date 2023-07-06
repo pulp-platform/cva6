@@ -50,6 +50,9 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
     // cache config
     AxiCompliant:          1'b1,
     SwapEndianess:         1'b0,
+    // CLIC
+    CLICNumInterruptSrc:    1'b1,
+    CLICIntCtlBits:         1,
     // debug
     DmBaseAddress:         64'h0,
     NrPMPEntries:          0

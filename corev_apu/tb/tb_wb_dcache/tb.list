@@ -57,7 +57,6 @@
 ../common/tb_readport.sv
 ../common/tb_writeport.sv
 ../common/tb_amoport.sv
-hdl/ila.sv
 hdl/tb.sv
 hdl/dcache_checker.sv
 hdl/request_scheduler.sv
