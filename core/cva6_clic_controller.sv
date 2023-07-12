@@ -75,7 +75,6 @@ module cva6_clic_controller #(
                 clic_irq_v_o = 1'b1;
               end else begin
                 // Received IRQ delegated to a differet VS: trap to hypervisor if SGEIE == 1 (from hie). 
-                // TODO: Should also depend on hgeie[irq_vsid]: should be integrated in CLIC or checked here?
                 clic_irq_req_o = (clic_irq_valid_i) && irq_ctrl_i.sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i];
               end
             end else begin
@@ -98,8 +97,33 @@ module cva6_clic_controller #(
       end
       riscv::PRIV_LVL_U: begin
         // Take all M-mode and S-mode interrupts
-        clic_irq_req_o = clic_irq_valid_i;
-        clic_irq_v_o   = clic_irq_v_i;
+        if(clic_irq_priv_i == riscv::PRIV_LVL_M) begin
+          clic_irq_req_o = clic_irq_valid_i;
+        end else if (clic_irq_priv_i == riscv::PRIV_LVL_S) begin
+          if(v_i) begin   // VU-mode
+            if(clic_irq_v_i) begin // irq is delegated to VM clic_irq_vsid_i
+              if (clic_irq_vsid_i == irq_ctrl_i.vgein) begin
+                // VS-mode interrupt is for currently running VS
+                clic_irq_req_o = clic_irq_valid_i;
+                clic_irq_v_o = 1'b1;
+              end else begin
+                // Received IRQ delegated to a differet VS: trap to hypervisor if SGEIE == 1 (from hie).
+                clic_irq_req_o = (clic_irq_valid_i) && irq_ctrl_i.sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i];
+              end
+            end else begin
+              // (Host) Supervisor interrupt
+              clic_irq_req_o = clic_irq_valid_i; // HS-mode sie is implicitly enabled in VU-mode
+            end
+          end else begin  // U-mode
+            if (clic_irq_v_i) begin
+              // Virtual interrrupt
+              // TODO: Received VS-mode interrupt in U-mode: just ignore ?
+            end else begin
+              // (Host) Supervisor interrupt
+              clic_irq_req_o = clic_irq_valid_i; // HS-mode sie is implicitly enabled in U-mode
+            end
+          end
+        end
       end
       default: ;
     endcase
