@@ -234,7 +234,7 @@ package tb_ace_ccu_pkg;
           exp_aw.slv_axi_len       = 1;
           exp_aw.slv_axi_addr[3:0] = 4'b0;
           $fdisplay(FDCI, "%0tns > WRITE CLEAN INVALID initiated AXI ID: %b, Address: %h",
-                    $time, exp_aw.slv_axi_id, exp_aw.slv_axi_addr);
+          $time, exp_aw.slv_axi_id, exp_aw.slv_axi_addr);
           for(int j = 0; j < NoMasters; j++) begin
             this.write_back_queue_ax[j].push_back( exp_aw); 
           end
@@ -411,7 +411,7 @@ package tb_ace_ccu_pkg;
           for (int j = 0; j < NoMasters; j++)
             this.write_back_queue_ax[j].push_back( exp_slv_ar);
           $fdisplay(FDCI, "%0tns > READ CLEAN INVALID initiated AXI ID: %b, Address: %h",
-          $time, exp_slv_ar.slv_axi_id, exp_slv_ar.slv_axi_addr);
+           $time, exp_slv_ar.slv_axi_id, exp_slv_ar.slv_axi_addr);
 
           exp_len = 0;
            // populate the expected b queue anyway
