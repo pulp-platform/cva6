@@ -227,7 +227,7 @@ package tb_ace_ccu_pkg;
                    slv_axi_addr: masters_axi[i].aw_addr,
                    slv_axi_len:  masters_axi[i].aw_len   };
         this.exp_aw_queue[to_slave_idx].push(exp_aw_id, exp_aw);
-
+        
         // push in write back queue in case of snoop transaction type
         if(snoop_aw_trs == 'b1) begin
           // writeback is always full cache line
@@ -239,7 +239,7 @@ package tb_ace_ccu_pkg;
             this.write_back_queue_ax[j].push_back( exp_aw); 
           end
         end
-
+        
 
         incr_expected_tests(3);
         $display("%0tns > Master %0d: AW to Slave %0d: Axi ID: %b %x",
