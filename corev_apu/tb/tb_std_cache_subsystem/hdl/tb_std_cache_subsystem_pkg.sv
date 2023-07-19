@@ -1415,6 +1415,9 @@ package tb_std_cache_subsystem_pkg;
                                 // 2. wait for FSM
                                 @(posedge sram_vif.clk);
 
+                                // send snoop to do_hit()
+                                ac_mbx_int.put(ac);
+
                                 cr_exp = GetCRResp(ac);
                                 $display("%t ns %s.check_snoop: Got expected response PassDirty : %1b, DataTransfer : %1b, Error : %1b for address %16h", $time, name, cr_exp.cr_resp.passDirty, cr_exp.cr_resp.dataTransfer, cr_exp.cr_resp.error, ac.ac_addr);
 
@@ -1424,9 +1427,6 @@ package tb_std_cache_subsystem_pkg;
                                 a_empty_cr : assert (cr_mbx.num() == 0) else $error ("%S.check_snoop : CR mailbox not empty", name);
 
                                 CheckOK = checkCRResp(.req(ac), .exp(cr_exp), .resp(cr));
-
-                                // send snoop to do_hit()
-                                ac_mbx_int.put(ac);
 
                                 // expect the data
                                 $display("%t ns %s.check_snoop: CD mailbox size : %0d", $time, name, cd_mbx.num());
