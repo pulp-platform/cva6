@@ -17,6 +17,23 @@
 // lost or sent to the wrong destination.
 
 package tb_ace_ccu_pkg;
+
+  // extend the rand_id_queue with a push_front() function
+  class rand_id_queue #(
+    type          data_t   = logic,
+    int unsigned  ID_WIDTH = 0
+  ) extends rand_id_queue_pkg::rand_id_queue #(
+    .data_t   (data_t),
+    .ID_WIDTH (ID_WIDTH)
+  );
+
+    function void push_front(id_t id, data_t data);
+      queues[id].push_front(data);
+      size++;
+    endfunction
+
+  endclass
+
   class ace_ccu_monitor #(
     parameter int unsigned AxiAddrWidth,
     parameter int unsigned AxiDataWidth,
@@ -50,16 +67,16 @@ package tb_ace_ccu_pkg;
       logic        last;
     } slave_exp_t;
 
-    typedef rand_id_queue_pkg::rand_id_queue #(
+    typedef rand_id_queue #(
       .data_t   ( master_exp_t      ),
       .ID_WIDTH ( AxiIdWidthMasters )
     ) master_exp_queue_t;
-    typedef rand_id_queue_pkg::rand_id_queue #(
+    typedef rand_id_queue #(
       .data_t   ( exp_ax_t         ),
       .ID_WIDTH ( AxiIdWidthSlaves )
     ) ax_queue_t;
 
-    typedef rand_id_queue_pkg::rand_id_queue #(
+    typedef rand_id_queue #(
       .data_t   ( slave_exp_t      ),
       .ID_WIDTH ( AxiIdWidthSlaves )
     ) slave_exp_queue_t;
@@ -210,19 +227,19 @@ package tb_ace_ccu_pkg;
                    slv_axi_addr: masters_axi[i].aw_addr,
                    slv_axi_len:  masters_axi[i].aw_len   };
         this.exp_aw_queue[to_slave_idx].push(exp_aw_id, exp_aw);
-        
+
         // push in write back queue in case of snoop transaction type
         if(snoop_aw_trs == 'b1) begin
           // writeback is always full cache line
           exp_aw.slv_axi_len       = 1;
           exp_aw.slv_axi_addr[3:0] = 4'b0;
           $fdisplay(FDCI, "%0tns > WRITE CLEAN INVALID initiated AXI ID: %b, Address: %h",
-          $time, exp_aw.slv_axi_id, exp_aw.slv_axi_addr);
+                    $time, exp_aw.slv_axi_id, exp_aw.slv_axi_addr);
           for(int j = 0; j < NoMasters; j++) begin
             this.write_back_queue_ax[j].push_back( exp_aw); 
           end
         end
-        
+
 
         incr_expected_tests(3);
         $display("%0tns > Master %0d: AW to Slave %0d: Axi ID: %b %x",
@@ -394,7 +411,7 @@ package tb_ace_ccu_pkg;
           for (int j = 0; j < NoMasters; j++)
             this.write_back_queue_ax[j].push_back( exp_slv_ar);
           $fdisplay(FDCI, "%0tns > READ CLEAN INVALID initiated AXI ID: %b, Address: %h",
-           $time, exp_slv_ar.slv_axi_id, exp_slv_ar.slv_axi_addr);
+          $time, exp_slv_ar.slv_axi_id, exp_slv_ar.slv_axi_addr);
 
           exp_len = 0;
            // populate the expected b queue anyway
@@ -496,7 +513,6 @@ package tb_ace_ccu_pkg;
     // This task monitors the CR channel on snoop slave. It captures outgoing snoop response
     task automatic monitor_snoop_cr(input int unsigned i);
       exp_ax_t      exp_aw;
-      exp_ax_t      exp_aw_swap;
       master_exp_t  exp_b;
       if (slaves_snoop[i].cr_valid && slaves_snoop[i].cr_ready) begin
         WB_Queue_Reset  = 'b0;
@@ -508,10 +524,8 @@ package tb_ace_ccu_pkg;
         else if(acsnoop_hold[i] === snoop_pkg::CLEAN_INVALID) begin
           if(slaves_snoop[i].cr_resp[0] && !slaves_snoop[i].cr_resp[1] && slaves_snoop[i].cr_resp[2]) begin
             // extract write back transaction from WB queues that will pushed into the expected AW queue
-            exp_aw      = this.write_back_queue_ax[i].pop_front();
-            exp_aw_swap = this.exp_aw_queue[0].pop_id(exp_aw.slv_axi_id);
-            this.exp_aw_queue[0].push(exp_aw.slv_axi_id, exp_aw);
-            this.exp_aw_queue[0].push(exp_aw.slv_axi_id, exp_aw_swap);
+            exp_aw = this.write_back_queue_ax[i].pop_front();
+            this.exp_aw_queue[0].push_front(exp_aw.slv_axi_id, exp_aw);
             $fdisplay(FDCI,"%0tns > Write back occured", $time);
             $fdisplay(FDCI, "\t \t AXI ID: %b, Address: %h", exp_aw.slv_axi_id, exp_aw.slv_axi_addr);
             $fdisplay(FDCI, "\t \t AC Address: %h", ac_address_holder[i]);
