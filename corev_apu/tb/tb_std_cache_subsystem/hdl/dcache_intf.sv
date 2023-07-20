@@ -26,18 +26,19 @@ interface dcache_mgmt_intf (
 
     logic dcache_enable;        // from CSR
     logic dcache_flush;         // high until acknowledged
+    logic dcache_flushing;      // flushing started
     logic dcache_flush_ack;     // send a single cycle acknowledge signal when the cache is flushed
     logic dcache_miss;          // we missed on a ld/st
     logic wbuffer_empty;        // statically set to 1, as there is no wbuffer in this cache system
 
     modport dut (
-        input  dcache_enable, dcache_flush,     
-        output dcache_flush_ack, dcache_miss, wbuffer_empty
+        input  dcache_enable, dcache_flush,
+        output dcache_flushing, dcache_flush_ack, dcache_miss, wbuffer_empty
     );
 
     modport driver (
-        output dcache_enable, dcache_flush,     
-        input  dcache_flush_ack, dcache_miss, wbuffer_empty
+        output dcache_enable, dcache_flush,
+        input  dcache_flushing, dcache_flush_ack, dcache_miss, wbuffer_empty
     );
 
 endinterface

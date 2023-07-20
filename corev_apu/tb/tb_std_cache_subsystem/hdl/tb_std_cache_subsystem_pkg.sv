@@ -725,6 +725,11 @@ package tb_std_cache_subsystem_pkg;
                     if (verbosity > 0) begin
                         $display("%t ns %s got flush request", $time, name);
                     end
+
+                    // wait for flushing to start
+                    while (!vif.dcache_flushing) begin
+                        @(posedge vif.clk);
+                    end
                     mbox.put(trans);
 
                     // wait for ack
@@ -1087,6 +1092,14 @@ package tb_std_cache_subsystem_pkg;
                 resp.cr_resp.dataTransfer = 1'b1;
             end
 
+            if (req.ac_snoop == snoop_pkg::READ_UNIQUE || req.ac_snoop == snoop_pkg::CLEAN_INVALID) begin
+                resp.cr_resp.isShared = 1'b0;
+            end else if (isHit(req.ac_addr) && req.ac_snoop == snoop_pkg::READ_SHARED) begin
+                resp.cr_resp.isShared = 1'b1;
+            end else begin // READ_ONCE
+                resp.cr_resp.isShared = isShared(req.ac_addr);
+            end
+
             return resp;
 
         endfunction
@@ -1108,8 +1121,8 @@ package tb_std_cache_subsystem_pkg;
                 OK = 1'b0;
             end
 
-            if (isShared(req.ac_addr) != resp.cr_resp.isShared && resp.cr_resp.error == 1'b0 && req.ac_snoop != snoop_pkg::CLEAN_INVALID) begin
-                $error("%s: CR.resp.isShared mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, isShared(req.ac_addr), resp.cr_resp.isShared);
+            if (exp.cr_resp.isShared != resp.cr_resp.isShared && resp.cr_resp.error == 1'b0) begin
+                $error("%s: CR.resp.isShared mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.isShared, resp.cr_resp.isShared);
                 OK = 1'b0;
             end
 
@@ -1405,6 +1418,9 @@ package tb_std_cache_subsystem_pkg;
                                     snoop_to_cache_update.put(ac);
                                 end
 
+                                // send snoop to do_hit()
+                                ac_mbx_int.put(ac);
+
                                 // wait to prepare expected response until last cycle before cache is updated by snoop
                                 // 1. wait for grant to read cache
                                 while (!gnt_vif.gnt[1]) begin
@@ -1414,9 +1430,6 @@ package tb_std_cache_subsystem_pkg;
                                 @(posedge sram_vif.clk);
                                 // 2. wait for FSM
                                 @(posedge sram_vif.clk);
-
-                                // send snoop to do_hit()
-                                ac_mbx_int.put(ac);
 
                                 cr_exp = GetCRResp(ac);
                                 $display("%t ns %s.check_snoop: Got expected response PassDirty : %1b, DataTransfer : %1b, Error : %1b for address %16h", $time, name, cr_exp.cr_resp.passDirty, cr_exp.cr_resp.dataTransfer, cr_exp.cr_resp.error, ac.ac_addr);
