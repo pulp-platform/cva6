@@ -319,11 +319,11 @@ module cache_ctrl
 
           // set the correct byte enable
           be_o.data[cl_offset>>3+:CVA6Cfg.XLEN/8] = mem_req_q.be;
-          data_o.data[cl_offset+:CVA6Cfg.XLEN]    = mem_req_q.wdata;
-          data_o.tag                              = mem_req_d.tag;
+          data_o.data[cl_offset+:CVA6Cfg.XLEN]       = mem_req_q.wdata;
+          data_o.tag                                 = mem_req_d.tag;
           // ~> change the state
-          data_o.dirty                            = 1'b1;
-          data_o.valid                            = 1'b1;
+          data_o.dirty[cl_offset>>3+:CVA6Cfg.XLEN/8] = 1'b1;
+          data_o.valid                               = 1'b1;
 
           // got a grant ~> this is finished now
           if (gnt_i) begin
