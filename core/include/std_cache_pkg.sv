@@ -62,10 +62,10 @@ package std_cache_pkg;
   } bypass_rsp_t;
 
   typedef struct packed {
-    logic [ariane_pkg::DCACHE_TAG_WIDTH-1:0]  tag;    // tag array
-    logic [ariane_pkg::DCACHE_LINE_WIDTH-1:0] data;   // data array
-    logic                                     valid;  // state array
-    logic                                     dirty;  // state array
+    logic [ariane_pkg::DCACHE_TAG_WIDTH-1:0]        tag;    // tag array
+    logic [ariane_pkg::DCACHE_LINE_WIDTH-1:0]       data;   // data array
+    logic                                           valid;  // state array
+    logic [(ariane_pkg::DCACHE_LINE_WIDTH+7)/8-1:0] dirty;  // state array
   } cache_line_t;
 
   // cache line byte enable
