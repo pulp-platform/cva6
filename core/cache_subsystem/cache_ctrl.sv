@@ -298,18 +298,18 @@ module cache_ctrl
         // two memory look-ups on a single-ported SRAM and therefore is non-atomic
         if (!mshr_index_matches_i) begin
           // store data, write dirty bit
-          req_o                      = hit_way_q;
-          addr_o                     = mem_req_q.index;
-          we_o                       = 1'b1;
+          req_o                         = hit_way_q;
+          addr_o                        = mem_req_q.index;
+          we_o                          = 1'b1;
 
-          be_o.vldrty                = hit_way_q;
+          be_o.vldrty                   = hit_way_q;
 
           // set the correct byte enable
-          be_o.data[cl_offset>>3+:8] = mem_req_q.be;
-          data_o.data[cl_offset+:64] = mem_req_q.wdata;
+          be_o.data[cl_offset>>3+:8]    = mem_req_q.be;
+          data_o.data[cl_offset+:64]    = mem_req_q.wdata;
           // ~> change the state
-          data_o.dirty               = 1'b1;
-          data_o.valid               = 1'b1;
+          data_o.dirty[cl_offset>>3+:8] = mem_req_q.be;
+          data_o.valid                  = 1'b1;
 
           // got a grant ~> this is finished now
           if (gnt_i) begin
