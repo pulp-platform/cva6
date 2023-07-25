@@ -52,15 +52,19 @@ module std_nbdcache
   localparam DCACHE_DIRTY_WIDTH = CVA6Cfg.DCACHE_SET_ASSOC * 2;
 
   localparam type cache_line_t = struct packed {
-    logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]  tag;    // tag array
-    logic [CVA6Cfg.DCACHE_LINE_WIDTH-1:0] data;   // data array
-    logic                                 valid;  // state array
-    logic                                 dirty;  // state array
+    logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]          tag;    // tag array
+    logic [CVA6Cfg.DCACHE_LINE_WIDTH-1:0]         data;   // data array
+    logic                                         valid;  // state array
+    logic [(CVA6Cfg.DCACHE_LINE_WIDTH-1+7)/8-1:0] dirty;  // state array
   };
+  typedef struct packed {
+    logic [CVA6Cfg.DCACHE_LINE_WIDTH/8-1:0] dirty;
+    logic                                   valid;
+  } vldrty_t;
   localparam type cl_be_t = struct packed {
     logic [(CVA6Cfg.DCACHE_TAG_WIDTH+7)/8-1:0] tag;  // byte enable into tag array
     logic [(CVA6Cfg.DCACHE_LINE_WIDTH+7)/8-1:0] data;  // byte enable into data array
-    logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0]        vldrty; // bit enable into state array (valid for a pair of dirty/valid bits)
+    vldrty_t [CVA6Cfg.DCACHE_SET_ASSOC-1:0]     vldrty; // bit enable into state array (valid for a pair of dirty/valid bits)
   };
 
   // -------------------------------
@@ -107,6 +111,7 @@ module std_nbdcache
   cache_line_t                                                                  wdata_ram;
   cache_line_t [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 rdata_ram;
   cl_be_t                                                                       be_ram;
+  vldrty_t     [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 be_valid_dirty_ram;
 
   // Busy signals
   logic                                                                         miss_handler_busy;
@@ -245,19 +250,28 @@ module std_nbdcache
 
   // align each valid/dirty bit pair to a byte boundary in order to leverage byte enable signals.
   // note: if you have an SRAM that supports flat bit enables for your target technology,
-  // you can use it here to save the extra 4x overhead introduced by this workaround.
-  logic [4*DCACHE_DIRTY_WIDTH-1:0] dirty_wdata, dirty_rdata;
+  // you can use it here to save the extra 17x overhead introduced by this workaround.
+  logic [(CVA6Cfg.DCACHE_LINE_WIDTH+8)*CVA6Cfg.DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
   for (genvar i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin
-    assign dirty_wdata[8*i]   = wdata_ram.dirty;
-    assign dirty_wdata[8*i+1] = wdata_ram.valid;
-    assign rdata_ram[i].dirty = dirty_rdata[8*i];
-    assign rdata_ram[i].valid = dirty_rdata[8*i+1];
+    for (genvar j = 0; j < CVA6Cfg.DCACHE_LINE_WIDTH / 8; j++) begin
+      // dirty bits assignment
+      assign dirty_wdata[(CVA6Cfg.DCACHE_LINE_WIDTH+8)*i+8*j] = wdata_ram.dirty[j];
+      assign rdata_ram[i].dirty[j]                    = dirty_rdata[(CVA6Cfg.DCACHE_LINE_WIDTH+8)*i+8*j];
+    end
+    // valid bit assignment
+    assign dirty_wdata[CVA6Cfg.DCACHE_LINE_WIDTH+(CVA6Cfg.DCACHE_LINE_WIDTH+8)*i] = wdata_ram.valid;
+    assign rdata_ram[i].valid = dirty_rdata[CVA6Cfg.DCACHE_LINE_WIDTH+(CVA6Cfg.DCACHE_LINE_WIDTH+8)*i];
+  end
+
+  // be construction for valid_dirty_sram
+  for (genvar i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin
+    assign be_valid_dirty_ram[i*(CVA6Cfg.DCACHE_LINE_WIDTH/8+1)+:(CVA6Cfg.DCACHE_LINE_WIDTH/8+1)] = {be_ram.vldrty[i], be_ram.data} & {(CVA6Cfg.DCACHE_LINE_WIDTH/8+1){be_ram.vldrty[i]}};
   end
 
   sram #(
       .USER_WIDTH(1),
-      .DATA_WIDTH(4 * DCACHE_DIRTY_WIDTH),
+      .DATA_WIDTH((CVA6Cfg.DCACHE_LINE_WIDTH + 8) * CVA6Cfg.DCACHE_SET_ASSOC),
       .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
   ) valid_dirty_sram (
       .clk_i  (clk_i),
@@ -267,7 +281,7 @@ module std_nbdcache
       .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
       .wuser_i('0),
       .wdata_i(dirty_wdata),
-      .be_i   (be_ram.vldrty),
+      .be_i   (be_valid_dirty_ram),
       .ruser_o(),
       .rdata_o(dirty_rdata)
   );
