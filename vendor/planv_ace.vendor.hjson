@@ -35,5 +35,6 @@
         "scripts",
         "src_files.yml",
         "test",
+        "Makefile",
     ]
 }
