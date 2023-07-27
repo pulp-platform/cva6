@@ -514,6 +514,7 @@ package tb_ace_ccu_pkg;
     task automatic monitor_snoop_cr(input int unsigned i);
       exp_ax_t      exp_aw;
       master_exp_t  exp_b;
+      slv_axi_id_t  exp_aw_id;
       if (slaves_snoop[i].cr_valid && slaves_snoop[i].cr_ready) begin
         WB_Queue_Reset  = 'b0;
         $display("%0tns > Got Response from SNOOP %0d: CR_RESP %b: ",
@@ -525,6 +526,11 @@ package tb_ace_ccu_pkg;
           if(slaves_snoop[i].cr_resp[0] && !slaves_snoop[i].cr_resp[1] && slaves_snoop[i].cr_resp[2]) begin
             // extract write back transaction from WB queues that will pushed into the expected AW queue
             exp_aw = this.write_back_queue_ax[i].pop_front();
+
+            // modify the ID to originate from the responding snoop slave
+            exp_aw_id = {idx_mst_t'(i), exp_aw.slv_axi_id[AxiIdWidthMasters-1:0]};
+            exp_aw.slv_axi_id = exp_aw_id;
+
             this.exp_aw_queue[0].push_front(exp_aw.slv_axi_id, exp_aw);
             $fdisplay(FDCI,"%0tns > Write back occured", $time);
             $fdisplay(FDCI, "\t \t AXI ID: %b, Address: %h", exp_aw.slv_axi_id, exp_aw.slv_axi_addr);
