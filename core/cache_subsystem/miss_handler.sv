@@ -355,7 +355,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                     data_o.tag   = mshr_q.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH];
                     data_o.data  = data_miss_fsm;
                     data_o.valid = 1'b1;
-                    data_o.dirty = dirty_miss_fsm;
+                    data_o.dirty = dirty_miss_fsm ? '1 : '0; // it's unknown which byte caused the dirty flag in RRESP, set all bytes to dirty here
                     data_o.shared = mshr_q.we ? 1'b0 : shared_miss_fsm;
 
                     // is this a write?

@@ -172,7 +172,6 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/register_interface/src/apb_to_reg.sv                               \
         corev_apu/register_interface/src/axi_to_reg.sv                               \
         corev_apu/register_interface/src/reg_demux.sv                                \
-        corev_apu/register_interface/src/reg_err_slv.sv                              \
         corev_apu/register_interface/src/axi_lite_to_reg.sv                          \
         vendor/pulp-platform/axi/src/axi_multicut.sv                                 \
         vendor/pulp-platform/common_cells/src/rstgen_bypass.sv                       \
@@ -215,6 +214,8 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/tb/common/uart.sv                                                  \
         corev_apu/tb/common/SimDTM.sv                                                \
         corev_apu/tb/common/SimJTAG.sv
+
+#        corev_apu/register_interface/src/reg_err_slv.sv                              \
 
 flists := ${CVA6_REPO_DIR}/core/Flist.cva6
 # SV32 MMU for CV32, SV39 MMU for CV64

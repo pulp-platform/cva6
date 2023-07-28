@@ -277,7 +277,15 @@ import std_cache_pkg::*;
 
     // Each valid/shared pair and dirty bit is aligned to a byte boundary in order to leverage byte enable signals.
     // note: if you have an SRAM that supports flat bit enables for your target technology,
-    // you can use it here to save the extra 17x overhead introduced by this workaround.
+    // you can use it here to save the extra ~8x overhead introduced by this workaround.
+    //
+    //  MSB                                             \\           0
+    // +--------+--------+--------+--------+--------+-  //  -+--------+
+    // |......sv|.......d|.......d|.......d|.......d|.  \\  .|.......d|
+    // +--------+--------+--------+--------+--------+-  //  -+--------+
+    //                                                  \\
+    //  (v = valid, s = shared, d = dirty)
+
     logic [(DCACHE_LINE_WIDTH+8)*DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
     for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin

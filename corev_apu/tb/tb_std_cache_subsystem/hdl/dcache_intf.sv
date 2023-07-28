@@ -51,20 +51,80 @@ interface dcache_sram_if (input logic clk);
     import std_cache_pkg::*;
 
     // interface for probing into sram
+    // typedef logic [4*DCACHE_DIRTY_WIDTH-1:0] vld_t;
+    localparam VLD_SRAM_BITS = (DCACHE_LINE_WIDTH+8)*DCACHE_SET_ASSOC;
+    localparam VLD_SRAM_CUTS = (VLD_SRAM_BITS+64-1)/64;
 
-    typedef logic [4*DCACHE_DIRTY_WIDTH-1:0] vld_t;
+    typedef logic [63:0]                 vld_sram_cut_t;
+    typedef logic [VLD_SRAM_CUTS*64-1:0] vld_t;
+
+
+
     typedef logic [63:0]                     data_t;
     typedef logic [63:0]                     tag_t;
     typedef data_t                           data_sram_t [DCACHE_NUM_WORDS-1:0];
     typedef tag_t                            tag_sram_t  [DCACHE_NUM_WORDS-1:0];
-    typedef vld_t                            vld_sram_t  [DCACHE_NUM_WORDS-1:0];
+//    typedef vld_t                            vld_sram_t  [DCACHE_NUM_WORDS-1:0];
+    typedef vld_sram_cut_t                   vld_sram_t  [DCACHE_NUM_WORDS-1:0];
 
     data_sram_t                                       data_sram [1:0][DCACHE_SET_ASSOC-1:0];
     tag_sram_t                                        tag_sram       [DCACHE_SET_ASSOC-1:0];
-    vld_sram_t                                        vld_sram;
+//    vld_sram_t                                        vld_sram;
+    vld_sram_t                                        vld_sram [VLD_SRAM_CUTS-1:0];
     logic                                             vld_req;
     logic                                             vld_we;
     logic [DCACHE_INDEX_WIDTH-DCACHE_BYTE_OFFSET-1:0] vld_index;
+
+
+    // helper function to get valid, shared, and dirty bits from VLD sram
+    function logic get_valid (
+        input int unsigned index,
+        input int unsigned way
+    );
+        vld_t vld_word;
+
+        for (int c=0; c<VLD_SRAM_CUTS; c++) begin
+            vld_word[c*64 +: 64] = vld_sram[c][index];
+        end
+
+        return vld_word[DCACHE_LINE_WIDTH+(DCACHE_LINE_WIDTH+8)*way];
+
+    endfunction
+
+    function logic get_shared (
+        input int unsigned index,
+        input int unsigned way
+    );
+        vld_t vld_word;
+
+        for (int c=0; c<VLD_SRAM_CUTS; c++) begin
+            vld_word[c*64 +: 64] = vld_sram[c][index];
+        end
+
+        return vld_word[DCACHE_LINE_WIDTH+1+(DCACHE_LINE_WIDTH+8)*way];
+
+    endfunction
+
+    function logic get_dirty (
+        input int unsigned index,
+        input int unsigned way
+    );
+        vld_t vld_word;
+        logic dirty;
+        dirty = 1'b0;
+
+        for (int c=0; c<VLD_SRAM_CUTS; c++) begin
+            vld_word[c*64 +: 64] = vld_sram[c][index];
+        end
+
+        for (int b = 0; b < DCACHE_LINE_WIDTH/8; b++) begin
+            dirty |= vld_word[(DCACHE_LINE_WIDTH+8)*way+8*b];
+        end
+
+        return dirty;
+
+    endfunction
+
 
 
 endinterface
