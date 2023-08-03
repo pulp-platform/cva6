@@ -123,8 +123,8 @@ module controller import ariane_pkg::*; (
 // this is not needed in the case since we
 // have a write-through cache in this case
             if (DCACHE_TYPE == int'(cva6_config_pkg::WB)) begin
-              flush_dcache           = 1'b1;
-              fence_active_d         = 1'b1;
+              flush_dcache           = 1'b0;
+              fence_active_d         = 1'b0;
             end
         end
 
@@ -141,8 +141,8 @@ module controller import ariane_pkg::*; (
 // this is not needed in the case since we
 // have a write-through cache in this case
             if (DCACHE_TYPE == int'(cva6_config_pkg::WB)) begin
-              flush_dcache           = 1'b1;
-              fence_active_d         = 1'b1;
+              flush_dcache           = 1'b0;
+              fence_active_d         = 1'b0;
             end
         end
 

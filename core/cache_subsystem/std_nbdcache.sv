@@ -83,6 +83,8 @@ import std_cache_pkg::*;
     logic [2:0]                        miss_gnt;
     logic [2:0]                        active_serving;
     logic                              flushing;
+    logic                              serving_amo;
+    logic [63:0]                       serving_amo_addr;
 
     logic [2:0]                        bypass_gnt;
     logic [2:0]                        bypass_valid;
@@ -138,6 +140,8 @@ import std_cache_pkg::*;
         .readshared_done_o    ( readshared_done       ),
         .updating_cache_i     ( |updating_cache       ),
         .flushing_i           ( flushing              ),
+        .amo_valid_i          ( serving_amo           ),
+        .amo_addr_i           ( serving_amo_addr      ),
         .*
     );
 
@@ -216,6 +220,8 @@ import std_cache_pkg::*;
         .mshr_index_matches_o   ( mshr_index_matches   ),
         .active_serving_o       ( active_serving       ),
         .flushing_o             ( flushing             ),
+        .serving_amo_o          ( serving_amo          ),
+        .serving_amo_addr_o     ( serving_amo_addr     ),
         .req_o                  ( req             [0]  ),
         .addr_o                 ( addr            [0]  ),
         .data_i                 ( rdata                ),
