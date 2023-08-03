@@ -32,6 +32,7 @@ module perf_counters import ariane_pkg::*; #(
   input  logic                                    l1_dcache_miss_i,
   input  logic                                    l1_dcache_hit_i,
   input  logic                                    l1_dcache_flushing_i,
+  input  logic                                    amo_i,
   // from MMU
   input  logic                                    itlb_miss_i,
   input  logic                                    dtlb_miss_i,
@@ -56,6 +57,7 @@ module perf_counters import ariane_pkg::*; #(
   logic [63:0] generic_counter_q[6:1];
 
   logic l1_dcache_flushing_q;
+  logic amo_q;
 
   //internal signal to keep track of exception
   logic read_access_exception,update_access_exception;
@@ -109,7 +111,8 @@ module perf_counters import ariane_pkg::*; #(
     assign events[2] = l1_dcache_hit_i;
     assign events[3] = l1_dcache_flushing_i;
     assign events[4] = l1_dcache_flushing_q & (!l1_dcache_flushing_i);
-    assign events[5] = 1'b1;
+    assign events[5] = amo_q & (!amo_i);
+    assign events[6] = 1'b1;
 
 
     always_comb begin : generic_counter
@@ -189,10 +192,12 @@ module perf_counters import ariane_pkg::*; #(
             generic_counter_q <= '{default:0};
             mhpmevent_q       <= '{default:0};
             l1_dcache_flushing_q <= 1'b0;
+            amo_q <= 1'b0;
         end else begin
             generic_counter_q <= generic_counter_d;
             mhpmevent_q       <= mhpmevent_d;
             l1_dcache_flushing_q <= l1_dcache_flushing_i;
+            amo_q <= amo_i;
        end
    end
 

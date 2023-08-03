@@ -743,6 +743,7 @@ module cva6 import ariane_pkg::*; #(
     .l1_dcache_miss_i     ( dcache_miss_cache_perf     ),
     .l1_dcache_hit_i      ( dcache_hit_cache_perf      ),
     .l1_dcache_flushing_i ( dcache_flushing_cache_perf ),
+    .amo_i                ( amo_req.req                ),
     .itlb_miss_i          ( itlb_miss_ex_perf          ),
     .dtlb_miss_i          ( dtlb_miss_ex_perf          ),
     .sb_full_i            ( sb_full                    ),
