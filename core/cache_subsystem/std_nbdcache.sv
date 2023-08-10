@@ -228,8 +228,8 @@ import std_cache_pkg::*;
       assign dirty_wdata[i]     = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid};
       assign rdata_ram[i].dirty = dirty_rdata[i].dirty;
       assign rdata_ram[i].valid = dirty_rdata[i].valid;
-      assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i];
-      assign be_valid_dirty_ram[i].dirty = be_ram.data & {(DCACHE_LINE_WIDTH/8){be_ram.vldrty[i]}};
+      assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
+      assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
     end
 
     sram #(
