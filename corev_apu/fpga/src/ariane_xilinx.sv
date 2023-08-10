@@ -915,6 +915,7 @@ clic #(
   .SSCLIC    (1),
   .USCLIC    (0),
   .VSCLIC    (1),
+  .VSPRIO    (1),
   .N_VSCTXTS (2)
 ) i_clic (
   .clk_i(clk),

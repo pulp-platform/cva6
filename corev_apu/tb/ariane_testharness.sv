@@ -825,7 +825,8 @@ module ariane_testharness #(
     .SSCLIC    (1),
     .USCLIC    (0),
     .VSCLIC    (1),
-    .N_VSCTXTS (2)
+    .N_VSCTXTS (2),
+    .VSPRIO    (1)
   ) i_clic (
     .clk_i(clk_i),
     .rst_ni(ndmreset_n),
