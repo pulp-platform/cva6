@@ -296,10 +296,11 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     addr_o     = mem_req_q.index;
                     we_o       = 1'b1;
 
-                    be_o.vldrty = hit_way_q;
-
                     // set the correct byte enable
                     be_o.data[cl_offset>>3 +: 8]  = mem_req_q.be;
+                    for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+                      if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, dirty: be_o.data};
+                    end
                     data_o.data[cl_offset  +: 64] = mem_req_q.wdata;
                     // ~> change the state
                     data_o.dirty[cl_offset>>3 +: 8] = mem_req_q.be;

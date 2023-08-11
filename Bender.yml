@@ -211,7 +211,7 @@ sources:
       - include_dirs:
         - common/local/util
         files:
-          - common/local/util/sram.sv
+          - common/local/util/sram_pulp.sv
 
       - target: not(all(fpga, xilinx))
         include_dirs:
