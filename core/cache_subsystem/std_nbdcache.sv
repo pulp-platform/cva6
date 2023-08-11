@@ -55,46 +55,46 @@ module std_nbdcache
   // 3. Load Unit
   // 4. Accelerator
   // 5. Store unit
-  logic [NumPorts:0][DCACHE_SET_ASSOC-1:0] req;
-  logic [NumPorts:0][DCACHE_INDEX_WIDTH-1:0] addr;
-  logic [NumPorts:0] gnt;
-  cache_line_t [DCACHE_SET_ASSOC-1:0] rdata;
-  logic [NumPorts:0][DCACHE_TAG_WIDTH-1:0] tag;
+  logic        [            NumPorts:0][  DCACHE_SET_ASSOC-1:0] req;
+  logic        [            NumPorts:0][DCACHE_INDEX_WIDTH-1:0] addr;
+  logic        [            NumPorts:0]                         gnt;
+  cache_line_t [  DCACHE_SET_ASSOC-1:0]                         rdata;
+  logic        [            NumPorts:0][  DCACHE_TAG_WIDTH-1:0] tag;
 
-  cache_line_t [NumPorts:0] wdata;
-  logic [NumPorts:0] we;
-  cl_be_t [NumPorts:0] be;
-  logic [DCACHE_SET_ASSOC-1:0] hit_way;
+  cache_line_t [            NumPorts:0]                         wdata;
+  logic        [            NumPorts:0]                         we;
+  cl_be_t      [            NumPorts:0]                         be;
+  logic        [  DCACHE_SET_ASSOC-1:0]                         hit_way;
   // -------------------------------
   // Controller <-> Miss unit
   // -------------------------------
-  logic [NumPorts-1:0] busy;
-  logic [NumPorts-1:0][55:0] mshr_addr;
-  logic [NumPorts-1:0] mshr_addr_matches;
-  logic [NumPorts-1:0] mshr_index_matches;
-  logic [63:0] critical_word;
-  logic critical_word_valid;
+  logic        [          NumPorts-1:0]                         busy;
+  logic        [          NumPorts-1:0][                  55:0] mshr_addr;
+  logic        [          NumPorts-1:0]                         mshr_addr_matches;
+  logic        [          NumPorts-1:0]                         mshr_index_matches;
+  logic        [                  63:0]                         critical_word;
+  logic                                                         critical_word_valid;
 
-  logic [NumPorts-1:0][$bits(miss_req_t)-1:0] miss_req;
-  logic [NumPorts-1:0] miss_gnt;
-  logic [NumPorts-1:0] active_serving;
+  logic        [          NumPorts-1:0][ $bits(miss_req_t)-1:0] miss_req;
+  logic        [          NumPorts-1:0]                         miss_gnt;
+  logic        [          NumPorts-1:0]                         active_serving;
 
-  logic [NumPorts-1:0] bypass_gnt;
-  logic [NumPorts-1:0] bypass_valid;
-  logic [NumPorts-1:0][63:0] bypass_data;
+  logic        [          NumPorts-1:0]                         bypass_gnt;
+  logic        [          NumPorts-1:0]                         bypass_valid;
+  logic        [          NumPorts-1:0][                  63:0] bypass_data;
   // -------------------------------
   // Arbiter <-> Datram,
   // -------------------------------
-  logic [DCACHE_SET_ASSOC-1:0] req_ram;
-  logic [DCACHE_INDEX_WIDTH-1:0] addr_ram;
-  logic we_ram;
-  cache_line_t wdata_ram;
-  cache_line_t [DCACHE_SET_ASSOC-1:0] rdata_ram;
-  cl_be_t be_ram;
-  logic [(DCACHE_LINE_WIDTH/8+1)*DCACHE_SET_ASSOC-1:0] be_valid_dirty_ram;
+  logic        [  DCACHE_SET_ASSOC-1:0]                         req_ram;
+  logic        [DCACHE_INDEX_WIDTH-1:0]                         addr_ram;
+  logic                                                         we_ram;
+  cache_line_t                                                  wdata_ram;
+  cache_line_t [  DCACHE_SET_ASSOC-1:0]                         rdata_ram;
+  cl_be_t                                                       be_ram;
+  vldrty_t     [  DCACHE_SET_ASSOC-1:0]                         be_valid_dirty_ram;
 
   // Busy signals
-  logic miss_handler_busy;
+  logic                                                         miss_handler_busy;
   assign busy_o = |busy | miss_handler_busy;
 
   // ------------------
@@ -222,30 +222,20 @@ module std_nbdcache
   // Valid/Dirty Regs
   // ----------------
 
-  // align each valid/dirty bit pair to a byte boundary in order to leverage byte enable signals.
-  // note: if you have an SRAM that supports flat bit enables for your target technology,
-  // you can use it here to save the extra 17x overhead introduced by this workaround.
-  logic [(DCACHE_LINE_WIDTH+8)*DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
+  vldrty_t [DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
   for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-    for (genvar j = 0; j < DCACHE_LINE_WIDTH / 8; j++) begin
-      // dirty bits assignment
-      assign dirty_wdata[(DCACHE_LINE_WIDTH+8)*i+8*j] = wdata_ram.dirty[j];
-      assign rdata_ram[i].dirty[j]                    = dirty_rdata[(DCACHE_LINE_WIDTH+8)*i+8*j];
-    end
-    // valid bit assignment
-    assign dirty_wdata[DCACHE_LINE_WIDTH+(DCACHE_LINE_WIDTH+8)*i] = wdata_ram.valid;
-    assign rdata_ram[i].valid = dirty_rdata[DCACHE_LINE_WIDTH+(DCACHE_LINE_WIDTH+8)*i];
-  end
-
-  // be construction for valid_dirty_sram
-  for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-    assign be_valid_dirty_ram[i*(DCACHE_LINE_WIDTH/8+1)+:(DCACHE_LINE_WIDTH/8+1)] = {be_ram.vldrty[i], be_ram.data} & {(DCACHE_LINE_WIDTH/8+1){be_ram.vldrty[i]}};
+    assign dirty_wdata[i]              = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid};
+    assign rdata_ram[i].dirty          = dirty_rdata[i].dirty;
+    assign rdata_ram[i].valid          = dirty_rdata[i].valid;
+    assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
+    assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
   end
 
   sram #(
       .USER_WIDTH(1),
-      .DATA_WIDTH((DCACHE_LINE_WIDTH + 8) * DCACHE_SET_ASSOC),
+      .DATA_WIDTH(DCACHE_SET_ASSOC * $bits(vldrty_t)),
+      .BYTE_WIDTH(1),
       .NUM_WORDS (DCACHE_NUM_WORDS)
   ) valid_dirty_sram (
       .clk_i  (clk_i),
