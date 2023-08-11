@@ -293,11 +293,14 @@ module miss_handler
         // we've got a valid response from refill unit
         if (valid_miss_fsm) begin
 
-          addr_o       = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
-          req_o        = evict_way_q;
-          we_o         = 1'b1;
-          be_o         = '1;
-          be_o.vldrty  = evict_way_q;
+          addr_o    = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+          req_o     = evict_way_q;
+          we_o      = 1'b1;
+          be_o.tag  = '1;
+          be_o.data = '1;
+          for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+            if (evict_way_q[i]) be_o.vldrty[i] = '1;
+          end
           data_o.tag   = mshr_q.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH];
           data_o.data  = data_miss_fsm;
           data_o.valid = 1'b1;
@@ -344,9 +347,11 @@ module miss_handler
           we_o         = 1'b1;
           data_o.valid = INVALIDATE_ON_FLUSH ? 1'b0 : 1'b1;
           // invalidate
-          be_o.vldrty  = evict_way_q;
+          for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+            if (evict_way_q[i]) be_o.vldrty[i] = '1;
+          end
           // go back to handling the miss or flushing, depending on where we came from
-          state_d      = (state_q == WB_CACHELINE_MISS) ? MISS : FLUSH_REQ_STATUS;
+          state_d = (state_q == WB_CACHELINE_MISS) ? MISS : FLUSH_REQ_STATUS;
         end
       end
 
