@@ -107,6 +107,7 @@ import std_cache_pkg::*;
     logic miss_handler_busy;
 
     logic [2:0] hit;
+    logic [2:0] miss;
 
     readshared_done_t readshared_done;
     logic [3:0]       updating_cache;
@@ -114,6 +115,7 @@ import std_cache_pkg::*;
     assign busy_o = |busy | miss_handler_busy;
 
     assign hit_o = |hit;
+    assign miss_o = |miss;
 
     assign flushing_o = flushing;
 
@@ -157,6 +159,7 @@ import std_cache_pkg::*;
                 .bypass_i              ( ~enable_i            ),
                 .busy_o                ( busy            [i]  ),
                 .hit_o                 ( hit             [i]  ),
+                .miss_o                ( miss            [i]  ),
                 .stall_i               ( stall_i | flush_i    ),
                 // from core
                 .req_port_i            ( req_ports_i     [i-1] ),
