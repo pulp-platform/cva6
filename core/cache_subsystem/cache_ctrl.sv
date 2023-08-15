@@ -25,6 +25,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     input  logic                                 rst_ni,    // Asynchronous reset active low
     input  logic                                 bypass_i,  // enable cache
     output logic                                 busy_o,
+    output logic                                 hit_o,
+    output logic                                 miss_o,
     input  logic                                 stall_i,   // stall new memory requests
     // Core request ports
     input  dcache_req_i_t                        req_port_i,
@@ -134,6 +136,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         be_o   = '0;
         we_o   = '0;
 
+        hit_o  = 1'b0;
+        miss_o = 1'b0;
+
         mem_req_d.killed |= req_port_i.kill_req;
 
         updating_cache_o = 1'b0;
@@ -197,6 +202,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     // HIT CASE
                     // ------------
                     if (|hit_way_i) begin
+                        hit_o = 1'b1;
                         // we can request another cache-line if this was a load
                         if (req_port_i.data_req && !mem_req_q.we && !stall_i) begin
                             state_d          = WAIT_TAG; // switch back to WAIT_TAG
@@ -240,6 +246,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     end else begin
                         // make a miss request
                         state_d = WAIT_REFILL_GNT;
+                        miss_o = 1'b1;
                     end
                     // ----------------------------------------------
                     // Check MSHR - Miss Status Handling Register
