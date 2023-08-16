@@ -73,7 +73,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                        we_o
 );
 
-    // Four MSHR ports + AMO port
+    // Bypass ports are the MSHR ports + AMO port
     parameter NR_BYPASS_PORTS = NR_PORTS + 1;
 
     // FSM states
@@ -232,10 +232,23 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         amo_resp_o.result = '0;
         amo_operand_b = '0;
 
+        // Detect if a MAKE_UNIQUE request collides with an invalidation from snoop
+        // NOTE: the code below will not work if multiple cache controllers are requesting MAKE_UNIQUE. Currently this
+        // is not the case, add assertion to catch any change.
+        // pragma translate_off
+        a_make_unique_onehot : assert #0 ($onehot0(miss_req_make_unique)) else
+            $error("Multiple MAKE_UNIQUE requests not supported");
+        // pragma translate_on
+        for (int unsigned i = 0; i < NR_PORTS; i++) begin
+            if (snoop_invalidate_i && miss_req_valid[i] && miss_req_make_unique[i] && !colliding_clean_q) begin
+                colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH] ==
+                                     miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]);
+            end
+        end
+
         case (state_q)
 
             IDLE: begin
-                colliding_clean_d = '0;
                 // lowest priority are AMOs, wait until everything else is served before going for the AMOs
                 if (amo_req_i.req && !busy_i) begin
                     state_d = FLUSH_REQ_STATUS;
@@ -253,9 +266,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 // check if one of the state machines missed
                 for (int unsigned i = 0; i < NR_PORTS; i++) begin
                     // check if we have to generate a CleanUnique transaction
-                    if (miss_req_valid[i] && miss_req_make_unique[i] &&
-                        (!snoop_invalidate_i ||
-                         snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH] != miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH])) begin
+                    if (miss_req_valid[i] && miss_req_make_unique[i]) begin
                         state_d = SEND_CLEAN;
                         // we are taking another request so don't take the AMO
                         serve_amo_d  = 1'b0;
@@ -334,6 +345,8 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 if (gnt_miss_fsm) begin
                     state_d = SAVE_CACHELINE;
                     miss_gnt_o[mshr_q.id] = 1'b1;
+                    // we have now handled the colliding invalidation
+                    colliding_clean_d = '0;
                 end
             end
 
@@ -470,9 +483,6 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
               req_fsm_miss_valid  = 1'b1;
               req_fsm_miss_addr   = mshr_q.addr;
               req_fsm_miss_type   = ariane_ace::CLEAN_UNIQUE;
-
-              if (snoop_invalidate_i & !colliding_clean_q)
-                colliding_clean_d = (snoop_invalidate_addr_i[63:DCACHE_BYTE_OFFSET] == mshr_q.addr[55:DCACHE_BYTE_OFFSET]);
 
               if (valid_miss_fsm) begin
                 // if the cacheline has just been invalidated, request it again
