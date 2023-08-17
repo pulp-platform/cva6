@@ -28,6 +28,8 @@ module std_nbdcache import std_cache_pkg::*; import ariane_pkg::*; #(
     input  logic                           flush_i,     // high until acknowledged
     output logic                           flush_ack_o, // send a single cycle acknowledge signal when the cache is flushed
     output logic                           miss_o,      // we missed on a LD/ST
+    output logic                           hit_o,
+    output logic                           flushing_o,
     output logic                           busy_o,
     input  logic                           stall_i,   // stall new memory requests
     input  logic                           init_ni,
@@ -106,10 +108,16 @@ import std_cache_pkg::*;
     // Busy signals
     logic miss_handler_busy;
 
+    logic [2:0] hit;
+
     readshared_done_t readshared_done;
     logic [3:0]       updating_cache;
 
     assign busy_o = |busy | miss_handler_busy;
+
+    assign hit_o = |hit;
+
+    assign flushing_o = flushing;
 
     // ------------------
     // Cache Controller
@@ -152,6 +160,7 @@ import std_cache_pkg::*;
             ) i_cache_ctrl (
                 .bypass_i              ( ~enable_i            ),
                 .busy_o                ( busy            [i]  ),
+                .hit_o                 ( hit             [i]  ),
                 .stall_i               ( stall_i | flush_i    ),
                 // from core
                 .req_port_i            ( req_ports_i     [i-1] ),
