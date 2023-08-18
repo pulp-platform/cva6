@@ -30,6 +30,9 @@ module perf_counters import ariane_pkg::*; #(
   // from L1 caches
   input  logic                                    l1_icache_miss_i,
   input  logic                                    l1_dcache_miss_i,
+  input  logic                                    l1_dcache_hit_i,
+  input  logic                                    l1_dcache_flushing_i,
+  input  logic                                    amo_i,
   // from MMU
   input  logic                                    itlb_miss_i,
   input  logic                                    dtlb_miss_i,
@@ -53,6 +56,9 @@ module perf_counters import ariane_pkg::*; #(
   logic [63:0] generic_counter_d[6:1];
   logic [63:0] generic_counter_q[6:1];
 
+  logic l1_dcache_flushing_q;
+  logic amo_q;
+
   //internal signal to keep track of exception
   logic read_access_exception,update_access_exception;
 
@@ -62,6 +68,7 @@ module perf_counters import ariane_pkg::*; #(
   logic [4:0] mhpmevent_q[6:1];
 
   //Multiplexer
+  /*
    always_comb begin : Mux
         events[6:1]='{default:0};
 
@@ -92,11 +99,21 @@ module perf_counters import ariane_pkg::*; #(
            5'b10100 : for (int unsigned j = 0; j < NR_COMMIT_PORTS; j++) if (commit_ack_i[j]) events[i] = commit_instr_i[j].fu == ALU || commit_instr_i[j].fu == MULT;//Integer instructions
            5'b10101 : for (int unsigned j = 0; j < NR_COMMIT_PORTS; j++) if (commit_ack_i[j]) events[i] = commit_instr_i[j].fu == FPU || commit_instr_i[j].fu == FPU_VEC;//Floating Point Instructions
            5'b10110 : events[i] = stall_issue_i;//Pipeline bubbles
+           5'b10111 : events[i] = l1_dcache_hit_i;
+           5'b11000 : events[i] = l1_dcache_flushing_i;
            default:   events[i] = 0;
          endcase
        end
-
     end
+    */
+
+    assign events[1] = l1_dcache_miss_i;
+    assign events[2] = l1_dcache_hit_i;
+    assign events[3] = l1_dcache_flushing_i;
+    assign events[4] = l1_dcache_flushing_q & (!l1_dcache_flushing_i);
+    assign events[5] = amo_q & (!amo_i);
+    assign events[6] = 1'b1;
+
 
     always_comb begin : generic_counter
         generic_counter_d = generic_counter_q;
@@ -106,13 +123,13 @@ module perf_counters import ariane_pkg::*; #(
 	    update_access_exception =  1'b0;
 
       for(int unsigned i = 1; i <= 6; i++) begin
-         if ((!debug_mode_i) && (!we_i)) begin
-             if (events[i] == 1)begin
-                generic_counter_d[i] = generic_counter_q[i] + 1'b1;end
-            else begin
-                generic_counter_d[i] = 'b0;end
+         if ((debug_mode_i == 1'b0) && (we_i == 1'b0)) begin
+             if (events[i] == 1'b1) begin
+                generic_counter_d[i] = generic_counter_q[i] + 1'b1; end
+         end else begin
+                generic_counter_d[i] = 'b0;
+         end
         end
-      end
 
      //Read
          unique case (addr_i)
@@ -134,6 +151,12 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_MHPM_EVENT_6,
             riscv::CSR_MHPM_EVENT_7,
             riscv::CSR_MHPM_EVENT_8   : data_o = mhpmevent_q[addr_i-riscv::CSR_MHPM_EVENT_3 + 1] ;
+            riscv::CSR_L1_ICACHE_MISS,
+            riscv::CSR_L1_DCACHE_MISS,
+            riscv::CSR_ITLB_MISS,
+            riscv::CSR_DTLB_MISS,
+            riscv::CSR_LOAD,
+            riscv::CSR_STORE  : data_o = generic_counter_q[addr_i-riscv::CSR_L1_ICACHE_MISS + 1];
             default: data_o = 'b0;
         endcase
 
@@ -168,10 +191,31 @@ module perf_counters import ariane_pkg::*; #(
         if (!rst_ni) begin
             generic_counter_q <= '{default:0};
             mhpmevent_q       <= '{default:0};
+            l1_dcache_flushing_q <= 1'b0;
+            amo_q <= 1'b0;
         end else begin
             generic_counter_q <= generic_counter_d;
             mhpmevent_q       <= mhpmevent_d;
+            l1_dcache_flushing_q <= l1_dcache_flushing_i;
+            amo_q <= amo_i;
        end
    end
+
+   xlnx_ila i_ila (
+    clk_i, 
+    generic_counter_q[1][63:32], 
+    generic_counter_q[1][31:0], 
+    generic_counter_q[2][63:32], 
+    generic_counter_q[2][31:0], 
+    generic_counter_q[3][63:32], 
+    generic_counter_q[3][31:0], 
+    generic_counter_q[4][63:32], 
+    generic_counter_q[4][31:0], 
+    {debug_mode_i, we_i, l1_dcache_miss_i, l1_dcache_hit_i, l1_dcache_flushing_i},
+    '0,
+    '0,
+    '0,
+    '0
+  );
 
 endmodule

@@ -807,9 +807,10 @@ package tb_std_cache_subsystem_pkg;
         cache_line_t [DCACHE_NUM_WORDS-1:0][DCACHE_SET_ASSOC-1:0] cache_status;
         logic                              [DCACHE_SET_ASSOC-1:0] lfsr;
 
-        int cache_msg_timeout =  1000;
-        int snoop_msg_timeout =  1000;
-        int amo_msg_timeout   = 10000;
+        int cache_msg_timeout  =  1000;
+        int snoop_msg_timeout  =  1000;
+        int amo_msg_timeout    = 10000;
+        int mgmt_trans_timeout = 10000;
 
         function new (
             virtual dcache_sram_if sram_vif,
@@ -845,6 +846,10 @@ package tb_std_cache_subsystem_pkg;
 
         function void set_amo_msg_timeout(int t);
             amo_msg_timeout = t;
+        endfunction
+
+        function void set_mgmt_trans_timeout(int t);
+            mgmt_trans_timeout = t;
         endfunction
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2139,7 +2144,11 @@ package tb_std_cache_subsystem_pkg;
 
                     // timeout
                     begin
-                        repeat (10000) @(posedge sram_vif.clk);
+                        automatic int cnt = 0;
+                        while (cnt < mgmt_trans_timeout) begin
+                            @(posedge sram_vif.clk);
+                            cnt++;
+                        end
                         timeout = 1;
                     end
 
@@ -2178,6 +2187,7 @@ package tb_std_cache_subsystem_pkg;
 
         string       name;
         ariane_cfg_t ArianeCfg;
+        bit          enable_mem_check = 1;
 
         function new (
             virtual sram_intf #(DCACHE_SET_ASSOC, SRAM_DATA_WIDTH, SRAM_NUM_WORDS) sram_vif    [NB_CORES],
@@ -2277,7 +2287,7 @@ package tb_std_cache_subsystem_pkg;
                                         end
 
                                         // check that data matches SRAM for globally clean entries
-                                        if (!any_dirty) begin
+                                        if (enable_mem_check && (!any_dirty)) begin
                                             logic [63:0] addr;
                                             addr                  = {cc_tag, index};
                                             sram_vif[cc].addr[cw] = (addr - (ArianeCfg.ExecuteRegionAddrBase[3] >> DCACHE_BYTE_OFFSET)) << 1;
