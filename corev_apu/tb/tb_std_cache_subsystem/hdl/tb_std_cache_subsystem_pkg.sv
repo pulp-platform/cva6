@@ -2243,6 +2243,7 @@ package tb_std_cache_subsystem_pkg;
 
         string       name;
         ariane_cfg_t ArianeCfg;
+        bit          enable_mem_check = 1;
 
         function new (
             virtual sram_intf #(DCACHE_SET_ASSOC, SRAM_DATA_WIDTH, SRAM_NUM_WORDS) sram_vif    [NB_CORES],
@@ -2328,7 +2329,7 @@ package tb_std_cache_subsystem_pkg;
                                         end
 
                                         // check that data matches SRAM for globally clean entries
-                                        if (!any_dirty) begin
+                                        if (enable_mem_check && (!any_dirty)) begin
                                             logic [63:0] addr;
                                             addr                  = {cc_tag, index};
                                             sram_vif[cc].addr[cw] = (addr - (ArianeCfg.ExecuteRegionAddrBase[3] >> DCACHE_BYTE_OFFSET)) << 1;
