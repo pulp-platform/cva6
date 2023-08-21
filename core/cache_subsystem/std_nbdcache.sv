@@ -102,7 +102,7 @@ import std_cache_pkg::*;
     cache_line_t                         wdata_ram;
     cache_line_t [DCACHE_SET_ASSOC-1:0]  rdata_ram;
     cl_be_t                              be_ram;
-    logic [(DCACHE_LINE_WIDTH/8+1)*DCACHE_SET_ASSOC-1:0] be_valid_dirty_ram;
+    vldrty_t [DCACHE_SET_ASSOC-1:0]      be_valid_dirty_ram;
 
     // Busy signals
     logic miss_handler_busy;
@@ -284,41 +284,22 @@ import std_cache_pkg::*;
     // Valid/Dirty/Shared Regs
     // ----------------
 
-    // Each valid/shared pair and dirty bit is aligned to a byte boundary in order to leverage byte enable signals.
-    // note: if you have an SRAM that supports flat bit enables for your target technology,
-    // you can use it here to save the extra ~8x overhead introduced by this workaround.
-    //
-    //  MSB                                             \\           0
-    // +--------+--------+--------+--------+--------+-  //  -+--------+
-    // |......sv|.......d|.......d|.......d|.......d|.  \\  .|.......d|
-    // +--------+--------+--------+--------+--------+-  //  -+--------+
-    //                                                  \\
-    //  (v = valid, s = shared, d = dirty)
-
-    logic [(DCACHE_LINE_WIDTH+8)*DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
+    vldrty_t [DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
     for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-        for (genvar j = 0; j < DCACHE_LINE_WIDTH/8; j++) begin
-            // dirty bits assignment
-            assign dirty_wdata[(DCACHE_LINE_WIDTH+8)*i+8*j]   = wdata_ram.dirty[j];
-            assign rdata_ram[i].dirty[j]                      = dirty_rdata[(DCACHE_LINE_WIDTH+8)*i+8*j];
-        end
-        // valid bit assignment
-        assign dirty_wdata[DCACHE_LINE_WIDTH+(DCACHE_LINE_WIDTH+8)*i] = wdata_ram.valid;
-        assign rdata_ram[i].valid                                     = dirty_rdata[DCACHE_LINE_WIDTH+(DCACHE_LINE_WIDTH+8)*i];
-        // shared bit assignment
-        assign dirty_wdata[DCACHE_LINE_WIDTH+1+(DCACHE_LINE_WIDTH+8)*i] = wdata_ram.shared;
-        assign rdata_ram[i].shared                                      = dirty_rdata[DCACHE_LINE_WIDTH+1+(DCACHE_LINE_WIDTH+8)*i];
-    end
-
-    // be construction for valid_dirty_sram
-    for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-        assign be_valid_dirty_ram[i*(DCACHE_LINE_WIDTH/8+1)+:(DCACHE_LINE_WIDTH/8+1)] = {be_ram.vldrty[i], be_ram.data} & {(DCACHE_LINE_WIDTH/8+1){be_ram.vldrty[i]}};
+      assign dirty_wdata[i]     = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid, shared: wdata_ram.shared};
+      assign rdata_ram[i].dirty = dirty_rdata[i].dirty;
+      assign rdata_ram[i].valid = dirty_rdata[i].valid;
+      assign rdata_ram[i].shared = dirty_rdata[i].shared;
+      assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
+      assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
+      assign be_valid_dirty_ram[i].shared = be_ram.vldrty[i].shared;
     end
 
     sram #(
         .USER_WIDTH ( 1                                ),
-        .DATA_WIDTH ( (DCACHE_LINE_WIDTH+8)*DCACHE_SET_ASSOC ),
+        .DATA_WIDTH ( DCACHE_SET_ASSOC*$bits(vldrty_t) ),
+        .BYTE_WIDTH ( 1                                ),
         .NUM_WORDS  ( DCACHE_NUM_WORDS                 )
     ) valid_dirty_sram (
         .clk_i   ( clk_i                               ),

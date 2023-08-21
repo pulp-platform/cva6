@@ -12,7 +12,7 @@ dependencies:
     { git: "https://github.com/pulp-platform/common_cells", version: 1.23.0 }
   fpnew: { git: "https://github.com/pulp-platform/cvfpu.git", rev: pulp-v0.1.1 }
   tech_cells_generic:
-    { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.10 }
+    { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.12 }
 
 frozen: false
 
@@ -225,7 +225,7 @@ sources:
       - include_dirs:
         - common/local/util
         files:
-          - common/local/util/sram.sv
+          - common/local/util/sram_pulp.sv
 
       - target: not(all(fpga, xilinx))
         include_dirs:

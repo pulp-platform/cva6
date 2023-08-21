@@ -41,6 +41,7 @@ module cva6_clic_controller #(
 
   // Determine if CLIC interrupt shall be accepted
   always_comb begin : clic_irq_accept
+    clic_irq_req_o = 1'b0;
     unique case (priv_lvl_i)
       riscv::PRIV_LVL_M: begin
         // Take M-mode interrupts with higher level
@@ -61,7 +62,7 @@ module cva6_clic_controller #(
         // Take all M-mode and S-mode interrupts
         clic_irq_req_o = clic_irq_valid_i;
       end
-      default: clic_irq_req_o = 1'b0;
+      default: ;
     endcase
   end
 
