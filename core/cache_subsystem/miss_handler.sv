@@ -175,7 +175,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             evict_way[i] = data_i[i].valid & (|data_i[i].dirty);
             valid_way[i] = data_i[i].valid;
             matching_way[i] = data_i[i].valid & (data_i[i].tag == mshr_q.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]);
-            matching_dirty_way[i] = data_i[i].valid & data_i[i].dirty & (data_i[i].tag == mshr_q.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]);
+            matching_dirty_way[i] = data_i[i].valid & (|data_i[i].dirty) & (data_i[i].tag == mshr_q.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]);
         end
         // ----------------------
         // Default Assignments

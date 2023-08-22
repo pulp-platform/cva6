@@ -238,7 +238,8 @@ fpga_src :=  $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/*.sv)
              $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/bootrom/*.sv))              \
              $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/ariane-ethernet/*.sv))      \
              common/local/util/tc_sram_fpga_wrapper.sv                \
-             vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
+             vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv \
+             vendor/pulp-platform/tech_cells_generic/src/fpga/tc_sram_xilinx.sv
 fpga_src := $(addprefix $(root-dir), $(fpga_src))
 
 # look for testbenches
