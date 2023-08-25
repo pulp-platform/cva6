@@ -306,9 +306,11 @@ package tb_std_cache_subsystem_pkg;
         logic [DCACHE_LINE_WIDTH-1:0]        cache_line;  // for carrying an entire cache line from read response
         logic [$clog2(DCACHE_SET_ASSOC)-1:0] target_way;
         logic                                target_way_valid;
+        logic                                redo_hit;
 
         function new();
             this.target_way_valid = 1'b0;
+            this.redo_hit         = 1'b0;
         endfunction
 
         task set_data_offset;
@@ -1537,10 +1539,12 @@ package tb_std_cache_subsystem_pkg;
                 // Add one additional cycle before checking cache status, mimicing cache ctrl FSM.
                 @(posedge sram_vif.clk);
 
-                if (isShared(addr_v)) begin
+                if (isShared(addr_v) || msg.redo_hit == 1) begin
                     ax_ace_beat_t ar_beat     = new();
                     r_ace_beat_t  r_beat      = new();
                     r_ace_beat_t  r_beat_peek = new();
+
+                    msg.redo_hit = 0;
 
                     // wait for AR beat
                     ar_mbx.get(ar_beat);
@@ -1568,7 +1572,7 @@ package tb_std_cache_subsystem_pkg;
                     while (ac_mbx_int.try_get(ac)) begin
                         if (ac.ac_snoop == snoop_pkg::READ_SHARED && ac.ac_addr == addr_v) begin
                             $display("%t ns %s Got matching ReadShared during hit + write shared, calling hit routine for message : %s", $time, name, msg.print_me());
-                            do_hit(msg);
+                            msg.redo_hit = 1'b1;
                         end
                     end
 
@@ -1576,10 +1580,10 @@ package tb_std_cache_subsystem_pkg;
 
             end
 
-
             if (!isHit(addr_v)) begin
                 $display("%t ns %s Cache status changed from hit to miss, calling miss routine for message : %s", $time, name, msg.print_me());
                 do_miss(msg);
+                msg.redo_hit = 1'b0;
             end
         endtask
 
@@ -1867,19 +1871,29 @@ package tb_std_cache_subsystem_pkg;
                     end
                     // cacheable
                     else begin
-
+                        // go to hit or miss routine
                         if (isHit(addr_v)) begin
                             do_hit(msg);
                         end else begin
                             do_miss(msg);
                         end
 
-                    end
-
-                    if (is_inside_cacheable_regions(ArianeCfg, addr_v)) begin
-                        // send to cache update
-                        $display("%t ns %s Sending message to cache update : %s", $time, name, msg.print_me());
-                        req_to_cache_update.put(msg);
+                        fork
+                            begin
+                                // send to cache update
+                                $display("%t ns %s Sending message to cache update : %s", $time, name, msg.print_me());
+                                req_to_cache_update.put(msg);
+                            end
+                            begin
+                                // if a new hit() round is requested, do this here and
+                                while (msg.redo_hit == 1) begin
+                                    do_hit(msg);
+                                    // update cache (again) after a new hit() round
+                                    $display("%t ns %s Sending message to cache update : %s", $time, name, msg.print_me());
+                                    req_to_cache_update.put(msg);
+                                end
+                            end
+                        join
                     end
 
                 end
@@ -1907,7 +1921,21 @@ package tb_std_cache_subsystem_pkg;
         // check behaviour when flushing cache
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         local task automatic flush_cache;
+            bit init     = 1;
+            int init_cnt = 0;
             $display("%t ns %s.flush_cache: Flushing started", $time, name);
+
+            // Wait for first grant before checking cache_status contents. Some other controller
+            // may be updating the cache while the flush is pending.
+            while (!gnt_vif.gnt[0]) begin
+                $display("%t ns %s.flush_cache : waiting for first flush grant ", $time, name);
+                @(posedge sram_vif.clk); // skip cycles without grant
+                    init_cnt++;
+                    if (init_cnt > 1000) begin
+                        $error("%s.flush_cache : timeout while waiting for first flush grant", name);
+                    break;
+                end
+            end
 
             for (int w = 0; w < DCACHE_NUM_WORDS; w++) begin
                 int w_cnt = 0;
@@ -1946,7 +1974,7 @@ package tb_std_cache_subsystem_pkg;
                                 automatic int ll  = l;
                                 automatic int ww  = w;
                                 automatic int cnt = 0;
-                                while (!gnt_vif.gnt[0]) begin
+                                while (!gnt_vif.gnt[0] && (init == 0)) begin
                                     $display("%t ns %s.flush_cache : skipping cycle without grant for flush of cache entry [%0d][%0d]", $time, name, ww, ll);
                                     @(posedge sram_vif.clk); // skip cycles without grant
                                     cnt++;
@@ -1955,6 +1983,7 @@ package tb_std_cache_subsystem_pkg;
                                         break;
                                     end
                                 end
+                                init = 0;
                                 @(posedge sram_vif.clk);
 
                                 // clear entry in cache model
@@ -1966,7 +1995,7 @@ package tb_std_cache_subsystem_pkg;
                 end // l
 
                 // expect clear of cache entry
-                while (!gnt_vif.gnt[0]) begin
+                while (!gnt_vif.gnt[0] && (init == 0)) begin
                     $display("%t ns %s.flush_cache : skipping cycle without grant for clear of cache set [%0d]", $time, name, w);
                     @(posedge sram_vif.clk); // skip cycles without grant
                     w_cnt++;
@@ -1975,6 +2004,7 @@ package tb_std_cache_subsystem_pkg;
                         break;
                     end
                 end
+                init = 0;
                 @(posedge sram_vif.clk);
 
                 // clear entry in cache model
@@ -1984,7 +2014,6 @@ package tb_std_cache_subsystem_pkg;
             end // w
 
         endtask
-
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         // check behaviour when receiving AMO requests
