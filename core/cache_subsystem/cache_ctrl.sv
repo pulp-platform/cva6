@@ -186,6 +186,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
             // cache enabled and waiting for tag
             WAIT_TAG, WAIT_TAG_SAVED: begin
+                colliding_read_d = 1'b0;
+                sample_readshared_d = 1'b0;
                 // check that the client really wants to do the request and that we have a valid tag
                 if (!req_port_i.kill_req && (req_port_i.tag_valid || state_q == WAIT_TAG_SAVED || mem_req_q.we)) begin
                     // save tag if we didn't already save it
