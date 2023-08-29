@@ -2016,6 +2016,89 @@ package tb_std_cache_subsystem_pkg;
         endtask
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // check behaviour when invalidating a cacheline
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        local task automatic invalidate (input logic[63:0] addr);
+            int w_cnt = 0;
+            for (int l = 0; l < DCACHE_SET_ASSOC; l++) begin
+                int w = addr[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET];
+                if (cache_status[w][l].valid && cache_status[w][l].dirty && cache_status[w][l].tag == addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]) begin
+                    fork
+                        begin
+                            automatic int ll = l;
+                            automatic int ww = w;
+                            // expect write back of dirty data
+                            ax_ace_beat_t aw_beat = new();
+                            b_beat_t      b_beat  = new();
+                            w_beat_t      w_beat  = new();
+
+                            // wait for AW beat
+                            aw_mbx.get(aw_beat);
+                            $display("%t ns %s.invalidate: got AW beat for cache[%0d][%0d]", $time, name, ww, ll);
+                            if (!isWriteBack(aw_beat))
+                                $error("%s.flush_invalidatecache : WRITEBACK request expected after eviction of cache[%0d][%0d]", name, ww, ll);
+                            a_empty_aw : assert (aw_mbx.num() == 0) else $error ("%S.invalidate : AW mailbox not empty", name);
+
+                            // wait for W beat
+                            while (!w_beat.w_last) begin
+                                w_mbx.get(w_beat);
+                                $display("%t ns %s.invalidate: got W beat with last = %0d for cache[%0d][%0d]", $time, name, w_beat.w_last, ww, ll);
+                            end
+                            a_empty_w : assert (w_mbx.num() == 0) else $error ("%S.invalidate : W mailbox not empty", name);
+
+                            // wait for B beat
+                            b_mbx.get(b_beat);
+                            $display("%t ns %s.invalidate: got B beat for cache[%0d][%0d]", $time, name, ww, ll);
+                            a_empty_b : assert (b_mbx.num() == 0) else $error ("%S.invalidate : B mailbox not empty", name);
+                        end
+                        begin
+                            // expect clear of cache entry
+                            automatic int ll  = l;
+                            automatic int ww  = w;
+                            automatic int cnt = 0;
+                            while (!gnt_vif.gnt[0]) begin
+                                $display("%t ns %s.invalidate : skipping cycle without grant for evict of cache entry [%0d][%0d]", $time, name, ww, ll);
+                                @(posedge sram_vif.clk); // skip cycles without grant
+                                cnt++;
+                                if (cnt > 1000) begin
+                                    $error("%s.invalidate : timeout while waiting for grant for evict of cache entry [%0d][%0d]", name, ww, ll);
+                                    break;
+                                end
+                            end
+                            @(posedge sram_vif.clk);
+
+                            // clear entry in cache model
+                            $display("%t ns %s.invalidate: Evicting cache entry [%0d][%0d]", $time, name, ww, ll);
+                            cache_status[ww][ll] = '0;
+                        end
+                    join_any
+
+                    break;
+                end
+                else if (cache_status[w][l].valid && cache_status[w][l].tag == addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]) begin
+                    // expect clear of cache entry
+                    while (!gnt_vif.gnt[0]) begin
+                        $display("%t ns %s.invalidate : skipping cycle without grant for clear of cache entry [%0d][%0d]", $time, name, w, l);
+                        @(posedge sram_vif.clk); // skip cycles without grant
+                        w_cnt++;
+                        if (w_cnt > 1000) begin
+                            $error("%s.invalidate : timeout while waiting for grant for clear of cache entry [%0d][%0d]", name, w, l);
+                            break;
+                        end
+                    end
+                    @(posedge sram_vif.clk);
+
+                    // clear entry in cache model
+                    $display("%t ns %s.invalidate: Evicting cache entry [%0d][%0d]", $time, name, w, l);
+                    cache_status[w][l] = '0;
+
+                    break;
+
+                end
+            end
+        endtask
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         // check behaviour when receiving AMO requests
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         local task automatic check_amo_msg;
@@ -2029,7 +2112,7 @@ package tb_std_cache_subsystem_pkg;
 
                 fork
                     begin
-                        flush_cache();
+                        invalidate(msg.addr);
                         if (msg.op != AMO_LR) begin
                             ax_ace_beat_t aw_beat     = new();
                             b_beat_t      b_beat      = new();

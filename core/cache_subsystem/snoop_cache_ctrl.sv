@@ -37,6 +37,8 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
   output logic                               invalidate_o,
   output logic [63:0]                        invalidate_addr_o,
   input  logic                               flushing_i,
+  input  logic                               amo_valid_i,
+  input  logic [63:0]                        amo_addr_i,
   //
   input  logic                               updating_cache_i,
   output readshared_done_t                   readshared_done_o
@@ -133,13 +135,13 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     case (state_q)
 
       IDLE: begin
-        snoop_port_o.ac_ready = !flushing_i; //1'b1;
         cr_resp_d = '0;
         ac_snoop_d = '0;
         cacheline_word_sel_d = 1'b0;
 
         // we receive a snooping request
-        if (snoop_port_i.ac_valid & !flushing_i) begin
+        if (snoop_port_i.ac_valid == 1'b1 && flushing_i == 1'b0 && !(amo_valid_i == 1'b1 && amo_addr_i[63:DCACHE_BYTE_OFFSET] == snoop_port_i.ac.addr[63:DCACHE_BYTE_OFFSET])) begin
+          snoop_port_o.ac_ready = 1'b1;
           // save the request details
           mem_req_d.index = snoop_port_i.ac.addr[DCACHE_INDEX_WIDTH-1:0];
           mem_req_d.tag = snoop_port_i.ac.addr[DCACHE_INDEX_WIDTH+:DCACHE_TAG_WIDTH];
