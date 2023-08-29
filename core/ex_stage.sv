@@ -125,7 +125,15 @@ module ex_stage import ariane_pkg::*; #(
     output [riscv::PLEN-1:0]                       mem_paddr_o,
     output [(riscv::XLEN/8)-1:0]                   lsu_rmask_o,
     output [(riscv::XLEN/8)-1:0]                   lsu_wmask_o,
-    output [ariane_pkg::TRANS_ID_BITS-1:0]         lsu_addr_trans_id_o
+    output [ariane_pkg::TRANS_ID_BITS-1:0]         lsu_addr_trans_id_o,
+
+    // ACC interface
+    input logic                                     x_mmu_req_i,
+    input logic [riscv::VLEN-1:0]                   x_vaddr_i,
+    input logic                                     x_is_store_i,
+    output logic                                    x_mmu_valid_o,
+    output logic [riscv::PLEN-1:0]                  x_paddr_o,
+    output exception_t                              x_mmu_exception_o
 );
 
     // -------------------------
@@ -350,7 +358,13 @@ module ex_stage import ariane_pkg::*; #(
         .mem_paddr_o,
         .lsu_rmask_o,
         .lsu_wmask_o,
-        .lsu_addr_trans_id_o
+        .lsu_addr_trans_id_o,
+        .x_mmu_req_i,
+        .x_vaddr_i,
+        .x_is_store_i,
+        .x_mmu_valid_o,
+        .x_paddr_o,
+        .x_exception_o (x_mmu_exception_o)
     );
 
     if (CVXIF_PRESENT) begin : gen_cvxif

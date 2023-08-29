@@ -25,6 +25,9 @@ package acc_pkg;
     // Invalidation interface
     logic                                 acc_cons_en;
     logic                                 inval_ready;
+    logic                                 mmu_valid;//from mmu
+    logic [riscv::PLEN-1:0]               paddr;//from mmu
+    ariane_pkg::exception_t               exception;//from mmu
   } accelerator_req_t;
 
   typedef struct packed {
@@ -42,6 +45,9 @@ package acc_pkg;
     // Invalidation interface
     logic                                 inval_valid;
     logic [63:0]                          inval_addr;
+    logic                                 mmu_req;// to MMU
+    logic [riscv::VLEN-1:0]               vaddr;// to MMU
+    logic                                 is_store;// to MMU
   } accelerator_resp_t;
 
 endpackage

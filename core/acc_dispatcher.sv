@@ -38,6 +38,13 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; (
     input  logic                                  commit_st_barrier_i,  // A store barrier was commited
     // Interface with the load/store unit
     input  logic                                  acc_no_st_pending_i,
+    output logic                                  acc_mmu_req_o,
+    output logic [riscv::VLEN-1:0]                acc_vaddr_o,
+    output logic                                  acc_is_store_o,
+
+    input logic                                   acc_mmu_valid_i,
+    input logic [riscv::PLEN-1:0]                 acc_paddr_i,
+    input exception_t                             acc_exception_i,
     // Interface with the controller
     output logic                                  ctrl_halt_o,
     input  logic                                  flush_unissued_instr_i,
@@ -70,6 +77,15 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; (
                           issue_instr_hs_i &
                           (issue_instr_i.fu == ACCEL) &
                           ~flush_unissued_instr_i;
+  
+  assign acc_mmu_req_o  = acc_resp_i.mmu_req;
+  assign acc_vaddr_o    = acc_resp_i.vaddr;
+  assign acc_is_store_o = acc_resp_i.is_store;
+
+  assign acc_req_o.mmu_valid = acc_mmu_valid_i;
+  assign acc_req_o.paddr     = acc_paddr_i;
+  assign acc_req_o.exception = acc_exception_i;
+
 
   // Accelerator load/store pending signals
   logic acc_no_ld_pending;

@@ -550,7 +550,13 @@ module cva6 import ariane_pkg::*; #(
     .mem_paddr_o            ( mem_paddr                   ),
     .lsu_rmask_o            ( lsu_rmask                   ),
     .lsu_wmask_o            ( lsu_wmask                   ),
-    .lsu_addr_trans_id_o    ( lsu_addr_trans_id           )
+    .lsu_addr_trans_id_o    ( lsu_addr_trans_id           ),
+    .x_mmu_req_i            ( acc_mmu_req                 ),
+    .x_vaddr_i              ( acc_vaddr                   ),
+    .x_is_store_i           ( acc_is_store                ),
+    .x_mmu_valid_o          ( acc_mmu_valid               ),
+    .x_paddr_o              ( acc_paddr                   ),
+    .x_mmu_exception_o      ( acc_exception               )
   );
 
   // ---------
@@ -847,6 +853,13 @@ module cva6 import ariane_pkg::*; #(
   // Accelerator
   // ----------------
 
+  logic                   acc_mmu_req;
+  logic [riscv::VLEN-1:0] acc_vaddr;
+  logic                   acc_is_store;
+  logic                   acc_mmu_valid;
+  logic [riscv::PLEN-1:0] acc_paddr;
+  exception_t             acc_exception_o;
+
   if (ENABLE_ACCELERATOR) begin: gen_accelerator
     acc_pkg::accelerator_req_t acc_req;
 
@@ -871,6 +884,12 @@ module cva6 import ariane_pkg::*; #(
       .acc_valid_ex_o         ( acc_valid_acc_ex             ),
       .commit_ack_i           ( commit_ack                   ),
       .acc_no_st_pending_i    ( no_st_pending_commit         ),
+      .acc_mmu_req_o          ( acc_mmu_req                  ),
+      .acc_vaddr_o            ( acc_vaddr                    ),
+      .acc_is_store_o         ( acc_is_store                 ),
+      .acc_mmu_valid_i        ( acc_mmu_valid                ),
+      .acc_paddr_i            ( acc_paddr                    ),
+      .acc_exception_i        ( acc_exception                ),
       .ctrl_halt_o            ( halt_acc_ctrl                ),
       .acc_req_o              ( acc_req                      ),
       .acc_resp_i             ( cvxif_resp_i                 )

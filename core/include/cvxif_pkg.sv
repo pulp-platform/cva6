@@ -83,28 +83,34 @@ package cvxif_pkg;
     } x_result_t ;
 
     typedef struct packed {
-        logic               x_compressed_valid;
-        x_compressed_req_t  x_compressed_req;
-        logic               x_issue_valid;
-        x_issue_req_t       x_issue_req;
-        logic               x_commit_valid;
-        x_commit_t          x_commit;
-        logic               x_mem_ready;
-        x_mem_resp_t        x_mem_resp;
-        logic               x_mem_result_valid;
-        x_mem_result_t      x_mem_result;
-        logic               x_result_ready;
+        logic                   x_compressed_valid;
+        x_compressed_req_t      x_compressed_req;
+        logic                   x_issue_valid;
+        x_issue_req_t           x_issue_req;
+        logic                   x_commit_valid;
+        x_commit_t              x_commit;
+        logic                   x_mem_ready;
+        x_mem_resp_t            x_mem_resp;
+        logic                   x_mem_result_valid;
+        x_mem_result_t          x_mem_result;
+        logic                   x_result_ready;
+        logic                   x_mmu_valid;
+        logic [riscv::PLEN-1:0] x_mmu_paddr;
+        ariane_pkg::exception_t x_mmu_exception;
     } cvxif_req_t;
 
     typedef struct packed {
-        logic               x_compressed_ready;
-        x_compressed_resp_t x_compressed_resp;
-        logic               x_issue_ready;
-        x_issue_resp_t      x_issue_resp;
-        logic               x_mem_valid;
-        x_mem_req_t         x_mem_req;
-        logic               x_result_valid;
-        x_result_t          x_result;
+        logic                   x_compressed_ready;
+        x_compressed_resp_t     x_compressed_resp;
+        logic                   x_issue_ready;
+        x_issue_resp_t          x_issue_resp;
+        logic                   x_mem_valid;
+        x_mem_req_t             x_mem_req;
+        logic                   x_result_valid;
+        x_result_t              x_result;
+        logic                   x_mmu_req;
+        logic [riscv::VLEN-1:0] x_mmu_vaddr;
+        logic                   x_is_store;
     } cvxif_resp_t;
 
 endpackage

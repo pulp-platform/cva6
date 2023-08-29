@@ -79,7 +79,16 @@ module load_store_unit import ariane_pkg::*; #(
     output [riscv::PLEN-1:0]         mem_paddr_o,
     output [(riscv::XLEN/8)-1:0]     lsu_rmask_o,
     output [(riscv::XLEN/8)-1:0]     lsu_wmask_o,
-    output [ariane_pkg::TRANS_ID_BITS-1:0] lsu_addr_trans_id_o
+    output [ariane_pkg::TRANS_ID_BITS-1:0] lsu_addr_trans_id_o,
+
+    // ACC interface
+    input logic                         x_mmu_req_i,
+    input logic [riscv::VLEN-1:0]       x_vaddr_i,
+    input logic                         x_is_store_i,
+
+    output logic                        x_mmu_valid_o,
+    output logic [riscv::PLEN-1:0]      x_paddr_o,
+    output exception_t                  x_exception_o
 );
     // data is misaligned
     logic data_misaligned;
@@ -113,14 +122,15 @@ module load_store_unit import ariane_pkg::*; #(
     logic                     st_translation_req;
     logic [riscv::VLEN-1:0]   ld_vaddr;
     logic [riscv::VLEN-1:0]   st_vaddr;
-    logic                     translation_req;
-    logic                     translation_valid;
+    logic                     translation_req,mmu_translation_req;
+    logic                     translation_valid, mmu_translation_valid;
     logic [riscv::VLEN-1:0]   mmu_vaddr;
-    logic [riscv::PLEN-1:0]   mmu_paddr, mmu_vaddr_plen, fetch_vaddr_plen;
-    exception_t               mmu_exception;
+    logic [riscv::PLEN-1:0]   mmu_paddr,mmu_paddr_rr, mmu_vaddr_plen, fetch_vaddr_plen;
+    exception_t               mmu_exception, mmu_exception_rr;
     logic                     dtlb_hit;
     logic [riscv::PPNW-1:0]   dtlb_ppn;
-
+    logic                     is_cvx_req;
+    logic                     rr_idx;
     logic                     ld_valid;
     logic [TRANS_ID_BITS-1:0] ld_trans_id;
     riscv::xlen_t             ld_result;
@@ -134,10 +144,70 @@ module load_store_unit import ariane_pkg::*; #(
     exception_t               misaligned_exception;
     exception_t               ld_ex;
     exception_t               st_ex;
+    exception_t               ara_exception;
 
     // -------------------
     // MMU e.g.: TLBs/PTW
     // -------------------
+    typedef struct packed {
+        logic [riscv::VLEN-1:0] mmu_vaddr;
+        logic                   is_store;
+        exception_t             exception;
+    } arr_mmu_t;
+
+    arr_mmu_t [1:0] arr_mmu_i;
+    arr_mmu_t arr_mmu_o;
+
+    assign ara_exception = '0;
+    assign arr_mmu_i[0] = {mmu_vaddr, st_translation_req, misaligned_exception};
+    assign arr_mmu_i[1] = {x_vaddr_i, x_is_store_i, ara_exception};
+
+    rr_arb_tree #(
+      .NumIn(2),
+      .DataType(arr_mmu_t)
+      //.LockIn(1'b1)
+    ) i_mmu_arbiter(
+        .clk_i  (clk_i),
+        .rst_ni (rst_ni),
+        .flush_i(flush_i),
+        .rr_i   (1'b0),
+        .req_i  ({x_mmu_req_i,translation_req}),
+        .gnt_o  (),
+        .data_i (arr_mmu_i),
+        .gnt_i  (),
+        .req_o  (),
+        .data_o (arr_mmu_o),
+        .idx_o  (rr_idx)
+    );
+    
+    assign mmu_translation_req = translation_req | x_mmu_req_i;
+    always_comb begin
+        if(is_cvx_req)begin
+            assign x_mmu_valid_o        = mmu_translation_valid;
+            assign x_paddr_o            = mmu_paddr_rr;
+            assign x_exception_o        = mmu_exception_rr;
+            assign translation_valid    = '0;
+            assign mmu_paddr            = '0;
+            assign mmu_exception        = '0;
+        end
+        else begin
+            assign x_mmu_valid_o        = '0;
+            assign x_paddr_o            = '0;
+            assign x_exception_o        = '0;
+            assign translation_valid    = mmu_translation_valid;
+            assign mmu_paddr            = mmu_paddr_rr;
+            assign mmu_exception        = mmu_exception_rr;
+        end
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (~rst_ni) begin
+            is_cvx_req     <= '0;
+        end else begin
+            if(x_mmu_req_i || translation_req)
+             is_cvx_req      <= rr_idx;
+        end
+    end
     if (MMU_PRESENT && (riscv::XLEN == 64)) begin : gen_mmu_sv39
         mmu #(
             .cva6_cfg               ( cva6_cfg               ),
@@ -147,13 +217,13 @@ module load_store_unit import ariane_pkg::*; #(
             .ArianeCfg              ( ArianeCfg              )
         ) i_cva6_mmu (
             // misaligned bypass
-            .misaligned_ex_i        ( misaligned_exception   ),
-            .lsu_is_store_i         ( st_translation_req     ),
-            .lsu_req_i              ( translation_req        ),
-            .lsu_vaddr_i            ( mmu_vaddr              ),
-            .lsu_valid_o            ( translation_valid      ),
-            .lsu_paddr_o            ( mmu_paddr              ),
-            .lsu_exception_o        ( mmu_exception          ),
+            .misaligned_ex_i        ( arr_mmu_o.exception   ),
+            .lsu_is_store_i         ( arr_mmu_o.is_store     ),
+            .lsu_req_i              ( mmu_translation_req    ),
+            .lsu_vaddr_i            ( arr_mmu_o.mmu_vaddr    ),
+            .lsu_valid_o            ( mmu_translation_valid  ),
+            .lsu_paddr_o            ( mmu_paddr_rr           ),
+            .lsu_exception_o        ( mmu_exception_rr       ),
             .lsu_dtlb_hit_o         ( dtlb_hit               ), // send in the same cycle as the request
             .lsu_dtlb_ppn_o         ( dtlb_ppn               ), // send in the same cycle as the request
             // connecting PTW to D$ IF
