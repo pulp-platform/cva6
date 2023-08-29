@@ -858,7 +858,7 @@ module cva6 import ariane_pkg::*; #(
   logic                   acc_is_store;
   logic                   acc_mmu_valid;
   logic [riscv::PLEN-1:0] acc_paddr;
-  exception_t             acc_exception_o;
+  exception_t             acc_exception;
 
   if (ENABLE_ACCELERATOR) begin: gen_accelerator
     acc_pkg::accelerator_req_t acc_req;
