@@ -239,6 +239,13 @@ module cva6 import ariane_pkg::*; #(
   logic                     dcache_miss_cache_perf;
   logic                     dcache_hit_cache_perf;
   logic                     dcache_flushing_cache_perf;
+
+  logic                     dcache_write_hit_unique_cache_perf;
+  logic                     dcache_write_hit_shared_cache_perf;
+  logic                     dcache_write_miss_cache_perf;
+  logic                     dcache_clean_invalid_hit_cache_perf;
+  logic                     dcache_clean_invalid_miss_cache_perf;
+
   logic                     icache_miss_cache_perf;
   logic [NumPorts-1:0][DCACHE_SET_ASSOC-1:0] miss_vld_bits;
   logic                     stall_issue;
@@ -743,6 +750,13 @@ module cva6 import ariane_pkg::*; #(
     .l1_dcache_miss_i     ( dcache_miss_cache_perf     ),
     .l1_dcache_hit_i      ( dcache_hit_cache_perf      ),
     .l1_dcache_flushing_i ( dcache_flushing_cache_perf ),
+
+    .l1_dcache_write_hit_unique_i   ( dcache_write_hit_unique_cache_perf   ),
+    .l1_dcache_write_hit_shared_i   ( dcache_write_hit_shared_cache_perf   ),
+    .l1_dcache_write_miss_i         ( dcache_write_miss_cache_perf         ),
+    .l1_dcache_clean_invalid_hit_i  ( dcache_clean_invalid_hit_cache_perf  ),
+    .l1_dcache_clean_invalid_miss_i ( dcache_clean_invalid_miss_cache_perf ),
+
     .amo_i                ( amo_req.req                ),
     .itlb_miss_i          ( itlb_miss_ex_perf          ),
     .dtlb_miss_i          ( dtlb_miss_ex_perf          ),
@@ -904,6 +918,13 @@ module cva6 import ariane_pkg::*; #(
     .dcache_miss_o         ( dcache_miss_cache_perf      ),
     .dcache_hit_o          ( dcache_hit_cache_perf       ),
     .dcache_flushing_o     ( dcache_flushing_cache_perf  ),
+
+    .dcache_write_hit_unique_o   ( dcache_write_hit_unique_cache_perf   ),
+    .dcache_write_hit_shared_o   ( dcache_write_hit_shared_cache_perf   ),
+    .dcache_write_miss_o         ( dcache_write_miss_cache_perf         ),
+    .dcache_clean_invalid_hit_o  ( dcache_clean_invalid_hit_cache_perf  ),
+    .dcache_clean_invalid_miss_o ( dcache_clean_invalid_miss_cache_perf ),
+
     // this is statically set to 1 as the std_cache does not have a wbuffer
     .wbuffer_empty_o       ( dcache_commit_wbuffer_empty ),
     // from PTW, Load Unit  and Store Unit
