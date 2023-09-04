@@ -331,11 +331,11 @@ package tb_std_cache_subsystem_pkg;
 
         function string print_me();
             if ((trans_type == WR_REQ) || (trans_type == RD_RESP)) begin
-                return $sformatf("type %0s, tag 0x%11h, index 0x%3h, data 0x%16h",trans_type.name(), address_tag, address_index, data);
+                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, data 0x%16h",trans_type.name(), port_idx, prio, address_tag, address_index, data);
             end else if (trans_type == READBACK) begin
-                return $sformatf("type %0s, tag 0x%11h, index 0x%3h, data 0x%16h_%16h",trans_type.name(), address_tag, address_index, cache_line[127:64], cache_line[63:0]);
+                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, data 0x%16h_%16h",trans_type.name(), port_idx, prio, address_tag, address_index, cache_line[127:64], cache_line[63:0]);
             end else begin
-                return $sformatf("type %0s, tag 0x%11h, index 0x%3h",trans_type.name(), address_tag, address_index);
+                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h",trans_type.name(), port_idx, prio, address_tag, address_index);
             end
         endfunction
 
@@ -608,13 +608,24 @@ package tb_std_cache_subsystem_pkg;
             dcache_resp wr_resp;
             $display("%t ns %s monitoring write requests", $time, name);
             forever begin
-                if (vif.req.data_req && vif.req.data_we && vif.wr_gnt) begin // got write request
+                if (vif.req.data_req && vif.req.data_we) begin // got write request
+
+                    while (!vif.wr_gnt) begin
+                        @(posedge vif.clk);
+                    end
+                    if (verbosity > 0) begin
+                        $display("%t ns %s got request for write", $time, name);
+                    end
+
                     wr_req = new();
                     wr_req.trans_type      = WR_REQ;
                     wr_req.address_index = vif.req.address_index;
-                    wr_req.address_tag   = vif.req.address_tag;
                     wr_req.data          = vif.req.data_wdata;
                     wr_req.port_idx      = port_idx;
+
+                    @(posedge vif.clk);
+
+                    wr_req.address_tag   = vif.req.address_tag;
                     wr_req.set_data_offset();
 
                     if (verbosity > 0) begin
@@ -1546,9 +1557,23 @@ package tb_std_cache_subsystem_pkg;
 
                     msg.redo_hit = 0;
 
+                    if (msg.prio >= 2) begin
+                        int cnt = 0;
+                        // this is a request from a cache controller, wait for grant from miss handler
+                        $display("%t ns %s.do_hit: wait for miss handler grant for message : %s", $time, name, msg.print_me());
+                        while (!gnt_vif.miss_gnt[msg.port_idx]) begin
+                            @(posedge sram_vif.clk); // skip cycles without grant
+                            cnt++;
+                            if (cnt > cache_msg_timeout) begin
+                                $error("%s : Timeout while waiting for miss handler grant for message : %s", name, msg.print_me());
+                                break;
+                            end
+                        end
+                    end
+
                     // wait for AR beat
                     ar_mbx.get(ar_beat);
-                    $display("%t ns %s.do_hit: got AR beat for message : %s", $time, name, msg.print_me());
+                    $display("%t ns %s.do_hit: got AR beat with ID %0h for message : %s", $time, name, ar_beat.ax_id, msg.print_me());
                     if (!isCleanUnique(ar_beat))
                         $error("%s Error CLEAN_UNIQUE expected for message : %s", name, msg.print_me());
                     a_empty_ar : assert (ar_mbx.num() == 0) else $error ("%S.do_hit : AR mailbox not empty", name);
@@ -1561,6 +1586,7 @@ package tb_std_cache_subsystem_pkg;
                             r_mbx.get(r_beat);
                             $display("%t ns %s.do_hit: got R beat with last = %0d for message : %s", $time, name, r_beat.r_last, msg.print_me());
                         end else begin
+                            $display("%t ns %s.do_hit: ignoring R beat with ID %0h for message : %s", $time, name, r_beat.r_last, r_beat_peek.r_id, msg.print_me());
                             @(posedge sram_vif.clk);
                         end
                     end
@@ -1582,6 +1608,7 @@ package tb_std_cache_subsystem_pkg;
 
             if (!isHit(addr_v)) begin
                 $display("%t ns %s Cache status changed from hit to miss, calling miss routine for message : %s", $time, name, msg.print_me());
+                msg.prio = 0; // miss handler will handle this
                 do_miss(msg);
                 msg.redo_hit = 1'b0;
             end
@@ -1597,12 +1624,9 @@ package tb_std_cache_subsystem_pkg;
             $display("%t ns %s started miss task for message : %s", $time, name, msg.print_me());
             addr_v = tag_index2addr(.tag(msg.address_tag), .index(msg.address_index));
 
-            if (!msg.insert_readback) begin // if cache was changed due to insert readback then the original port will do the
-                msg.prio = 0; // miss has highest prio
-            end
             msg.update_cache = 1'b1;
-
             fork
+                // Handle eviction . . . . . . . . . . . . . . . . . . . . . . .
                 begin
                     ax_ace_beat_t aw_beat = new();
                     b_beat_t      b_beat  = new();
@@ -1628,6 +1652,7 @@ package tb_std_cache_subsystem_pkg;
                     evict_msg.trans_type       = EVICT;
                     evict_msg.target_way       = get_way_from_lfsr(lfsr);
                     evict_msg.target_way_valid = 1'b1;
+                    evict_msg.prio             = 0; // miss handler updates the cache
 
                     // copy target way to msg
                     msg.target_way       = evict_msg.target_way;
@@ -1639,7 +1664,7 @@ package tb_std_cache_subsystem_pkg;
                         $error("%s.do_miss : WRITEBACK request expected after eviction for message : %s", name, msg.print_me());
                     a_empty_aw : assert (aw_mbx.num() == 0) else $error ("%S.do_miss : AW mailbox not empty", name);
 
-                    $display("%t ns %s inserting a new dcache message :%s", $time, name, msg.print_me());
+                    $display("%t ns %s inserting a new dcache message :%s", $time, name, evict_msg.print_me());
                     req_to_cache_update.put(evict_msg);
 
                     // wait for W beat
@@ -1658,26 +1683,56 @@ package tb_std_cache_subsystem_pkg;
 
                 end
 
+                // Get target way for read requests  . . . . . . . . . . . . . .
                 begin
+                    if (msg.trans_type == RD_REQ) begin
+                        // wait for miss FSM before getting target way
+                        repeat (2) @(posedge sram_vif.clk);
+                        msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
+                        if (msg.target_way_valid) begin
+                            $display("%t ns %s.do_miss: set target way to %d for message : %s", $time, name, msg.target_way, msg.print_me());
+                        end else begin
+                            $display("%t ns %s.do_miss: all ways occupied for message : %s", $time, name, msg.print_me());
+                        end
+                    end
 
+                    wait (0); // avoid exiting fork
+                end
+
+
+                // Check AXI transactions  . . . . . . . . . . . . . . . . . . .
+                begin
                     ax_ace_beat_t ar_beat     = new();
                     r_ace_beat_t  r_beat      = new();
                     r_ace_beat_t  r_beat_peek = new();
                     int           r_cnt       = 0;
 
-                    // wait for miss FSM before getting target way
-                    repeat (2)
-                        @(posedge sram_vif.clk);
-                    msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
-
-                    if (msg.target_way_valid) begin
-                        $display("%t ns %s.do_miss: set target way to %d for message : %s", $time, name, msg.target_way, msg.print_me());
-                    end else begin
-                        $display("%t ns %s.do_miss: all ways occupied for message : %s", $time, name, msg.print_me());
+                    if (msg.prio >= 2) begin
+                        int cnt = 0;
+                        // this is a request from a cache controller, wait for grant from miss handler
+                        $display("%t ns %s.do_miss: wait for miss handler grant for message : %s", $time, name, msg.print_me());
+                        while (!gnt_vif.miss_gnt[msg.port_idx]) begin
+                            @(posedge sram_vif.clk); // skip cycles without grant
+                            cnt++;
+                            if (cnt > cache_msg_timeout) begin
+                                $error("%s : Timeout while waiting for miss handler grant for message : %s", name, msg.print_me());
+                                break;
+                            end
+                        end
+                        $display("%t ns %s.do_miss: got miss handler grant for message : %s", $time, name, msg.print_me());
                     end
 
+                    // get target way for non-read requests
+                    if (msg.trans_type != RD_REQ) begin
+                        msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
+                        if (msg.target_way_valid) begin
+                            $display("%t ns %s.do_miss: set target way to %d for message : %s", $time, name, msg.target_way, msg.print_me());
+                        end else begin
+                            $display("%t ns %s.do_miss: all ways occupied for message : %s", $time, name, msg.print_me());
+                        end
+                    end
 
-                    $display("%t ns %s wait for AR beat for message : %s", $time, name, msg.print_me());
+                    $display("%t ns %s.do_miss: wait for AR beat for message : %s", $time, name, msg.print_me());
                     // wait for AR beat
                     ar_mbx.get(ar_beat);
                     $display("%t ns %s.do_miss: got AR beat for message : %s", $time, name, msg.print_me());
@@ -1734,6 +1789,7 @@ package tb_std_cache_subsystem_pkg;
                         // write readback data to cache
                         readback_msg = new();
                         readback_msg.prio          = 0;            // this will be written by miss handler
+                        msg.prio                   = msg.port_idx + 2; // the original port will do the last write, revert prio
                         readback_msg.port_idx      = msg.port_idx; // keep port that caused the readback for logging reasons
                         readback_msg.trans_type    = READBACK;
                         readback_msg.address_tag   = msg.address_tag;   // keep tag
@@ -1745,10 +1801,13 @@ package tb_std_cache_subsystem_pkg;
                         $display("%t ns %s inserting a new dcache message : %s", $time, name, readback_msg.print_me());
 
                         req_to_cache_update.put(readback_msg);
+                    end else begin
+                        msg.prio = 0; // miss handler will do the final writeback
                     end
 
                 end
 
+                // Monitor hit status  . . . . . . . . . . . . . . . . . . . . .
                 begin
                     // check if hit status changes, could be result of miss handler writeback
                     // in that case stop waiting for an AR beat
@@ -1758,7 +1817,7 @@ package tb_std_cache_subsystem_pkg;
                         @(posedge sram_vif.clk);
                     end
 
-                    // status changed to hit, revert changes in priority
+                    // status changed to hit, revert any changes in priority
                     msg.prio = msg.port_idx + 2;
                     if (msg.trans_type == WR_REQ) begin
                         msg.update_cache = 1'b1;
@@ -1805,21 +1864,25 @@ package tb_std_cache_subsystem_pkg;
                 begin
                     // bypass
                     if (!is_inside_cacheable_regions(ArianeCfg, addr_v)) begin
+                        $display("%t ns %s message is outside cacheable region: %s", $time, name, msg.print_me());
                         if (msg.trans_type == WR_REQ) begin
                             b_beat_t b_beat = new();
                             w_beat_t w_beat = new();
                             if (is_inside_shareable_regions(ArianeCfg, addr_v)) begin
                                 ax_ace_beat_t aw_beat = new();
                                 aw_mbx.get(aw_beat);
+                                $display("%t ns %s.check_cache_msg: got AW beat for message : %s", $time, name, msg.print_me());
                                 if (!isWriteUnique(aw_beat))
                                     $error("%s.check_cache_msg : WRITE_UNIQUE request expected for message : %s", name, msg.print_me());
                             end else begin
                                 ax_ace_beat_t aw_beat = new();
                                 // wait for grant before checking AW, a snoop transaction may be active
                                 while (!gnt_vif.bypass_gnt[msg.port_idx]) begin
+                                    $display("%t ns %s.check_cache_msg: skipping cycle without grant before checking AW for message : %s", $time, name, msg.print_me());
                                     @(posedge sram_vif.clk);
                                 end
                                 aw_mbx.get(aw_beat);
+                                $display("%t ns %s.check_cache_msg: got AW beat for message : %s", $time, name, msg.print_me());
                                 if (!isWriteNoSnoop(aw_beat))
                                     $error("%s.check_cache_msg : WRITE_NO_SNOOP request expected for message : %s", name, msg.print_me());
                             end
@@ -2013,6 +2076,89 @@ package tb_std_cache_subsystem_pkg;
 
             end // w
 
+        endtask
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // check behaviour when invalidating a cacheline
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        local task automatic invalidate (input logic[63:0] addr);
+            int w_cnt = 0;
+            for (int l = 0; l < DCACHE_SET_ASSOC; l++) begin
+                int w = addr[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET];
+                if (cache_status[w][l].valid && cache_status[w][l].dirty && cache_status[w][l].tag == addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]) begin
+                    fork
+                        begin
+                            automatic int ll = l;
+                            automatic int ww = w;
+                            // expect write back of dirty data
+                            ax_ace_beat_t aw_beat = new();
+                            b_beat_t      b_beat  = new();
+                            w_beat_t      w_beat  = new();
+
+                            // wait for AW beat
+                            aw_mbx.get(aw_beat);
+                            $display("%t ns %s.invalidate: got AW beat for cache[%0d][%0d]", $time, name, ww, ll);
+                            if (!isWriteBack(aw_beat))
+                                $error("%s.flush_invalidatecache : WRITEBACK request expected after eviction of cache[%0d][%0d]", name, ww, ll);
+                            a_empty_aw : assert (aw_mbx.num() == 0) else $error ("%S.invalidate : AW mailbox not empty", name);
+
+                            // wait for W beat
+                            while (!w_beat.w_last) begin
+                                w_mbx.get(w_beat);
+                                $display("%t ns %s.invalidate: got W beat with last = %0d for cache[%0d][%0d]", $time, name, w_beat.w_last, ww, ll);
+                            end
+                            a_empty_w : assert (w_mbx.num() == 0) else $error ("%S.invalidate : W mailbox not empty", name);
+
+                            // wait for B beat
+                            b_mbx.get(b_beat);
+                            $display("%t ns %s.invalidate: got B beat for cache[%0d][%0d]", $time, name, ww, ll);
+                            a_empty_b : assert (b_mbx.num() == 0) else $error ("%S.invalidate : B mailbox not empty", name);
+                        end
+                        begin
+                            // expect clear of cache entry
+                            automatic int ll  = l;
+                            automatic int ww  = w;
+                            automatic int cnt = 0;
+                            while (!gnt_vif.gnt[0]) begin
+                                $display("%t ns %s.invalidate : skipping cycle without grant for evict of cache entry [%0d][%0d]", $time, name, ww, ll);
+                                @(posedge sram_vif.clk); // skip cycles without grant
+                                cnt++;
+                                if (cnt > 1000) begin
+                                    $error("%s.invalidate : timeout while waiting for grant for evict of cache entry [%0d][%0d]", name, ww, ll);
+                                    break;
+                                end
+                            end
+                            @(posedge sram_vif.clk);
+
+                            // clear entry in cache model
+                            $display("%t ns %s.invalidate: Evicting cache entry [%0d][%0d]", $time, name, ww, ll);
+                            cache_status[ww][ll] = '0;
+                        end
+                    join_any
+
+                    break;
+                end
+                else if (cache_status[w][l].valid && cache_status[w][l].tag == addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]) begin
+                    // expect clear of cache entry
+                    while (!gnt_vif.gnt[0]) begin
+                        $display("%t ns %s.invalidate : skipping cycle without grant for clear of cache entry [%0d][%0d]", $time, name, w, l);
+                        @(posedge sram_vif.clk); // skip cycles without grant
+                        w_cnt++;
+                        if (w_cnt > 1000) begin
+                            $error("%s.invalidate : timeout while waiting for grant for clear of cache entry [%0d][%0d]", name, w, l);
+                            break;
+                        end
+                    end
+                    @(posedge sram_vif.clk);
+
+                    // clear entry in cache model
+                    $display("%t ns %s.invalidate: Evicting cache entry [%0d][%0d]", $time, name, w, l);
+                    cache_status[w][l] = '0;
+
+                    break;
+
+                end
+            end
         endtask
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
