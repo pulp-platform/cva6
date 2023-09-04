@@ -1876,11 +1876,17 @@ package tb_std_cache_subsystem_pkg;
                                     $error("%s.check_cache_msg : WRITE_UNIQUE request expected for message : %s", name, msg.print_me());
                             end else begin
                                 ax_ace_beat_t aw_beat = new();
+                                int cnt = 0;
                                 // wait for grant before checking AW, a snoop transaction may be active
                                 while (!gnt_vif.bypass_gnt[msg.port_idx]) begin
-                                    $display("%t ns %s.check_cache_msg: skipping cycle without grant before checking AW for message : %s", $time, name, msg.print_me());
                                     @(posedge sram_vif.clk);
+                                    cnt++;
+                                    if (cnt > cache_msg_timeout) begin
+                                        $error("%s.check_cache_msg : Timeout while waiting for grant before checking AW for message : %s", name, msg.print_me());
+                                        break;
+                                    end
                                 end
+
                                 aw_mbx.get(aw_beat);
                                 $display("%t ns %s.check_cache_msg: got AW beat for message : %s", $time, name, msg.print_me());
                                 if (!isWriteNoSnoop(aw_beat))
