@@ -101,6 +101,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     logic [DCACHE_SET_ASSOC-1:0]            evict_way_d, evict_way_q;
 
     logic                                   colliding_clean_d, colliding_clean_q;
+    logic                                   req_unique_d, req_unique_q;
 
     // cache line to evict
     cache_line_t                            evict_cl_d, evict_cl_q;
@@ -225,6 +226,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         evict_cl_d   = evict_cl_q;
         mshr_d       = mshr_q;
         colliding_clean_d = colliding_clean_q;
+        req_unique_d      = req_unique_q;
         // communicate to the requester which unit we are currently serving
         active_serving_o[mshr_q.id] = mshr_q.valid;
         // AMOs
@@ -243,6 +245,11 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             if (snoop_invalidate_i && miss_req_valid[i] && miss_req_make_unique[i] && !colliding_clean_q) begin
                 colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ==
                                      miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]);
+                // it is assumed that only cache_ctrl[2] (write) will do a make_unique request
+                // pragma translate_off
+                a_make_unique_write_only : assert #0 (i==2) else
+                    $error("MAKE_UNIQUE requests only expected from cache_ctrl 2");
+                // pragma translate_on
             end
         end
 
@@ -319,34 +326,47 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         evict_cl_d.data = data_i[lfsr_bin].data;
                         cnt_d = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
                     // no - we can request a cache line now
-                    end else
+                    end else begin
                         state_d = REQ_CACHELINE;
+                        if (colliding_clean_q && (mshr_q.id == 2)) begin
+                            // instruct to request unique
+                            req_unique_d = 1'b1;
+                            // we have now handled the colliding invalidation
+                            colliding_clean_d = 1'b0;
+                        end
+                    end
                 // we have at least one free way
                 end else begin
                     // get victim cache-line by looking for the first non-valid bit
                     evict_way_d = get_victim_cl(~valid_way);
                     state_d = REQ_CACHELINE;
+                    if (colliding_clean_q && (mshr_q.id == 2)) begin
+                        // instruct to request unique
+                        req_unique_d = 1'b1;
+                        // we have now handled the colliding invalidation
+                        colliding_clean_d = 1'b0;
+                    end
                 end
             end
 
-            // ~> we can just load the cache-line, the way is store in evict_way_q
+            // ~> we can just load the cache-line, the way is stored in evict_way_q
             REQ_CACHELINE: begin
                 req_fsm_miss_valid  = 1'b1;
                 req_fsm_miss_addr   = mshr_q.addr;
-              case ({mshr_q.we, is_inside_shareable_regions(ArianeCfg, mshr_q.addr)})
+                case ({mshr_q.we, is_inside_shareable_regions(ArianeCfg, mshr_q.addr)})
                     2'b00: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
                     2'b01: req_fsm_miss_type = ariane_ace::READ_SHARED;
                     2'b10: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
                     2'b11: req_fsm_miss_type = ariane_ace::READ_UNIQUE;
                 endcase
                 // start a ReadUnique also if we reached this state after a colliding invalidation
-                if (colliding_clean_q)
+                if (req_unique_q)
                   req_fsm_miss_type = ariane_ace::READ_UNIQUE;
                 if (gnt_miss_fsm) begin
                     state_d = SAVE_CACHELINE;
                     miss_gnt_o[mshr_q.id] = 1'b1;
-                    // we have now handled the colliding invalidation
-                    colliding_clean_d = '0;
+                    // we have now served the request for unique
+                    req_unique_d = 1'b0;
                 end
             end
 
@@ -601,6 +621,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             evict_cl_q    <= '0;
             serve_amo_q   <= 1'b0;
             colliding_clean_q <= '0;
+            req_unique_q      <= 1'b0;
         end else begin
             mshr_q        <= mshr_d;
             state_q       <= state_d;
@@ -609,6 +630,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             evict_cl_q    <= evict_cl_d;
             serve_amo_q   <= serve_amo_d;
             colliding_clean_q <= colliding_clean_d;
+            req_unique_q      <= req_unique_d;
         end
     end
 
