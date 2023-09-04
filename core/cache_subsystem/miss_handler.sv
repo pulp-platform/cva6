@@ -315,25 +315,13 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         cnt_d = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
                     // no - we can request a cache line now
                     end else begin
-                        if (colliding_clean_q[mshr_q.id]) begin
-                            // we have now handled the colliding invalidation
-                            colliding_clean_d[mshr_q.id] = 1'b0;
-                            state_d = REQ_CACHELINE_UNIQUE;
-                        end else begin
-                            state_d = REQ_CACHELINE;
-                        end
+                        state_d = colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
                     end
                 // we have at least one free way
                 end else begin
                     // get victim cache-line by looking for the first non-valid bit
                     evict_way_d = get_victim_cl(~valid_way);
-                    if (colliding_clean_q[mshr_q.id]) begin
-                        // we have now handled the colliding invalidation
-                        colliding_clean_d[mshr_q.id] = 1'b0;
-                        state_d = REQ_CACHELINE_UNIQUE;
-                    end else begin
-                        state_d = REQ_CACHELINE;
-                    end
+                    state_d = colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
                 end
             end
 
@@ -355,6 +343,10 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 if (gnt_miss_fsm) begin
                     state_d = SAVE_CACHELINE;
                     miss_gnt_o[mshr_q.id] = 1'b1;
+                    if (state_q == REQ_CACHELINE_UNIQUE) begin
+                        // we have now handled the colliding invalidation
+                        colliding_clean_d[mshr_q.id] = 1'b0;
+                    end
                 end
             end
 
