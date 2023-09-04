@@ -124,16 +124,12 @@ module perf_counters import ariane_pkg::*; #(
     assign events[10] = l1_dcache_clean_invalid_hit_i;
     assign events[11] = l1_dcache_clean_invalid_miss_i;
 
-
-
-
-
     always_comb begin : generic_counter
         generic_counter_d = generic_counter_q;
         data_o = 'b0;
         mhpmevent_d = mhpmevent_q;
-	    read_access_exception =  1'b0;
-	    update_access_exception =  1'b0;
+        read_access_exception =  1'b0;
+        update_access_exception =  1'b0;
 
       for(int unsigned i = 1; i <= 11; i++) begin
          if ((debug_mode_i == 1'b0) && (we_i == 1'b0)) begin
@@ -151,35 +147,48 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_MHPM_COUNTER_5,
             riscv::CSR_MHPM_COUNTER_6,
             riscv::CSR_MHPM_COUNTER_7,
-            riscv::CSR_MHPM_COUNTER_8,
-            riscv::CSR_MHPM_COUNTER_9,
-            riscv::CSR_MHPM_COUNTER_10,
-            riscv::CSR_MHPM_COUNTER_11,
-            riscv::CSR_MHPM_COUNTER_12,
-            riscv::CSR_MHPM_COUNTER_13  :begin if (riscv::XLEN == 32) data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0]; else data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1];end
+            riscv::CSR_MHPM_COUNTER_8 :begin if (riscv::XLEN == 32) data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0]; else data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1];end
             riscv::CSR_MHPM_COUNTER_3H,
             riscv::CSR_MHPM_COUNTER_4H,
             riscv::CSR_MHPM_COUNTER_5H,
             riscv::CSR_MHPM_COUNTER_6H,
             riscv::CSR_MHPM_COUNTER_7H,
-            riscv::CSR_MHPM_COUNTER_8H,
-            riscv::CSR_MHPM_COUNTER_9H,
-            riscv::CSR_MHPM_COUNTER_10H,
-            riscv::CSR_MHPM_COUNTER_11H,
-            riscv::CSR_MHPM_COUNTER_12H,
-            riscv::CSR_MHPM_COUNTER_13H :begin if (riscv::XLEN == 32) data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3H + 1][63:32]; else read_access_exception = 1'b1;end
+            riscv::CSR_MHPM_COUNTER_8H :begin if (riscv::XLEN == 32) data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3H + 1][63:32]; else read_access_exception = 1'b1;end
             riscv::CSR_MHPM_EVENT_3,
             riscv::CSR_MHPM_EVENT_4,
             riscv::CSR_MHPM_EVENT_5,
             riscv::CSR_MHPM_EVENT_6,
             riscv::CSR_MHPM_EVENT_7,
-            riscv::CSR_MHPM_EVENT_8   : data_o = mhpmevent_q[addr_i-riscv::CSR_MHPM_EVENT_3 + 1] ;
+            riscv::CSR_MHPM_EVENT_8   : data_o = mhpmevent_q[addr_i-riscv::CSR_MHPM_EVENT_3 + 1];
             riscv::CSR_L1_ICACHE_MISS,
             riscv::CSR_L1_DCACHE_MISS,
             riscv::CSR_ITLB_MISS,
             riscv::CSR_DTLB_MISS,
             riscv::CSR_LOAD,
-            riscv::CSR_STORE  : data_o = generic_counter_q[addr_i-riscv::CSR_L1_ICACHE_MISS + 1];
+            riscv::CSR_STORE,
+            riscv::CSR_EXCEPTION,
+            riscv::CSR_EXCEPTION_RET,
+            riscv::CSR_BRANCH_JUMP,
+            riscv::CSR_CALL,
+            riscv::CSR_RET,
+            riscv::CSR_MIS_PREDICT,
+            riscv::CSR_SB_FULL,
+            riscv::CSR_IF_EMPTY,
+            riscv::CSR_HPM_COUNTER_17,
+            riscv::CSR_HPM_COUNTER_18,
+            riscv::CSR_HPM_COUNTER_19,
+            riscv::CSR_HPM_COUNTER_20,
+            riscv::CSR_HPM_COUNTER_21,
+            riscv::CSR_HPM_COUNTER_22,
+            riscv::CSR_HPM_COUNTER_23,
+            riscv::CSR_HPM_COUNTER_24,
+            riscv::CSR_HPM_COUNTER_25,
+            riscv::CSR_HPM_COUNTER_26,
+            riscv::CSR_HPM_COUNTER_27,
+            riscv::CSR_HPM_COUNTER_28,
+            riscv::CSR_HPM_COUNTER_29,
+            riscv::CSR_HPM_COUNTER_30,
+            riscv::CSR_HPM_COUNTER_31 : data_o = generic_counter_q[addr_i-riscv::CSR_L1_ICACHE_MISS + 1];
             default: data_o = 'b0;
         endcase
 
@@ -191,23 +200,13 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_MHPM_COUNTER_5,
             riscv::CSR_MHPM_COUNTER_6,
             riscv::CSR_MHPM_COUNTER_7,
-            riscv::CSR_MHPM_COUNTER_8,
-            riscv::CSR_MHPM_COUNTER_9,
-            riscv::CSR_MHPM_COUNTER_10,
-            riscv::CSR_MHPM_COUNTER_11,
-            riscv::CSR_MHPM_COUNTER_12,
-            riscv::CSR_MHPM_COUNTER_13  :begin if (riscv::XLEN == 32) generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0] = data_i; else generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1] = data_i; end
+            riscv::CSR_MHPM_COUNTER_8 :begin if (riscv::XLEN == 32) generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0] = data_i; else generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1] = data_i; end
             riscv::CSR_MHPM_COUNTER_3H,
             riscv::CSR_MHPM_COUNTER_4H,
             riscv::CSR_MHPM_COUNTER_5H,
             riscv::CSR_MHPM_COUNTER_6H,
             riscv::CSR_MHPM_COUNTER_7H,
-            riscv::CSR_MHPM_COUNTER_8H,
-            riscv::CSR_MHPM_COUNTER_9H,
-            riscv::CSR_MHPM_COUNTER_10H,
-            riscv::CSR_MHPM_COUNTER_11H,
-            riscv::CSR_MHPM_COUNTER_12H,
-            riscv::CSR_MHPM_COUNTER_13H :begin if (riscv::XLEN == 32) generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3H + 1][63:32] = data_i; else update_access_exception = 1'b1;end
+            riscv::CSR_MHPM_COUNTER_8H :begin if (riscv::XLEN == 32) generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3H + 1][63:32] = data_i; else update_access_exception = 1'b1;end
             riscv::CSR_MHPM_EVENT_3,
             riscv::CSR_MHPM_EVENT_4,
             riscv::CSR_MHPM_EVENT_5,
