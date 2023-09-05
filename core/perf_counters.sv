@@ -147,7 +147,7 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_MHPM_COUNTER_5,
             riscv::CSR_MHPM_COUNTER_6,
             riscv::CSR_MHPM_COUNTER_7,
-            riscv::CSR_MHPM_COUNTER_8 :begin if (riscv::XLEN == 32) data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0]; else data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1];end
+            riscv::CSR_MHPM_COUNTER_8  :begin if (riscv::XLEN == 32) data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0]; else data_o = generic_counter_q[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1];end
             riscv::CSR_MHPM_COUNTER_3H,
             riscv::CSR_MHPM_COUNTER_4H,
             riscv::CSR_MHPM_COUNTER_5H,
@@ -159,7 +159,7 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_MHPM_EVENT_5,
             riscv::CSR_MHPM_EVENT_6,
             riscv::CSR_MHPM_EVENT_7,
-            riscv::CSR_MHPM_EVENT_8   : data_o = mhpmevent_q[addr_i-riscv::CSR_MHPM_EVENT_3 + 1];
+            riscv::CSR_MHPM_EVENT_8   : data_o = mhpmevent_q[addr_i-riscv::CSR_MHPM_EVENT_3 + 1] ;
             riscv::CSR_L1_ICACHE_MISS,
             riscv::CSR_L1_DCACHE_MISS,
             riscv::CSR_ITLB_MISS,
@@ -200,7 +200,7 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_MHPM_COUNTER_5,
             riscv::CSR_MHPM_COUNTER_6,
             riscv::CSR_MHPM_COUNTER_7,
-            riscv::CSR_MHPM_COUNTER_8 :begin if (riscv::XLEN == 32) generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0] = data_i; else generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1] = data_i; end
+            riscv::CSR_MHPM_COUNTER_8  :begin if (riscv::XLEN == 32) generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1][31:0] = data_i; else generic_counter_d[addr_i-riscv::CSR_MHPM_COUNTER_3 + 1] = data_i; end
             riscv::CSR_MHPM_COUNTER_3H,
             riscv::CSR_MHPM_COUNTER_4H,
             riscv::CSR_MHPM_COUNTER_5H,
