@@ -15,7 +15,7 @@
         // URL
         url: "https://github.com/planvtech/ace.git",
         // revision
-        rev: "v0.0.3-pulp",
+        rev: "7f23fdc795159bd6c0b3607f9e990d435180c1d7",
     }
 
     // Patch dir for local changes

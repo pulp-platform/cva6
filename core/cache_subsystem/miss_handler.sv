@@ -31,9 +31,12 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     input  logic                                        flush_i,      // flush request
     output logic                                        flush_ack_o,  // acknowledge successful flush
     output logic                                        miss_o,
+    output logic [1:0]                                  miss_id_o,
     input  logic                                        busy_i,       // dcache is busy with something
     input  logic                                        init_ni,      // do not init after reset
     output logic                                        flushing_o,
+    output logic                                        serving_amo_o,
+    output logic [63:0]                                 serving_amo_addr_o,
     output logic                                        updating_cache_o,
     // Bypass or miss
     input  logic [NR_PORTS-1:0][$bits(miss_req_t)-1:0]  miss_req_i,
@@ -90,10 +93,13 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         MISS_REPL,          // 9
         SAVE_CACHELINE,     // A
         INIT,               // B
-        AMO_REQ,            // C
-        AMO_WAIT_RESP,      // D
-        SEND_CLEAN,         // E
-        REQ_CACHELINE_UNIQUE // F
+        AMO_WB_REQ,         // C
+        AMO_WB,             // D
+        AMO_REQ,            // E
+        WB_CACHELINE_AMO,   // F
+        AMO_WAIT_RESP,      // 10
+        SEND_CLEAN          // 11
+        REQ_CACHELINE_UNIQUE // 12
     } state_d, state_q;
 
     // Registers
@@ -166,6 +172,9 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         logic        valid;
     } reservation_d, reservation_q;
 
+    assign serving_amo_o = serve_amo_q;
+    assign serving_amo_addr_o = amo_req_i.operand_a;
+
     // ------------------------------
     // Cache Management
     // ------------------------------
@@ -216,6 +225,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         // core
         flush_ack_o         = 1'b0;
         miss_o              = 1'b0; // to performance counter
+        miss_id_o           = mshr_q.id;  // to performance counter
         serve_amo_d         = serve_amo_q;
         // --------------------------------
         // Flush and Miss operation
@@ -246,7 +256,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             IDLE: begin
                 // lowest priority are AMOs, wait until everything else is served before going for the AMOs
                 if (amo_req_i.req && !busy_i) begin
-                    state_d = FLUSH_REQ_STATUS;
+                    state_d = AMO_WB_REQ;
                     cnt_d = '0;
                     // remember that flush was started by AMO
                     serve_amo_d = 1'b1;
@@ -392,7 +402,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             // Write Back Operation
             // ------------------------------
             // ~> evict a cache line from way saved in evict_way_q
-            WB_CACHELINE_FLUSH, WB_CACHELINE_MISS: begin
+            WB_CACHELINE_FLUSH, WB_CACHELINE_MISS, WB_CACHELINE_AMO: begin
 
                 req_fsm_miss_valid  = 1'b1;
                 req_fsm_miss_addr   = {evict_cl_q.tag, cnt_q[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET], {{DCACHE_BYTE_OFFSET}{1'b0}}};
@@ -414,6 +424,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                     // go back to handling the miss or flushing or go to idle, depending on where we came from
                     state_d = (state_q == WB_CACHELINE_MISS) ? MISS :
                               (state_q == WB_CACHELINE_FLUSH) ? FLUSH_REQ_STATUS :
+                              (state_q == WB_CACHELINE_AMO) ? AMO_REQ :
                               IDLE;
                 end
             end
@@ -500,8 +511,36 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             // ----------------------
             // AMOs
             // ----------------------
+            AMO_WB_REQ: begin
+                req_o   = '1;
+                addr_o  = amo_req_i.operand_a;
+                state_d = AMO_WB;
+            end
+
+            AMO_WB: begin
+                state_d = AMO_REQ;
+                for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+                    // match dirty line ~> evict
+                    if (data_i[i].valid & data_i[i].dirty & (data_i[i].tag == amo_req_i.operand_a[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH])) begin
+                        evict_way_d = 1'b1 << i;
+                        evict_cl_d  = data_i[i];
+                        cnt_d       = amo_req_i.operand_a[DCACHE_INDEX_WIDTH-1:0];
+                        state_d     = WB_CACHELINE_AMO;
+                        break;                           
+                    end
+                    // match line ~> invalidate
+                    else if (data_i[i].valid & (data_i[i].tag == amo_req_i.operand_a[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH])) begin
+                        req_o       = 1'b1;
+                        addr_o  = amo_req_i.operand_a;
+                        be_o.vldrty = 1'b1 << i;
+                        we_o        = 1'b1;
+                        break;
+                    end
+                end
+            end
             // ~> we are here because we need to do the AMO, the cache is clean at this point
             AMO_REQ: begin
+                serve_amo_d = 1'b0;
                 amo_bypass_req.req     = 1'b1;
                 amo_bypass_req.reqtype = ariane_axi::SINGLE_REQ;
                 amo_bypass_req.amo     = amo_req_i.amo_op;

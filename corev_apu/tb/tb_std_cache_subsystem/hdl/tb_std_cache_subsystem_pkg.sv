@@ -2181,7 +2181,7 @@ package tb_std_cache_subsystem_pkg;
 
                 fork
                     begin
-                        flush_cache();
+                        invalidate(msg.addr);
                         if (msg.op != AMO_LR) begin
                             ax_ace_beat_t aw_beat     = new();
                             b_beat_t      b_beat      = new();
