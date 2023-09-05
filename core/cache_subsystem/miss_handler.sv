@@ -98,7 +98,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         AMO_REQ,            // E
         WB_CACHELINE_AMO,   // F
         AMO_WAIT_RESP,      // 10
-        SEND_CLEAN          // 11
+        SEND_CLEAN,         // 11
         REQ_CACHELINE_UNIQUE // 12
     } state_d, state_q;
 
