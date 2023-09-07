@@ -98,7 +98,8 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         AMO_REQ,            // E
         WB_CACHELINE_AMO,   // F
         AMO_WAIT_RESP,      // 10
-        SEND_CLEAN          // 11
+        SEND_CLEAN,         // 11
+        REQ_CACHELINE_UNIQUE // 12
     } state_d, state_q;
 
     // Registers
@@ -106,7 +107,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     logic [DCACHE_INDEX_WIDTH-1:0]          cnt_d, cnt_q;
     logic [DCACHE_SET_ASSOC-1:0]            evict_way_d, evict_way_q;
 
-    logic                                   colliding_clean_d, colliding_clean_q;
+    logic [NR_PORTS-1:0]                    colliding_clean_d, colliding_clean_q;
 
     // cache line to evict
     cache_line_t                            evict_cl_d, evict_cl_q;
@@ -243,16 +244,10 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         amo_operand_b = '0;
 
         // Detect if a MAKE_UNIQUE request collides with an invalidation from snoop
-        // NOTE: the code below will not work if multiple cache controllers are requesting MAKE_UNIQUE. Currently this
-        // is not the case, add assertion to catch any change.
-        // pragma translate_off
-        a_make_unique_onehot : assert #0 ($onehot0(miss_req_make_unique)) else
-            $error("Multiple MAKE_UNIQUE requests not supported");
-        // pragma translate_on
         for (int unsigned i = 0; i < NR_PORTS; i++) begin
-            if (snoop_invalidate_i && miss_req_valid[i] && miss_req_make_unique[i] && !colliding_clean_q) begin
-                colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ==
-                                     miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]);
+            if (snoop_invalidate_i && miss_req_valid[i] && miss_req_make_unique[i] && !colliding_clean_q[i]) begin
+                colliding_clean_d[i] = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ==
+                                        miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]);
             end
         end
 
@@ -329,34 +324,39 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         evict_cl_d.data = data_i[lfsr_bin].data;
                         cnt_d = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
                     // no - we can request a cache line now
-                    end else
-                        state_d = REQ_CACHELINE;
+                    end else begin
+                        state_d = colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
+                    end
                 // we have at least one free way
                 end else begin
                     // get victim cache-line by looking for the first non-valid bit
                     evict_way_d = get_victim_cl(~valid_way);
-                    state_d = REQ_CACHELINE;
+                    state_d = colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
                 end
             end
 
-            // ~> we can just load the cache-line, the way is store in evict_way_q
-            REQ_CACHELINE: begin
+            // ~> we can just load the cache-line, the way is stored in evict_way_q
+            REQ_CACHELINE, REQ_CACHELINE_UNIQUE : begin
                 req_fsm_miss_valid  = 1'b1;
                 req_fsm_miss_addr   = mshr_q.addr;
-              case ({mshr_q.we, is_inside_shareable_regions(ArianeCfg, mshr_q.addr)})
-                    2'b00: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
-                    2'b01: req_fsm_miss_type = ariane_ace::READ_SHARED;
-                    2'b10: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
-                    2'b11: req_fsm_miss_type = ariane_ace::READ_UNIQUE;
-                endcase
-                // start a ReadUnique also if we reached this state after a colliding invalidation
-                if (colliding_clean_q)
-                  req_fsm_miss_type = ariane_ace::READ_UNIQUE;
+                if (state_q == REQ_CACHELINE_UNIQUE) begin
+                    // start a ReadUnique request, the requested adress was cleared by snoop
+                    req_fsm_miss_type = ariane_ace::READ_UNIQUE;
+                end else begin
+                    case ({mshr_q.we, is_inside_shareable_regions(ArianeCfg, mshr_q.addr)})
+                        2'b00: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
+                        2'b01: req_fsm_miss_type = ariane_ace::READ_SHARED;
+                        2'b10: req_fsm_miss_type = ariane_ace::READ_NO_SNOOP;
+                        2'b11: req_fsm_miss_type = ariane_ace::READ_UNIQUE;
+                    endcase
+                end
                 if (gnt_miss_fsm) begin
                     state_d = SAVE_CACHELINE;
                     miss_gnt_o[mshr_q.id] = 1'b1;
-                    // we have now handled the colliding invalidation
-                    colliding_clean_d = '0;
+                    if (state_q == REQ_CACHELINE_UNIQUE) begin
+                        // we have now handled the colliding invalidation
+                        colliding_clean_d[mshr_q.id] = 1'b0;
+                    end
                 end
             end
 
