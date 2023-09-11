@@ -191,12 +191,13 @@ module tb_ace_direct import ariane_pkg::*; import std_cache_pkg::*; import tb_pk
   assign flush_i = 1'b0;
 
   std_nbdcache  #(
-    .ArianeCfg      ( ArianeCfg                 ),
-    .AXI_ADDR_WIDTH ( AxiAddrWidth              ),
-    .AXI_ID_WIDTH   ( AxiIdWidth + 32'd1        ),
-    .AXI_DATA_WIDTH ( AxiDataWidth              ),
-    .axi_req_t      ( ariane_ace::m2s_nosnoop_t ),
-    .axi_rsp_t      ( ariane_ace::s2m_nosnoop_t )
+    .ArianeCfg         ( ArianeCfg                 ),
+    .VLD_SRAM_SIM_INIT ( "zeros"                   ),
+    .AXI_ADDR_WIDTH    ( AxiAddrWidth              ),
+    .AXI_ID_WIDTH      ( AxiIdWidth + 32'd1        ),
+    .AXI_DATA_WIDTH    ( AxiDataWidth              ),
+    .axi_req_t         ( ariane_ace::m2s_nosnoop_t ),
+    .axi_rsp_t         ( ariane_ace::s2m_nosnoop_t )
   ) i_dut (
     .clk_i           ( clk_i           ),
     .rst_ni          ( rst_ni          ),
