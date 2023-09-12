@@ -187,6 +187,15 @@ class instr_trace_item;
             riscv::CSR_TIME:       return "time";
             riscv::CSR_INSTRET:    return "instret";
 
+            // Vector CSRs
+            riscv::CSR_VSTART    : return "vstart";
+            riscv::CSR_VXSAT     : return "vxsat";
+            riscv::CSR_VXRM      : return "vxrm";
+            riscv::CSR_VCSR      : return "vcsr";
+            riscv::CSR_VL        : return "vl";
+            riscv::CSR_VTYPE     : return "vtype";
+            riscv::CSR_VLENB     : return "vlenb";
+
             default:        return $sformatf("%0h", addr);
         endcase
     endfunction
@@ -358,7 +367,36 @@ class instr_trace_item;
             instr_tracer_pkg::C_ADDW:         s = this.printRInstr("c.addw");
             instr_tracer_pkg::C_NOP:          s = this.printMnemonic("c.nop");
             instr_tracer_pkg::C_EBREAK:       s = this.printMnemonic("c.ebreak");
-            default:                          s = this.printMnemonic("INVALID");
+            default: begin
+                // NOTE: this is not accurate, since some encodings are might still be invalid
+                case ( instr[6:0] )
+                    riscv::OpcodeVec : s = this.printMnemonic("vector arith");
+                    riscv::OpcodeLoadFp,
+                    riscv::OpcodeStoreFp     : begin
+                        // instr.vmem_type.mew, instr.vmem_type.width
+                        case ( {instr[28], instr[14:12]} )
+                            4'b0000: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE8"    : "VSxE8"    );
+                            4'b0101: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE16"   : "VSxE16"   );
+                            4'b0110: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE32"   : "VSxE32"   );
+                            4'b0111: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE64"   : "VSxE64"   );
+                            4'b1000: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE128"  : "VSxE128"  );
+                            4'b1101: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE256"  : "VSxE256"  );
+                            4'b1110: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE512"  : "VSxE512"  );
+                            4'b1111: s = this.printMnemonic( ( instr[6:0] == riscv::OpcodeLoadFp ) ? "VLxE1024" : "VSxE1024" );
+                        endcase
+                    end
+                    riscv::OpcodeAmo: begin
+                        // instr.vamo_type.width
+                        case (instr[14:12])
+                            3'b000: s = this.printMnemonic("VAMO*EI8.V ");
+                            3'b101: s = this.printMnemonic("VAMO*EI16.V");
+                            3'b110: s = this.printMnemonic("VAMO*EI32.V");
+                            3'b111: s = this.printMnemonic("VAMO*EI64.V");
+                        endcase
+                    end
+                    default                 : s = this.printMnemonic("INVALID");
+                endcase
+            end
         endcase
 
         s = $sformatf("%8dns %8d %s %h %h %h %-36s", simtime,
@@ -432,6 +470,46 @@ class instr_trace_item;
                 s = $sformatf("%s VA: %x PA: %x", s, vaddress, this.paddr);
             end
         endcase
+
+        if ( instr[6:0] inside {riscv::OpcodeLoadFp, riscv::OpcodeStoreFp, riscv::OpcodeAmo } ) begin
+            logic [riscv::VLEN-1:0] vaddress = gp_reg_file[read_regs[0]] + this.imm;
+                
+            if ( instr[6:0] inside {riscv::OpcodeLoadFp, riscv::OpcodeStoreFp} &
+                 {instr[28], instr[14:12]} inside { 4'b0000,
+                                                    4'b0101,
+                                                    4'b0110,
+                                                    4'b0111,
+                                                    4'b1000,
+                                                    4'b1101,
+                                                    4'b1110,
+                                                    4'b1111} 
+                ) begin : vle_vse
+                vaddress = gp_reg_file[instr[19:15]];
+                // rvv_instr.mop
+                case ( instr[27:26] )
+                    // NOTE: address translation not yet implemented
+                    2'b00: s = $sformatf("%s VA: %x PA: %x"           , s, vaddress, '0                           ); // unit-stride
+                    2'b01: s = $sformatf("%s VA: %x PA: %x idx: v%d"  , s, vaddress, '0, instr[24:20]             ); // indexed-unordered 
+                    2'b10: s = $sformatf("%s VA: %x PA: %x stride: %d", s, vaddress, '0, gp_reg_file[instr[24:20]]); // strided
+                    2'b11: s = $sformatf("%s VA: %x PA: %x idx: v%d"  , s, vaddress, '0, instr[24:20]             ); // indexed-ordered 
+                endcase // instr[27:26]
+            end : vle_vse
+            else if ( instr[6:0] == riscv::OpcodeAmo &
+                      instr[14:12] inside {3'b000,
+                                           3'b101,
+                                           3'b110,
+                                           3'b111} 
+                ) begin : vamo
+                vaddress = gp_reg_file[instr[19:15]];
+                s = $sformatf("%s VA: %x PA: %x", s, vaddress, '0); // address translation not yet implemented
+            end : vamo
+            else begin : scalar
+                s = $sformatf("%s VA: %x PA: %x", s, vaddress, this.paddr);
+            end : scalar
+        end
+
+
+
         return s;
     endfunction : printInstr
 
