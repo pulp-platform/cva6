@@ -129,6 +129,10 @@ package tb_std_cache_subsystem_pkg;
     class amo_resp;
         amo_t        op;
         logic [63:0] data;
+
+        function string print_me();
+            return $sformatf("type %0s, data 0x%16h", op.name(), data);
+        endfunction
     endclass
 
 
@@ -270,7 +274,7 @@ package tb_std_cache_subsystem_pkg;
 
                     #0; // add zero delay here to make sure read response is repoerted after read request if it gets served immediately
                     if (verbosity > 0) begin
-                        $display("%t ns %s got AMO response with data 0x%8h", $time, name, resp.data);
+                        $display("%t ns %s got AMO response : %s", $time, name, resp.print_me());
                     end
                     resp_mbox.put(resp);
 
@@ -792,6 +796,9 @@ package tb_std_cache_subsystem_pkg;
         mailbox #(dcache_req)    dcache_req_mbox_prio;
         mailbox #(dcache_req)    dcache_req_mbox_prio_tmp;
         mailbox #(dcache_req)    dcache_req_mbox  [2:0];
+
+        mailbox #(dcache_resp)   dcache_resp_mbox_prio;
+        mailbox #(dcache_resp)   dcache_resp_mbox_prio_tmp;
         mailbox #(dcache_resp)   dcache_resp_mbox [2:0];
 
         mailbox #(dcache_req)    req_to_cache_update;
@@ -806,6 +813,7 @@ package tb_std_cache_subsystem_pkg;
 
         // ACE mailboxes
         mailbox aw_mbx = new, w_mbx = new, b_mbx = new, ar_mbx = new, r_mbx = new;
+        mailbox aw_mbx_pre_filt = new, w_mbx_pre_filt = new, b_mbx_pre_filt = new, ar_mbx_pre_filt = new, r_mbx_pre_filt = new;
 
         // Snoop mailboxes
         mailbox ac_mbx = new, ac_mbx_int = new, cd_mbx = new, cr_mbx = new;
@@ -839,6 +847,9 @@ package tb_std_cache_subsystem_pkg;
             this.dcache_req_mbox_prio = new();
             this.dcache_req_mbox_prio_tmp = new();
             this.mgmt_mbox            = new();
+
+            this.dcache_resp_mbox_prio = new();
+            this.dcache_resp_mbox_prio_tmp = new();
 
             cache_status              = '0;
             lfsr                      = '0;
@@ -1502,27 +1513,33 @@ package tb_std_cache_subsystem_pkg;
             $display("%t ns %s retreiving dcache messages", $time, name);
             forever begin
                 for (int i=0; i<=2; i++) begin
-                    dcache_req msg;
-                    if (dcache_req_mbox[i].try_get(msg)) begin
-                        dcache_req msg_t;
-                        msg_t = new msg;
-                        dcache_req_mbox_prio_tmp.put(msg_t);
+                    dcache_req req;
+                    dcache_req resp;
+                    if (dcache_req_mbox[i].try_get(req)) begin
+                        dcache_req req_t;
+                        req_t = new req;
+                        dcache_req_mbox_prio_tmp.put(req_t);
+                    end
+                    if (dcache_resp_mbox[i].try_get(resp)) begin
+                        dcache_resp resp_t;
+                        resp_t = new resp;
+                        dcache_resp_mbox_prio_tmp.put(resp_t);
                     end
                 end
                 @(posedge sram_vif.clk);
             end
         endtask
 
-        local task automatic get_cache_msg_tmp;
-            dcache_req msg;
+        local task automatic get_cache_req_tmp;
+            dcache_req req;
             forever begin
-                dcache_req_mbox_prio_tmp.get(msg);
+                dcache_req_mbox_prio_tmp.get(req);
                 fork
                     begin
-                        dcache_req msg_t;
-                        msg_t = new msg;
-                        dcache_req_mbox_prio.put(msg_t);
-                        check_cache_msg();
+                        dcache_req req_t;
+                        req_t = new req;
+                        dcache_req_mbox_prio.put(req_t);
+//                        check_cache_msg();
                     end
                     begin
                         @(posedge sram_vif.clk);
@@ -1530,6 +1547,87 @@ package tb_std_cache_subsystem_pkg;
                 join_any
             end
         endtask
+
+        local task automatic get_cache_resp_tmp;
+            dcache_resp resp;
+            forever begin
+                dcache_resp_mbox_prio_tmp.get(resp);
+                fork
+                    begin
+                        dcache_resp resp_t;
+                        resp_t = new resp;
+                        dcache_resp_mbox_prio.put(resp_t);
+                    end
+                    begin
+                        @(posedge sram_vif.clk);
+                    end
+                join_any
+            end
+        endtask
+
+
+
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // filter AXI bus
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        local task automatic axi_read_filter;
+            logic forward = 0;
+            $display("%t ns %s filtering AXI read transactions", $time, name);
+            forever begin
+                ax_ace_beat_t ar_beat = new();
+                r_ace_beat_t  r_beat  = new();
+                forward = 0;
+                ar_mbx_pre_filt.get(ar_beat);
+                if (ar_beat.ax_id[3:0] != 0) begin
+                    forward = 1;
+                    ar_mbx.put(ar_beat);
+                end
+
+                while (!r_beat.r_last) begin
+                    r_mbx_pre_filt.get(r_beat);
+                    if (forward)
+                        r_mbx.put(r_beat);
+                end
+            end
+        endtask
+
+
+        local task automatic axi_write_filter;
+            logic forward = 0;
+            $display("%t ns %s filtering AXI write transactions", $time, name);
+            forever begin
+                ax_ace_beat_t aw_beat = new();
+                b_beat_t      b_beat  = new();
+                w_beat_t      w_beat  = new();
+
+                forward = 0;
+                aw_mbx_pre_filt.get(aw_beat);
+                if (aw_beat.ax_id[3:0] != 0) begin
+                    forward = 1;
+                    aw_mbx.put(aw_beat);
+                end
+
+                while (!w_beat.w_last) begin
+                    w_mbx_pre_filt.get(w_beat);
+                    if (forward) begin
+                        w_mbx.put(w_beat);
+                    end
+                end
+
+                b_mbx_pre_filt.get(b_beat);
+                if (forward) begin
+                     b_mbx.put(b_beat);
+                end
+
+            end
+        endtask
+
+
+
+
+
+
+
 
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2316,7 +2414,10 @@ package tb_std_cache_subsystem_pkg;
         task run;
             fork
                 get_cache_msg();
-                get_cache_msg_tmp();
+                get_cache_req_tmp();
+                get_cache_resp_tmp();
+                axi_read_filter();
+                axi_write_filter();
                 check_snoop();
                 check_amo_msg();
                 check_mgmt_trans();
@@ -2343,6 +2444,13 @@ package tb_std_cache_subsystem_pkg;
         string       name;
         ariane_cfg_t ArianeCfg;
         bit          enable_mem_check = 1;
+
+        mailbox #(amo_req)  amo_req_mbox  [NB_CORES];
+        mailbox #(amo_resp) amo_resp_mbox [NB_CORES];
+
+        mailbox #(dcache_req)  dcache_req_mbox  [NB_CORES];
+        mailbox #(dcache_resp) dcache_resp_mbox [NB_CORES];
+
 
         function new (
             virtual sram_intf #(DCACHE_SET_ASSOC, SRAM_DATA_WIDTH, SRAM_NUM_WORDS) sram_vif    [NB_CORES],
@@ -2447,6 +2555,121 @@ package tb_std_cache_subsystem_pkg;
                 join_none
             end
             wait fork;
+        endtask
+
+
+        task automatic check_amo_lock;
+
+            logic   lock = 0;
+            int     lock_id = -1;
+            longint lock_addr = -1;
+
+            for (int c=0; c < NB_CORES; c++) begin
+                fork
+                    automatic int cc = c;
+                    begin
+                        fork
+                            begin
+                                forever begin
+                                    automatic logic   attempt_lock    = 0;
+                                    automatic logic   attempt_release = 0;
+                                    automatic longint attempt_addr    = 0;
+                                    amo_req  req  = new();
+                                    amo_resp resp = new();
+
+                                    amo_req_mbox[cc].get(req);
+                                    $display("%t ns %s.check_amo_lock: Got amo request from core %0d: %s", $time, name, cc, req.print_me());
+                                    if (req.op == AMO_SWAP) begin
+                                        if (req.data == 1) begin
+                                            attempt_lock = 1;
+                                        end
+                                        if (req.data == 0) begin
+                                            attempt_release = 1;
+                                        end
+                                        attempt_addr = req.addr;
+                                    end
+
+                                    amo_resp_mbox[cc].get(resp);
+                                    $display("%t ns %s.check_amo_lock: Got amo response from core %0d: %s", $time, name, cc, resp.print_me());
+
+                                    if (attempt_lock) begin
+                                        if (resp.data == 0) begin
+                                            // lock granted
+                                            $display("%t ns %s.check_amo_lock: Lock granted to core %0d", $time, name, cc);
+                                            assert (lock == 0) else $error("%s.check_amo_lock: Lock granted to core %0d but was already held by core %0d",name, cc, lock_id);
+                                            lock      = 1;
+                                            lock_id   = cc;
+                                            lock_addr = attempt_addr;
+                                        end else begin
+                                            $display("%t ns %s.check_amo_lock: Lock denied to core %0d", $time, name, cc);
+                                        end
+                                    end
+
+                                    if (attempt_release) begin
+                                        if (resp.data == 1) begin
+                                            // lock released
+                                            $display("%t ns %s.check_amo_lock: Lock released by core %0d", $time, name, cc);
+                                            assert ((lock == 1) && (lock_id == cc)) else $error("%s.check_amo_lock: Lock released by AMO from core %0d but was already held by core %0d", name, cc, lock_id);
+                                            lock      = 0;
+                                            lock_id   = -1;
+                                            lock_addr = -1;
+                                        end else begin
+                                            $error("%s.check_amo_lock: Lock release to core %0d failed", name, cc);
+                                        end
+                                    end
+
+                                end
+                            end
+                            begin
+                                forever begin
+                                    automatic logic   attempt_lock    = 0;
+                                    automatic logic   attempt_release = 0;
+                                    automatic longint attempt_addr    = 0;
+                                    dcache_req  req  = new();
+                                    dcache_resp resp = new();
+
+                                    dcache_req_mbox[cc].get(req);
+                                    $display("%t ns %s.check_amo_lock: Got dcache request from core %0d: %s", $time, name, cc, req.print_me());
+                                    if (req.trans_type == WR_REQ) begin
+                                        if (req.get_addr() == lock_addr) begin
+                                            if (req.data == 1) begin
+                                                attempt_lock = 1;
+                                            end
+                                            if (req.data == 0) begin
+                                                attempt_release = 1;
+                                            end
+                                        end
+                                        do begin
+                                            dcache_resp_mbox[cc].get(resp);
+                                        end while (resp.trans_type != WR_RESP);
+
+                                        if (attempt_lock) begin
+                                            assert (lock == 0) else $error("%s.check_amo_lock: Core %0d write to locked address",name, cc);
+                                            lock      = 1;
+                                            lock_id   = cc;
+                                        end
+
+
+                                        if (attempt_release) begin
+                                            // lock released
+                                            $display("%t ns %s.check_amo_lock: Lock released by write from core %0d", $time, name, cc);
+                                            assert ((lock == 1) && (lock_id == cc)) else $error("%s.check_amo_lock: Lock released by write from core %0d but was already held by core %0d", name, cc, lock_id);
+                                            lock      = 0;
+                                            lock_id   = -1;
+                                            lock_addr = -1;
+                                        end
+
+                                    end
+
+                                end
+
+                            end
+                        join_none
+                    end
+                join_none
+            end
+            wait fork;
+
         endtask
 
 
