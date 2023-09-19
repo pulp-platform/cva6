@@ -957,16 +957,25 @@ package tb_std_cache_subsystem_pkg;
                 return 1'b0;
         endfunction
 
-        function automatic bit mustEvict (input logic [63:0] addr);
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        // check if cache eviction is needed
+        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        function automatic bit mustEvict (input dcache_req msg);
             logic valid = 1'b1;
+            logic [63:0] addr = msg.get_addr();
+            // check if cache is full
             for (int i = 0; i < DCACHE_SET_ASSOC; i++) begin
                 valid = valid & cache_status[addr2mem_idx(addr)][i].valid;
             end
-            if (!isHit(addr) && valid == 1'b1 && cache_status[addr2mem_idx(addr)][lfsr[$clog2(DCACHE_SET_ASSOC)-1:0]].dirty == 1'b1)
+            // check if target way is dirty
+            if (!isHit(addr) && valid == 1'b1 && cache_status[addr2mem_idx(addr)][msg.target_way].dirty == 1'b1) begin
+                assert (msg.target_way_valid) else $error("mustEvict(): Expected valid target way");
                 return 1'b1;
-            else
+            end else begin
                 return 1'b0;
+            end
         endfunction
+
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         // calculate next lfsr
@@ -1176,15 +1185,6 @@ package tb_std_cache_subsystem_pkg;
                 mem_idx_v = addr2mem_idx(ac.ac_addr);
                 hit_v     = 1'b0;
 
-                // look for the right tag
-                for (int i=0; i<DCACHE_SET_ASSOC; i++) begin
-                    if (cache_status[mem_idx_v][i].valid && cache_status[mem_idx_v][i].tag == addr2tag(ac.ac_addr)) begin
-                        hit_way = i;
-                        hit_v   = 1'b1;
-                        break;
-                    end
-                end
-
                 // actual cache update takes 3 more cycles (with grant for some)
                 cnt = 0;
                 // 1. wait for grant to read cache
@@ -1202,11 +1202,21 @@ package tb_std_cache_subsystem_pkg;
                 // 2. wait for FSM
                 @(posedge sram_vif.clk);
 
+                // look for the right tag
+                hit_v     = 1'b0;
+                for (int i=0; i<DCACHE_SET_ASSOC; i++) begin
+                    if (cache_status[mem_idx_v][i].valid && cache_status[mem_idx_v][i].tag == addr2tag(ac.ac_addr)) begin
+                        hit_way = i;
+                        hit_v   = 1'b1;
+                        break;
+                    end
+                end
+
                 // 3. wait for grant to write cache, if required
                 if (hit_v && (ac.ac_snoop == snoop_pkg::READ_SHARED ||
                               ac.ac_snoop == snoop_pkg::READ_UNIQUE ||
                               ac.ac_snoop == snoop_pkg::CLEAN_INVALID)) begin
-                    while (!gnt_vif.gnt[1]) begin
+                    while (!gnt_vif.snoop_wr_gnt) begin
                         $display("%t ns %s: skipping cycle without grant for snoop", $time, name);
                         @(posedge sram_vif.clk); // skip cycles without grant
                         cnt++;
@@ -1218,6 +1228,16 @@ package tb_std_cache_subsystem_pkg;
                 end
                 @(posedge sram_vif.clk);
                 $display("%t ns %s updating cache status from snoop", $time, name);
+
+                // check hit again, might have been invalidated by eviction
+                hit_v = 1'b0;
+                for (int i=0; i<DCACHE_SET_ASSOC; i++) begin
+                    if (cache_status[mem_idx_v][i].valid && cache_status[mem_idx_v][i].tag == addr2tag(ac.ac_addr)) begin
+                        hit_way = i;
+                        hit_v   = 1'b1;
+                        break;
+                    end
+                end
 
                 if (hit_v) begin
                     case (ac.ac_snoop)
@@ -1280,8 +1300,6 @@ package tb_std_cache_subsystem_pkg;
 
                 fork
                     begin
-                        // declare variables here to get sepa
-                        logic [DCACHE_SET_ASSOC-1:0]                      valid_v;
                         logic [DCACHE_INDEX_WIDTH-DCACHE_BYTE_OFFSET-1:0] mem_idx_v;
                         logic [63:0]                                      addr_v;
                         bit                                               CheckOK;
@@ -1289,32 +1307,39 @@ package tb_std_cache_subsystem_pkg;
                         bit                                               hit;
                         dcache_req                                        req;
 
-                        req    = new req_t;
-
+                        req       = new req_t;
                         addr_v    = tag_index2addr(.tag(req.address_tag), .index(req.address_index));
                         mem_idx_v = addr2mem_idx(addr_v);
-                        for (int i=0; i<DCACHE_SET_ASSOC; i++) begin
-                            valid_v[i] = cache_status[mem_idx_v][i].valid;
-                        end
-                        hit = isHit(addr_v);
+                        hit       = isHit(addr_v);
 
                         // check that cache access is granted if needed
                         if (req.update_cache) begin
                             int cnt = 0;
                             while (!gnt_vif.gnt[req.prio]) begin
-                                $display("%t ns %s skipping cycle without grant for dcache req : %s", $time, name, req.print_me());
+
+                                $display("%t ns %s.update_cache_from_req: skipping cycle without grant for dcache req : %s", $time, name, req.print_me());
                                 @(posedge sram_vif.clk); // skip cycles without grant
+
+                                hit = isHit(addr_v);
+                                if ((req.prio > 0) && !hit) begin
+                                    // cache was invalidated and update will now be done by miss handler
+                                    $display("%t ns %s.update_cache_from_req: cache changed from hit to miss for dcache req : %s", $time, name, req.print_me());
+
+                                    req.prio = 0;
+                                    do_miss(req);
+                                end
+
                                 cnt++;
                                 if (cnt > cache_msg_timeout) begin
-                                    $error("%s : Timeout while waiting for grant for dcache req : %s", name, req.print_me());
+                                    $error("%s.update_cache_from_req:: Timeout while waiting for grant for dcache req : %s", name, req.print_me());
                                     break;
                                 end
                             end
-                            $display("%t ns %s got grant for dcache req : %s", $time, name, req.print_me());
+                            $display("%t ns %s.update_cache_from_req: got grant for dcache req : %s", $time, name, req.print_me());
                             @(posedge sram_vif.clk);
-                            $display("%t ns %s updating cache status from dcache req : %s", $time, name, req.print_me());
+                            $display("%t ns %s.update_cache_from_req: updating cache status from dcache req : %s", $time, name, req.print_me());
                         end else begin
-                            $display("%t ns %s no cache update expected for dcache req : %s", $time, name, req.print_me());
+                            $display("%t ns %s.update_cache_from_req: no cache update expected for dcache req : %s", $time, name, req.print_me());
                         end
 
 
@@ -1328,8 +1353,12 @@ package tb_std_cache_subsystem_pkg;
                                 update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.data_offset);
                             end
                         end else begin
+                            logic [DCACHE_SET_ASSOC-1:0] valid_v;
                             // cache miss
                             $display("Cache miss");
+                            for (int i=0; i<DCACHE_SET_ASSOC; i++) begin
+                                valid_v[i] = cache_status[mem_idx_v][i].valid;
+                            end
                             if (&valid_v) begin
                                 // all ways occupied
                                 $display("No empty way");
@@ -1369,15 +1398,24 @@ package tb_std_cache_subsystem_pkg;
                                     target_way = one_hot_to_bin(get_victim_cl(~valid_v));
                                 end
                                 cache_status[mem_idx_v][target_way].tag   = req.address_tag;
-                                cache_status[mem_idx_v][target_way].valid = 1'b1;
-                                if (req.trans_type == WR_REQ) begin
+
+                                if (req.trans_type == EVICT) begin
+                                    $display("Evict");
+                                    cache_status[mem_idx_v][target_way].valid  = 1'b0;
+                                    cache_status[mem_idx_v][target_way].dirty  = 1'b0;
+                                    cache_status[mem_idx_v][target_way].shared = 1'b0;
+                                end else  if (req.trans_type == WR_REQ) begin
+                                    cache_status[mem_idx_v][target_way].valid  = 1'b1;
                                     cache_status[mem_idx_v][target_way].dirty  = 1'b1;
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
+                                    cache_status[mem_idx_v][target_way].tag    = req.address_tag;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
                                     update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.data_offset);
                                 end else  if (req.trans_type == READBACK || req.trans_type == RD_RESP) begin
+                                    cache_status[mem_idx_v][target_way].valid  = 1'b1;
                                     cache_status[mem_idx_v][target_way].dirty  = req.r_dirty;
                                     cache_status[mem_idx_v][target_way].shared = req.r_shared;
+                                    cache_status[mem_idx_v][target_way].tag    = req.address_tag;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
                                 end else begin
                                     $error("Didn't expect trans_type %s", req.trans_type.name());
@@ -1390,16 +1428,17 @@ package tb_std_cache_subsystem_pkg;
                         end else begin
                             assert (req.update_cache == 1) else $error("Expected cache update for a write or miss");
                         end
-                            $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %0d, shared : %0d, tag : 0x%6h, data : 0x%16h_%16h", mem_idx_v, target_way,
+
+                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %0d, shared : %0d, tag : 0x%6h, data : 0x%16h_%16h", mem_idx_v, target_way,
                                 cache_status[mem_idx_v][target_way].valid,
                                 cache_status[mem_idx_v][target_way].dirty,
                                 cache_status[mem_idx_v][target_way].shared,
                                 cache_status[mem_idx_v][target_way].tag,
                                 cache_status[mem_idx_v][target_way].data[127:64],
                                 cache_status[mem_idx_v][target_way].data[63:0]
-                            );
+                        );
 
-                            CheckOK = checkCache(addr_v, target_way, "update_cache_from_req");
+                        CheckOK = checkCache(addr_v, target_way, "update_cache_from_req");
 
                     end
 
@@ -1422,7 +1461,7 @@ package tb_std_cache_subsystem_pkg;
                 ac = new();
                 ac_mbx.get(ac);
                 e = acsnoop_enum_t'(ac.ac_snoop);
-                $display("%t ns %s.check_snoop: Got snoop request %0s", $time, name, e.name());
+                $display("%t ns %s.check_snoop: Got snoop request %0s to address 0x%16h", $time, name, e.name(), ac.ac_addr);
                 a_empty_ac : assert (ac_mbx.num() == 0) else $error ("%S.check_snoop : AC mailbox not empty", name);
 
                 fork
@@ -1626,45 +1665,52 @@ package tb_std_cache_subsystem_pkg;
 
             msg.update_cache = 1'b1;
             fork
-                // Handle eviction . . . . . . . . . . . . . . . . . . . . . . .
+                // Get target way and handle eviction  . . . . . . . . . . . . .
                 begin
                     ax_ace_beat_t aw_beat = new();
                     b_beat_t      b_beat  = new();
                     w_beat_t      w_beat  = new();
+                    dcache_req    evict_msg;
 
-                    // monitor if eviction is necessary
-                    dcache_req evict_msg;
-                    while (!mustEvict(addr_v)) begin
-                        // check if target way gets taken, then update to new way
-                        if (msg.target_way_valid && check_way_from_cache(msg.get_addr(), msg.target_way)) begin
-                            msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
-                            if (msg.target_way_valid) begin
-                                $display("%t ns %s target way got occupied, update way to %d for message : %s", $time, name, msg.target_way, msg.print_me());
-                            end else begin
-                                $display("%t ns %s all ways got occupied, invalidate target way for message : %s", $time, name, msg.print_me());
-                            end
+                    int cnt = 0;
+                    while (!gnt_vif.wr_gnt[msg.port_idx]) begin
+                        @(posedge sram_vif.clk); // skip cycles without grant
+                        cnt++;
+                        if (cnt > cache_msg_timeout) begin
+                            $error("%s : Timeout while waiting for miss handler grant for message : %s", name, msg.print_me());
+                            break;
                         end
-                        @(posedge sram_vif.clk);
+                    end
+                    $display("%t ns %s.do_miss: got miss handler grant for message : %s", $time, name, msg.print_me());
+
+                    msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
+                    if (msg.target_way_valid) begin
+                        $display("%t ns %s.do_miss: found empty target way %d for message : %s", $time, name, msg.target_way, msg.print_me());
+                    end else begin
+                        msg.target_way = get_way_from_lfsr(lfsr);
+                        msg.target_way_valid = 1'b1;
+                        $display("%t ns %s.do_miss: all ways occupied, set target way %d for message : %s", $time, name, msg.target_way, msg.print_me());
                     end
 
-                    // get target way to evict msg
-                    evict_msg                  = new msg;
-                    evict_msg.trans_type       = EVICT;
-                    evict_msg.target_way       = get_way_from_lfsr(lfsr);
-                    evict_msg.target_way_valid = 1'b1;
-                    evict_msg.prio             = 0; // miss handler updates the cache
+                    // monitor if eviction is necessary
+                    while (!mustEvict(msg)) begin
+                        @(posedge sram_vif.clk);
+                    end
+                    $display("%t ns %s.do_miss: Eviction needed for message %s", $time, name, msg.print_me());
 
-                    // copy target way to msg
-                    msg.target_way       = evict_msg.target_way;
-                    msg.target_way_valid = 1'b1;
+                    // insert evict message
+                    evict_msg            = new msg;
+                    evict_msg.trans_type = EVICT;
+                    evict_msg.prio       = 0; // miss handler updates the cache
+                    $display("%t ns %s.do_miss: New message created with target way %0d : %s", $time, name, evict_msg.target_way, evict_msg.print_me());
 
-                    $display("%t ns %s Eviction needed, wait for eviction AW beat for message : %s", $time, name, msg.print_me());
+                    $display("%t ns %s.do_miss: Wait for eviction AW beat for message : %s", $time, name, msg.print_me());
                     aw_mbx.get(aw_beat);
                     if (!isWriteBack(aw_beat))
                         $error("%s.do_miss : WRITEBACK request expected after eviction for message : %s", name, msg.print_me());
                     a_empty_aw : assert (aw_mbx.num() == 0) else $error ("%S.do_miss : AW mailbox not empty", name);
 
-                    $display("%t ns %s inserting a new dcache message :%s", $time, name, evict_msg.print_me());
+                    $display("%t ns %s.do_miss: sending evict message to cache update: %s", $time, name, evict_msg.print_me());
                     req_to_cache_update.put(evict_msg);
 
                     // wait for W beat
@@ -1682,23 +1728,6 @@ package tb_std_cache_subsystem_pkg;
                     wait (0); // avoid exiting fork
 
                 end
-
-                // Get target way for read requests  . . . . . . . . . . . . . .
-                begin
-                    if (msg.trans_type == RD_REQ) begin
-                        // wait for miss FSM before getting target way
-                        repeat (2) @(posedge sram_vif.clk);
-                        msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
-                        if (msg.target_way_valid) begin
-                            $display("%t ns %s.do_miss: set target way to %d for message : %s", $time, name, msg.target_way, msg.print_me());
-                        end else begin
-                            $display("%t ns %s.do_miss: all ways occupied for message : %s", $time, name, msg.print_me());
-                        end
-                    end
-
-                    wait (0); // avoid exiting fork
-                end
-
 
                 // Check AXI transactions  . . . . . . . . . . . . . . . . . . .
                 begin
@@ -1720,16 +1749,6 @@ package tb_std_cache_subsystem_pkg;
                             end
                         end
                         $display("%t ns %s.do_miss: got miss handler grant for message : %s", $time, name, msg.print_me());
-                    end
-
-                    // get target way for non-read requests
-                    if (msg.trans_type != RD_REQ) begin
-                        msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
-                        if (msg.target_way_valid) begin
-                            $display("%t ns %s.do_miss: set target way to %d for message : %s", $time, name, msg.target_way, msg.print_me());
-                        end else begin
-                            $display("%t ns %s.do_miss: all ways occupied for message : %s", $time, name, msg.print_me());
-                        end
                     end
 
                     $display("%t ns %s.do_miss: wait for AR beat for message : %s", $time, name, msg.print_me());
