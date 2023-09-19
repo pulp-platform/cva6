@@ -39,6 +39,10 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
   input  logic                               flushing_i,
   input  logic                               amo_valid_i,
   input  logic [63:0]                        amo_addr_i,
+
+  input  logic  [DCACHE_SET_ASSOC-1:0]       miss_invalidate_req_i,
+  input  logic  [DCACHE_INDEX_WIDTH-1:0]     miss_invalidate_addr_i,
+
   //
   output logic                               clean_invalid_hit_o,  // to performance counter
   output logic                               clean_invalid_miss_o, // to performance counter
@@ -104,9 +108,21 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
   snoop_pkg::acsnoop_t ac_snoop_d, ac_snoop_q;
 
-  // FSM
+  logic  [DCACHE_SET_ASSOC-1:0]   miss_invalidate_req_d, miss_invalidate_req_q;
+  logic  [DCACHE_INDEX_WIDTH-1:0] miss_invalidate_addr_d, miss_invalidate_addr_q;
+  logic                           miss_invalidate_collision;
+  assign miss_invalidate_collision = |(miss_invalidate_req_q & hit_way_q) && (miss_invalidate_addr_q == mem_req_q.index);
 
+  // FSM
   always_comb begin : cache_ctrl_fsm
+
+    miss_invalidate_req_d = miss_invalidate_req_q | miss_invalidate_req_i; // default: sample and hold miss_invalidate_req_i
+    // sample invalidate address
+    if (|miss_invalidate_req_i) begin
+      miss_invalidate_addr_d = miss_invalidate_addr_i;
+    end else begin
+      miss_invalidate_addr_d = miss_invalidate_addr_q;
+    end
 
     state_d = state_q;
     mem_req_d = mem_req_q;
@@ -140,6 +156,7 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     case (state_q)
 
       IDLE: begin
+        miss_invalidate_req_d = '0;
         cr_resp_d = '0;
         ac_snoop_d = '0;
         cacheline_word_sel_d = 1'b0;
@@ -175,6 +192,7 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
       end
 
       WAIT_GNT: begin
+        miss_invalidate_req_d = '0;
         if (!updating_cache_i) begin
           req_o = '1;
           if (gnt_i)
@@ -235,8 +253,8 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         be_o.data = 0;
         // keep dirty flag as it was
         data_o.dirty = |(dirty_way_q & hit_way_q);
-        // must be valid, otherwise we wouldn't be here
-        data_o.valid = 1'b1;
+        // if entry was invalidated, then avoid validating it again
+        data_o.valid = miss_invalidate_collision ? 1'b0 : 1'b1;
         // change shared the state
         data_o.shared = 1'b1;
         if (gnt_i) begin
@@ -303,6 +321,8 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
       dirty_way_q <= '0;
       cr_resp_q <= '0;
       ac_snoop_q <= '0;
+      miss_invalidate_addr_q <= '0;
+      miss_invalidate_req_q <= '0;
     end else begin
       state_q <= state_d;
       mem_req_q <= mem_req_d;
@@ -313,6 +333,8 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
       dirty_way_q <= dirty_way_d;
       cr_resp_q <= cr_resp_d;
       ac_snoop_q <= ac_snoop_d;
+      miss_invalidate_addr_q <= miss_invalidate_addr_d;
+      miss_invalidate_req_q <= miss_invalidate_req_d;
     end
   end
 
