@@ -65,12 +65,15 @@ package tb_std_cache_subsystem_pkg;
     function automatic void update_cache_line (
         inout logic [DCACHE_LINE_WIDTH-1:0] cache_line,
         input riscv::xlen_t                 data,
+        input logic [(riscv::XLEN/8)-1:0]   be,
         input int unsigned                  offset // in units of data width
     );
         logic [riscv::XLEN-1:0]       data_mask;
         logic [DCACHE_LINE_WIDTH-1:0] line_mask;
 
-        data_mask = '1;
+        for (int i=0; i<(riscv::XLEN/8); i++) begin
+            data_mask[i*8 +: 8] = {8{be[i]}};
+        end
         line_mask = data_mask; // zero-extend
 
         cache_line = ((line_mask & data) << (offset * riscv::XLEN)) | (cache_line & ~(line_mask << (offset * riscv::XLEN)));
@@ -295,6 +298,8 @@ package tb_std_cache_subsystem_pkg;
         logic [DCACHE_INDEX_WIDTH-1:0]       address_index;
         logic [DCACHE_TAG_WIDTH-1:0]         address_tag;
         riscv::xlen_t                        data;
+        logic [(riscv::XLEN/8)-1:0]          be;
+        logic [1:0]                          size;
         // help variables
         int                                  port_idx;
         int                                  prio;
@@ -328,14 +333,13 @@ package tb_std_cache_subsystem_pkg;
             return tag_index2addr(.tag(this.address_tag), .index(this.address_index));
         endfunction
 
-
         function string print_me();
             if ((trans_type == WR_REQ) || (trans_type == RD_RESP)) begin
-                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, data 0x%16h",trans_type.name(), port_idx, prio, address_tag, address_index, data);
+                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h, data 0x%16h",trans_type.name(), port_idx, prio, address_tag, address_index, size, be, data);
             end else if (trans_type == READBACK) begin
-                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, data 0x%16h_%16h",trans_type.name(), port_idx, prio, address_tag, address_index, cache_line[127:64], cache_line[63:0]);
+                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h, data 0x%16h_%16h",trans_type.name(), port_idx, prio, address_tag, address_index, size, be, cache_line[127:64], cache_line[63:0]);
             end else begin
-                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h",trans_type.name(), port_idx, prio, address_tag, address_index);
+                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h",trans_type.name(), port_idx, prio, address_tag, address_index, size, be);
             end
         endfunction
 
@@ -373,15 +377,30 @@ package tb_std_cache_subsystem_pkg;
 
         // read request
         task rd (
-            input logic [63:0] addr      = '0,
-            input bit          rand_addr = 0
+            input logic [63:0] addr         = '0,
+            input logic  [1:0] size         = 2'b11,
+            input logic  [7:0] be           = '1,
+            input bit          rand_size_be = 0,
+            input bit          rand_addr    = 0
         );
             logic [63:0] addr_int;
+            logic  [1:0] size_int;
+            logic  [7:0] be_int;
 
             if (rand_addr) begin
                 addr_int = get_rand_addr_from_cfg(cfg);
             end else begin
                 addr_int = addr;
+            end
+
+            if (rand_size_be) begin
+                int size_bytes;
+                size_int = $urandom_range(3);
+                size_bytes = 2**size_int;
+                be_int = ((2**size_bytes)-1) << $urandom_range(8 - size_bytes);
+            end else begin
+                be_int = be;
+                size_int = size;
             end
 
             if (verbosity > 0) begin
@@ -391,8 +410,8 @@ package tb_std_cache_subsystem_pkg;
             #0;
             vif.req.data_req      = 1'b1;
             vif.req.data_we       = 1'b0;
-            vif.req.data_be       = '1;
-            vif.req.data_size     = 2'b11;
+            vif.req.data_be       = be_int;
+            vif.req.data_size     = size_int;
             vif.req.address_index = addr2index(addr_int);
 
             do begin
@@ -425,16 +444,31 @@ package tb_std_cache_subsystem_pkg;
         // read request, wait for read data
         task rd_wait (
             input logic [63:0] addr         = '0,
+            input logic  [1:0] size         = 2'b11,
+            input logic  [7:0] be           = '1,
+            input bit          rand_size_be = 0,
             input bit          rand_addr    = 0,
             input bit          check_result = 1'b0,
             input logic [63:0] exp_result   = '0
         );
             logic [63:0] addr_int;
+            logic  [1:0] size_int;
+            logic  [7:0] be_int;
 
             if (rand_addr) begin
                 addr_int = get_rand_addr_from_cfg(cfg);
             end else begin
                 addr_int = addr;
+            end
+
+            if (rand_size_be) begin
+                int size_bytes;
+                size_int = $urandom_range(3);
+                size_bytes = 2**size_int;
+                be_int = ((2**size_bytes)-1) << $urandom_range(8 - size_bytes);
+            end else begin
+                be_int = be;
+                size_int = size;
             end
 
             if (verbosity > 0) begin
@@ -444,8 +478,8 @@ package tb_std_cache_subsystem_pkg;
             #0;
             vif.req.data_req      = 1'b1;
             vif.req.data_we       = 1'b0;
-            vif.req.data_be       = '1;
-            vif.req.data_size     = 2'b11;
+            vif.req.data_be       = be_int;
+            vif.req.data_size     = size_int;
             vif.req.address_index = addr2index(addr_int);
 
             do begin
@@ -478,13 +512,18 @@ package tb_std_cache_subsystem_pkg;
 
         // write request
         task wr (
-            input logic [63:0] data      = 0,
-            input logic [63:0] addr      = '0,
-            input bit          rand_data = 0,
-            input bit          rand_addr = 0
+            input logic [63:0] data         = 0,
+            input logic [63:0] addr         = '0,
+            input logic  [1:0] size         = 2'b11,
+            input logic  [7:0] be           = '1,
+            input bit          rand_size_be = 0,
+            input bit          rand_data    = 0,
+            input bit          rand_addr    = 0
         );
             logic [63:0] addr_int;
             logic [63:0] data_int;
+            logic  [1:0] size_int;
+            logic  [7:0] be_int;
 
             if (rand_addr) begin
                 addr_int = get_rand_addr_from_cfg(cfg);
@@ -497,6 +536,18 @@ package tb_std_cache_subsystem_pkg;
             end else begin
                 data_int = data;
             end
+
+            if (rand_size_be) begin
+                int size_bytes;
+                size_int = $urandom_range(3);
+                size_bytes = 2**size_int;
+                be_int = ((2**size_bytes)-1) << $urandom_range(8 - size_bytes);
+            end else begin
+                be_int = be;
+                size_int = size;
+            end
+
+
             if (verbosity > 0) begin
                 $display("%t ns %s sending write request for address 0x%8h with data 0x%8h", $time, name, addr_int, data_int);
             end
@@ -504,8 +555,8 @@ package tb_std_cache_subsystem_pkg;
             #0;
             vif.req.data_req      = 1'b1;
             vif.req.data_we       = 1'b1;
-            vif.req.data_be       = '1;
-            vif.req.data_size     = 2'b11;
+            vif.req.data_be       = be_int;
+            vif.req.data_size     = size_int;
             vif.req.data_wdata    = data_int;
             vif.req.address_index = addr2index(addr_int);
             vif.req.address_tag   = addr2tag(addr_int);
@@ -561,8 +612,10 @@ package tb_std_cache_subsystem_pkg;
                     end
 
                     rd_req = new();
-                    rd_req.trans_type      = RD_REQ;
+                    rd_req.trans_type    = RD_REQ;
                     rd_req.address_index = vif.req.address_index;
+                    rd_req.be            = vif.req.data_be;
+                    rd_req.size          = vif.req.data_size;
                     rd_req.port_idx      = port_idx;
 
                     @(posedge vif.clk);
@@ -621,6 +674,8 @@ package tb_std_cache_subsystem_pkg;
                     wr_req.trans_type      = WR_REQ;
                     wr_req.address_index = vif.req.address_index;
                     wr_req.data          = vif.req.data_wdata;
+                    wr_req.be            = vif.req.data_be;
+                    wr_req.size          = vif.req.data_size;
                     wr_req.port_idx      = port_idx;
 
                     @(posedge vif.clk);
@@ -1342,6 +1397,8 @@ package tb_std_cache_subsystem_pkg;
                             $display("%t ns %s.update_cache_from_req: no cache update expected for dcache req : %s", $time, name, req.print_me());
                         end
 
+                        $display("%t ns %s addr: 0x%16h, mem_idx: %0d", $time, name, addr_v, mem_idx_v);
+
 
                         if (hit) begin
                             // cache hit
@@ -1350,7 +1407,7 @@ package tb_std_cache_subsystem_pkg;
                             if (req.trans_type == WR_REQ) begin
                                 cache_status[mem_idx_v][target_way].dirty  = 1'b1;
                                 cache_status[mem_idx_v][target_way].shared = 1'b0;
-                                update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.data_offset);
+                                update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
                             end
                         end else begin
                             logic [DCACHE_SET_ASSOC-1:0] valid_v;
@@ -1379,7 +1436,7 @@ package tb_std_cache_subsystem_pkg;
                                     cache_status[mem_idx_v][target_way].dirty  = 1'b1;
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
-                                    update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.data_offset);
+                                    update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
                                 end else  if (req.trans_type == READBACK || req.trans_type == RD_RESP) begin
                                     cache_status[mem_idx_v][target_way].tag    = req.address_tag;
                                     cache_status[mem_idx_v][target_way].dirty  = req.r_dirty;
@@ -1410,7 +1467,7 @@ package tb_std_cache_subsystem_pkg;
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
                                     cache_status[mem_idx_v][target_way].tag    = req.address_tag;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
-                                    update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.data_offset);
+                                    update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
                                 end else  if (req.trans_type == READBACK || req.trans_type == RD_RESP) begin
                                     cache_status[mem_idx_v][target_way].valid  = 1'b1;
                                     cache_status[mem_idx_v][target_way].dirty  = req.r_dirty;
@@ -1485,6 +1542,7 @@ package tb_std_cache_subsystem_pkg;
                                     @(posedge sram_vif.clk); // skip cycles without grant
                                 end
                                 @(posedge sram_vif.clk);
+
                                 // 2. wait for FSM
                                 @(posedge sram_vif.clk);
 
@@ -1816,6 +1874,8 @@ package tb_std_cache_subsystem_pkg;
                         readback_msg.update_cache  = 1'b1;
                         readback_msg.r_dirty       = r_beat.r_resp[2];
                         readback_msg.r_shared      = r_beat.r_resp[3];
+                        readback_msg.be            = '1;
+                        readback_msg.size          = 3;
 
                         $display("%t ns %s inserting a new dcache message : %s", $time, name, readback_msg.print_me());
 
@@ -1941,12 +2001,14 @@ package tb_std_cache_subsystem_pkg;
 
                             // wait for R beat
                             while (!r_beat.r_last) begin
+                                $display("%t ns %s.check_cache_msg: waiting for R beat for message : %s", $time, name, msg.print_me());
                                 r_mbx.peek(r_beat_peek);
                                 if (r_beat_peek.r_id == ar_beat.ax_id) begin
                                     // this is our response
                                     r_mbx.get(r_beat);
-                                    $display("%t ns %s.check_cache_msg: got R beat with last = %0d for message : %s", $time, name, r_beat.r_last, msg.print_me());
+                                    $display("%t ns %s.check_cache_msg: got R beat with last = %0d and ID 0x%2h for message : %s", $time, name, r_beat.r_last, r_beat.r_id, msg.print_me());
                                 end else begin
+                                    $display("%t ns %s.check_cache_msg: ignoring R beat with ID 0x%2h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
                                     @(posedge sram_vif.clk);
                                 end
                             end
