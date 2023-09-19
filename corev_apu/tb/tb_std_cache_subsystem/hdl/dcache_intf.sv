@@ -77,4 +77,6 @@ interface dcache_gnt_if (input logic clk);
     logic [4:0] rd_gnt;
     logic [2:0] bypass_gnt;
     logic [2:0] miss_gnt;
+    logic [2:0] wr_gnt;
+    logic       snoop_wr_gnt;
 endinterface
