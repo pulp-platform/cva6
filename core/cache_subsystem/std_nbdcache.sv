@@ -121,6 +121,9 @@ import std_cache_pkg::*;
     readshared_done_t readshared_done;
     logic [3:0]       updating_cache;
 
+    logic [DCACHE_SET_ASSOC-1:0]         miss_invalidate_req;
+    logic [DCACHE_INDEX_WIDTH-1:0]       miss_invalidate_addr;
+
     assign busy_o = |busy | miss_handler_busy;
 
     assign hit_o = |hit;
@@ -163,6 +166,10 @@ import std_cache_pkg::*;
         .flushing_i           ( flushing              ),
         .amo_valid_i          ( serving_amo           ),
         .amo_addr_i           ( serving_amo_addr      ),
+
+        .miss_invalidate_req_i   (miss_invalidate_req  ),
+        .miss_invalidate_addr_i  (miss_invalidate_addr ),
+
         .clean_invalid_hit_o  ( clean_invalid_hit_o   ),
         .clean_invalid_miss_o ( clean_invalid_miss_o  ),
         .*
@@ -233,6 +240,8 @@ import std_cache_pkg::*;
         .amo_resp_o             ( amo_resp_o           ),
         .snoop_invalidate_i     ( invalidate           ),
         .snoop_invalidate_addr_i( invalidate_addr      ),
+        .invalidate_req_o       ( miss_invalidate_req  ),
+        .invalidate_addr_o      ( miss_invalidate_addr ),
         .miss_req_i             ( miss_req             ),
         .miss_gnt_o             ( miss_gnt             ),
         .bypass_gnt_o           ( bypass_gnt           ),
@@ -263,6 +272,7 @@ import std_cache_pkg::*;
     );
 
     assign tag[0] = '0;
+
 
     // --------------
     // Memory Arrays
