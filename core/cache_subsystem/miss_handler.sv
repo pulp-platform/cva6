@@ -505,7 +505,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
 
               if (valid_miss_fsm) begin
                 // if the cacheline has just been invalidated, request it again
-                if (colliding_clean_q) begin
+                if (colliding_clean_q[mshr_q.id]) begin
                   state_d = MISS;
                 end
                 else begin
