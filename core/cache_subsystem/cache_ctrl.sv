@@ -274,6 +274,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     //    req_port_o.data_rvalid will be de-asserted.
                     if ((mshr_index_matches_i && mem_req_q.we) || mshr_addr_matches_i) begin
                         state_d = WAIT_MSHR;
+                        req_port_o.data_rvalid = 1'b0;
+                        req_port_o.data_gnt = 1'b0;
                     end
 
                     // -------------------------
@@ -469,7 +471,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                 // got a valid answer
                 if (bypass_valid_i) begin
                     req_port_o.data_rdata = bypass_data_i;
-                    req_port_o.data_rvalid = ~mem_req_q.killed;
+                    if (!mem_req_q.we)
+                        req_port_o.data_rvalid = ~mem_req_q.killed;
+
                     state_d = IDLE;
                 end
             end
