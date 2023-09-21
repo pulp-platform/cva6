@@ -1381,6 +1381,7 @@ package tb_std_cache_subsystem_pkg;
                                     $display("%t ns %s.update_cache_from_req: cache changed from hit to miss for dcache req : %s", $time, name, req.print_me());
 
                                     req.prio = 0;
+                                    req.insert_readback = 1'b0;
                                     do_miss(req);
                                 end
 
