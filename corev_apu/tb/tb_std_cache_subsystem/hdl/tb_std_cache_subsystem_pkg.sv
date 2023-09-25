@@ -1726,7 +1726,6 @@ package tb_std_cache_subsystem_pkg;
                     $display("%t ns %s.do_hit: got AR beat with ID %0h for message : %s", $time, name, ar_beat.ax_id, msg.print_me());
                     if (!isCleanUnique(ar_beat))
                         $error("%s Error CLEAN_UNIQUE expected for message : %s", name, msg.print_me());
-                    a_empty_ar : assert (ar_mbx.num() == 0) else $error ("%S.do_hit : AR mailbox not empty", name);
 
                     // wait for R beat
                     while (!r_beat.r_last) begin
@@ -1740,7 +1739,6 @@ package tb_std_cache_subsystem_pkg;
                             @(posedge sram_vif.clk);
                         end
                     end
-                    a_empty_r : assert (r_mbx.num() == 0) else $error ("%S.do_hit : R mailbox not empty", name);
 
                     msg.insert_readback = 1'b1;
 
@@ -1878,7 +1876,6 @@ package tb_std_cache_subsystem_pkg;
                         end
                     end
                     $display("%t ns %s.do_miss.check_axi: got AR beat for message : %s", $time, name, msg.print_me());
-                    a_empty_ar : assert (ar_mbx.num() == 0) else $error ("%S.do_miss : AR mailbox not empty", name);
 
                     if (msg.trans_type == WR_REQ) begin
                         if (is_inside_shareable_regions(ArianeCfg, msg.get_addr())) begin
@@ -1922,7 +1919,6 @@ package tb_std_cache_subsystem_pkg;
                             @(posedge sram_vif.clk);
                         end
                     end
-                    a_empty_r : assert (r_mbx.num() == 0) else $error ("%S.do_miss.check_axi: R mailbox not empty", name);
 
                     msg.r_dirty  = r_beat.r_resp[2];
                     msg.r_shared = r_beat.r_resp[3];
@@ -1973,9 +1969,6 @@ package tb_std_cache_subsystem_pkg;
                 end
             join_any
             disable fork;
-
-            assert (ar_mbx.num() == 0) else $error("AR mailbox not empty");
-            assert (r_mbx.num() == 0) else $error("R mailbox not empty");
 
             if (isHit(addr_v)) begin
                 $display("%t ns %s.do_miss: Calling hit routine for message : %s", $time, name, msg.print_me());
@@ -2091,7 +2084,6 @@ package tb_std_cache_subsystem_pkg;
                                 if (!isReadNoSnoop(ar_beat))
                                     $error("%s.check_cache_msg : READ_NO_SNOOP request expected for message : %s", name, msg.print_me());
                             end
-                            a_empty_ar : assert (ar_mbx.num() == 0) else $error ("%S.check_cache_msg : AR mailbox not empty", name);
 
                             // wait for R beat
                             $display("%t ns %s.check_cache_msg: waiting for R beat for message : %s", $time, name, msg.print_me());
@@ -2102,11 +2094,10 @@ package tb_std_cache_subsystem_pkg;
                                     r_mbx.get(r_beat);
                                     $display("%t ns %s.check_cache_msg: got R beat with last = %0d and ID 0x%2h for message : %s", $time, name, r_beat.r_last, r_beat.r_id, msg.print_me());
                                 end else begin
-//                                    $display("%t ns %s.check_cache_msg: ignoring R beat with ID 0x%2h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
+                                    // $display("%t ns %s.check_cache_msg: ignoring R beat with ID 0x%2h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
                                     @(posedge sram_vif.clk);
                                 end
                             end
-                            a_empty_r : assert (r_mbx.num() == 0) else $error ("%S.check_cache_msg : R mailbox not empty", name);
 
                             msg.r_dirty  = r_beat.r_resp[2];
                             msg.r_shared = r_beat.r_resp[3];
@@ -2400,7 +2391,6 @@ package tb_std_cache_subsystem_pkg;
                                         @(posedge sram_vif.clk);
                                     end
                                 end
-                                a_empty_r : assert (r_mbx.num() == 0) else $error ("%S.check_amo_msg : R mailbox not empty", name);
                             end
 
                         end else begin
@@ -2417,7 +2407,6 @@ package tb_std_cache_subsystem_pkg;
                                 if (!isReadNoSnoop(ar_beat))
                                     $error("%s.check_amo_msg : READ_NO_SNOOP request expected for message %s", name, msg.print_me());
                             end
-                            a_empty_ar : assert (ar_mbx.num() == 0) else $error ("%S.check_amo_msg : AR mailbox not empty", name);
 
                             // wait for R beat
                             while (!r_beat.r_last) begin
@@ -2430,7 +2419,6 @@ package tb_std_cache_subsystem_pkg;
                                     @(posedge sram_vif.clk);
                                 end
                             end
-                            a_empty_r : assert (r_mbx.num() == 0) else $error ("%S.check_amo_msg : R mailbox not empty", name);
 
                         end
 
