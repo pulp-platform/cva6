@@ -15,6 +15,7 @@
 
 module std_nbdcache import std_cache_pkg::*; import ariane_pkg::*; #(
     parameter ariane_cfg_t ArianeCfg        = ArianeDefaultConfig, // contains cacheable regions
+    parameter VLD_SRAM_SIM_INIT             = "none",
     parameter int unsigned AXI_ADDR_WIDTH   = 0,
     parameter int unsigned AXI_DATA_WIDTH   = 0,
     parameter int unsigned AXI_ID_WIDTH     = 0,
@@ -29,6 +30,11 @@ module std_nbdcache import std_cache_pkg::*; import ariane_pkg::*; #(
     output logic                           flush_ack_o, // send a single cycle acknowledge signal when the cache is flushed
     output logic                           miss_o,      // we missed on a LD/ST
     output logic                           hit_o,
+    output logic                           write_hit_unique_o,
+    output logic                           write_hit_shared_o,
+    output logic                           write_miss_o,
+    output logic                           clean_invalid_hit_o,
+    output logic                           clean_invalid_miss_o,
     output logic                           flushing_o,
     output logic                           busy_o,
     input  logic                           stall_i,   // stall new memory requests
@@ -85,6 +91,8 @@ import std_cache_pkg::*;
     logic [2:0]                        miss_gnt;
     logic [2:0]                        active_serving;
     logic                              flushing;
+    logic                              serving_amo;
+    logic [63:0]                       serving_amo_addr;
 
     logic [2:0]                        bypass_gnt;
     logic [2:0]                        bypass_valid;
@@ -108,15 +116,25 @@ import std_cache_pkg::*;
     logic miss_handler_busy;
 
     logic [2:0] hit;
+    logic [2:0] uniq;
+    logic [1:00] miss_id;
 
     readshared_done_t readshared_done;
     logic [3:0]       updating_cache;
+
+    logic [DCACHE_SET_ASSOC-1:0]         miss_invalidate_req;
+    logic [DCACHE_INDEX_WIDTH-1:0]       miss_invalidate_addr;
 
     assign busy_o = |busy | miss_handler_busy;
 
     assign hit_o = |hit;
 
     assign flushing_o = flushing;
+
+    assign write_hit_unique_o = hit[2] && uniq[2];
+    assign write_hit_shared_o = hit[2] && !uniq[2];
+    assign write_miss_o = miss_o && (miss_id == 2);
+
 
     // ------------------
     // Cache Controller
@@ -147,6 +165,14 @@ import std_cache_pkg::*;
         .readshared_done_o    ( readshared_done       ),
         .updating_cache_i     ( |updating_cache       ),
         .flushing_i           ( flushing              ),
+        .amo_valid_i          ( serving_amo           ),
+        .amo_addr_i           ( serving_amo_addr      ),
+
+        .miss_invalidate_req_i   (miss_invalidate_req  ),
+        .miss_invalidate_addr_i  (miss_invalidate_addr ),
+
+        .clean_invalid_hit_o  ( clean_invalid_hit_o   ),
+        .clean_invalid_miss_o ( clean_invalid_miss_o  ),
         .*
     );
 
@@ -157,7 +183,8 @@ import std_cache_pkg::*;
             ) i_cache_ctrl (
                 .bypass_i              ( ~enable_i            ),
                 .busy_o                ( busy            [i]  ),
-                .hit_o                 ( hit             [i]  ),
+                .hit_o                 ( hit             [i-1] ),
+                .unique_o              ( uniq            [i-1] ),
                 .stall_i               ( stall_i | flush_i    ),
                 // from core
                 .req_port_i            ( req_ports_i     [i-1] ),
@@ -214,6 +241,8 @@ import std_cache_pkg::*;
         .amo_resp_o             ( amo_resp_o           ),
         .snoop_invalidate_i     ( invalidate           ),
         .snoop_invalidate_addr_i( invalidate_addr      ),
+        .invalidate_req_o       ( miss_invalidate_req  ),
+        .invalidate_addr_o      ( miss_invalidate_addr ),
         .miss_req_i             ( miss_req             ),
         .miss_gnt_o             ( miss_gnt             ),
         .bypass_gnt_o           ( bypass_gnt           ),
@@ -226,6 +255,8 @@ import std_cache_pkg::*;
         .mshr_index_matches_o   ( mshr_index_matches   ),
         .active_serving_o       ( active_serving       ),
         .flushing_o             ( flushing             ),
+        .serving_amo_o          ( serving_amo          ),
+        .serving_amo_addr_o     ( serving_amo_addr     ),
         .req_o                  ( req             [0]  ),
         .addr_o                 ( addr            [0]  ),
         .data_i                 ( rdata                ),
@@ -237,10 +268,12 @@ import std_cache_pkg::*;
         .axi_data_o,
         .axi_data_i,
         .updating_cache_o       ( updating_cache   [0] ),
+        .miss_id_o              ( miss_id              ),
         .*
     );
 
     assign tag[0] = '0;
+
 
     // --------------
     // Memory Arrays
@@ -297,6 +330,7 @@ import std_cache_pkg::*;
     end
 
     sram #(
+        .SIM_INIT   ( VLD_SRAM_SIM_INIT                ),
         .USER_WIDTH ( 1                                ),
         .DATA_WIDTH ( DCACHE_SET_ASSOC*$bits(vldrty_t) ),
         .BYTE_WIDTH ( 1                                ),

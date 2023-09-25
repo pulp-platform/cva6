@@ -25,7 +25,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     input  logic                                 rst_ni,    // Asynchronous reset active low
     input  logic                                 bypass_i,  // enable cache
     output logic                                 busy_o,
-    output logic                                 hit_o,
+    output logic                                 hit_o,     // to performance counter
+    output logic                                 unique_o,  // to performance counter
     input  logic                                 stall_i,   // stall new memory requests
     // Core request ports
     input  dcache_req_i_t                        req_port_i,
@@ -136,6 +137,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         we_o   = '0;
 
         hit_o  = 1'b0;
+        unique_o = 1'b0;
 
         mem_req_d.killed |= req_port_i.kill_req;
 
@@ -186,6 +188,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
             // cache enabled and waiting for tag
             WAIT_TAG, WAIT_TAG_SAVED: begin
+                colliding_read_d = 1'b0;
+                sample_readshared_d = 1'b0;
                 // check that the client really wants to do the request and that we have a valid tag
                 if (!req_port_i.kill_req && (req_port_i.tag_valid || state_q == WAIT_TAG_SAVED || mem_req_q.we)) begin
                     // save tag if we didn't already save it
@@ -200,7 +204,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     // HIT CASE
                     // ------------
                     if (|hit_way_i) begin
-                        hit_o = 1'b1;
+                        hit_o = state_q == WAIT_TAG; // only count as hit when we get here the first time
                         // we can request another cache-line if this was a load
                         if (req_port_i.data_req && !mem_req_q.we && !stall_i) begin
                             state_d          = WAIT_TAG; // switch back to WAIT_TAG
@@ -235,8 +239,10 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                             if (shared_way_i & hit_way_i)
                               state_d = MAKE_UNIQUE;
                             // unique cacheline
-                            if (~shared_way_i & hit_way_i)
+                            if (~shared_way_i & hit_way_i) begin
                               state_d = STORE_REQ;
+                              unique_o = 1'b1;
+                            end
                         end
                     // ------------
                     // MISS CASE
@@ -268,6 +274,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     //    req_port_o.data_rvalid will be de-asserted.
                     if ((mshr_index_matches_i && mem_req_q.we) || mshr_addr_matches_i) begin
                         state_d = WAIT_MSHR;
+                        req_port_o.data_rvalid = 1'b0;
+                        req_port_o.data_gnt = 1'b0;
                     end
 
                     // -------------------------
@@ -464,7 +472,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                 // got a valid answer
                 if (bypass_valid_i) begin
                     req_port_o.data_rdata = bypass_data_i;
-                    req_port_o.data_rvalid = ~mem_req_q.killed;
+                    if (!mem_req_q.we)
+                        req_port_o.data_rvalid = ~mem_req_q.killed;
+
                     state_d = IDLE;
                 end
             end
@@ -473,6 +483,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         if (req_port_i.kill_req) begin
             req_port_o.data_rvalid = 1'b1;
             if (!(state_q inside {
+                                  MAKE_UNIQUE,
                                   WAIT_REFILL_GNT,
                                   WAIT_CRITICAL_WORD})) begin
                 state_d = IDLE;

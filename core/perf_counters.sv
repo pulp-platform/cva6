@@ -32,6 +32,11 @@ module perf_counters import ariane_pkg::*; #(
   input  logic                                    l1_dcache_miss_i,
   input  logic                                    l1_dcache_hit_i,
   input  logic                                    l1_dcache_flushing_i,
+  input  logic                                    l1_dcache_write_hit_unique_i,
+  input  logic                                    l1_dcache_write_hit_shared_i,
+  input  logic                                    l1_dcache_write_miss_i,
+  input  logic                                    l1_dcache_clean_invalid_hit_i,
+  input  logic                                    l1_dcache_clean_invalid_miss_i,
   input  logic                                    amo_i,
   // from MMU
   input  logic                                    itlb_miss_i,
@@ -53,8 +58,8 @@ module perf_counters import ariane_pkg::*; #(
   input  logic                                    stall_issue_i  //stall-read operands
 );
 
-  logic [63:0] generic_counter_d[6:1];
-  logic [63:0] generic_counter_q[6:1];
+  logic [63:0] generic_counter_d[11:1];
+  logic [63:0] generic_counter_q[11:1];
 
   logic l1_dcache_flushing_q;
   logic amo_q;
@@ -62,7 +67,7 @@ module perf_counters import ariane_pkg::*; #(
   //internal signal to keep track of exception
   logic read_access_exception,update_access_exception;
 
-  logic events[6:1];
+  logic events[11:1];
   //internal signal for  MUX select line input
   logic [4:0] mhpmevent_d[6:1];
   logic [4:0] mhpmevent_q[6:1];
@@ -113,16 +118,20 @@ module perf_counters import ariane_pkg::*; #(
     assign events[4] = l1_dcache_flushing_q & (!l1_dcache_flushing_i);
     assign events[5] = amo_q & (!amo_i);
     assign events[6] = 1'b1;
-
+    assign events[7] = l1_dcache_write_hit_unique_i;
+    assign events[8] = l1_dcache_write_hit_shared_i;
+    assign events[9] = l1_dcache_write_miss_i;
+    assign events[10] = l1_dcache_clean_invalid_hit_i;
+    assign events[11] = l1_dcache_clean_invalid_miss_i;
 
     always_comb begin : generic_counter
         generic_counter_d = generic_counter_q;
         data_o = 'b0;
         mhpmevent_d = mhpmevent_q;
-	    read_access_exception =  1'b0;
-	    update_access_exception =  1'b0;
+        read_access_exception =  1'b0;
+        update_access_exception =  1'b0;
 
-      for(int unsigned i = 1; i <= 6; i++) begin
+      for(int unsigned i = 1; i <= 11; i++) begin
          if ((debug_mode_i == 1'b0) && (we_i == 1'b0)) begin
              if (events[i] == 1'b1) begin
                 generic_counter_d[i] = generic_counter_q[i] + 1'b1; end
@@ -156,7 +165,30 @@ module perf_counters import ariane_pkg::*; #(
             riscv::CSR_ITLB_MISS,
             riscv::CSR_DTLB_MISS,
             riscv::CSR_LOAD,
-            riscv::CSR_STORE  : data_o = generic_counter_q[addr_i-riscv::CSR_L1_ICACHE_MISS + 1];
+            riscv::CSR_STORE,
+            riscv::CSR_EXCEPTION,
+            riscv::CSR_EXCEPTION_RET,
+            riscv::CSR_BRANCH_JUMP,
+            riscv::CSR_CALL,
+            riscv::CSR_RET,
+            riscv::CSR_MIS_PREDICT,
+            riscv::CSR_SB_FULL,
+            riscv::CSR_IF_EMPTY,
+            riscv::CSR_HPM_COUNTER_17,
+            riscv::CSR_HPM_COUNTER_18,
+            riscv::CSR_HPM_COUNTER_19,
+            riscv::CSR_HPM_COUNTER_20,
+            riscv::CSR_HPM_COUNTER_21,
+            riscv::CSR_HPM_COUNTER_22,
+            riscv::CSR_HPM_COUNTER_23,
+            riscv::CSR_HPM_COUNTER_24,
+            riscv::CSR_HPM_COUNTER_25,
+            riscv::CSR_HPM_COUNTER_26,
+            riscv::CSR_HPM_COUNTER_27,
+            riscv::CSR_HPM_COUNTER_28,
+            riscv::CSR_HPM_COUNTER_29,
+            riscv::CSR_HPM_COUNTER_30,
+            riscv::CSR_HPM_COUNTER_31 : data_o = generic_counter_q[addr_i-riscv::CSR_L1_ICACHE_MISS + 1];
             default: data_o = 'b0;
         endcase
 
