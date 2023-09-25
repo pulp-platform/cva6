@@ -454,7 +454,9 @@ package tb_std_cache_subsystem_pkg;
 
                     do begin
                         if ((this.kill_req || kill_int) && !check_result) begin // don't kill transaction when we expect a result
-                            $display("%t ns %s: killing read request to address 0x%8h,", $time, name, addr_int);
+                            if (verbosity > 0) begin
+                                $display("%t ns %s: killing read request to address 0x%8h,", $time, name, addr_int);
+                            end
                             vif.req.kill_req = 1'b1;
                             this.kill_req = 0;
                             kill_int = 0;
@@ -748,7 +750,6 @@ package tb_std_cache_subsystem_pkg;
         endtask
 
     endclass
-
 
 
     //--------------------------------------------------------------------------
