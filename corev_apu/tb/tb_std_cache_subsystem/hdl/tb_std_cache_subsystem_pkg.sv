@@ -1270,6 +1270,8 @@ package tb_std_cache_subsystem_pkg;
                 OK = 1'b0;
             end
 
+            return OK;
+
         endfunction
 
 
