@@ -102,7 +102,8 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         WB_CACHELINE_AMO,   // F
         AMO_WAIT_RESP,      // 10
         SEND_CLEAN,         // 11
-        REQ_CACHELINE_UNIQUE // 12
+        REQ_CACHELINE_UNIQUE, // 12
+        WB_CACHELINE_AMO_WAIT_ACK // 13
     } state_d, state_q;
 
     // Registers
@@ -436,9 +437,17 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                     // go back to handling the miss or flushing, depending on where we came from
                     state_d = (state_q == WB_CACHELINE_MISS) ?
                                 (colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE) :
-                              (state_q == WB_CACHELINE_AMO) ? AMO_REQ : FLUSH_REQ_STATUS;
+                              (state_q == WB_CACHELINE_AMO) ? WB_CACHELINE_AMO_WAIT_ACK : FLUSH_REQ_STATUS;
                 end
             end
+
+            // ~> write back before AMO needs to wait until write is completely finished
+            WB_CACHELINE_AMO_WAIT_ACK: begin
+                if (valid_miss_fsm) begin
+                    state_d = AMO_REQ;
+                end
+            end
+
 
             // ------------------------------
             // Flushing & Initialization
