@@ -122,9 +122,10 @@ package tb_std_cache_subsystem_pkg;
         amo_t        op;
         logic [63:0] addr; // address
         logic [63:0] data; // data as layouted in the register
+        logic  [1:0] size;
 
         function string print_me();
-            return $sformatf("type %0s, address 0x%16h, data 0x%16h", op.name(), addr, data);
+            return $sformatf("type %0s, address 0x%16h, data 0x%16h, size 0b%2b", op.name(), addr, data, size);
         endfunction
     endclass
 
@@ -160,15 +161,18 @@ package tb_std_cache_subsystem_pkg;
         task req (
             input logic [63:0] data         = '0,
             input logic [63:0] addr         = '0,
+            input logic  [1:0] size         = '1, // 2'b10 --> word operation, 2'b11 --> double word operation
             input amo_t        op           = AMO_ADD,
             input bit          rand_data    = 0,
             input bit          rand_addr    = 0,
             input bit          rand_op      = 0,
+            input bit          rand_size    = 0,
             input bit          check_result = 1'b0,
             input logic [63:0] exp_result   = '0
         );
             logic [63:0] addr_int;
             logic [63:0] data_int;
+            logic  [1:0] size_int;
             amo_t        op_int;
 
             if (rand_addr) begin
@@ -181,6 +185,12 @@ package tb_std_cache_subsystem_pkg;
                 data_int = {$urandom, $urandom};
             end else begin
                 data_int = data;
+            end
+
+            if (rand_size) begin
+                size_int = $urandom_range(3,2);
+            end else begin
+                size_int = size;
             end
 
             if (rand_op) begin
@@ -201,9 +211,9 @@ package tb_std_cache_subsystem_pkg;
             #0;
             vif.req.req       = 1;        // this request is valid
             vif.req.amo_op    = op_int;   // atomic memory operation to perform
-            vif.req.size      = 2'b11;    // 2'b10 --> word operation, 2'b11 --> double word operation
+            vif.req.size      = size_int; // 2'b10 --> word operation, 2'b11 --> double word operation
             vif.req.operand_a = addr_int; // address
-            vif.req.operand_b = data_int; // address
+            vif.req.operand_b = data_int; // data
 
             do begin
                 @(posedge vif.clk);
@@ -258,6 +268,7 @@ package tb_std_cache_subsystem_pkg;
                     req.op   = vif.req.amo_op;
                     req.addr = vif.req.operand_a;
                     req.data = vif.req.operand_b;
+                    req.size = vif.req.size;
                     op       = vif.req.amo_op; // remember op
 
                     if (verbosity > 0) begin
@@ -1278,6 +1289,8 @@ package tb_std_cache_subsystem_pkg;
                 $error("%s: CR.resp.dataTransfer mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.dataTransfer, resp.cr_resp.dataTransfer);
                 OK = 1'b0;
             end
+
+            return OK;
 
         endfunction
 
