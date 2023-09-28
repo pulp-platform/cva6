@@ -285,13 +285,13 @@ package tb_ace_ccu_pkg;
            slv_axi_id_t tmp;
            tmp = {slaves_axi[i].aw_id[AxiIdWidthSlaves-1:AxiIdWidthSlaves-$clog2(NoMasters+1)], slaves_axi[i].aw_id[AxiIdWidthMasters-1:0]};
            exp_aw = this.exp_aw_queue[i].pop_id(tmp);
-           exp_aw_id = {{2{exp_aw.slv_axi_id[$clog2(NoMasters)+AxiIdWidthMasters-1:AxiIdWidthMasters]}}, exp_aw.slv_axi_id[AxiIdWidthMasters-1:0]};
+           exp_aw_id = {exp_aw.slv_axi_id[$clog2(NoMasters)+AxiIdWidthMasters-1:AxiIdWidthMasters], idx_mst_t'(0), exp_aw.slv_axi_id[AxiIdWidthMasters-1:0]};
         end
         $display("%0tns > Slave  %0d: AW Axi ID: %b",
             $time, i, slaves_axi[i].aw_id);
         if (exp_aw_id != slaves_axi[i].aw_id) begin
           incr_failed_tests(1);
-           $warning("Slave %0d: Unexpected AW with ID: %b (exp: %b)", i, slaves_axi[i].aw_id, exp_aw_id);
+           $warning("Slave %0d: Unexpected AW with ID: %b", i, slaves_axi[i].aw_id);
         end
         if (exp_aw.slv_axi_addr != slaves_axi[i].aw_addr) begin
           incr_failed_tests(1);
