@@ -541,7 +541,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 state_d = AMO_REQ;
                 for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
                     // match dirty line ~> evict
-                    if (data_i[i].valid & data_i[i].dirty & (data_i[i].tag == amo_req_i.operand_a[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH])) begin
+                    if (data_i[i].valid & |data_i[i].dirty & (data_i[i].tag == amo_req_i.operand_a[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH])) begin
                         evict_way_d = 1'b1 << i;
                         evict_cl_d  = data_i[i];
                         cnt_d       = amo_req_i.operand_a[DCACHE_INDEX_WIDTH-1:0];
