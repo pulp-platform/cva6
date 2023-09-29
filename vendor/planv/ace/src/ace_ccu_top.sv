@@ -58,7 +58,7 @@ slv_resp_t [Cfg.NoSlvPorts-1:0] [1:0]      slv_resps;
 // signals into the ace_muxes
 mst_stg_req_t  [Cfg.NoSlvPorts:0]          mst_reqs;   // one extra port for CCU
 mst_stg_resp_t [Cfg.NoSlvPorts:0]          mst_resps;
-mst_stg_req_t  [Cfg.NoSlvPorts-1:0]          mst_reqs_tmp;
+mst_stg_req_t  [Cfg.NoSlvPorts:0]          mst_reqs_tmp;
 // signals into the CCU
 slv_req_t  [Cfg.NoSlvPorts-1:0]            ccu_reqs_i;
 slv_resp_t [Cfg.NoSlvPorts-1:0]            ccu_resps_o;
@@ -158,10 +158,27 @@ for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_non_shared_conn
 
   always_comb begin
     mst_reqs[i] = mst_reqs_tmp[i];
+
+    // TODO: remove these ----------------------------------------------------------------------------------------------
     mst_reqs[i].aw.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)] = i[$clog2(Cfg.NoSlvPorts)-1:0];
     mst_reqs[i].ar.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)] = i[$clog2(Cfg.NoSlvPorts)-1:0];
+    // -----------------------------------------------------------------------------------------------------------------
+
+    mst_reqs[i].aw.user[$clog2(Cfg.NoSlvPorts)-1:0] = i[$clog2(Cfg.NoSlvPorts)-1:0];
+    mst_reqs[i].ar.user[$clog2(Cfg.NoSlvPorts)-1:0] = i[$clog2(Cfg.NoSlvPorts)-1:0];
+
   end
 end
+
+// connect CCU reqs and resps to mux
+always_comb begin
+  mst_reqs[Cfg.NoSlvPorts] = mst_reqs_tmp[Cfg.NoSlvPorts];
+  mst_reqs[Cfg.NoSlvPorts].aw.user[$clog2(Cfg.NoSlvPorts)-1:0] = mst_reqs_tmp[Cfg.NoSlvPorts].aw.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)];
+  mst_reqs[Cfg.NoSlvPorts].ar.user[$clog2(Cfg.NoSlvPorts)-1:0] = mst_reqs_tmp[Cfg.NoSlvPorts].ar.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)];
+end
+`ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[Cfg.NoSlvPorts], ccu_reqs_o)
+`ACE_ASSIGN_RESP_STRUCT(ccu_resps_i, mst_resps[Cfg.NoSlvPorts])
+
 
 // connection reqs and resps for shareable transactions with CCU
 for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_shared_conn
@@ -225,9 +242,6 @@ ccu_fsm
 
 
 
-// connect CCU reqs and resps to mux
-`ACE_ASSIGN_REQ_STRUCT(mst_reqs[Cfg.NoSlvPorts], ccu_reqs_o)
-`ACE_ASSIGN_RESP_STRUCT(ccu_resps_i, mst_resps[Cfg.NoSlvPorts])
 
 endmodule
 
