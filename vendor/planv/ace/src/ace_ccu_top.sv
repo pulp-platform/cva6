@@ -151,19 +151,13 @@ axi_mux #(
 );
 
 
-// connection reqs and resps for non-shareable tarnsactions with axi_mux
+// connection reqs and resps for non-shareable transactions with axi_mux
 for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_non_shared_conn
-    `ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[i], slv_reqs[i][0])
-    `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][0], mst_resps[i])
+  `ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[i], slv_reqs[i][0])
+  `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][0], mst_resps[i])
 
   always_comb begin
     mst_reqs[i] = mst_reqs_tmp[i];
-
-    // TODO: remove these ----------------------------------------------------------------------------------------------
-    mst_reqs[i].aw.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)] = i[$clog2(Cfg.NoSlvPorts)-1:0];
-    mst_reqs[i].ar.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)] = i[$clog2(Cfg.NoSlvPorts)-1:0];
-    // -----------------------------------------------------------------------------------------------------------------
-
     mst_reqs[i].aw.user[$clog2(Cfg.NoSlvPorts)-1:0] = i[$clog2(Cfg.NoSlvPorts)-1:0];
     mst_reqs[i].ar.user[$clog2(Cfg.NoSlvPorts)-1:0] = i[$clog2(Cfg.NoSlvPorts)-1:0];
 
@@ -179,12 +173,12 @@ end
 `ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[Cfg.NoSlvPorts], ccu_reqs_o)
 `ACE_ASSIGN_RESP_STRUCT(ccu_resps_i, mst_resps[Cfg.NoSlvPorts])
 
-
 // connection reqs and resps for shareable transactions with CCU
 for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_shared_conn
-    `ACE_ASSIGN_REQ_STRUCT(ccu_reqs_i[i], slv_reqs[i][1])
-    `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][1], ccu_resps_o[i])
+  `ACE_ASSIGN_REQ_STRUCT(ccu_reqs_i[i], slv_reqs[i][1])
+  `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][1], ccu_resps_o[i])
 end
+
 
 axi_mux #(
   .SlvAxiIDWidth ( Cfg.AxiIdWidthSlvPorts ), // ID width of the slave ports
@@ -219,9 +213,7 @@ axi_mux #(
   .mst_resp_i  ( ccu_resps_mux_i  )
 );
 
-
-ccu_fsm
-#(
+ccu_fsm #(
     .NoMstPorts      ( Cfg.NoSlvPorts         ),
     .SlvAxiIDWidth   ( Cfg.AxiIdWidthSlvPorts ), // ID width of the slave ports
     .mst_req_t       ( mst_stg_req_t          ),
@@ -239,9 +231,6 @@ ccu_fsm
     .s2m_req_o       ( slv_snp_req_o      ),
     .m2s_resp_i      ( slv_snp_resp_i     )
 );
-
-
-
 
 endmodule
 
