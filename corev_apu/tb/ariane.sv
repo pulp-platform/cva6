@@ -80,6 +80,8 @@ module ariane import ariane_pkg::*; #(
     .clic_irq_priv_i      ( riscv::PRIV_LVL_M         ),
     .clic_irq_shv_i       ( 1'b0                      ),
     .clic_irq_ready_o     (                           ),
+    .clic_irq_vsid_i      ( '0                        ),
+    .clic_irq_v_i         ( '0                        ),
     .clic_kill_req_i      ( 1'b0                      ),
     .clic_kill_ack_o      (                           ),
 `ifdef RVFI_PORT
