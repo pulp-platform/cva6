@@ -181,7 +181,9 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
 
     // inform snoop controller when invalidating a cache line
     assign invalidate_addr_o = addr_o;
-    assign invalidate_req_o  = (req_o[0] && we_o && !data_o.valid) ? (be_o.vldrty) : '0;
+    for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
+        assign invalidate_req_o[i] = (req_o[0] && we_o && !data_o.valid) ? (be_o.vldrty[i].valid) : 1'b0;
+    end
 
     // ------------------------------
     // Cache Management
@@ -550,10 +552,10 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                     end
                     // match line ~> invalidate
                     else if (data_i[i].valid & (data_i[i].tag == amo_req_i.operand_a[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH])) begin
-                        req_o       = 1'b1;
-                        addr_o  = amo_req_i.operand_a;
-                        be_o.vldrty = 1'b1 << i;
-                        we_o        = 1'b1;
+                        req_o = 1'b1;
+                        addr_o = amo_req_i.operand_a;
+                        be_o.vldrty[i] = '1;
+                        we_o = 1'b1;
                         break;
                     end
                 end
