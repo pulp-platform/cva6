@@ -9,4 +9,4 @@ cd riscv-litmus-tests/frontend
 ./make.sh
 cd ../binaries
 # Build tests for 2 cores
-./make-riscv.sh ../tests/ 2
+./make-riscv.sh ../tests/ cva6 2
