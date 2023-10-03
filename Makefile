@@ -654,7 +654,7 @@ verilate_command := $(verilator) verilator_config.vlt                           
                     $(if $(TRACE_COMPACT), --trace-fst $(VERILATOR_ROOT)/include/verilated_fst_c.cpp)            \
                     $(if $(TRACE_FAST), --trace $(VERILATOR_ROOT)/include/verilated_vcd_c.cpp,)                  \
                     -LDFLAGS "-L$(RISCV)/lib -L$(SPIKE_ROOT)/lib -Wl,-rpath,$(RISCV)/lib -Wl,-rpath,$(SPIKE_ROOT)/lib -lfesvr$(if $(PROFILE), -g -pg,) -lpthread $(if $(TRACE_COMPACT), -lz,)" \
-                    -CFLAGS "$(DPI_CFLAGS)$(if $(PROFILE), -g -pg,) -DVL_DEBUG -D_GLIBCXX_USE_CXX11_ABI=0"       \
+                    -CFLAGS "$(DPI_CFLAGS)$(if $(PROFILE), -g -pg,) -DVL_DEBUG"                                  \
                     --cc  --vpi                                                                                  \
                     $(list_incdir) --top-module ariane_testharness                                               \
                     --threads-dpi none                                                                           \
