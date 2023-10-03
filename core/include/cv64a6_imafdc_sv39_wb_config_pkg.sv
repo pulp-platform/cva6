@@ -86,6 +86,6 @@ package cva6_config_pkg;
     `endif
 
     // For ariane_soc (no need to adjust in other systems
-    localparam ArianeSoCNumHarts = 1;
+    localparam ArianeSoCNumHarts = 2;
 
 endpackage
