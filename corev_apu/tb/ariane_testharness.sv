@@ -756,7 +756,6 @@ module ariane_testharness #(
     logic [1:0]                                         core_irq_priv;              // interrupt privilege
     logic                                               core_irq_v;
     logic [5:0]                                         core_irq_vsid;
-    logic                                               core_irq_vsid_tmp;
     logic                                               core_irq_kill_req;
     logic                                               core_irq_kill_ack;
     // Machine and Supervisor External interrupts
@@ -870,7 +869,7 @@ module ariane_testharness #(
       .clic_irq_shv_i       ( core_irq_shv        ),
       .clic_irq_ready_o     ( core_irq_ready      ),
       .clic_irq_v_i         ( core_irq_v          ),
-      .clic_irq_vsid_i      ( core_irq_vsid_tmp   ),
+      .clic_irq_vsid_i      ( core_irq_vsid       ),
       .clic_kill_req_i      ( core_irq_kill_req   ),
       .clic_kill_ack_o      ( core_irq_kill_ack   ),
       .cvxif_req_o          ( cvxif_req           ),
@@ -881,10 +880,6 @@ module ariane_testharness #(
       .axi_resp_i           ( axi_ariane_resp[i]  )
     );
 
-      always_comb begin
-          core_irq_vsid[5:1] = '0;
-          core_irq_vsid[0]   = core_irq_vsid_tmp;
-      end
       `AXI_ASSIGN_FROM_REQ(slave[i], axi_ariane_req[i])
       `AXI_ASSIGN_TO_RESP(axi_ariane_resp[i], slave[i])
 
