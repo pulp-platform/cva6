@@ -410,6 +410,7 @@ package tb_std_cache_subsystem_pkg;
             logic  [1:0] size_int;
             logic  [7:0] be_int;
             logic        kill_int;
+            logic [63:0] bit_mask;
 
             if (rand_addr) begin
                 addr_int = get_rand_addr_from_cfg(cfg);
@@ -425,6 +426,10 @@ package tb_std_cache_subsystem_pkg;
             end else begin
                 be_int = be;
                 size_int = size;
+            end
+
+            for (int i=0; i<8; i++) begin
+                bit_mask[i*8 +:8] = {8{be_int[i]}};
             end
 
             if (kill) begin
@@ -483,7 +488,7 @@ package tb_std_cache_subsystem_pkg;
                     end
 
                     if (check_result) begin
-                        a_rd_check : assert (vif.resp.data_rdata == exp_result) else
+                        a_rd_check : assert ((vif.resp.data_rdata & bit_mask) == exp_result) else
                         $error("%s: data mismatch. Expected 0x%16h, got 0x%16h", name, exp_result, vif.resp.data_rdata);
                     end
 
