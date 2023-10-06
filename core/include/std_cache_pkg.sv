@@ -63,18 +63,24 @@ package std_cache_pkg;
     } bypass_rsp_t;
 
     typedef struct packed {
-        logic [ariane_pkg::DCACHE_TAG_WIDTH-1:0]  tag;    // tag array
-        logic [ariane_pkg::DCACHE_LINE_WIDTH-1:0] data;   // data array
-        logic                                     valid;  // state array
-        logic                                     dirty;  // state array
-        logic                                     shared; // state array
+      logic [ariane_pkg::DCACHE_LINE_WIDTH/8-1:0] dirty;
+      logic                                       valid;
+      logic                                       shared;
+    } vldrty_t;
+
+    typedef struct packed {
+        logic [ariane_pkg::DCACHE_TAG_WIDTH-1:0]        tag;    // tag array
+        logic [ariane_pkg::DCACHE_LINE_WIDTH-1:0]       data;   // data array
+        logic                                           valid;  // state array
+        logic [(ariane_pkg::DCACHE_LINE_WIDTH+7)/8-1:0] dirty;  // state array
+        logic                                           shared; // state array
     } cache_line_t;
 
     // cache line byte enable
     typedef struct packed {
-        logic [(ariane_pkg::DCACHE_TAG_WIDTH+7)/8-1:0]  tag;    // byte enable into tag array
-        logic [(ariane_pkg::DCACHE_LINE_WIDTH+7)/8-1:0] data;   // byte enable into data array
-        logic [ariane_pkg::DCACHE_SET_ASSOC-1:0]        vldrty; // bit enable into state array (valid for a pair of dirty/valid bits)
+        logic    [(ariane_pkg::DCACHE_TAG_WIDTH+7)/8-1:0]  tag;    // byte enable into tag array
+        logic    [(ariane_pkg::DCACHE_LINE_WIDTH+7)/8-1:0] data;   // byte enable into data array
+        vldrty_t [ariane_pkg::DCACHE_SET_ASSOC-1:0]        vldrty; // bit enable into state array
     } cl_be_t;
 
   typedef struct                                        packed {

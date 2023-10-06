@@ -21,7 +21,8 @@ package ariane_soc;
   localparam int unsigned CLICNumInterruptSrc = 64;
   localparam int unsigned CLICIntCtlBits = 8;
 
-  localparam NrSlaves = 2; // actually masters, but slaves on the crossbar
+  localparam int unsigned NumHarts = cva6_config_pkg::ArianeSoCNumHarts;
+  localparam int unsigned NrSlaves = NumHarts + 1; // actually masters, but slaves on the crossbar
 
   // 4 is recommended by AXI standard, so lets stick to it, do not change
   localparam IdWidth   = 4;

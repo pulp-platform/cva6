@@ -85,4 +85,7 @@ package cva6_config_pkg;
        localparam CVA6ConfigRvfiTrace = 0;
     `endif
 
+    // For ariane_soc (no need to adjust in other systems
+    localparam ArianeSoCNumHarts = 2;
+
 endpackage

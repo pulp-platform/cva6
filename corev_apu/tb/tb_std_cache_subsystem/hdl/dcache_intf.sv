@@ -51,21 +51,42 @@ interface dcache_sram_if (input logic clk);
     import std_cache_pkg::*;
 
     // interface for probing into sram
+    typedef logic [DCACHE_LINE_WIDTH-1:0]    data_t;
+    typedef logic [DCACHE_TAG_WIDTH-1:0]     tag_t;
+    typedef vldrty_t [DCACHE_SET_ASSOC-1:0]  vld_t;
 
-    typedef logic [4*DCACHE_DIRTY_WIDTH-1:0] vld_t;
-    typedef logic [63:0]                     data_t;
-    typedef logic [63:0]                     tag_t;
     typedef data_t                           data_sram_t [DCACHE_NUM_WORDS-1:0];
     typedef tag_t                            tag_sram_t  [DCACHE_NUM_WORDS-1:0];
     typedef vld_t                            vld_sram_t  [DCACHE_NUM_WORDS-1:0];
 
-    data_sram_t                                       data_sram [1:0][DCACHE_SET_ASSOC-1:0];
-    tag_sram_t                                        tag_sram       [DCACHE_SET_ASSOC-1:0];
+    data_sram_t                                       data_sram [DCACHE_SET_ASSOC-1:0];
+    tag_sram_t                                        tag_sram  [DCACHE_SET_ASSOC-1:0];
     vld_sram_t                                        vld_sram;
     logic                                             vld_req;
     logic                                             vld_we;
     logic [DCACHE_INDEX_WIDTH-DCACHE_BYTE_OFFSET-1:0] vld_index;
 
+    // helper function to get valid, shared, and dirty bits from VLD sram
+    function logic get_valid (
+        input int unsigned index,
+        input int unsigned way
+    );
+        return vld_sram[index][way].valid;
+    endfunction
+
+    function logic get_shared (
+        input int unsigned index,
+        input int unsigned way
+    );
+        return vld_sram[index][way].shared;
+    endfunction
+
+    function logic get_dirty (
+        input int unsigned index,
+        input int unsigned way
+    );
+        return |vld_sram[index][way].dirty;
+    endfunction
 
 endinterface
 

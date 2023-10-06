@@ -346,13 +346,14 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     addr_o     = mem_req_q.index;
                     we_o       = 1'b1;
 
-                    be_o.vldrty = hit_way_q;
-
                     // set the correct byte enable
                     be_o.data[cl_offset>>3 +: 8]  = mem_req_q.be;
+                    for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+                      if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, shared: 1, dirty: be_o.data};
+                    end
                     data_o.data[cl_offset  +: 64] = mem_req_q.wdata;
                     // ~> change the state
-                    data_o.dirty = 1'b1;
+                    data_o.dirty[cl_offset>>3 +: 8] = mem_req_q.be;
                     data_o.valid = 1'b1;
                     data_o.shared = 1'b0;
 
@@ -444,7 +445,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     req_port_o.data_rvalid = ~mem_req_q.killed;
                     req_port_o.data_rdata = critical_word_i;
                     // we can make another request
-                    if (req_port_i.data_req) begin
+                    if (req_port_i.data_req && !stall_i) begin
                         // save index, be and we
                         mem_req_d.index = req_port_i.address_index;
                         mem_req_d.be    = req_port_i.data_be;

@@ -1156,8 +1156,6 @@ package tb_std_cache_subsystem_pkg;
             return cache_status[mem_idx_v][way].valid;
         endfunction
 
-
-
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         // Check cache contents against real memory
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1171,28 +1169,39 @@ package tb_std_cache_subsystem_pkg;
             logic [DCACHE_TAG_WIDTH-1:0]                      tag_v;
             bit                                               OK;
 
+            logic vld_sram_valid, vld_sram_shared, vld_sram_dirty;
+
             OK        = 1'b1;
             mem_idx_v = addr2mem_idx(addr);
             idx_v     = addr2index(addr);
             tag_v     = addr2tag(addr);
 
+            vld_sram_dirty  = sram_vif.get_dirty(.index(mem_idx_v), .way(way));
+            vld_sram_shared = sram_vif.get_shared(.index(mem_idx_v), .way(way));
+            vld_sram_valid  = sram_vif.get_valid(.index(mem_idx_v), .way(way));
+
             // check the target way
-            if (cache_status[mem_idx_v][way].dirty != sram_vif.vld_sram[mem_idx_v][8*way]) begin
+            if (cache_status[mem_idx_v][way].valid != vld_sram_valid) begin
                 OK = 1'b0;
-                $error("%s: Cache mismatch index %h tag %h way %h - dirty bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].dirty, sram_vif.vld_sram[mem_idx_v][8*way]);
-            end
-            if (cache_status[mem_idx_v][way].valid != sram_vif.vld_sram[mem_idx_v][8*way+1]) begin
-                OK = 1'b0;
-                $error("%s: Cache mismatch index %h tag %h way %h - valid bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].valid, sram_vif.vld_sram[mem_idx_v][8*way+1]);
-            end
-            if (cache_status[mem_idx_v][way].shared != sram_vif.vld_sram[mem_idx_v][8*way+2]) begin
-                OK = 1'b0;
-                $error("%s: Cache mismatch index %h tag %h way %h - shared bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].shared, sram_vif.vld_sram[mem_idx_v][8*way+2]);
+                $error("%s: Cache mismatch index %h tag %h way %h - valid bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].valid, vld_sram_valid);
             end
 
+            if (vld_sram_valid) begin
+
+                if (cache_status[mem_idx_v][way].dirty != vld_sram_dirty) begin
+                    OK = 1'b0;
+                    $error("%s: Cache mismatch index %h tag %h way %h - dirty bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].dirty, vld_sram_dirty);
+                end
+
+                if (cache_status[mem_idx_v][way].shared != vld_sram_shared) begin
+                    OK = 1'b0;
+                    $error("%s: Cache mismatch index %h tag %h way %h - shared bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].shared, vld_sram_shared);
+                end
+            end
 
             // check tags and data for valid entries
             for (int w=0;w<DCACHE_SET_ASSOC; w++) begin
+                vld_sram_valid = sram_vif.get_valid(.index(mem_idx_v), .way(w));
                 if (cache_status[mem_idx_v][w].valid) begin
 
                     if (cache_status[mem_idx_v][w].tag != sram_vif.tag_sram[w][mem_idx_v][47:0]) begin
@@ -1200,14 +1209,14 @@ package tb_std_cache_subsystem_pkg;
                         $error("%s: Cache mismatch index %h tag %h way %0h - tag: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].tag, sram_vif.tag_sram[w][mem_idx_v][47:0]);
                     end
 
-                    if (cache_status[mem_idx_v][w].data != {sram_vif.data_sram[1][w][mem_idx_v], sram_vif.data_sram[0][w][mem_idx_v]}) begin
+                    if (cache_status[mem_idx_v][w].data != sram_vif.data_sram[w][mem_idx_v]) begin
                         OK = 1'b0;
-                        $error("%s: Cache mismatch index %h tag %h way %h - data: expected 0x%16h_%16h, actual 0x%16h_%16h", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].data[127:64], cache_status[mem_idx_v][way].data[63:0], sram_vif.data_sram[1][way][mem_idx_v], sram_vif.data_sram[0][way][mem_idx_v]);
+                        $error("%s: Cache mismatch index %h tag %h way %h - data: expected 0x%16h_%16h, actual 0x%16h_%16h", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].data[127:64], cache_status[mem_idx_v][way].data[63:0], sram_vif.data_sram[way][mem_idx_v][127:64], sram_vif.data_sram[way][mem_idx_v][63:0]);
                     end
 
-                end else if (sram_vif.vld_sram[mem_idx_v][8*w+1]) begin
+                end else if (vld_sram_valid) begin
                     OK = 1'b0;
-                    $error("%s: Cache mismatch index %h tag %h way %0h - valid: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].valid, sram_vif.vld_sram[mem_idx_v][8*w+1]);
+                    $error("%s: Cache mismatch index %h tag %h way %0h - valid: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].valid, vld_sram_valid);
                 end
             end
             return OK;
@@ -2560,13 +2569,17 @@ package tb_std_cache_subsystem_pkg;
                                     logic                         cc_valid, cc_dirty, cc_shared;
                                     logic [DCACHE_TAG_WIDTH:0]    cc_tag;
                                     logic [DCACHE_LINE_WIDTH-1:0] cc_data;
-                                    cc_dirty  = dc_sram_vif[cc].vld_sram[index][8*cw];
-                                    cc_valid  = dc_sram_vif[cc].vld_sram[index][8*cw+1];
-                                    cc_shared = dc_sram_vif[cc].vld_sram[index][8*cw+2];
-                                    cc_tag    = dc_sram_vif[cc].tag_sram[cw][index][DCACHE_TAG_WIDTH-1:0];
-                                    cc_data   = {dc_sram_vif[cc].data_sram[1][cw][index], dc_sram_vif[cc].data_sram[0][cw][index]};
+
+                                    cc_dirty  = dc_sram_vif[cc].get_dirty(.index(index), .way(cw));
+                                    cc_valid  = dc_sram_vif[cc].get_valid(.index(index), .way(cw));
+                                    cc_shared = dc_sram_vif[cc].get_shared(.index(index), .way(cw));
+                                    cc_tag    = dc_sram_vif[cc].tag_sram[cw][index];
+                                    cc_data   = dc_sram_vif[cc].data_sram[cw][index];
+
                                     if (cc_valid) begin
                                         logic any_dirty;
+
+
                                         any_dirty = cc_dirty;
                                         // check entries in other caches
                                         for (int oc=0; oc < NB_CORES; oc++) begin
@@ -2575,18 +2588,20 @@ package tb_std_cache_subsystem_pkg;
                                                     logic                         oc_valid, oc_dirty, oc_shared;
                                                     logic [DCACHE_TAG_WIDTH:0]    oc_tag;
                                                     logic [DCACHE_LINE_WIDTH-1:0] oc_data;
-                                                    oc_dirty  = dc_sram_vif[oc].vld_sram[index][8*ow];
-                                                    oc_valid  = dc_sram_vif[oc].vld_sram[index][8*ow+1];
-                                                    oc_shared = dc_sram_vif[oc].vld_sram[index][8*ow+2];
-                                                    oc_tag    = dc_sram_vif[oc].tag_sram[ow][index][DCACHE_TAG_WIDTH-1:0];
-                                                    oc_data   = {dc_sram_vif[oc].data_sram[1][ow][index], dc_sram_vif[oc].data_sram[0][ow][index]};
+
+                                                    oc_dirty  = dc_sram_vif[oc].get_dirty(.index(index), .way(ow));
+                                                    oc_valid  = dc_sram_vif[oc].get_valid(.index(index), .way(ow));
+                                                    oc_shared = dc_sram_vif[oc].get_shared(.index(index), .way(ow));
+                                                    oc_tag    = dc_sram_vif[oc].tag_sram[ow][index];
+                                                    oc_data   = dc_sram_vif[oc].data_sram[ow][index];
+
                                                     if (oc_valid && (oc_tag == cc_tag)) begin
                                                         any_dirty = any_dirty | oc_dirty;
                                                         $display("%t ns %s.monitor: Cache match for index 0x%3h, tag 0x%16h between way %0d in core %0d and way %0d in core %0d",$time, name, index, cc_tag, cw, cc, ow, oc);
 
                                                         // check that data matches
                                                         a_data : assert (cc_data == oc_data) else
-                                                            $error("%s: Cache data mismatch for index %h, tag %h - core %0d, way %0d = 0x%16h_%16h, core %0d, way %0d = 0x%16h_%16h", name, index, cc_tag, cc, cw, cc_data[127:64], cc_data[63:0], oc, ow, oc_data[127:64], oc_data[63:0]);
+                                                            $error("%s.monitor: Cache data mismatch for index %h, tag %h - core %0d, way %0d = 0x%16h_%16h, core %0d, way %0d = 0x%16h_%16h", name, index, cc_tag, cc, cw, cc_data[127:64], cc_data[63:0], oc, ow, oc_data[127:64], oc_data[63:0]);
 
                                                         // If data is present in both caches they should be marked shared.
                                                         // This will also implicitly check that a unique data is not present in
@@ -2615,7 +2630,7 @@ package tb_std_cache_subsystem_pkg;
                                             sram_vif[cc].addr[cw] = (addr - (ArianeCfg.ExecuteRegionAddrBase[3] >> DCACHE_BYTE_OFFSET)) << 1;
                                             #0
                                             a_mem_data : assert (cc_data == sram_vif[cc].data[cw]) else
-                                                $error("%s: Cache vs Memory data mismatch for index %h, tag %h - core %0d, way %0d = 0x%16h_%16h, Memory[0x%16h] = 0x%16h_%16h", name, index, cc_tag, cc, cw, cc_data[127:64], cc_data[63:0], sram_vif[cc].addr[cw], sram_vif[cc].data[cw][1], sram_vif[cc].data[cw][0]);
+                                                $error("%s.monitor: Cache vs Memory data mismatch for index %h, tag %h - core %0d, way %0d = 0x%16h_%16h, Memory[0x%16h] = 0x%16h_%16h", name, index, cc_tag, cc, cw, cc_data[127:64], cc_data[63:0], sram_vif[cc].addr[cw], sram_vif[cc].data[cw][1], sram_vif[cc].data[cw][0]);
                                         end
                                     end
                                 end

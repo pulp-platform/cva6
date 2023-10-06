@@ -110,6 +110,7 @@ import std_cache_pkg::*;
     cache_line_t                         wdata_ram;
     cache_line_t [DCACHE_SET_ASSOC-1:0]  rdata_ram;
     cl_be_t                              be_ram;
+    vldrty_t [DCACHE_SET_ASSOC-1:0]      be_valid_dirty_ram;
 
     // Busy signals
     logic miss_handler_busy;
@@ -316,24 +317,23 @@ import std_cache_pkg::*;
     // Valid/Dirty/Shared Regs
     // ----------------
 
-    // align each valid/dirty/shared triplet is aligned to a byte boundary in order to leverage byte enable signals.
-    // note: if you have an SRAM that supports flat bit enables for your target technology,
-    // you can use it here to save the extra overhead introduced by this workaround.
-    logic [4*DCACHE_DIRTY_WIDTH-1:0] dirty_wdata, dirty_rdata;
+    vldrty_t [DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
     for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-        assign dirty_wdata[8*i]   = wdata_ram.dirty;
-        assign dirty_wdata[8*i+1] = wdata_ram.valid;
-        assign dirty_wdata[8*i+2] = wdata_ram.shared;
-        assign rdata_ram[i].dirty = dirty_rdata[8*i];
-        assign rdata_ram[i].valid = dirty_rdata[8*i+1];
-        assign rdata_ram[i].shared = dirty_rdata[8*i+2];
+      assign dirty_wdata[i]     = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid, shared: wdata_ram.shared};
+      assign rdata_ram[i].dirty = dirty_rdata[i].dirty;
+      assign rdata_ram[i].valid = dirty_rdata[i].valid;
+      assign rdata_ram[i].shared = dirty_rdata[i].shared;
+      assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
+      assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
+      assign be_valid_dirty_ram[i].shared = be_ram.vldrty[i].shared;
     end
 
     sram #(
         .SIM_INIT   ( VLD_SRAM_SIM_INIT                ),
         .USER_WIDTH ( 1                                ),
-        .DATA_WIDTH ( 4*DCACHE_DIRTY_WIDTH             ),
+        .DATA_WIDTH ( DCACHE_SET_ASSOC*$bits(vldrty_t) ),
+        .BYTE_WIDTH ( 1                                ),
         .NUM_WORDS  ( DCACHE_NUM_WORDS                 )
     ) valid_dirty_sram (
         .clk_i   ( clk_i                               ),
@@ -343,7 +343,7 @@ import std_cache_pkg::*;
         .addr_i  ( addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ),
         .wuser_i ( '0                                  ),
         .wdata_i ( dirty_wdata                         ),
-        .be_i    ( be_ram.vldrty                       ),
+        .be_i    ( be_valid_dirty_ram                  ),
         .ruser_o (                                     ),
         .rdata_o ( dirty_rdata                         )
     );
@@ -376,7 +376,7 @@ import std_cache_pkg::*;
     );
 
   for (genvar j = 0; j < DCACHE_SET_ASSOC; j++) begin
-    assign dirty_way[j] = rdata_ram[j].dirty;
+    assign dirty_way[j] = |rdata_ram[j].dirty;
     assign shared_way[j] = rdata_ram[j].shared;
   end
 

@@ -248,11 +248,13 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
       UPDATE_SHARED: begin
         req_o = hit_way_q;
         we_o = 1'b1;
-        be_o.vldrty = hit_way_q;
+        for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+          if (hit_way_q[i]) be_o.vldrty[i] = '1;
+        end
         // leave data be to 0 - don't overwrite
         be_o.data = 0;
         // keep dirty flag as it was
-        data_o.dirty = |(dirty_way_q & hit_way_q);
+        data_o.dirty = |(dirty_way_q & hit_way_q) ? '1 : '0;
         // if entry was invalidated, then avoid validating it again
         data_o.valid = miss_invalidate_collision ? 1'b0 : 1'b1;
         // change shared the state
@@ -267,8 +269,10 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
       INVALIDATE: begin
         req_o = hit_way_q;
         we_o = 1'b1;
-        be_o.vldrty = hit_way_q;
-        data_o.dirty = 1'b0;
+        for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+          if (hit_way_q[i]) be_o.vldrty[i] = '1;
+        end
+        data_o.dirty = '0;
         data_o.valid = 1'b0;
         data_o.shared = 1'b0;
         // signal invalidate to the miss_handler

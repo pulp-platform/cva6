@@ -14,6 +14,8 @@
 //              Instantiates an AXI-Bus and memories
 
 `include "axi/assign.svh"
+`include "axi/typedef.svh"
+`include "register_interface/typedef.svh"
 
 module ariane_testharness #(
   parameter int unsigned AXI_USER_WIDTH    = ariane_pkg::AXI_USER_WIDTH,
@@ -31,13 +33,11 @@ module ariane_testharness #(
   output logic [31:0]                    exit_o
 );
 
-  localparam [7:0] hart_id = '0;
-
   // disable test-enable
   logic        test_en;
   logic        ndmreset;
   logic        ndmreset_n;
-  logic        debug_req_core;
+  logic [(ariane_soc::NumHarts-1):0] debug_req_core;
 
   int          jtag_enable;
   logic        init_done;
@@ -189,12 +189,12 @@ module ariane_testharness #(
   // pointer to the dev tree, respectively.
   localparam int unsigned DmiDelCycles = 500;
 
-  logic debug_req_core_ungtd;
+  logic [ (ariane_soc::NumHarts-1) : 0] debug_req_core_ungtd;
   int dmi_del_cnt_d, dmi_del_cnt_q;
 
   assign dmi_del_cnt_d  = (dmi_del_cnt_q) ? dmi_del_cnt_q - 1 : 0;
-  assign debug_req_core = (dmi_del_cnt_q) ? 1'b0 :
-                          (!debug_enable) ? 1'b0 : debug_req_core_ungtd;
+  assign debug_req_core = (dmi_del_cnt_q) ? 'b0 :
+                          (!debug_enable) ? 'b0 : debug_req_core_ungtd;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_dmi_del_cnt
     if(!rst_ni) begin
@@ -225,9 +225,9 @@ module ariane_testharness #(
 
   // debug module
   dm_top #(
-    .NrHarts              ( 1                           ),
+    .NrHarts              ( ariane_soc::NumHarts        ),
     .BusWidth             ( AXI_DATA_WIDTH              ),
-    .SelectableHarts      ( 1'b1                        )
+    .SelectableHarts      ( {ariane_soc::NumHarts{1'b1}} )
   ) i_dm_top (
     .clk_i                ( clk_i                       ),
     .rst_ni               ( rst_ni                      ), // PoR
@@ -236,7 +236,7 @@ module ariane_testharness #(
     .dmactive_o           (                             ), // active debug session
     .debug_req_o          ( debug_req_core_ungtd        ),
     .unavailable_i        ( '0                          ),
-    .hartinfo_i           ( {ariane_pkg::DebugHartInfo} ),
+    .hartinfo_i           ( {ariane_soc::NumHarts{ariane_pkg::DebugHartInfo}} ),
     .slave_req_i          ( dm_slave_req                ),
     .slave_we_i           ( dm_slave_we                 ),
     .slave_addr_i         ( dm_slave_addr               ),
@@ -280,8 +280,8 @@ module ariane_testharness #(
     .data_i     ( dm_slave_rdata            )
   );
 
-  `AXI_ASSIGN_FROM_REQ(slave[1], dm_axi_m_req)
-  `AXI_ASSIGN_TO_RESP(dm_axi_m_resp, slave[1])
+  `AXI_ASSIGN_FROM_REQ(slave[ariane_soc::NrSlaves-1], dm_axi_m_req)
+  `AXI_ASSIGN_TO_RESP(dm_axi_m_resp, slave[ariane_soc::NrSlaves-1])
 
   axi_adapter #(
     .DATA_WIDTH            ( AXI_DATA_WIDTH            ),
@@ -395,6 +395,7 @@ module ariane_testharness #(
     .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave ),
     .AXI_USER_WIDTH ( AXI_USER_WIDTH           ),
     .AXI_MAX_WRITE_TXNS ( 1  ),
+    .AXI_MAX_READ_TXNS  ( 1  ),
     .RISCV_WORD_WIDTH   ( 64 )
   ) i_axi_riscv_atomics (
     .clk_i,
@@ -522,8 +523,8 @@ module ariane_testharness #(
   // ---------------
   // CLINT
   // ---------------
-  logic ipi;
-  logic timer_irq;
+  logic [(ariane_soc::NumHarts-1):0] ipi;
+  logic [(ariane_soc::NumHarts-1):0] timer_irq;
 
   ariane_axi_soc::req_slv_t  axi_clint_req;
   ariane_axi_soc::resp_slv_t axi_clint_resp;
@@ -532,7 +533,7 @@ module ariane_testharness #(
     .AXI_ADDR_WIDTH ( AXI_ADDRESS_WIDTH          ),
     .AXI_DATA_WIDTH ( AXI_DATA_WIDTH             ),
     .AXI_ID_WIDTH   ( ariane_soc::IdWidthSlave   ),
-    .NR_CORES       ( 1                          ),
+    .NR_CORES       ( ariane_soc::NumHarts       ),
     .axi_req_t      ( ariane_axi_soc::req_slv_t  ),
     .axi_resp_t     ( ariane_axi_soc::resp_slv_t )
   ) i_clint (
@@ -553,7 +554,7 @@ module ariane_testharness #(
   // Peripherals
   // ---------------
   logic tx, rx;
-  logic [1:0] irqs;
+  logic [(ariane_soc::NumHarts)-1:0][1:0] irqs;
 
   ariane_peripherals #(
     .AxiAddrWidth ( AXI_ADDRESS_WIDTH        ),
@@ -603,307 +604,309 @@ module ariane_testharness #(
   uart_bus #(.BAUD_RATE(115200), .PARITY_EN(0)) i_uart_bus (.rx(tx), .tx(rx), .rx_en(1'b1));
 
   // ---------------
-  // Core
+  // CLIC mem ports
   // ---------------
-  ariane_axi::req_t    axi_ariane_req;
-  ariane_axi::resp_t   axi_ariane_resp;
-  ariane_pkg::rvfi_port_t  rvfi;
 
-  // Interrupt sources
-  logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
-                                                                  // Privilege Spec. v. 20211203, pag. 39
-  logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
+  ariane_axi_soc::req_slv_t  axi_clic_req;
+  ariane_axi_soc::resp_slv_t axi_clic_resp;
 
-  // core interface signals
-  logic                                               core_irq_valid, core_irq_ready; // interrupt handshake
-  logic                                               core_irq_shv;               // selective hardware vectoring
-  logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
-  logic [7:0]                                         core_irq_level;             // interrupt level
-  logic [1:0]                                         core_irq_priv;              // interrupt privilege
-  logic                                               core_irq_kill_req;
-  logic                                               core_irq_kill_ack;
-  // Machine and Supervisor External interrupts
-  // External interrupts. When not in CLIC mode, they are seen as global
-  // interrupts and routed through the PLIC to meip/seip.
-  logic meip, seip;
-  assign meip = irqs[0];
-  assign seip = irqs[1];
+  `AXI_ASSIGN_TO_REQ(axi_clic_req, master[ariane_soc::CLIC])
+  `AXI_ASSIGN_FROM_RESP(master[ariane_soc::CLIC], axi_clic_resp)
 
-  // Machine Timer interrupt
-  // Generate timer interrupt from a real-time clock (rtc).
-  // When in CLIC mode, the timer interrupt is routed through the CLIC and not
-  // directly to the HART
-  localparam int unsigned NumTimerIrq = 1; // 1 target, cva6
-  logic [NumTimerIrq-1:0]    mtip;
+  `AXI_TYPEDEF_ALL(axi_d32, ariane_axi_soc::addr_t, ariane_axi_soc::id_slv_t, logic [31:0], logic [3:0], ariane_axi_soc::user_t)
+  axi_d32_req_t  axi_d32_clic_req;
+  axi_d32_resp_t axi_d32_clic_resp;
 
-  // Machine Software interrupt
-  // When in CLIC mode, msip can be fired by writing to the corresponding
-  // memory-mapped register in the CLIC
-
-  // XLEN regular CLINT interrupts
-  assign clint_irqs = {
-    {(riscv::XLEN - 16){1'b0}}, // 64 - 16 = 48, designated for platform use
-    {4{1'b0}},                  // reserved
-    seip,                       // seip
-    1'b0,                       // reserved
-    meip,                       // meip
-    1'b0,                       // reserved, seip, reserved, meip
-    timer_irq,                  // mtip
-    {3{1'b0}},                  // reserved, stip, reserved
-    ipi,                        // msip
-    {3{1'b0}}                   // reserved, ssip, reserved
-  };
-
-  // local interrupts with CLIC
-  assign clic_irqs = {
-    {(ariane_soc::CLICNumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
-    clint_irqs                               // 64  (XLEN regular clint interrupts)
-  };
-
-  // axi2apb interface
-  logic         clic_penable;
-  logic         clic_pwrite;
-  logic [31:0]  clic_paddr;
-  logic         clic_psel;
-  logic [31:0]  clic_pwdata;
-  logic [31:0]  clic_prdata;
-  logic         clic_pready;
-  logic         clic_pslverr;
-
-  axi2apb_64_32 #(
-      .AXI4_ADDRESS_WIDTH ( AXI_ADDRESS_WIDTH  ),
-      .AXI4_RDATA_WIDTH   ( AXI_DATA_WIDTH  ),
-      .AXI4_WDATA_WIDTH   ( AXI_DATA_WIDTH  ),
-      .AXI4_ID_WIDTH      ( ariane_soc::IdWidthSlave ),
-      .AXI4_USER_WIDTH    ( 1             ),
-      .BUFF_DEPTH_SLAVE   ( 2             ),
-      .APB_ADDR_WIDTH     ( 32            )
-  ) i_axi2apb_64_32_clic (
-      .ACLK      ( clk_i          ),
-      .ARESETn   ( rst_ni         ),
-      .test_en_i ( 1'b0           ),
-      .AWID_i    ( master[ariane_soc::CLIC].aw_id     ),
-      .AWADDR_i  ( master[ariane_soc::CLIC].aw_addr   ),
-      .AWLEN_i   ( master[ariane_soc::CLIC].aw_len    ),
-      .AWSIZE_i  ( master[ariane_soc::CLIC].aw_size   ),
-      .AWBURST_i ( master[ariane_soc::CLIC].aw_burst  ),
-      .AWLOCK_i  ( master[ariane_soc::CLIC].aw_lock   ),
-      .AWCACHE_i ( master[ariane_soc::CLIC].aw_cache  ),
-      .AWPROT_i  ( master[ariane_soc::CLIC].aw_prot   ),
-      .AWREGION_i( master[ariane_soc::CLIC].aw_region ),
-      .AWUSER_i  ( master[ariane_soc::CLIC].aw_user   ),
-      .AWQOS_i   ( master[ariane_soc::CLIC].aw_qos    ),
-      .AWVALID_i ( master[ariane_soc::CLIC].aw_valid  ),
-      .AWREADY_o ( master[ariane_soc::CLIC].aw_ready  ),
-      .WDATA_i   ( master[ariane_soc::CLIC].w_data    ),
-      .WSTRB_i   ( master[ariane_soc::CLIC].w_strb    ),
-      .WLAST_i   ( master[ariane_soc::CLIC].w_last    ),
-      .WUSER_i   ( master[ariane_soc::CLIC].w_user    ),
-      .WVALID_i  ( master[ariane_soc::CLIC].w_valid   ),
-      .WREADY_o  ( master[ariane_soc::CLIC].w_ready   ),
-      .BID_o     ( master[ariane_soc::CLIC].b_id      ),
-      .BRESP_o   ( master[ariane_soc::CLIC].b_resp    ),
-      .BVALID_o  ( master[ariane_soc::CLIC].b_valid   ),
-      .BUSER_o   ( master[ariane_soc::CLIC].b_user    ),
-      .BREADY_i  ( master[ariane_soc::CLIC].b_ready   ),
-      .ARID_i    ( master[ariane_soc::CLIC].ar_id     ),
-      .ARADDR_i  ( master[ariane_soc::CLIC].ar_addr   ),
-      .ARLEN_i   ( master[ariane_soc::CLIC].ar_len    ),
-      .ARSIZE_i  ( master[ariane_soc::CLIC].ar_size   ),
-      .ARBURST_i ( master[ariane_soc::CLIC].ar_burst  ),
-      .ARLOCK_i  ( master[ariane_soc::CLIC].ar_lock   ),
-      .ARCACHE_i ( master[ariane_soc::CLIC].ar_cache  ),
-      .ARPROT_i  ( master[ariane_soc::CLIC].ar_prot   ),
-      .ARREGION_i( master[ariane_soc::CLIC].ar_region ),
-      .ARUSER_i  ( master[ariane_soc::CLIC].ar_user   ),
-      .ARQOS_i   ( master[ariane_soc::CLIC].ar_qos    ),
-      .ARVALID_i ( master[ariane_soc::CLIC].ar_valid  ),
-      .ARREADY_o ( master[ariane_soc::CLIC].ar_ready  ),
-      .RID_o     ( master[ariane_soc::CLIC].r_id      ),
-      .RDATA_o   ( master[ariane_soc::CLIC].r_data    ),
-      .RRESP_o   ( master[ariane_soc::CLIC].r_resp    ),
-      .RLAST_o   ( master[ariane_soc::CLIC].r_last    ),
-      .RUSER_o   ( master[ariane_soc::CLIC].r_user    ),
-      .RVALID_o  ( master[ariane_soc::CLIC].r_valid   ),
-      .RREADY_i  ( master[ariane_soc::CLIC].r_ready   ),
-      .PENABLE   ( clic_penable   ),
-      .PWRITE    ( clic_pwrite    ),
-      .PADDR     ( clic_paddr     ),
-      .PSEL      ( clic_psel      ),
-      .PWDATA    ( clic_pwdata    ),
-      .PRDATA    ( clic_prdata    ),
-      .PREADY    ( clic_pready    ),
-      .PSLVERR   ( clic_pslverr   )
-  );
-
-  // apb2reg interface
-
-  REG_BUS #(
-      .ADDR_WIDTH ( 32 ),
-      .DATA_WIDTH ( 32 )
-  ) reg_bus (clk_i);
-
-  apb_to_reg i_apb_to_reg (
-      .clk_i     ( clk_i        ),
-      .rst_ni    ( rst_ni       ),
-      .penable_i ( clic_penable ),
-      .pwrite_i  ( clic_pwrite  ),
-      .paddr_i   ( clic_paddr   ),
-      .psel_i    ( clic_psel    ),
-      .pwdata_i  ( clic_pwdata  ),
-      .prdata_o  ( clic_prdata  ),
-      .pready_o  ( clic_pready  ),
-      .pslverr_o ( clic_pslverr ),
-      .reg_o     ( reg_bus      )
-  );
-
-  // wrap register interface as req/resp for clic
   localparam int unsigned REG_BUS_ADDR_WIDTH = 32;
   localparam int unsigned REG_BUS_DATA_WIDTH = 32;
 
-`define REG_BUS_TYPEDEF_REQ(req_t, addr_t, data_t, strb_t) \
-    typedef struct packed { \
-        addr_t addr; \
-        logic  write; \
-        data_t wdata; \
-        strb_t wstrb; \
-        logic  valid; \
-    } req_t;
+  `REG_BUS_TYPEDEF_ALL(reg,
+                       logic [REG_BUS_ADDR_WIDTH-1:0],
+                       logic [REG_BUS_DATA_WIDTH-1:0],
+                       logic [REG_BUS_DATA_WIDTH/8-1:0])
 
-`define REG_BUS_TYPEDEF_RSP(rsp_t, data_t) \
-    typedef struct packed { \
-        data_t rdata; \
-        logic  error; \
-        logic  ready; \
-    } rsp_t;
+  reg_req_t reg_req, err_req;
+  reg_rsp_t reg_rsp, err_rsp;
+  reg_req_t [ariane_soc::NumHarts-1:0] clic_req;
+  reg_rsp_t [ariane_soc::NumHarts-1:0] clic_rsp;
 
-  typedef logic [REG_BUS_ADDR_WIDTH-1:0] addr_t;
-  typedef logic [REG_BUS_DATA_WIDTH-1:0] data_t;
-  typedef logic [REG_BUS_DATA_WIDTH/8-1:0] strb_t;
+  typedef struct packed {
+    int unsigned                   idx;
+    logic [REG_BUS_ADDR_WIDTH-1:0] start_addr;
+    logic [REG_BUS_ADDR_WIDTH-1:0] end_addr;
+  } reg_rule_t;
 
-  `REG_BUS_TYPEDEF_REQ(reg_a32_d32_req_t, addr_t, data_t, strb_t)
-  `REG_BUS_TYPEDEF_RSP(reg_a32_d32_rsp_t, data_t)
-
-  reg_a32_d32_req_t clic_req;
-  reg_a32_d32_rsp_t clic_rsp;
-
-  assign clic_req.addr  = reg_bus.addr;
-  assign clic_req.write = reg_bus.write;
-  assign clic_req.wdata = reg_bus.wdata;
-  assign clic_req.wstrb = reg_bus.wstrb;
-  assign clic_req.valid = reg_bus.valid;
-
-  assign reg_bus.rdata = clic_rsp.rdata;
-  assign reg_bus.error = clic_rsp.error;
-  assign reg_bus.ready = clic_rsp.ready;
-
-  // coproc
-  cvxif_pkg::cvxif_req_t  cvxif_req;
-  cvxif_pkg::cvxif_resp_t cvxif_resp;
-
-  cvxif_example_coprocessor i_cvxif_coprocessor (
-    .clk_i                ( clk_i                          ),
-    .rst_ni               ( rst_ni                         ),
-    .cvxif_req_i          ( cvxif_req                      ),
-    .cvxif_resp_o         ( cvxif_resp                     )
-  );
-
-  // clic
-  clic #(
-    .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
-    .INTCTLBITS(ariane_soc::CLICIntCtlBits),
-    .reg_req_t (reg_a32_d32_req_t),
-    .reg_rsp_t (reg_a32_d32_rsp_t),
-    .SSCLIC    (1),
-    .USCLIC    (0)
-  ) i_clic (
-    .clk_i(clk_i),
-    .rst_ni(ndmreset_n),
-    // Bus Interface
-    .reg_req_i(clic_req),
-    .reg_rsp_o(clic_rsp),
-    // Interrupt Sources
-    .intr_src_i (clic_irqs),
-    // Interrupt notification to core
-    .irq_valid_o(core_irq_valid),
-    .irq_ready_i(core_irq_ready),
-    .irq_id_o   (core_irq_id),
-    .irq_level_o(core_irq_level),
-    .irq_shv_o  (core_irq_shv),
-    .irq_priv_o (core_irq_priv),
-    .irq_kill_req_o (core_irq_kill_req),
-    .irq_kill_ack_i (core_irq_kill_ack)
-  );
-
-  // ariane
-  cva6 #(
-    .ArianeCfg  ( ariane_soc::ArianeSocCfg )
-  ) i_ariane (
-    .clk_i                ( clk_i               ),
-    .rst_ni               ( ndmreset_n          ),
-    .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
-    .hart_id_i            ( {56'h0, hart_id}    ),
-    .irq_i                ( irqs                ),
-    .ipi_i                ( ipi                 ),
-    .time_irq_i           ( timer_irq           ),
-`ifdef RVFI_PORT
-    .rvfi_o               ( rvfi                ),
-`else
-    .rvfi_o               (                     ),
-`endif
-// Disable Debug when simulating with Spike
-`ifdef SPIKE_TANDEM
-    .debug_req_i          ( 1'b0                ),
-`else
-    .debug_req_i          ( debug_req_core      ),
-`endif
-    // CLIC
-    .clic_irq_valid_i     ( core_irq_valid      ),
-    .clic_irq_id_i        ( core_irq_id         ),
-    .clic_irq_level_i     ( core_irq_level      ),
-    .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
-    .clic_irq_shv_i       ( core_irq_shv        ),
-    .clic_irq_ready_o     ( core_irq_ready      ),
-    .clic_kill_req_i      ( core_irq_kill_req   ),
-    .clic_kill_ack_o      ( core_irq_kill_ack   ),
-    .cvxif_req_o          ( cvxif_req           ),
-    .cvxif_resp_i         ( cvxif_resp          ),
-    .l15_req_o            (                     ),
-    .l15_rtrn_i           ( '0                  ),
-    .axi_req_o            ( axi_ariane_req      ),
-    .axi_resp_i           ( axi_ariane_resp     )
-  );
-
-  `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
-  `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
-
-  // -------------
-  // Simulation Helper Functions
-  // -------------
-  // check for response errors
-  always_ff @(posedge clk_i) begin : p_assert
-    if (axi_ariane_req.r_ready &&
-      axi_ariane_resp.r_valid &&
-      axi_ariane_resp.r.resp inside {axi_pkg::RESP_DECERR, axi_pkg::RESP_SLVERR}) begin
-      $warning("R Response Errored");
-    end
-    if (axi_ariane_req.b_ready &&
-      axi_ariane_resp.b_valid &&
-      axi_ariane_resp.b.resp inside {axi_pkg::RESP_DECERR, axi_pkg::RESP_SLVERR}) begin
-      $warning("B Response Errored");
-    end
+  reg_rule_t [ariane_soc::NumHarts-1:0] reg_map;
+  for (genvar i = 0; i < ariane_soc::NumHarts; i++) begin
+    assign reg_map[i] = '{ idx: i, start_addr: ariane_soc::CLICBase+32'h40000*i, end_addr: ariane_soc::CLICBase+32'h40000*(i+1)};
   end
 
-  rvfi_tracer  #(
-    .HART_ID(hart_id),
-    .DEBUG_START(0),
-    .DEBUG_STOP(0)
-  ) rvfi_tracer_i (
-    .clk_i(clk_i),
-    .rst_ni(rst_ni),
-    .rvfi_i(rvfi),
-    .end_of_test_o(rvfi_exit)
+  localparam DecodeIdxWidth = cf_math_pkg::idx_width(ariane_soc::NumHarts+1);
+  logic [cf_math_pkg::idx_width(ariane_soc::NumHarts+1)-1:0] reg_select;
+
+  // Convert to 32-bit reg datawidth
+  axi_dw_converter #(
+    .AxiSlvPortDataWidth  ( ariane_axi::DataWidth         ),
+    .AxiMstPortDataWidth  ( 32                            ),
+    .AxiAddrWidth         ( ariane_axi::AddrWidth         ),
+    .AxiIdWidth           ( ariane_soc::IdWidthSlave      ),
+    .aw_chan_t            ( ariane_axi_soc::aw_chan_slv_t ),
+    .mst_w_chan_t         ( axi_d32_w_chan_t              ),
+    .slv_w_chan_t         ( ariane_axi::w_chan_t          ),
+    .b_chan_t             ( ariane_axi_soc::b_chan_slv_t  ),
+    .ar_chan_t            ( ariane_axi_soc::ar_chan_slv_t ),
+    .mst_r_chan_t         ( axi_d32_r_chan_t              ),
+    .slv_r_chan_t         ( ariane_axi_soc::r_chan_slv_t  ),
+    .axi_mst_req_t        ( axi_d32_req_t                 ),
+    .axi_mst_resp_t       ( axi_d32_resp_t                ),
+    .axi_slv_req_t        ( ariane_axi_soc::req_slv_t     ),
+    .axi_slv_resp_t       ( ariane_axi_soc::resp_slv_t    )
+  ) i_reg_axi_dw_converter (
+    .clk_i,
+    .rst_ni,
+    .slv_req_i  ( axi_clic_req      ),
+    .slv_resp_o ( axi_clic_resp     ),
+    .mst_req_o  ( axi_d32_clic_req  ),
+    .mst_resp_i ( axi_d32_clic_resp )
   );
+
+  // Convert from AXI to reg protocol
+  axi_to_reg #(
+    .ADDR_WIDTH         ( ariane_axi::AddrWidth    ),
+    .DATA_WIDTH         ( REG_BUS_DATA_WIDTH       ),
+    .ID_WIDTH           ( ariane_soc::IdWidthSlave ),
+    .USER_WIDTH         ( ariane_axi::UserWidth    ),
+    .AXI_MAX_WRITE_TXNS ( 1                        ),
+    .AXI_MAX_READ_TXNS  ( 1                        ),
+    .DECOUPLE_W         ( 1                        ),
+    .axi_req_t          ( axi_d32_req_t            ),
+    .axi_rsp_t          ( axi_d32_resp_t           ),
+    .reg_req_t          ( reg_req_t                ),
+    .reg_rsp_t          ( reg_rsp_t                )
+  ) i_reg_axi_to_reg (
+    .clk_i,
+    .rst_ni,
+    .testmode_i  ( '0                ),
+    .axi_req_i   ( axi_d32_clic_req  ),
+    .axi_rsp_o   ( axi_d32_clic_resp ),
+    .reg_req_o   ( reg_req           ),
+    .reg_rsp_i   ( reg_rsp           )
+  );
+
+  // Non-matching addresses are directed to an error slave
+  addr_decode #(
+    .NoIndices  ( ariane_soc::NumHarts + 1       ),
+    .NoRules    ( ariane_soc::NumHarts           ),
+    .addr_t     ( logic [REG_BUS_ADDR_WIDTH-1:0] ),
+    .rule_t     ( reg_rule_t                     )
+  ) i_reg_demux_decode (
+    .addr_i           ( reg_req.addr         ),
+    .addr_map_i       ( reg_map              ),
+    .idx_o            ( reg_select           ),
+    .dec_valid_o      (                      ),
+    .dec_error_o      (                      ),
+    .en_default_idx_i ( 1'b1                 ),
+    .default_idx_i    ( DecodeIdxWidth'(ariane_soc::NumHarts) )
+  );
+
+  reg_demux #(
+    .NoPorts  ( ariane_soc::NumHarts + 1 ),
+    .req_t    ( reg_req_t                ),
+    .rsp_t    ( reg_rsp_t                )
+  ) i_reg_demux (
+    .clk_i,
+    .rst_ni,
+    .in_select_i  ( reg_select            ),
+    .in_req_i     ( reg_req               ),
+    .in_rsp_o     ( reg_rsp               ),
+    .out_req_o    ( { err_req, clic_req } ),
+    .out_rsp_i    ( { err_rsp, clic_rsp } )
+  );
+
+  reg_err_slv #(
+    .DW       ( 32           ),
+    .ERR_VAL  ( 32'hBADCAB1E ),
+    .req_t    ( reg_req_t    ),
+    .rsp_t    ( reg_rsp_t    )
+  ) i_reg_err_slv (
+    .req_i  ( err_req ),
+    .rsp_o  ( err_rsp )
+  );
+
+  // ---------------
+  // Cores
+  // ---------------
+  ariane_axi::req_t  [0:ariane_soc::NumHarts-1]  axi_ariane_req;
+  ariane_axi::resp_t [0:ariane_soc::NumHarts-1]  axi_ariane_resp;
+  ariane_pkg::rvfi_port_t  [0:ariane_soc::NumHarts-1] rvfi;
+
+  generate
+  for (genvar i = 0; i < ariane_soc::NumHarts; i++) begin
+
+    // Interrupt sources
+    logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
+                                                                    // Privilege Spec. v. 20211203, pag. 39
+    logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;                          // other local interrupts routed through the CLIC
+
+    // core interface signals
+    logic                                               core_irq_valid, core_irq_ready; // interrupt handshake
+    logic                                               core_irq_shv;               // selective hardware vectoring
+    logic [$clog2(ariane_soc::CLICNumInterruptSrc)-1:0] core_irq_id;                // interrupt id
+    logic [7:0]                                         core_irq_level;             // interrupt level
+    logic [1:0]                                         core_irq_priv;              // interrupt privilege
+    logic                                               core_irq_kill_req;
+    logic                                               core_irq_kill_ack;
+    // Machine and Supervisor External interrupts
+    // External interrupts. When not in CLIC mode, they are seen as global
+    // interrupts and routed through the PLIC to meip/seip.
+    logic meip, seip;
+    assign meip = irqs[i][0];
+    assign seip = irqs[i][1];
+
+    // Machine Timer interrupt
+    // Generate timer interrupt from a real-time clock (rtc).
+    // When in CLIC mode, the timer interrupt is routed through the CLIC and not
+    // directly to the HART
+    localparam int unsigned NumTimerIrq = 1; // 1 target, cva6
+    logic [NumTimerIrq-1:0]    mtip;
+
+    // Machine Software interrupt
+    // When in CLIC mode, msip can be fired by writing to the corresponding
+    // memory-mapped register in the CLIC
+
+    // XLEN regular CLINT interrupts
+    assign clint_irqs = {
+      {(riscv::XLEN - 16){1'b0}}, // 64 - 16 = 48, designated for platform use
+      {4{1'b0}},                  // reserved
+      seip,                       // seip
+      1'b0,                       // reserved
+      meip,                       // meip
+      1'b0,                       // reserved, seip, reserved, meip
+      timer_irq,                  // mtip
+      {3{1'b0}},                  // reserved, stip, reserved
+      ipi,                        // msip
+      {3{1'b0}}                   // reserved, ssip, reserved
+    };
+
+    // local interrupts with CLIC
+    assign clic_irqs = {
+      {(ariane_soc::CLICNumInterruptSrc - riscv::XLEN){1'b0}}, // 192, platform defined
+      clint_irqs                               // 64  (XLEN regular clint interrupts)
+    };
+
+    // coproc
+    cvxif_pkg::cvxif_req_t  cvxif_req;
+    cvxif_pkg::cvxif_resp_t cvxif_resp;
+
+    cvxif_example_coprocessor i_cvxif_coprocessor (
+      .clk_i        ( clk_i      ),
+      .rst_ni       ( rst_ni     ),
+      .cvxif_req_i  ( cvxif_req  ),
+      .cvxif_resp_o ( cvxif_resp )
+    );
+
+    // clic
+    clic #(
+      .N_SOURCE   ( ariane_soc::CLICNumInterruptSrc ),
+      .INTCTLBITS ( ariane_soc::CLICIntCtlBits      ),
+      .reg_req_t  ( reg_req_t                       ),
+      .reg_rsp_t  ( reg_rsp_t                       ),
+      .SSCLIC     ( 1                               ),
+      .USCLIC     ( 0                               )
+    ) i_clic (
+      .clk_i          ( clk_i            ),
+      .rst_ni         ( ndmreset_n       ),
+      // Bus Interface
+      .reg_req_i      (clic_req[i]       ),
+      .reg_rsp_o      (clic_rsp[i]       ),
+      // Interrupt Sources
+      .intr_src_i     (clic_irqs         ),
+      // Interrupt notification to core
+      .irq_valid_o    (core_irq_valid    ),
+      .irq_ready_i    (core_irq_ready    ),
+      .irq_id_o       (core_irq_id       ),
+      .irq_level_o    (core_irq_level    ),
+      .irq_shv_o      (core_irq_shv      ),
+      .irq_priv_o     (core_irq_priv     ),
+      .irq_kill_req_o (core_irq_kill_req ),
+      .irq_kill_ack_i (core_irq_kill_ack )
+    );
+
+    // ariane
+    cva6 #(
+      .ArianeCfg  ( ariane_soc::ArianeSocCfg )
+    ) i_ariane (
+      .clk_i                ( clk_i               ),
+      .rst_ni               ( ndmreset_n          ),
+      .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
+      .hart_id_i            ( {56'h0, 8'(i)}      ),
+      .irq_i                ( irqs[i]             ),
+      .ipi_i                ( ipi[i]              ),
+      .time_irq_i           ( timer_irq[i]        ),
+  `ifdef RVFI_PORT
+      .rvfi_o               ( rvfi[i]             ),
+  `else
+      .rvfi_o               (                     ),
+  `endif
+  // Disable Debug when simulating with Spike
+  `ifdef SPIKE_TANDEM
+      .debug_req_i          ( 1'b0                ),
+  `else
+      .debug_req_i          ( debug_req_core[i]   ),
+  `endif
+      // CLIC
+      .clic_irq_valid_i     ( core_irq_valid      ),
+      .clic_irq_id_i        ( core_irq_id         ),
+      .clic_irq_level_i     ( core_irq_level      ),
+      .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
+      .clic_irq_shv_i       ( core_irq_shv        ),
+      .clic_irq_ready_o     ( core_irq_ready      ),
+      .clic_kill_req_i      ( core_irq_kill_req   ),
+      .clic_kill_ack_o      ( core_irq_kill_ack   ),
+      .cvxif_req_o          ( cvxif_req           ),
+      .cvxif_resp_i         ( cvxif_resp          ),
+      .l15_req_o            (                     ),
+      .l15_rtrn_i           ( '0                  ),
+      .axi_req_o            ( axi_ariane_req[i]   ),
+      .axi_resp_i           ( axi_ariane_resp[i]  )
+    );
+
+      `AXI_ASSIGN_FROM_REQ(slave[i], axi_ariane_req[i])
+      `AXI_ASSIGN_TO_RESP(axi_ariane_resp[i], slave[i])
+
+      // -------------
+      // Simulation Helper Functions
+      // -------------
+      // check for response errors
+      always_ff @(posedge clk_i) begin : p_assert
+        if (axi_ariane_req[i].r_ready &&
+          axi_ariane_resp[i].r_valid &&
+          axi_ariane_resp[i].r.resp inside {axi_pkg::RESP_DECERR, axi_pkg::RESP_SLVERR}) begin
+          $warning("R Response Errored");
+        end
+        if (axi_ariane_req[i].b_ready &&
+          axi_ariane_resp[i].b_valid &&
+          axi_ariane_resp[i].b.resp inside {axi_pkg::RESP_DECERR, axi_pkg::RESP_SLVERR}) begin
+          $warning("B Response Errored");
+        end
+      end
+
+      logic [31:0] rvfi_exit_tmp;
+      if (i == 0) assign rvfi_exit = rvfi_exit_tmp;
+
+    rvfi_tracer  #(
+      .HART_ID(i),
+      .DEBUG_START(0),
+      .DEBUG_STOP(0)
+    ) rvfi_tracer_i (
+      .clk_i(clk_i),
+      .rst_ni(rst_ni),
+      .rvfi_i(rvfi[i]),
+      .end_of_test_o(rvfi_exit_tmp)
+    );
+
+    end
+  endgenerate
 
 `ifdef AXI_SVA
   // AXI 4 Assertion IP integration - You will need to get your own copy of this IP if you want
