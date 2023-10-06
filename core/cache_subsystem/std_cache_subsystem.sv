@@ -51,14 +51,7 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
     input  logic                           dcache_flush_i,         // high until acknowledged
     output logic                           dcache_flush_ack_o,     // send a single cycle acknowledge signal when the cache is flushed
     output logic                           dcache_miss_o,          // we missed on a ld/st
-    output logic                           dcache_hit_o,           // we hit on a ld/st
-    output logic                           dcache_flushing_o,      // flushing
     output logic                           wbuffer_empty_o,        // statically set to 1, as there is no wbuffer in this cache system
-    output logic                           dcache_write_hit_unique_o,
-    output logic                           dcache_write_hit_shared_o,
-    output logic                           dcache_write_miss_o,
-    output logic                           dcache_clean_invalid_hit_o,
-    output logic                           dcache_clean_invalid_miss_o,
     // Request ports
     input  dcache_req_i_t   [2:0]          dcache_req_ports_i,     // to/from LSU
     output dcache_req_o_t   [2:0]          dcache_req_ports_o,     // to/from LSU
@@ -142,14 +135,7 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
       .flush_i      ( dcache_flush_i         ),
       .flush_ack_o  ( dcache_flush_ack_o     ),
       .miss_o       ( dcache_miss_o          ),
-      .hit_o        ( dcache_hit_o           ),
-      .flushing_o   ( dcache_flushing_o      ),
       .busy_o       ( dcache_busy            ),
-      .write_hit_unique_o   ( dcache_write_hit_unique_o   ),
-      .write_hit_shared_o   ( dcache_write_hit_shared_o   ),
-      .write_miss_o         ( dcache_write_miss_o         ),
-      .clean_invalid_hit_o  ( dcache_clean_invalid_hit_o  ),
-      .clean_invalid_miss_o ( dcache_clean_invalid_miss_o ),
       .stall_i      ( stall_i                ),
       .init_ni      ( init_ni                ),
       .axi_bypass_o ( axi_req_bypass         ),
