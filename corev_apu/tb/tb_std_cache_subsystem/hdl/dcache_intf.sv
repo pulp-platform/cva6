@@ -100,4 +100,5 @@ interface dcache_gnt_if (input logic clk);
     logic [2:0] miss_gnt;
     logic [2:0] wr_gnt;
     logic       snoop_wr_gnt;
+    logic [2:0] mshr_match;
 endinterface

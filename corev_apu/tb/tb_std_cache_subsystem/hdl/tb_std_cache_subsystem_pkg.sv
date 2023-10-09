@@ -2133,6 +2133,19 @@ package tb_std_cache_subsystem_pkg;
                     end
                     // cacheable
                     else begin
+
+                        // wait for possible MSHR match
+                        int cnt = 0;
+                        while (gnt_vif.mshr_match[msg.port_idx]) begin
+                            $display("%t ns %s.check_cache_msg: wait for MSHR match for message : %s", $time, name, msg.print_me());
+                            @(posedge sram_vif.clk);
+                            cnt++;
+                            if (cnt > cache_msg_timeout) begin
+                                $error("%s.check_cache_msg : Timeout while waiting for MSHR match for message : %s", name, msg.print_me());
+                                break;
+                            end
+                        end
+
                         // go to hit or miss routine
                         if (isHit(addr_v)) begin
                             do_hit(msg);
