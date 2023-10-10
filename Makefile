@@ -174,10 +174,16 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/register_interface/src/reg_demux.sv                                \
         corev_apu/register_interface/src/axi_lite_to_reg.sv                          \
         vendor/pulp-platform/axi/src/axi_multicut.sv                                 \
+        vendor/pulp-platform/common_cells/src/cb_filter_pkg.sv                       \
+        vendor/pulp-platform/common_cells/src/cb_filter.sv                           \
         vendor/pulp-platform/common_cells/src/rstgen_bypass.sv                       \
         vendor/pulp-platform/common_cells/src/rstgen.sv                              \
         vendor/pulp-platform/common_cells/src/addr_decode.sv                         \
         vendor/pulp-platform/common_cells/src/stream_register.sv                     \
+        vendor/pulp-platform/common_cells/src/stream_fifo.sv                         \
+        vendor/pulp-platform/common_cells/src/stream_xbar.sv                         \
+        vendor/pulp-platform/common_cells/src/onehot_to_bin.sv                       \
+        vendor/pulp-platform/common_cells/src/sub_per_hash.sv                        \
         vendor/pulp-platform/axi/src/axi_intf.sv                                     \
         vendor/pulp-platform/axi/src/axi_cut.sv                                      \
         vendor/pulp-platform/axi/src/axi_join.sv                                     \
@@ -189,6 +195,7 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         vendor/pulp-platform/axi/src/axi_mux.sv                                      \
         vendor/pulp-platform/axi/src/axi_demux.sv                                    \
         vendor/pulp-platform/axi/src/axi_xbar.sv                                     \
+        vendor/pulp-platform/axi/src/axi_isolate.sv                                  \
         vendor/pulp-platform/axi/src/axi_burst_splitter.sv                           \
         vendor/pulp-platform/axi/src/axi_dw_upsizer.sv                               \
         vendor/pulp-platform/axi/src/axi_dw_downsizer.sv                             \
