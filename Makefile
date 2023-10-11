@@ -172,6 +172,7 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/register_interface/src/apb_to_reg.sv                               \
         corev_apu/register_interface/src/axi_to_reg.sv                               \
         corev_apu/register_interface/src/reg_demux.sv                                \
+        corev_apu/register_interface/src/reg_err_slv.sv                              \
         corev_apu/register_interface/src/axi_lite_to_reg.sv                          \
         vendor/pulp-platform/axi/src/axi_multicut.sv                                 \
         vendor/pulp-platform/common_cells/src/cb_filter_pkg.sv                       \
