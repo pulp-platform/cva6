@@ -14,6 +14,8 @@
 // Description: Standard Ariane cache subsystem with instruction cache and
 //              write-back data cache.
 
+`include "ace/assign.svh"
+`include "axi/assign.svh"
 
 module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
     parameter ariane_cfg_t ArianeCfg = ArianeDefaultConfig,  // contains cacheable regions
@@ -62,21 +64,26 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
 
   assign wbuffer_empty_o = 1'b1;
 
-    axi_req_t axi_req_icache;
-    axi_rsp_t axi_resp_icache;
+  axi_req_t axi_req_icache;
+  axi_rsp_t axi_resp_icache;
 
-    ariane_ace::m2s_nosnoop_t axi_req_bypass;
-    ariane_ace::s2m_nosnoop_t axi_resp_bypass;
-    ariane_ace::m2s_nosnoop_t axi_req_data;
-    ariane_ace::s2m_nosnoop_t axi_resp_data;
+  axi_req_t axi_req_bypass;
+  axi_rsp_t axi_resp_bypass;
+  axi_req_t axi_req_data;
+  axi_rsp_t axi_resp_data;
 
-    ariane_ace::snoop_req_t snoop_port_i;
-    ariane_ace::snoop_resp_t snoop_port_o;
+  ariane_ace::m2s_nosnoop_t ace_req_bypass;
+  ariane_ace::s2m_nosnoop_t ace_resp_bypass;
+  ariane_ace::m2s_nosnoop_t ace_req_data;
+  ariane_ace::s2m_nosnoop_t ace_resp_data;
 
-    logic              icache_busy;
-    logic              dcache_busy;
+  ariane_ace::snoop_req_t   snoop_port_i;
+  ariane_ace::snoop_resp_t  snoop_port_o;
 
-    assign busy_o = icache_busy | dcache_busy;
+  logic                     icache_busy;
+  logic                     dcache_busy;
+
+  assign busy_o = icache_busy | dcache_busy;
 
   if (DCACHE_COHERENT) begin
     assign snoop_port_i.ac = axi_resp_i.ac;
@@ -88,8 +95,20 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
     assign axi_req_o.cr_resp = snoop_port_o.cr_resp;
     assign axi_req_o.cd_valid = snoop_port_o.cd_valid;
     assign axi_req_o.cd = snoop_port_o.cd;
+    `ACE_ASSIGN_REQ_STRUCT(axi_req_bypass, ace_req_bypass)
+    `ACE_ASSIGN_REQ_STRUCT(axi_req_data, ace_req_data)
+    `ACE_ASSIGN_RESP_STRUCT(ace_resp_bypass, axi_resp_bypass)
+    `ACE_ASSIGN_RESP_STRUCT(ace_resp_data, axi_resp_data)
   end else begin
     assign snoop_port_i = '0;
+    `AXI_ASSIGN_REQ_STRUCT(axi_req_bypass, ace_req_bypass)
+    `AXI_ASSIGN_REQ_STRUCT(axi_req_data, ace_req_data)
+    always_comb begin
+      ace_resp_data   = '0;
+      ace_resp_bypass = '0;
+      `AXI_SET_RESP_STRUCT(ace_resp_bypass, axi_resp_bypass)
+      `AXI_SET_RESP_STRUCT(ace_resp_data, axi_resp_data)
+    end
   end
 
     cva6_icache_axi_wrapper #(
@@ -139,10 +158,10 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
       .busy_o       ( dcache_busy            ),
       .stall_i      ( stall_i                ),
       .init_ni      ( init_ni                ),
-      .axi_bypass_o ( axi_req_bypass         ),
-      .axi_bypass_i ( axi_resp_bypass        ),
-      .axi_data_o   ( axi_req_data           ),
-      .axi_data_i   ( axi_resp_data          ),
+      .axi_bypass_o ( ace_req_bypass         ),
+      .axi_bypass_i ( ace_resp_bypass        ),
+      .axi_data_o   ( ace_req_data           ),
+      .axi_data_i   ( ace_resp_data          ),
       .req_ports_i  ( dcache_req_ports_i     ),
       .req_ports_o  ( dcache_req_ports_o     ),
       .amo_req_i,
