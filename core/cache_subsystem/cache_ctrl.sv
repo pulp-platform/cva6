@@ -41,7 +41,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     input  cache_line_t [DCACHE_SET_ASSOC-1:0]   data_i,
     output logic                                 we_o,
     input  logic [DCACHE_SET_ASSOC-1:0]          hit_way_i,
-    input logic [DCACHE_SET_ASSOC-1:0]    shared_way_i,
+    input  logic [DCACHE_SET_ASSOC-1:0]          shared_way_i,
     // Miss handling
     output miss_req_t                            miss_req_o,
     // return
@@ -57,9 +57,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic [55:0]                          mshr_addr_o,
     input  logic                                 mshr_addr_matches_i,
     input  logic                                 mshr_index_matches_i,
-
-    input readshared_done_t readshared_done_i,
-    output logic updating_cache_o
+    // to/from snoop controller
+    input  readshared_done_t                     readshared_done_i,
+    output logic                                 updating_cache_o
 );
 
     enum logic [3:0] {

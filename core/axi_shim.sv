@@ -25,6 +25,7 @@ module axi_shim #(
   parameter int unsigned AxiAddrWidth = 0,
   parameter int unsigned AxiDataWidth = 0,
   parameter int unsigned AxiIdWidth   = 0,
+  parameter bit          AxiAce       = 0, // Add AMBA ACE signals
   parameter type axi_req_t = ariane_axi::req_t,
   parameter type axi_rsp_t = ariane_axi::resp_t
 ) (
@@ -278,7 +279,7 @@ module axi_shim #(
 // AMBA ACE
 ///////////////////////////////////////////////////////
 
-  if ($bits(axi_req_t) == $bits(ariane_ace::m2s_t)) begin : ACE
+  if (AxiAce) begin : ACE
     // RACK / WACK
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (~rst_ni) begin

@@ -83,9 +83,9 @@ package std_cache_pkg;
         vldrty_t [ariane_pkg::DCACHE_SET_ASSOC-1:0]        vldrty; // bit enable into state array
     } cl_be_t;
 
-  typedef struct                                        packed {
-    logic                                               valid;
-    logic [63:0]                                        addr;
+  typedef struct packed {
+    logic        valid;
+    logic [63:0] addr;
   } readshared_done_t;
 
     // convert one hot to bin for -> needed for cache replacement

@@ -23,6 +23,7 @@ module axi_adapter #(
   parameter int unsigned AXI_ADDR_WIDTH        = 0,
   parameter int unsigned AXI_DATA_WIDTH        = 0,
   parameter int unsigned AXI_ID_WIDTH          = 0,
+  parameter logic        AXI_ACE               = 0, // Support AMBA ACE
   parameter type axi_req_t = ariane_axi::req_t,
   parameter type axi_rsp_t = ariane_axi::resp_t
 )(
@@ -417,7 +418,7 @@ module axi_adapter #(
   end
 
   generate
-  if ($bits(axi_req_t) == $bits(ariane_ace::m2s_nosnoop_t)) begin
+  if (AXI_ACE) begin
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (~rst_ni) begin
@@ -509,8 +510,8 @@ module axi_adapter #(
       id_q          <= '0;
       amo_q         <= ariane_pkg::AMO_NONE;
       size_q        <= '0;
-      dirty_q <= '0;
-      shared_q <= '0;
+      dirty_q       <= '0;
+      shared_q      <= '0;
     end else begin
       state_q       <= state_d;
       cnt_q         <= cnt_d;
@@ -519,8 +520,8 @@ module axi_adapter #(
       id_q          <= id_d;
       amo_q         <= amo_d;
       size_q        <= size_d;
-      dirty_q <= dirty_d;
-      shared_q <= shared_d;
+      dirty_q       <= dirty_d;
+      shared_q      <= shared_d;
     end
   end
 

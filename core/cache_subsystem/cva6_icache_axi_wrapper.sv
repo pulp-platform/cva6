@@ -18,6 +18,7 @@ module cva6_icache_axi_wrapper import ariane_pkg::*; import wt_cache_pkg::*; #(
   parameter int unsigned AxiAddrWidth = 0,
   parameter int unsigned AxiDataWidth = 0,
   parameter int unsigned AxiIdWidth   = 0,
+  parameter bit          AxiAce       = 0,
   parameter type axi_req_t = ariane_axi::req_t,
   parameter type axi_rsp_t = ariane_axi::resp_t
 ) (
@@ -134,6 +135,7 @@ module cva6_icache_axi_wrapper import ariane_pkg::*; import wt_cache_pkg::*; #(
     .AxiDataWidth    ( AxiDataWidth   ),
     .AxiIdWidth      ( AxiIdWidth     ),
     .AxiUserWidth    ( AXI_USER_WIDTH ),
+    .AxiAce          ( AxiAce         ),
     .axi_req_t       ( axi_req_t      ),
     .axi_rsp_t       ( axi_rsp_t      )
   ) i_axi_shim (

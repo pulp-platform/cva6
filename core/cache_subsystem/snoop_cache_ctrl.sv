@@ -39,11 +39,9 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
   input  logic                               flushing_i,
   input  logic                               amo_valid_i,
   input  logic [63:0]                        amo_addr_i,
-
-  input  logic  [DCACHE_SET_ASSOC-1:0]       miss_invalidate_req_i,
-  input  logic  [DCACHE_INDEX_WIDTH-1:0]     miss_invalidate_addr_i,
-
-  //
+  input  logic        [DCACHE_SET_ASSOC-1:0] miss_invalidate_req_i,
+  input  logic      [DCACHE_INDEX_WIDTH-1:0] miss_invalidate_addr_i,
+  // to/from cache_ctrl
   input  logic                               updating_cache_i,
   output readshared_done_t                   readshared_done_o
 );
@@ -55,14 +53,14 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
 
   typedef enum logic [2:0] {
-    IDLE, // 0
-    SEND_REQ, // 1
-    WAIT_GNT, // 2
-    EVAL_FLAGS, // 3
-    UPDATE_SHARED, // 4
-    INVALIDATE, // 5
-    SEND_CR_RESP, // 6
-    SEND_CD_RESP // 7
+    IDLE,            // 0
+    SEND_REQ,        // 1
+    WAIT_GNT,        // 2
+    EVAL_FLAGS,      // 3
+    UPDATE_SHARED,   // 4
+    INVALIDATE,      // 5
+    SEND_CR_RESP,    // 6
+    SEND_CD_RESP     // 7
   } state_t;
 
   state_t state_d, state_q;

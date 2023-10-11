@@ -47,6 +47,7 @@ package cva6_config_pkg;
     localparam CVA6ConfigDcacheByteSize = 32768;
     localparam CVA6ConfigDcacheSetAssoc = 8;
     localparam CVA6ConfigDcacheLineWidth = 128;
+    localparam CVA6ConfigDcacheCoherent = 1;
 
     localparam CVA6ConfigDcacheIdWidth = 1;
     localparam CVA6ConfigMemTidWidth = 2;
@@ -86,6 +87,6 @@ package cva6_config_pkg;
     `endif
 
     // For ariane_soc (no need to adjust in other systems
-    localparam ArianeSoCNumHarts = 2;
+    localparam ArianeSoCNumHarts = 1;
 
 endpackage

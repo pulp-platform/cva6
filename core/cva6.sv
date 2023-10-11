@@ -858,6 +858,13 @@ module cva6 import ariane_pkg::*; #(
     .axi_resp_i            ( axi_resp_i                  )
 `endif
   );
+
+  // pragma translate_off
+  `ifndef VERILATOR
+  initial a_not_coherent : assert(DCACHE_COHERENT == 0) else $error("DCACHE_COHERENT only supported with WB cache");
+  `endif
+  // pragma translate_on
+
   end else begin : WB
 
   std_cache_subsystem #(
