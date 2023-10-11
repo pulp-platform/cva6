@@ -281,7 +281,7 @@ incdir := vendor/pulp-platform/common_cells/include/ vendor/pulp-platform/axi/in
 compile_flag     += +cover=bcfst+/dut -incr -64 -nologo -quiet -suppress 13262 -permissive -svinputport=compat +define+$(defines)
 
 uvm-flags        += +UVM_NO_RELNOTES +UVM_VERBOSITY=LOW
-questa-flags     += -t 1ns -64 -coverage -classdebug $(gui-sim) $(QUESTASIM_FLAGS) +tohost_addr=$(tohost_addr)
+questa-flags     += -t 1ns -64 -coverage -classdebug $(gui-sim) $(QUESTASIM_FLAGS)
 compile_flag_vhd += -64 -nologo -quiet -2008
 
 # Iterate over all include directories and write them with +incdir+ prefixed
