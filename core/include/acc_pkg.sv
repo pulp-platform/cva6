@@ -32,7 +32,8 @@ package acc_pkg;
     logic                                 resp_valid;
     riscv::xlen_t                         result;
     logic [ariane_pkg::TRANS_ID_BITS-1:0] trans_id;
-    logic                                 error;
+    ariane_pkg::exception_t               exception;
+
     // Metadata
     logic                                 store_pending;
     logic                                 store_complete;
