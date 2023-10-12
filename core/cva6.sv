@@ -1022,7 +1022,7 @@ module cva6 import ariane_pkg::*; #(
     .noc_resp_i            ( noc_resp_i )
   );
   assign inval_ready                  = 1'b1;
-  end else begin
+  end else begin : gen_cache_wb
   std_cache_subsystem #(
     // note: this only works with one cacheable region
     // not as important since this cache subsystem is about to be
