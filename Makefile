@@ -223,8 +223,6 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/tb/common/SimDTM.sv                                                \
         corev_apu/tb/common/SimJTAG.sv
 
-#        corev_apu/register_interface/src/reg_err_slv.sv                              \
-
 flists := ${CVA6_REPO_DIR}/core/Flist.cva6
 # SV32 MMU for CV32, SV39 MMU for CV64
 ifeq ($(findstring 32, $(target)),32)
