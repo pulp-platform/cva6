@@ -297,7 +297,7 @@ module axi_shim #(
         rack_q <= 1'b0;
       end else begin
         wack_q <= wack_d;
-        rack_q <= wack_d;
+        rack_q <= rack_d;
       end
     end
 
