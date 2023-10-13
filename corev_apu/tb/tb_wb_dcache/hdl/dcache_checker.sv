@@ -24,10 +24,10 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
    output logic check_done_o,
    input        ariane_pkg::dcache_req_i_t[NR_CPU_PORTS-1:0] req_ports_i,
    input        ariane_pkg::dcache_req_o_t[NR_CPU_PORTS-1:0] req_ports_o,
-   input        ariane_ace::m2s_nosnoop_t axi_data_o,
-   input        ariane_ace::s2m_nosnoop_t axi_data_i,
-   input        ariane_ace::m2s_nosnoop_t axi_bypass_o,
-   input        ariane_ace::s2m_nosnoop_t axi_bypass_i,
+   input        ariane_ace::req_nosnoop_t axi_data_o,
+   input        ariane_ace::resp_nosnoop_t axi_data_i,
+   input        ariane_ace::req_nosnoop_t axi_bypass_o,
+   input        ariane_ace::resp_nosnoop_t axi_bypass_i,
    input        ariane_ace::snoop_req_t snoop_req_i,
    input        ariane_ace::snoop_resp_t snoop_resp_o
    );
@@ -110,7 +110,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isCleanUnique(
-                     ariane_ace::m2s_nosnoop_t ace_req
+                     ariane_ace::req_nosnoop_t ace_req
                      );
     if (ace_req.ar.snoop == 4'b1011 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b10 || ace_req.ar.domain == 2'b01))
       return 1'b1;
@@ -119,7 +119,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isReadShared(
-                            ariane_ace::m2s_nosnoop_t ace_req
+                            ariane_ace::req_nosnoop_t ace_req
                             );
     if (ace_req.ar.snoop == 4'b0001 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b01 || ace_req.ar.domain == 2'b10))
       return 1'b1;
@@ -128,7 +128,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isReadOnce(
-                            ariane_ace::m2s_nosnoop_t ace_req
+                            ariane_ace::req_nosnoop_t ace_req
                             );
     if (ace_req.ar.snoop == 4'b0000 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b01 || ace_req.ar.domain == 2'b10))
       return 1'b1;
@@ -137,7 +137,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isReadUnique(
-                          ariane_ace::m2s_nosnoop_t ace_req
+                          ariane_ace::req_nosnoop_t ace_req
                           );
     if (ace_req.ar.snoop == 4'b0111 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b01 || ace_req.ar.domain == 2'b10))
       return 1'b1;
@@ -146,7 +146,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isReadNoSnoop(
-                            ariane_ace::m2s_nosnoop_t ace_req
+                            ariane_ace::req_nosnoop_t ace_req
                             );
     if (ace_req.ar.snoop == 4'b0000 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b00 || ace_req.ar.domain == 2'b11))
       return 1'b1;
@@ -155,7 +155,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isWriteBack(
-                            ariane_ace::m2s_nosnoop_t ace_req
+                            ariane_ace::req_nosnoop_t ace_req
                             );
     if (ace_req.aw.snoop == 3'b011 && ace_req.aw.bar[0] == 1'b0 && (ace_req.aw.domain == 2'b00 || ace_req.aw.domain == 2'b01 || ace_req.aw.domain == 2'b10))
       return 1'b1;
@@ -164,7 +164,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isWriteUnique(
-                           ariane_ace::m2s_nosnoop_t ace_req
+                           ariane_ace::req_nosnoop_t ace_req
                            );
     if (ace_req.aw.snoop == 3'b000 && ace_req.aw.bar[0] == 1'b0 && (ace_req.aw.domain == 2'b01 || ace_req.aw.domain == 2'b10))
       return 1'b1;
@@ -173,7 +173,7 @@ module dcache_checker import ariane_pkg::*; import std_cache_pkg::*; import tb_p
   endfunction
 
   function bit isWriteNoSnoop(
-                           ariane_ace::m2s_nosnoop_t ace_req
+                           ariane_ace::req_nosnoop_t ace_req
                            );
     if (ace_req.aw.snoop == 3'b000 && ace_req.aw.bar[0] == 1'b0 && (ace_req.aw.domain == 2'b00 || ace_req.aw.domain == 2'b11))
       return 1'b1;

@@ -72,16 +72,16 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
   axi_req_t axi_req_data;
   axi_rsp_t axi_resp_data;
 
-  ariane_ace::m2s_nosnoop_t ace_req_bypass;
-  ariane_ace::s2m_nosnoop_t ace_resp_bypass;
-  ariane_ace::m2s_nosnoop_t ace_req_data;
-  ariane_ace::s2m_nosnoop_t ace_resp_data;
+  ariane_ace::req_nosnoop_t  ace_req_bypass;
+  ariane_ace::resp_nosnoop_t ace_resp_bypass;
+  ariane_ace::req_nosnoop_t  ace_req_data;
+  ariane_ace::resp_nosnoop_t ace_resp_data;
 
-  ariane_ace::snoop_req_t   snoop_port_i;
-  ariane_ace::snoop_resp_t  snoop_port_o;
+  ariane_ace::snoop_req_t    snoop_port_i;
+  ariane_ace::snoop_resp_t   snoop_port_o;
 
-  logic                     icache_busy;
-  logic                     dcache_busy;
+  logic                      icache_busy;
+  logic                      dcache_busy;
 
   assign busy_o = icache_busy | dcache_busy;
 
@@ -146,8 +146,8 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
       .AXI_ADDR_WIDTH   ( AxiAddrWidth ),
       .AXI_DATA_WIDTH   ( AxiDataWidth ),
       .AXI_ID_WIDTH     ( AxiIdWidth   ),
-      .axi_req_t        ( ariane_ace::m2s_nosnoop_t ),
-      .axi_rsp_t        ( ariane_ace::s2m_nosnoop_t )
+      .axi_req_t        ( ariane_ace::req_nosnoop_t ),
+      .axi_rsp_t        ( ariane_ace::resp_nosnoop_t )
    ) i_nbdcache (
       .clk_i,
       .rst_ni,

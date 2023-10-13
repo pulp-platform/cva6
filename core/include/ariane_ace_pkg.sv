@@ -90,12 +90,13 @@ package ariane_ace;
         logic                 r_ready;
         logic                 wack;
         logic                 rack;
+        // Snoop signals are reversed w.r.t. request / response
         logic                 ac_ready;
         logic                 cr_valid;
         snoop_pkg::crresp_t   cr_resp;
         logic                 cd_valid;
         cd_chan_t             cd;
-    } m2s_t;
+    } req_t;
 
     typedef struct packed {
         ariane_ace::aw_chan_t aw;
@@ -108,7 +109,7 @@ package ariane_ace;
         logic                 r_ready;
         logic                 wack;
         logic                 rack;
-    } m2s_nosnoop_t;
+    } req_nosnoop_t;
 
     typedef struct packed {
         ac_chan_t ac;
@@ -125,11 +126,12 @@ package ariane_ace;
         ariane_axi::b_chan_t b;
         logic                r_valid;
         ariane_ace::r_chan_t r;
+        // Snoop signals are reversed w.r.t. request / response
         ac_chan_t            ac;
         logic                ac_valid;
         logic                cr_ready;
         logic                cd_ready;
-    } s2m_t;
+    } resp_t;
 
     typedef struct  packed {
         logic                aw_ready;
@@ -139,7 +141,7 @@ package ariane_ace;
         ariane_axi::b_chan_t b;
         logic                r_valid;
         ariane_ace::r_chan_t r;
-    } s2m_nosnoop_t;
+    } resp_nosnoop_t;
 
     typedef struct  packed {
         logic               ac_ready;
