@@ -281,22 +281,28 @@ module axi_shim #(
 
   if (AxiAce) begin : ACE
     // RACK / WACK
+    logic wack_d, wack_q;
+    logic rack_d, rack_q;
+
+    always_comb begin
+      // assert WACK the cycle after the BVALID/BREADY handshake is finished
+      wack_d = axi_req_o.b_ready & axi_resp_i.b_valid;
+      // assert RACK the cycle after the RVALID/RREADY handshake is finished
+      rack_d = axi_req_o.r_ready & axi_resp_i.r_valid;
+    end
+
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (~rst_ni) begin
-        axi_req_o.wack <= 1'b0;
-        axi_req_o.rack <= 1'b0;
+        wack_q <= 1'b0;
+        rack_q <= 1'b0;
       end else begin
-        axi_req_o.wack <= 1'b0;
-        axi_req_o.rack <= 1'b0;
-        // assert WACK the cycle after the BVALID/BREADY handshake is finished
-        if (axi_req_o.b_ready & axi_resp_i.b_valid)
-          axi_req_o.wack <= 1'b1;
-        // assert RACK the cycle after the RVALID/RREADY handshake is finished
-        if (axi_req_o.r_ready & axi_resp_i.r_valid)
-          axi_req_o.rack <= 1'b1;
+        wack_q <= wack_d;
+        rack_q <= wack_d;
       end
     end
 
+    assign axi_req_o.wack = wack_q;
+    assign axi_req_o.rack = rack_q;
     assign axi_req_o.aw.snoop = '0;
     assign axi_req_o.aw.bar = '0;
     assign axi_req_o.aw.domain = '0;
