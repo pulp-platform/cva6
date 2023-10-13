@@ -296,7 +296,7 @@ module ariane_testharness #(
     .busy_o                (                           ),
     .req_i                 ( dm_master_req             ),
     .type_i                ( ariane_axi::SINGLE_REQ    ),
-    .trans_type_i          ( ariane_ace::READ_NO_SNOOP ),
+    .trans_type_i          ( ace_pkg::READ_NO_SNOOP    ),
     .amo_i                 ( ariane_pkg::AMO_NONE      ),
     .gnt_o                 ( dm_master_gnt             ),
     .addr_i                ( dm_master_add             ),

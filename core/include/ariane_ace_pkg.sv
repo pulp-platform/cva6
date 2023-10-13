@@ -14,7 +14,6 @@ package ariane_ace;
 
     // used in axi_adapter.sv
     typedef enum logic { SINGLE_REQ, CACHE_LINE_REQ } ad_req_t;
-    typedef enum logic[2:0] { READ_SHARED, READ_ONCE, READ_UNIQUE, READ_NO_SNOOP, CLEAN_UNIQUE, WRITE_UNIQUE, WRITE_NO_SNOOP, WRITEBACK } ace_req_t;
 
     // AW Channel
     typedef struct packed {

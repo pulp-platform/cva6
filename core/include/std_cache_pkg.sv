@@ -46,7 +46,7 @@ package std_cache_pkg;
     typedef struct packed {
         logic                req;
         ariane_axi::ad_req_t reqtype;
-        ariane_ace::ace_req_t acetype;
+        ace_pkg::ace_trs_t   acetype;
         ariane_pkg::amo_t    amo;
         logic [3:0]          id;
         logic [63:0]         addr;

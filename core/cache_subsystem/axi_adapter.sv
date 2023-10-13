@@ -33,7 +33,7 @@ module axi_adapter #(
   output logic                             busy_o,
   input  logic                             req_i,
   input  ariane_axi::ad_req_t              type_i,
-  input  ariane_ace::ace_req_t             trans_type_i,
+  input  ace_pkg::ace_trs_t                trans_type_i,
   input  ariane_pkg::amo_t                 amo_i,
   output logic                             gnt_o,
   input  logic [riscv::XLEN-1:0]           addr_i,
@@ -455,42 +455,42 @@ module axi_adapter #(
 
       case (trans_type_i)
 
-        ariane_ace::READ_SHARED: begin
+        ace_pkg::READ_SHARED: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b0001;
         end
 
-        ariane_ace::READ_ONCE: begin
+        ace_pkg::READ_ONCE: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b0000;
         end
 
-        ariane_ace::READ_UNIQUE: begin
+        ace_pkg::READ_UNIQUE: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b0111;
         end
 
-        ariane_ace::READ_NO_SNOOP: begin
+        ace_pkg::READ_NO_SNOOP: begin
           axi_req_o.ar.domain   = 2'b00;
           axi_req_o.ar.snoop   = 4'b0000;
         end
 
-        ariane_ace::CLEAN_UNIQUE: begin
+        ace_pkg::CLEAN_UNIQUE: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b1011;
         end
 
-        ariane_ace::WRITE_UNIQUE: begin
+        ace_pkg::WRITE_UNIQUE: begin
           axi_req_o.aw.domain   = 2'b01;
           axi_req_o.aw.snoop   = 3'b000;
         end
 
-        ariane_ace::WRITE_NO_SNOOP: begin
+        ace_pkg::WRITE_NO_SNOOP: begin
           axi_req_o.aw.domain   = 2'b00;
           axi_req_o.aw.snoop   = 3'b000;
         end
 
-        ariane_ace::WRITEBACK: begin
+        ace_pkg::WRITE_BACK: begin
           axi_req_o.aw.domain   = 2'b00;
           axi_req_o.aw.snoop   = 3'b011;
         end
