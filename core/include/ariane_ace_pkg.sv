@@ -12,9 +12,6 @@
 
 package ariane_ace;
 
-    // used in axi_adapter.sv
-    typedef enum logic { SINGLE_REQ, CACHE_LINE_REQ } ad_req_t;
-
     // AW Channel
     typedef struct packed {
         ariane_axi::id_t    id;
