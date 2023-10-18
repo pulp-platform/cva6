@@ -108,9 +108,8 @@ module perf_counters import ariane_pkg::*; #(
       for(int unsigned i = 1; i <= 6; i++) begin
          if ((!debug_mode_i) && (!we_i)) begin
              if (events[i] == 1)begin
-                generic_counter_d[i] = generic_counter_q[i] + 1'b1;end
-            else begin
-                generic_counter_d[i] = 'b0;end
+                generic_counter_d[i] = generic_counter_q[i] + 1'b1;
+            end
         end
       end
 
