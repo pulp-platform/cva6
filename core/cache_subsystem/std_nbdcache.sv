@@ -29,13 +29,6 @@ module std_nbdcache import std_cache_pkg::*; import ariane_pkg::*; #(
     input  logic                           flush_i,     // high until acknowledged
     output logic                           flush_ack_o, // send a single cycle acknowledge signal when the cache is flushed
     output logic                           miss_o,      // we missed on a LD/ST
-    output logic                           hit_o,
-    output logic                           write_hit_unique_o,
-    output logic                           write_hit_shared_o,
-    output logic                           write_miss_o,
-    output logic                           clean_invalid_hit_o,
-    output logic                           clean_invalid_miss_o,
-    output logic                           flushing_o,
     output logic                           busy_o,
     input  logic                           stall_i,   // stall new memory requests
     input  logic                           init_ni,
@@ -110,27 +103,18 @@ import std_cache_pkg::*;
     cache_line_t                         wdata_ram;
     cache_line_t [DCACHE_SET_ASSOC-1:0]  rdata_ram;
     cl_be_t                              be_ram;
+    vldrty_t [DCACHE_SET_ASSOC-1:0]      be_valid_dirty_ram;
 
     // Busy signals
     logic miss_handler_busy;
 
-    logic [2:0] hit;
-    logic [2:0] uniq;
-    logic [1:00] miss_id;
-
     readshared_done_t readshared_done;
     logic [3:0]       updating_cache;
 
+    logic [DCACHE_SET_ASSOC-1:0]         miss_invalidate_req;
+    logic [DCACHE_INDEX_WIDTH-1:0]       miss_invalidate_addr;
+
     assign busy_o = |busy | miss_handler_busy;
-
-    assign hit_o = |hit;
-
-    assign flushing_o = flushing;
-
-    assign write_hit_unique_o = hit[2] && uniq[2];
-    assign write_hit_shared_o = hit[2] && !uniq[2];
-    assign write_miss_o = miss_o && (miss_id == 2);
-
 
     // ------------------
     // Cache Controller
@@ -163,8 +147,8 @@ import std_cache_pkg::*;
         .flushing_i           ( flushing              ),
         .amo_valid_i          ( serving_amo           ),
         .amo_addr_i           ( serving_amo_addr      ),
-        .clean_invalid_hit_o  ( clean_invalid_hit_o   ),
-        .clean_invalid_miss_o ( clean_invalid_miss_o  ),
+        .miss_invalidate_req_i   (miss_invalidate_req  ),
+        .miss_invalidate_addr_i  (miss_invalidate_addr ),
         .*
     );
 
@@ -175,8 +159,8 @@ import std_cache_pkg::*;
             ) i_cache_ctrl (
                 .bypass_i              ( ~enable_i            ),
                 .busy_o                ( busy            [i]  ),
-                .hit_o                 ( hit             [i-1] ),
-                .unique_o              ( uniq            [i-1] ),
+                .hit_o                 ( /* NC */             ),
+                .unique_o              ( /* NC */             ),
                 .stall_i               ( stall_i | flush_i    ),
                 // from core
                 .req_port_i            ( req_ports_i     [i-1] ),
@@ -233,6 +217,8 @@ import std_cache_pkg::*;
         .amo_resp_o             ( amo_resp_o           ),
         .snoop_invalidate_i     ( invalidate           ),
         .snoop_invalidate_addr_i( invalidate_addr      ),
+        .invalidate_req_o       ( miss_invalidate_req  ),
+        .invalidate_addr_o      ( miss_invalidate_addr ),
         .miss_req_i             ( miss_req             ),
         .miss_gnt_o             ( miss_gnt             ),
         .bypass_gnt_o           ( bypass_gnt           ),
@@ -258,11 +244,11 @@ import std_cache_pkg::*;
         .axi_data_o,
         .axi_data_i,
         .updating_cache_o       ( updating_cache   [0] ),
-        .miss_id_o              ( miss_id              ),
         .*
     );
 
     assign tag[0] = '0;
+
 
     // --------------
     // Memory Arrays
@@ -306,24 +292,23 @@ import std_cache_pkg::*;
     // Valid/Dirty/Shared Regs
     // ----------------
 
-    // align each valid/dirty/shared triplet is aligned to a byte boundary in order to leverage byte enable signals.
-    // note: if you have an SRAM that supports flat bit enables for your target technology,
-    // you can use it here to save the extra overhead introduced by this workaround.
-    logic [4*DCACHE_DIRTY_WIDTH-1:0] dirty_wdata, dirty_rdata;
+    vldrty_t [DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
     for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-        assign dirty_wdata[8*i]   = wdata_ram.dirty;
-        assign dirty_wdata[8*i+1] = wdata_ram.valid;
-        assign dirty_wdata[8*i+2] = wdata_ram.shared;
-        assign rdata_ram[i].dirty = dirty_rdata[8*i];
-        assign rdata_ram[i].valid = dirty_rdata[8*i+1];
-        assign rdata_ram[i].shared = dirty_rdata[8*i+2];
+      assign dirty_wdata[i]     = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid, shared: wdata_ram.shared};
+      assign rdata_ram[i].dirty = dirty_rdata[i].dirty;
+      assign rdata_ram[i].valid = dirty_rdata[i].valid;
+      assign rdata_ram[i].shared = dirty_rdata[i].shared;
+      assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
+      assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
+      assign be_valid_dirty_ram[i].shared = be_ram.vldrty[i].shared;
     end
 
     sram #(
         .SIM_INIT   ( VLD_SRAM_SIM_INIT                ),
         .USER_WIDTH ( 1                                ),
-        .DATA_WIDTH ( 4*DCACHE_DIRTY_WIDTH             ),
+        .DATA_WIDTH ( DCACHE_SET_ASSOC*$bits(vldrty_t) ),
+        .BYTE_WIDTH ( 1                                ),
         .NUM_WORDS  ( DCACHE_NUM_WORDS                 )
     ) valid_dirty_sram (
         .clk_i   ( clk_i                               ),
@@ -333,7 +318,7 @@ import std_cache_pkg::*;
         .addr_i  ( addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ),
         .wuser_i ( '0                                  ),
         .wdata_i ( dirty_wdata                         ),
-        .be_i    ( be_ram.vldrty                       ),
+        .be_i    ( be_valid_dirty_ram                  ),
         .ruser_o (                                     ),
         .rdata_o ( dirty_rdata                         )
     );
@@ -366,7 +351,7 @@ import std_cache_pkg::*;
     );
 
   for (genvar j = 0; j < DCACHE_SET_ASSOC; j++) begin
-    assign dirty_way[j] = rdata_ram[j].dirty;
+    assign dirty_way[j] = |rdata_ram[j].dirty;
     assign shared_way[j] = rdata_ram[j].shared;
   end
 

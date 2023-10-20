@@ -41,7 +41,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     input  cache_line_t [DCACHE_SET_ASSOC-1:0]   data_i,
     output logic                                 we_o,
     input  logic [DCACHE_SET_ASSOC-1:0]          hit_way_i,
-    input logic [DCACHE_SET_ASSOC-1:0]    shared_way_i,
+    input  logic [DCACHE_SET_ASSOC-1:0]          shared_way_i,
     // Miss handling
     output miss_req_t                            miss_req_o,
     // return
@@ -57,9 +57,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic [55:0]                          mshr_addr_o,
     input  logic                                 mshr_addr_matches_i,
     input  logic                                 mshr_index_matches_i,
-
-    input readshared_done_t readshared_done_i,
-    output logic updating_cache_o
+    // to/from snoop controller
+    input  readshared_done_t                     readshared_done_i,
+    output logic                                 updating_cache_o
 );
 
     enum logic [3:0] {
@@ -274,6 +274,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     //    req_port_o.data_rvalid will be de-asserted.
                     if ((mshr_index_matches_i && mem_req_q.we) || mshr_addr_matches_i) begin
                         state_d = WAIT_MSHR;
+                        req_port_o.data_rvalid = 1'b0;
+                        req_port_o.data_gnt = 1'b0;
                     end
 
                     // -------------------------
@@ -344,13 +346,14 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     addr_o     = mem_req_q.index;
                     we_o       = 1'b1;
 
-                    be_o.vldrty = hit_way_q;
-
                     // set the correct byte enable
                     be_o.data[cl_offset>>3 +: 8]  = mem_req_q.be;
+                    for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+                      if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, shared: 1, dirty: be_o.data};
+                    end
                     data_o.data[cl_offset  +: 64] = mem_req_q.wdata;
                     // ~> change the state
-                    data_o.dirty = 1'b1;
+                    data_o.dirty[cl_offset>>3 +: 8] = mem_req_q.be;
                     data_o.valid = 1'b1;
                     data_o.shared = 1'b0;
 
@@ -442,7 +445,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     req_port_o.data_rvalid = ~mem_req_q.killed;
                     req_port_o.data_rdata = critical_word_i;
                     // we can make another request
-                    if (req_port_i.data_req) begin
+                    if (req_port_i.data_req && !stall_i) begin
                         // save index, be and we
                         mem_req_d.index = req_port_i.address_index;
                         mem_req_d.be    = req_port_i.data_be;
@@ -469,7 +472,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                 // got a valid answer
                 if (bypass_valid_i) begin
                     req_port_o.data_rdata = bypass_data_i;
-                    req_port_o.data_rvalid = ~mem_req_q.killed;
+                    if (!mem_req_q.we)
+                        req_port_o.data_rvalid = ~mem_req_q.killed;
+
                     state_d = IDLE;
                 end
             end
@@ -478,6 +483,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         if (req_port_i.kill_req) begin
             req_port_o.data_rvalid = 1'b1;
             if (!(state_q inside {
+                                  MAKE_UNIQUE,
                                   WAIT_REFILL_GNT,
                                   WAIT_CRITICAL_WORD})) begin
                 state_d = IDLE;

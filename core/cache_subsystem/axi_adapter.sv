@@ -23,6 +23,7 @@ module axi_adapter #(
   parameter int unsigned AXI_ADDR_WIDTH        = 0,
   parameter int unsigned AXI_DATA_WIDTH        = 0,
   parameter int unsigned AXI_ID_WIDTH          = 0,
+  parameter logic        AXI_ACE               = 0, // Support AMBA ACE
   parameter type axi_req_t = ariane_axi::req_t,
   parameter type axi_rsp_t = ariane_axi::resp_t
 )(
@@ -32,7 +33,7 @@ module axi_adapter #(
   output logic                             busy_o,
   input  logic                             req_i,
   input  ariane_axi::ad_req_t              type_i,
-  input  ariane_ace::ace_req_t             trans_type_i,
+  input  ace_pkg::ace_trs_t                trans_type_i,
   input  ariane_pkg::amo_t                 amo_i,
   output logic                             gnt_o,
   input  logic [riscv::XLEN-1:0]           addr_i,
@@ -417,24 +418,30 @@ module axi_adapter #(
   end
 
   generate
-  if ($bits(axi_req_t) == $bits(ariane_ace::m2s_nosnoop_t)) begin
+  if (AXI_ACE) begin
+    // RACK / WACK
+    logic wack_d, wack_q;
+    logic rack_d, rack_q;
+
+    always_comb begin
+      // assert WACK the cycle after the BVALID/BREADY handshake is finished
+      wack_d = axi_req_o.b_ready & axi_resp_i.b_valid;
+      // assert RACK the cycle after the RVALID/RREADY handshake is finished
+      rack_d = axi_req_o.r_ready & axi_resp_i.r_valid;
+    end
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
       if (~rst_ni) begin
-        axi_req_o.wack <= 1'b0;
-        axi_req_o.rack <= 1'b0;
-      end
-      else begin
-        axi_req_o.wack <= 1'b0;
-        axi_req_o.rack <= 1'b0;
-        // set RACK the cycle after the BVALID/BREADY handshake is finished
-        if (axi_req_o.b_ready & axi_resp_i.b_valid)
-          axi_req_o.wack <= 1'b1;
-        // set RACK the cycle after the RVALID/RREADY handshake is finished
-        if (axi_req_o.r_ready & axi_resp_i.r_valid)
-          axi_req_o.rack <= 1'b1;
+        wack_q <= 1'b0;
+        rack_q <= 1'b0;
+      end else begin
+        wack_q <= wack_d;
+        rack_q <= rack_d;
       end
     end
+
+    assign axi_req_o.wack = wack_q;
+    assign axi_req_o.rack = rack_q;
 
     always_comb begin
       // Default assignments
@@ -448,42 +455,42 @@ module axi_adapter #(
 
       case (trans_type_i)
 
-        ariane_ace::READ_SHARED: begin
+        ace_pkg::READ_SHARED: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b0001;
         end
 
-        ariane_ace::READ_ONCE: begin
+        ace_pkg::READ_ONCE: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b0000;
         end
 
-        ariane_ace::READ_UNIQUE: begin
+        ace_pkg::READ_UNIQUE: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b0111;
         end
 
-        ariane_ace::READ_NO_SNOOP: begin
+        ace_pkg::READ_NO_SNOOP: begin
           axi_req_o.ar.domain   = 2'b00;
           axi_req_o.ar.snoop   = 4'b0000;
         end
 
-        ariane_ace::CLEAN_UNIQUE: begin
+        ace_pkg::CLEAN_UNIQUE: begin
           axi_req_o.ar.domain   = 2'b01;
           axi_req_o.ar.snoop   = 4'b1011;
         end
 
-        ariane_ace::WRITE_UNIQUE: begin
+        ace_pkg::WRITE_UNIQUE: begin
           axi_req_o.aw.domain   = 2'b01;
           axi_req_o.aw.snoop   = 3'b000;
         end
 
-        ariane_ace::WRITE_NO_SNOOP: begin
+        ace_pkg::WRITE_NO_SNOOP: begin
           axi_req_o.aw.domain   = 2'b00;
           axi_req_o.aw.snoop   = 3'b000;
         end
 
-        ariane_ace::WRITEBACK: begin
+        ace_pkg::WRITE_BACK: begin
           axi_req_o.aw.domain   = 2'b00;
           axi_req_o.aw.snoop   = 3'b011;
         end
@@ -509,8 +516,8 @@ module axi_adapter #(
       id_q          <= '0;
       amo_q         <= ariane_pkg::AMO_NONE;
       size_q        <= '0;
-      dirty_q <= '0;
-      shared_q <= '0;
+      dirty_q       <= '0;
+      shared_q      <= '0;
     end else begin
       state_q       <= state_d;
       cnt_q         <= cnt_d;
@@ -519,8 +526,8 @@ module axi_adapter #(
       id_q          <= id_d;
       amo_q         <= amo_d;
       size_q        <= size_d;
-      dirty_q <= dirty_d;
-      shared_q <= shared_d;
+      dirty_q       <= dirty_d;
+      shared_q      <= shared_d;
     end
   end
 

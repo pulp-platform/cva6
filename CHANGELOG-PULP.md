@@ -4,6 +4,30 @@ All notable changes to the `pulp` branch of this project will be documented in t
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## pulp-v0.4.3 - 2023-08-12
+### Changed
+- `tech_cells_generic`: Bump v0.2.12
+
+## pulp-v0.4.2 - 2023-08-11
+### Changed
+- frontend: Do not speculate beyond xret to avoid spurious icache refills
+- coherence: Pack Valid/Dirty SRAM
+
+## pulp-v0.4.1 - 2023-08-03
+### Fixed
+- CLIC controller: Fix inferred latch
+
+## pulp-v0.4.0 - 2023-07-25
+### Added
+- Self-invalidation coherence
+
+### Changed
+- Upgrade CLIC to v2.0.0
+- Upgrade AXI RISC-V AMO adapter to v0.8.0
+
+### Fixed
+- Fix CLIC interrupt behaviour
+
 ## pulp-v0.3.1 - 2023-05-10
 ### Changed
 - Upgrade FPU to pulp-v0.1.1

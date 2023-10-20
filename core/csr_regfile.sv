@@ -556,36 +556,6 @@ module csr_regfile import ariane_pkg::*; #(
                 riscv::CSR_MHPM_COUNTER_30,
                 riscv::CSR_MHPM_COUNTER_31 :     csr_rdata   = perf_data_i;
 
-                riscv::CSR_L1_ICACHE_MISS,
-                riscv::CSR_L1_DCACHE_MISS,
-                riscv::CSR_ITLB_MISS     ,
-                riscv::CSR_DTLB_MISS     ,
-                riscv::CSR_LOAD          ,
-                riscv::CSR_STORE         ,
-                riscv::CSR_EXCEPTION     ,
-                riscv::CSR_EXCEPTION_RET ,
-                riscv::CSR_BRANCH_JUMP   ,
-                riscv::CSR_CALL          ,
-                riscv::CSR_RET           ,
-                riscv::CSR_MIS_PREDICT   ,
-                riscv::CSR_SB_FULL       ,
-                riscv::CSR_IF_EMPTY      ,
-                riscv::CSR_HPM_COUNTER_17,
-                riscv::CSR_HPM_COUNTER_18,
-                riscv::CSR_HPM_COUNTER_19,
-                riscv::CSR_HPM_COUNTER_20,
-                riscv::CSR_HPM_COUNTER_21,
-                riscv::CSR_HPM_COUNTER_22,
-                riscv::CSR_HPM_COUNTER_23,
-                riscv::CSR_HPM_COUNTER_24,
-                riscv::CSR_HPM_COUNTER_25,
-                riscv::CSR_HPM_COUNTER_26,
-                riscv::CSR_HPM_COUNTER_27,
-                riscv::CSR_HPM_COUNTER_28,
-                riscv::CSR_HPM_COUNTER_29,
-                riscv::CSR_HPM_COUNTER_30,
-                riscv::CSR_HPM_COUNTER_31 :     csr_rdata   = perf_data_i;
-
                 riscv::CSR_MHPM_COUNTER_3H,
                 riscv::CSR_MHPM_COUNTER_4H,
                 riscv::CSR_MHPM_COUNTER_5H,
@@ -1889,14 +1859,14 @@ module csr_regfile import ariane_pkg::*; #(
                         riscv::PRIV_LVL_M: privilege_violation = 1'b0;
                         riscv::PRIV_LVL_S: begin
                             virtual_privilege_violation = v_q & mcounteren_q[csr_addr_i[4:0]] & ~hcounteren_q[csr_addr_i[4:0]];
-                            privilege_violation = 1'b0; //~mcounteren_q[csr_addr_i[4:0]];
+                            privilege_violation = ~mcounteren_q[csr_addr_i[4:0]];
                         end
                         riscv::PRIV_LVL_U: begin
                             virtual_privilege_violation = v_q & mcounteren_q[csr_addr_i[4:0]] & ~hcounteren_q[csr_addr_i[4:0]];
                             if(v_q) begin
                                 privilege_violation = ~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]] & hcounteren_q[csr_addr_i[4:0]];
                             end else begin
-                                privilege_violation = 1'b0; //~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]];
+                                privilege_violation = ~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]];
                             end
                         end
                     endcase
@@ -1922,8 +1892,8 @@ module csr_regfile import ariane_pkg::*; #(
                 if (csr_addr_i inside {[riscv::CSR_CYCLE:riscv::CSR_HPM_COUNTER_31]}) begin
                     unique case (priv_lvl_o)
                         riscv::PRIV_LVL_M: privilege_violation = 1'b0;
-                        riscv::PRIV_LVL_S: privilege_violation = 1'b0; //~mcounteren_q[csr_addr_i[4:0]];
-                        riscv::PRIV_LVL_U: privilege_violation = 1'b0; //~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]];
+                        riscv::PRIV_LVL_S: privilege_violation = ~mcounteren_q[csr_addr_i[4:0]];
+                        riscv::PRIV_LVL_U: privilege_violation = ~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]];
                     endcase
                 end
             end
@@ -1967,7 +1937,7 @@ module csr_regfile import ariane_pkg::*; #(
         wfi_d = wfi_q;
         // if there is any (enabled) interrupt pending un-stall the core
         // also un-stall if we want to enter debug mode
-        if (|(mip_q & mie_q) || debug_req_i || irq_i[1]) begin
+        if (debug_req_i || (!clic_mode_o && (|(mip_q & mie_q) || irq_i[1])) || clic_irq_ready_o) begin
             wfi_d = 1'b0;
         // or alternatively if there is no exception pending and we are not in debug mode wait here
         // for the interrupt

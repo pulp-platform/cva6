@@ -1,4 +1,4 @@
-../../../core/include/cv64a6_imafdc_sv39_config_pkg.sv
+../../../core/include/cv64a6_imafdc_sv39_wb_config_pkg.sv
 ../../../core/include/riscv_pkg.sv
 ../common_verification/src/clk_rst_gen.sv
 ../common_verification/src/rand_id_queue.sv
@@ -43,7 +43,7 @@
 ../../../vendor/pulp-platform/common_cells/src/stream_arbiter_flushable.sv
 ../../../vendor/pulp-platform/common_cells/src/stream_mux.sv
 ../../../vendor/pulp-platform/common_cells/src/stream_demux.sv
-../../../common/local/util/sram.sv
+../../../common/local/util/sram_pulp.sv
 ../../../common/local/util/tc_sram_wrapper.sv
 ../../../vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv
 ../../src/axi_riscv_atomics/src/axi_res_tbl.sv
@@ -52,6 +52,15 @@
 ../../src/axi_riscv_atomics/src/axi_riscv_lrsc.sv
 ../../src/axi_riscv_atomics/src/axi_riscv_atomics.sv
 ../../src/axi_riscv_atomics/src/axi_riscv_atomics_wrap.sv
+../../../vendor/pulp-platform/common_cells/src/id_queue.sv
+../../../vendor/pulp-platform/common_cells/src/stream_fork.sv
+../../../vendor/pulp-platform/common_cells/src/stream_filter.sv
+../../../vendor/pulp-platform/common_cells/src/fall_through_register.sv
+../../../vendor/pulp-platform/common_cells/src/stream_register.sv
+../../../vendor/pulp-platform/common_cells/src/spill_register_flushable.sv
+../../../vendor/pulp-platform/common_cells/src/spill_register.sv
+../../../vendor/pulp-platform/common_cells/src/onehot_to_bin.sv
+../../../vendor/pulp-platform/axi/src/axi_multicut.sv
 
 ../common/tb_dcache_pkg.sv
 ../common/tb_readport.sv

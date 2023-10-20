@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# Copyright 2023 ETH Zurich, University of Bologna.
+#
+# Copyright and related rights are licensed under the Solderpad Hardware
+# License, Version 0.51 (the "License"); you may not use this file except in
+# compliance with the License.  You may obtain a copy of the License at
+# http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+# or agreed to in writing, software, hardware and materials distributed under
+# this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations under the License.
 
 from string import Template
 import argparse
@@ -20,15 +30,29 @@ if ncores < 1:
 
 filename = "ariane.dts"
 
-header = """\
+header = f"""\
+// Copyright 2023 ETH Zurich, University of Bologna.
+//
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// File: {filename}
+//
+// Description: Auto-generated code
 /dts-v1/;
 
-/ {
+/ {{
   #address-cells = <2>;
   #size-cells = <2>;
   compatible = "eth,ariane-bare-dev";
   model = "eth,ariane-bare";
-  cpus {
+  cpus {{
     #address-cells = <1>;
     #size-cells = <0>;
     timebase-frequency = <32768>; // 32.768 kHz

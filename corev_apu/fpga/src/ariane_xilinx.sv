@@ -157,7 +157,7 @@ module ariane_xilinx (
 );
 // 24 MByte in 8 byte words
 localparam NumWords = (24 * 1024 * 1024) / 8;
-localparam NBSlave = 2; // debug, ariane
+localparam NBSlave = ariane_soc::NrSlaves; // debug, ariane
 localparam AxiAddrWidth = 64;
 localparam AxiDataWidth = 64;
 localparam AxiIdWidthMaster = 4;
@@ -196,9 +196,9 @@ AXI_BUS #(
 logic test_en;
 logic ndmreset;
 logic ndmreset_n;
-logic debug_req_irq;
-logic timer_irq;
-logic ipi;
+logic [(ariane_soc::NumHarts-1):0] debug_req_irq;
+logic [(ariane_soc::NumHarts-1):0] timer_irq;
+logic [(ariane_soc::NumHarts-1):0] ipi;
 
 logic clk;
 logic eth_clk;
@@ -244,7 +244,7 @@ dm::dmi_resp_t debug_resp;
 logic dmactive;
 
 // IRQ
-logic [1:0] irq;
+logic [(ariane_soc::NumHarts-1):0][1:0] irq;
 assign test_en    = 1'b0;
 
 logic [NBSlave-1:0] pc_asserted;
@@ -355,9 +355,9 @@ logic [riscv::XLEN-1:0]    dm_master_r_rdata;
 
 // debug module
 dm_top #(
-    .NrHarts          ( 1                 ),
-    .BusWidth         ( riscv::XLEN      ),
-    .SelectableHarts  ( 1'b1              )
+    .NrHarts          ( ariane_soc::NumHarts         ),
+    .BusWidth         ( riscv::XLEN                  ),
+    .SelectableHarts  ( {ariane_soc::NumHarts{1'b1}} )
 ) i_dm_top (
     .clk_i            ( clk               ),
     .rst_ni           ( rst_n             ), // PoR
@@ -366,7 +366,7 @@ dm_top #(
     .dmactive_o       ( dmactive          ), // active debug session
     .debug_req_o      ( debug_req_irq     ),
     .unavailable_i    ( '0                ),
-    .hartinfo_i       ( {ariane_pkg::DebugHartInfo} ),
+    .hartinfo_i       ( {ariane_soc::NumHarts{ariane_pkg::DebugHartInfo}} ),
     .slave_req_i      ( dm_slave_req      ),
     .slave_we_i       ( dm_slave_we       ),
     .slave_addr_i     ( dm_slave_addr     ),
@@ -597,20 +597,20 @@ if (riscv::XLEN==32 ) begin
     logic [31 : 0] dm_master_m_awaddr;
     logic [31 : 0] dm_master_m_araddr;
 
-    assign slave[1].aw_addr = {32'h0000_0000, dm_master_m_awaddr};
-    assign slave[1].ar_addr = {32'h0000_0000, dm_master_m_araddr};
+    assign slave[NBSlave-1].aw_addr = {32'h0000_0000, dm_master_m_awaddr};
+    assign slave[NBSlave-1].ar_addr = {32'h0000_0000, dm_master_m_araddr};
 
     logic [31 : 0] dm_master_s_rdata;
 
     assign dm_axi_m_resp.r.data = {32'h0000_0000, dm_master_s_rdata};
 
-    assign slave[1].aw_user = '0;
-    assign slave[1].w_user = '0;
-    assign slave[1].ar_user = '0;
+    assign slave[NBSlave-1].aw_user = '0;
+    assign slave[NBSlave-1].w_user = '0;
+    assign slave[NBSlave-1].ar_user = '0;
 
-    assign slave[1].aw_id = dm_axi_m_req.aw.id;
-    assign slave[1].ar_id = dm_axi_m_req.ar.id;
-    assign slave[1].aw_atop = dm_axi_m_req.aw.atop;
+    assign slave[NBSlave-1].aw_id = dm_axi_m_req.aw.id;
+    assign slave[NBSlave-1].ar_id = dm_axi_m_req.ar.id;
+    assign slave[NBSlave-1].aw_atop = dm_axi_m_req.aw.atop;
 
     xlnx_axi_dwidth_converter_dm_master  i_axi_dwidth_converter_dm_master(
         .s_axi_aclk(clk),
@@ -655,54 +655,53 @@ if (riscv::XLEN==32 ) begin
         .s_axi_rvalid(dm_axi_m_resp.r_valid),
         .s_axi_rready(dm_axi_m_req.r_ready),
         .m_axi_awaddr(dm_master_m_awaddr),
-        .m_axi_awlen(slave[1].aw_len),
-        .m_axi_awsize(slave[1].aw_size),
-        .m_axi_awburst(slave[1].aw_burst),
-        .m_axi_awlock(slave[1].aw_lock),
-        .m_axi_awcache(slave[1].aw_cache),
-        .m_axi_awprot(slave[1].aw_prot),
-        .m_axi_awregion(slave[1].aw_region),
-        .m_axi_awqos(slave[1].aw_qos),
-        .m_axi_awvalid(slave[1].aw_valid),
-        .m_axi_awready(slave[1].aw_ready),
-        .m_axi_wdata(slave[1].w_data ),
-        .m_axi_wstrb(slave[1].w_strb),
-        .m_axi_wlast(slave[1].w_last),
-        .m_axi_wvalid(slave[1].w_valid),
-        .m_axi_wready(slave[1].w_ready),
-        .m_axi_bresp(slave[1].b_resp),
-        .m_axi_bvalid(slave[1].b_valid),
-        .m_axi_bready(slave[1].b_ready),
+        .m_axi_awlen(slave[NBSlave-1].aw_len),
+        .m_axi_awsize(slave[NBSlave-1].aw_size),
+        .m_axi_awburst(slave[NBSlave-1].aw_burst),
+        .m_axi_awlock(slave[NBSlave-1].aw_lock),
+        .m_axi_awcache(slave[NBSlave-1].aw_cache),
+        .m_axi_awprot(slave[NBSlave-1].aw_prot),
+        .m_axi_awregion(slave[NBSlave-1].aw_region),
+        .m_axi_awqos(slave[NBSlave-1].aw_qos),
+        .m_axi_awvalid(slave[NBSlave-1].aw_valid),
+        .m_axi_awready(slave[NBSlave-1].aw_ready),
+        .m_axi_wdata(slave[NBSlave-1].w_data ),
+        .m_axi_wstrb(slave[NBSlave-1].w_strb),
+        .m_axi_wlast(slave[NBSlave-1].w_last),
+        .m_axi_wvalid(slave[NBSlave-1].w_valid),
+        .m_axi_wready(slave[NBSlave-1].w_ready),
+        .m_axi_bresp(slave[NBSlave-1].b_resp),
+        .m_axi_bvalid(slave[NBSlave-1].b_valid),
+        .m_axi_bready(slave[NBSlave-1].b_ready),
         .m_axi_araddr(dm_master_m_araddr),
-        .m_axi_arlen(slave[1].ar_len),
-        .m_axi_arsize(slave[1].ar_size),
-        .m_axi_arburst(slave[1].ar_burst),
-        .m_axi_arlock(slave[1].ar_lock),
-        .m_axi_arcache(slave[1].ar_cache),
-        .m_axi_arprot(slave[1].ar_prot),
-        .m_axi_arregion(slave[1].ar_region),
-        .m_axi_arqos(slave[1].ar_qos),
-        .m_axi_arvalid(slave[1].ar_valid),
-        .m_axi_arready(slave[1].ar_ready),
-        .m_axi_rdata(slave[1].r_data),
-        .m_axi_rresp(slave[1].r_resp),
-        .m_axi_rlast(slave[1].r_last),
-        .m_axi_rvalid(slave[1].r_valid),
-        .m_axi_rready(slave[1].r_ready)
+        .m_axi_arlen(slave[NBSlave-1].ar_len),
+        .m_axi_arsize(slave[NBSlave-1].ar_size),
+        .m_axi_arburst(slave[NBSlave-1].ar_burst),
+        .m_axi_arlock(slave[NBSlave-1].ar_lock),
+        .m_axi_arcache(slave[NBSlave-1].ar_cache),
+        .m_axi_arprot(slave[NBSlave-1].ar_prot),
+        .m_axi_arregion(slave[NBSlave-1].ar_region),
+        .m_axi_arqos(slave[NBSlave-1].ar_qos),
+        .m_axi_arvalid(slave[NBSlave-1].ar_valid),
+        .m_axi_arready(slave[NBSlave-1].ar_ready),
+        .m_axi_rdata(slave[NBSlave-1].r_data),
+        .m_axi_rresp(slave[NBSlave-1].r_resp),
+        .m_axi_rlast(slave[NBSlave-1].r_last),
+        .m_axi_rvalid(slave[NBSlave-1].r_valid),
+        .m_axi_rready(slave[NBSlave-1].r_ready)
       );
 end else begin
-    `AXI_ASSIGN_FROM_REQ(slave[1], dm_axi_m_req)
-    `AXI_ASSIGN_TO_RESP(dm_axi_m_resp, slave[1])
+    `AXI_ASSIGN_FROM_REQ(slave[NBSlave-1], dm_axi_m_req)
+    `AXI_ASSIGN_TO_RESP(dm_axi_m_resp, slave[NBSlave-1])
 end
 
 
 // ---------------
 // Core
 // ---------------
-ariane_axi::req_t    axi_ariane_req;
-ariane_axi::resp_t   axi_ariane_resp;
+ariane_axi::req_t  [(ariane_soc::NumHarts-1):0] axi_ariane_req;
+ariane_axi::resp_t [(ariane_soc::NumHarts-1):0] axi_ariane_resp;
 
-// Interrupt sources
 logic [riscv::XLEN-1:0] clint_irqs;                             // legacy XLEN clint interrupts, RISC-V
                                                                 // Privilege Spec. v. 20211203, pag. 39
 logic [ariane_soc::CLICNumInterruptSrc-1:0] clic_irqs;          // other local interrupts routed through the CLIC
@@ -828,137 +827,145 @@ axi2apb_64_32 #(
     .PSLVERR   ( clic_pslverr   )
 );
 
-// apb2reg interface
+generate
+    for (genvar i = 0; i < ariane_soc::NumHarts; i++) begin
 
-REG_BUS #(
-    .ADDR_WIDTH ( 32 ),
-    .DATA_WIDTH ( 32 )
-) reg_bus (clk);
 
-apb_to_reg i_apb_to_reg (
-    .clk_i     ( clk          ),
-    .rst_ni    ( ndmreset_n   ),
-    .penable_i ( clic_penable ),
-    .pwrite_i  ( clic_pwrite  ),
-    .paddr_i   ( clic_paddr   ),
-    .psel_i    ( clic_psel    ),
-    .pwdata_i  ( clic_pwdata  ),
-    .prdata_o  ( clic_prdata  ),
-    .pready_o  ( clic_pready  ),
-    .pslverr_o ( clic_pslverr ),
-    .reg_o     ( reg_bus      )
-);
+    // Interrupt sources
 
-// wrap register interface as req/resp for clic
-localparam int unsigned REG_BUS_ADDR_WIDTH = 32;
-localparam int unsigned REG_BUS_DATA_WIDTH = 32;
+    // apb2reg interface
 
-`define REG_BUS_TYPEDEF_REQ(req_t, addr_t, data_t, strb_t) \
-  typedef struct packed { \
-      addr_t addr; \
-      logic  write; \
-      data_t wdata; \
-      strb_t wstrb; \
-      logic  valid; \
-  } req_t;
+    REG_BUS #(
+        .ADDR_WIDTH ( 32 ),
+        .DATA_WIDTH ( 32 )
+    ) reg_bus (clk);
 
-`define REG_BUS_TYPEDEF_RSP(rsp_t, data_t) \
-  typedef struct packed { \
-      data_t rdata; \
-      logic  error; \
-      logic  ready; \
-  } rsp_t;
+    apb_to_reg i_apb_to_reg (
+        .clk_i     ( clk          ),
+        .rst_ni    ( ndmreset_n   ),
+        .penable_i ( clic_penable ),
+        .pwrite_i  ( clic_pwrite  ),
+        .paddr_i   ( clic_paddr   ),
+        .psel_i    ( clic_psel    ),
+        .pwdata_i  ( clic_pwdata  ),
+        .prdata_o  ( clic_prdata  ),
+        .pready_o  ( clic_pready  ),
+        .pslverr_o ( clic_pslverr ),
+        .reg_o     ( reg_bus      )
+    );
 
-typedef logic [REG_BUS_ADDR_WIDTH-1:0] addr_t;
-typedef logic [REG_BUS_DATA_WIDTH-1:0] data_t;
-typedef logic [REG_BUS_DATA_WIDTH/8-1:0] strb_t;
+    // wrap register interface as req/resp for clic
+    localparam int unsigned REG_BUS_ADDR_WIDTH = 32;
+    localparam int unsigned REG_BUS_DATA_WIDTH = 32;
 
-`REG_BUS_TYPEDEF_REQ(reg_a32_d32_req_t, addr_t, data_t, strb_t)
-`REG_BUS_TYPEDEF_RSP(reg_a32_d32_rsp_t, data_t)
+    `define REG_BUS_TYPEDEF_REQ(req_t, addr_t, data_t, strb_t) \
+      typedef struct packed { \
+          addr_t addr; \
+          logic  write; \
+          data_t wdata; \
+          strb_t wstrb; \
+          logic  valid; \
+      } req_t;
 
-reg_a32_d32_req_t clic_req;
-reg_a32_d32_rsp_t clic_rsp;
+    `define REG_BUS_TYPEDEF_RSP(rsp_t, data_t) \
+      typedef struct packed { \
+          data_t rdata; \
+          logic  error; \
+          logic  ready; \
+      } rsp_t;
 
-assign clic_req.addr  = reg_bus.addr;
-assign clic_req.write = reg_bus.write;
-assign clic_req.wdata = reg_bus.wdata;
-assign clic_req.wstrb = reg_bus.wstrb;
-assign clic_req.valid = reg_bus.valid;
+    typedef logic [REG_BUS_ADDR_WIDTH-1:0] addr_t;
+    typedef logic [REG_BUS_DATA_WIDTH-1:0] data_t;
+    typedef logic [REG_BUS_DATA_WIDTH/8-1:0] strb_t;
 
-assign reg_bus.rdata = clic_rsp.rdata;
-assign reg_bus.error = clic_rsp.error;
-assign reg_bus.ready = clic_rsp.ready;
+    `REG_BUS_TYPEDEF_REQ(reg_a32_d32_req_t, addr_t, data_t, strb_t)
+    `REG_BUS_TYPEDEF_RSP(reg_a32_d32_rsp_t, data_t)
 
-// coproc
-cvxif_pkg::cvxif_req_t  cvxif_req;
-cvxif_pkg::cvxif_resp_t cvxif_resp;
+    reg_a32_d32_req_t clic_req;
+    reg_a32_d32_rsp_t clic_rsp;
 
-cvxif_example_coprocessor i_cvxif_coprocessor (
-  .clk_i                ( clk_i                          ),
-  .rst_ni               ( rst_ni                         ),
-  .cvxif_req_i          ( cvxif_req                      ),
-  .cvxif_resp_o         ( cvxif_resp                     )
-);
+    assign clic_req.addr  = reg_bus.addr;
+    assign clic_req.write = reg_bus.write;
+    assign clic_req.wdata = reg_bus.wdata;
+    assign clic_req.wstrb = reg_bus.wstrb;
+    assign clic_req.valid = reg_bus.valid;
 
-// clic
-clic #(
-  .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
-  .INTCTLBITS(ariane_soc::CLICIntCtlBits),
-  .reg_req_t (reg_a32_d32_req_t),
-  .reg_rsp_t (reg_a32_d32_rsp_t),
-  .SSCLIC    (1),
-  .USCLIC    (0)
-) i_clic (
-  .clk_i(clk),
-  .rst_ni(ndmreset_n),
-  // Bus Interface
-  .reg_req_i(clic_req),
-  .reg_rsp_o(clic_rsp),
-  // Interrupt Sources
-  .intr_src_i (clic_irqs),
-  // Interrupt notification to core
-  .irq_valid_o(core_irq_req),
-  .irq_ready_i(core_irq_ack),
-  .irq_id_o   (core_irq_id),
-  .irq_level_o(core_irq_level),
-  .irq_shv_o  (core_irq_shv),
-  .irq_priv_o (core_irq_priv),
-  .irq_kill_req_o (core_irq_kill_req),
-  .irq_kill_ack_i (core_irq_kill_ack)
-);
+    assign reg_bus.rdata = clic_rsp.rdata;
+    assign reg_bus.error = clic_rsp.error;
+    assign reg_bus.ready = clic_rsp.ready;
 
-// ariane
-cva6 #(
-    .ArianeCfg ( ariane_soc::ArianeSocCfg )
-) i_ariane (
-    .clk_i        ( clk                 ),
-    .rst_ni       ( ndmreset_n          ),
-    .boot_addr_i  ( ariane_soc::ROMBase ), // start fetching from ROM
-    .hart_id_i    ( '0                  ),
-    .irq_i        ( irq                 ),
-    .ipi_i        ( ipi                 ),
-    .time_irq_i   ( timer_irq           ),
-    .rvfi_o       (                     ),
-    // CLIC
-    .clic_irq_valid_i     ( core_irq_valid      ),
-    .clic_irq_id_i        ( core_irq_id         ),
-    .clic_irq_level_i     ( core_irq_level      ),
-    .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
-    .clic_irq_shv_i       ( core_irq_shv        ),
-    .clic_irq_ready_o     ( core_irq_ready      ),
-    .clic_kill_req_i      ( core_irq_kill_req   ),
-    .clic_kill_ack_o      ( core_irq_kill_ack   ),
-    .cvxif_req_o          ( cvxif_req           ),
-    .cvxif_resp_i         ( cvxif_resp          ),
-    .l15_req_o            (                     ),
-    .l15_rtrn_i           ( '0                  ),
-    .debug_req_i  ( debug_req_irq       ),
-    .axi_req_o    ( axi_ariane_req      ),
-    .axi_resp_i   ( axi_ariane_resp     )
-);
+    // coproc
+    cvxif_pkg::cvxif_req_t  cvxif_req;
+    cvxif_pkg::cvxif_resp_t cvxif_resp;
 
-`AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
-`AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
+    cvxif_example_coprocessor i_cvxif_coprocessor (
+      .clk_i                ( clk_i                          ),
+      .rst_ni               ( rst_ni                         ),
+      .cvxif_req_i          ( cvxif_req                      ),
+      .cvxif_resp_o         ( cvxif_resp                     )
+    );
+
+    // clic
+    clic #(
+      .N_SOURCE  (ariane_soc::CLICNumInterruptSrc),
+      .INTCTLBITS(ariane_soc::CLICIntCtlBits),
+      .reg_req_t (reg_a32_d32_req_t),
+      .reg_rsp_t (reg_a32_d32_rsp_t),
+      .SSCLIC    (1),
+      .USCLIC    (0)
+    ) i_clic (
+      .clk_i(clk),
+      .rst_ni(ndmreset_n),
+      // Bus Interface
+      .reg_req_i(clic_req),
+      .reg_rsp_o(clic_rsp),
+      // Interrupt Sources
+      .intr_src_i (clic_irqs),
+      // Interrupt notification to core
+      .irq_valid_o(core_irq_req),
+      .irq_ready_i(core_irq_ack),
+      .irq_id_o   (core_irq_id),
+      .irq_level_o(core_irq_level),
+      .irq_shv_o  (core_irq_shv),
+      .irq_priv_o (core_irq_priv),
+      .irq_kill_req_o (core_irq_kill_req),
+      .irq_kill_ack_i (core_irq_kill_ack)
+    );
+
+    // ariane
+    cva6 #(
+        .ArianeCfg ( ariane_soc::ArianeSocCfg )
+    ) i_ariane (
+        .clk_i        ( clk                 ),
+        .rst_ni       ( ndmreset_n          ),
+        .boot_addr_i  ( ariane_soc::ROMBase ), // start fetching from ROM
+        .hart_id_i    ( {56'h0, 8'(i)}      ),
+        .irq_i        ( irq[i]              ),
+        .ipi_i        ( ipi[i]              ),
+        .time_irq_i   ( timer_irq[i]        ),
+        .rvfi_o       (                     ),
+        // CLIC
+        .clic_irq_valid_i     ( core_irq_valid      ),
+        .clic_irq_id_i        ( core_irq_id         ),
+        .clic_irq_level_i     ( core_irq_level      ),
+        .clic_irq_priv_i      ( riscv::priv_lvl_t'(core_irq_priv) ),
+        .clic_irq_shv_i       ( core_irq_shv        ),
+        .clic_irq_ready_o     ( core_irq_ready      ),
+        .clic_kill_req_i      ( core_irq_kill_req   ),
+        .clic_kill_ack_o      ( core_irq_kill_ack   ),
+        .cvxif_req_o          ( cvxif_req           ),
+        .cvxif_resp_i         ( cvxif_resp          ),
+        .l15_req_o            (                     ),
+        .l15_rtrn_i           ( '0                  ),
+        .debug_req_i  ( debug_req_irq[i]      ),
+        .axi_req_o    ( axi_ariane_req[i]     ),
+        .axi_resp_i   ( axi_ariane_resp[i]    )
+    );
+
+        `AXI_ASSIGN_FROM_REQ(slave[i], axi_ariane_req[i])
+        `AXI_ASSIGN_TO_RESP(axi_ariane_resp[i], slave[i])
+    end
+endgenerate
 
 // ---------------
 // CLINT
@@ -979,7 +986,7 @@ clint #(
     .AXI_ADDR_WIDTH ( AxiAddrWidth     ),
     .AXI_DATA_WIDTH ( AxiDataWidth     ),
     .AXI_ID_WIDTH   ( AxiIdWidthSlaves ),
-    .NR_CORES       ( 1                ),
+    .NR_CORES       ( ariane_soc::NumHarts ),
     .axi_req_t      ( axi_slave_req_t  ),
     .axi_resp_t     ( axi_slave_resp_t )
 ) i_clint (
@@ -1158,6 +1165,7 @@ axi_riscv_atomics_wrap #(
     .AXI_ID_WIDTH   ( AxiIdWidthSlaves ),
     .AXI_USER_WIDTH ( AxiUserWidth     ),
     .AXI_MAX_WRITE_TXNS ( 1  ),
+    .AXI_MAX_READ_TXNS  ( 1  ),
     .RISCV_WORD_WIDTH   ( 64 )
 ) i_axi_riscv_atomics (
     .clk_i  ( clk                      ),
@@ -1892,59 +1900,59 @@ axi_dwidth_converter_512_64 i_axi_dwidth_converter_512_64 (
   );
 
 
-assign slave[1].aw_user = '0;
-assign slave[1].ar_user = '0;
-assign slave[1].w_user = '0;
+assign slave[NBSlave-1].aw_user = '0;
+assign slave[NBSlave-1].ar_user = '0;
+assign slave[NBSlave-1].w_user = '0;
 
 logic [3:0] slave_b_id;
 logic [3:0] slave_r_id;
 
-assign slave[1].b_id = slave_b_id[1:0];
-assign slave[1].r_id = slave_r_id[1:0];
+assign slave[NBSlave-1].b_id = slave_b_id[1:0];
+assign slave[NBSlave-1].r_id = slave_r_id[1:0];
 
 // PCIe Clock Converter
 axi_clock_converter_0 pcie_axi_clock_converter (
   .m_axi_aclk     ( clk                      ),
   .m_axi_aresetn  ( ndmreset_n               ),
-  .m_axi_awid     ( {2'b0, slave[1].aw_id} ),
-  .m_axi_awaddr   ( slave[1].aw_addr   ),
-  .m_axi_awlen    ( slave[1].aw_len    ),
-  .m_axi_awsize   ( slave[1].aw_size   ),
-  .m_axi_awburst  ( slave[1].aw_burst  ),
-  .m_axi_awlock   ( slave[1].aw_lock   ),
-  .m_axi_awcache  ( slave[1].aw_cache  ),
-  .m_axi_awprot   ( slave[1].aw_prot   ),
-  .m_axi_awregion ( slave[1].aw_region ),
-  .m_axi_awqos    ( slave[1].aw_qos    ),
-  .m_axi_awvalid  ( slave[1].aw_valid  ),
-  .m_axi_awready  ( slave[1].aw_ready  ),
-  .m_axi_wdata    ( slave[1].w_data    ),
-  .m_axi_wstrb    ( slave[1].w_strb    ),
-  .m_axi_wlast    ( slave[1].w_last    ),
-  .m_axi_wvalid   ( slave[1].w_valid   ),
-  .m_axi_wready   ( slave[1].w_ready   ),
+  .m_axi_awid     ( {2'b0, slave[NBSlave-1].aw_id} ),
+  .m_axi_awaddr   ( slave[NBSlave-1].aw_addr   ),
+  .m_axi_awlen    ( slave[NBSlave-1].aw_len    ),
+  .m_axi_awsize   ( slave[NBSlave-1].aw_size   ),
+  .m_axi_awburst  ( slave[NBSlave-1].aw_burst  ),
+  .m_axi_awlock   ( slave[NBSlave-1].aw_lock   ),
+  .m_axi_awcache  ( slave[NBSlave-1].aw_cache  ),
+  .m_axi_awprot   ( slave[NBSlave-1].aw_prot   ),
+  .m_axi_awregion ( slave[NBSlave-1].aw_region ),
+  .m_axi_awqos    ( slave[NBSlave-1].aw_qos    ),
+  .m_axi_awvalid  ( slave[NBSlave-1].aw_valid  ),
+  .m_axi_awready  ( slave[NBSlave-1].aw_ready  ),
+  .m_axi_wdata    ( slave[NBSlave-1].w_data    ),
+  .m_axi_wstrb    ( slave[NBSlave-1].w_strb    ),
+  .m_axi_wlast    ( slave[NBSlave-1].w_last    ),
+  .m_axi_wvalid   ( slave[NBSlave-1].w_valid   ),
+  .m_axi_wready   ( slave[NBSlave-1].w_ready   ),
   .m_axi_bid      ( slave_b_id         ),
-  .m_axi_bresp    ( slave[1].b_resp    ),
-  .m_axi_bvalid   ( slave[1].b_valid   ),
-  .m_axi_bready   ( slave[1].b_ready   ),
-  .m_axi_arid     ( {2'b0, slave[1].ar_id} ),
-  .m_axi_araddr   ( slave[1].ar_addr   ),
-  .m_axi_arlen    ( slave[1].ar_len    ),
-  .m_axi_arsize   ( slave[1].ar_size   ),
-  .m_axi_arburst  ( slave[1].ar_burst  ),
-  .m_axi_arlock   ( slave[1].ar_lock   ),
-  .m_axi_arcache  ( slave[1].ar_cache  ),
-  .m_axi_arprot   ( slave[1].ar_prot   ),
-  .m_axi_arregion ( slave[1].ar_region ),
-  .m_axi_arqos    ( slave[1].ar_qos    ),
-  .m_axi_arvalid  ( slave[1].ar_valid  ),
-  .m_axi_arready  ( slave[1].ar_ready  ),
+  .m_axi_bresp    ( slave[NBSlave-1].b_resp    ),
+  .m_axi_bvalid   ( slave[NBSlave-1].b_valid   ),
+  .m_axi_bready   ( slave[NBSlave-1].b_ready   ),
+  .m_axi_arid     ( {2'b0, slave[NBSlave-1].ar_id} ),
+  .m_axi_araddr   ( slave[NBSlave-1].ar_addr   ),
+  .m_axi_arlen    ( slave[NBSlave-1].ar_len    ),
+  .m_axi_arsize   ( slave[NBSlave-1].ar_size   ),
+  .m_axi_arburst  ( slave[NBSlave-1].ar_burst  ),
+  .m_axi_arlock   ( slave[NBSlave-1].ar_lock   ),
+  .m_axi_arcache  ( slave[NBSlave-1].ar_cache  ),
+  .m_axi_arprot   ( slave[NBSlave-1].ar_prot   ),
+  .m_axi_arregion ( slave[NBSlave-1].ar_region ),
+  .m_axi_arqos    ( slave[NBSlave-1].ar_qos    ),
+  .m_axi_arvalid  ( slave[NBSlave-1].ar_valid  ),
+  .m_axi_arready  ( slave[NBSlave-1].ar_ready  ),
   .m_axi_rid      ( slave_r_id         ),
-  .m_axi_rdata    ( slave[1].r_data    ),
-  .m_axi_rresp    ( slave[1].r_resp    ),
-  .m_axi_rlast    ( slave[1].r_last    ),
-  .m_axi_rvalid   ( slave[1].r_valid   ),
-  .m_axi_rready   ( slave[1].r_ready   ),
+  .m_axi_rdata    ( slave[NBSlave-1].r_data    ),
+  .m_axi_rresp    ( slave[NBSlave-1].r_resp    ),
+  .m_axi_rlast    ( slave[NBSlave-1].r_last    ),
+  .m_axi_rvalid   ( slave[NBSlave-1].r_valid   ),
+  .m_axi_rready   ( slave[NBSlave-1].r_ready   ),
   // from size converter
   .s_axi_aclk     ( pcie_axi_clk             ),
   .s_axi_aresetn  ( ndmreset_n               ),

@@ -56,19 +56,30 @@ package ace_pkg;
 
   /// Configuration for `ace_ccu`.
   typedef struct packed {
-    int unsigned   NoSlvPorts;
-    int unsigned   MaxMstTrans;
-    int unsigned   MaxSlvTrans;
-    bit            FallThrough;
+    int unsigned  NoSlvPorts;
+    int unsigned  MaxMstTrans;
+    int unsigned  MaxSlvTrans;
+    bit           FallThrough;
     ccu_latency_e LatencyMode;
-    int unsigned   AxiIdWidthSlvPorts;
-    int unsigned   AxiIdUsedSlvPorts;
-    bit            UniqueIds;
-    int unsigned   AxiAddrWidth;
-    int unsigned   AxiDataWidth;
+    int unsigned  AxiIdWidthSlvPorts;
+    int unsigned  AxiIdUsedSlvPorts;
+    bit           UniqueIds;
+    int unsigned  AxiAddrWidth;
+    int unsigned  AxiDataWidth;
+    int unsigned  AxiUserWidth;
+    int unsigned  DcacheLineWidth;
   } ccu_cfg_t;
 
- /// transaction type
-  typedef enum logic[2:0] {READ_NO_SNOOP, READ_ONCE, READ_SHARED, READ_UNIQUE, CLEAN_UNIQUE, WRITE_NO_SNOOP, WRITE_BACK, WRITE_UNIQUE} ace_trs_t;
+  // transaction type
+  typedef enum logic[2:0] {
+    READ_NO_SNOOP,
+    READ_ONCE,
+    READ_SHARED,
+    READ_UNIQUE,
+    CLEAN_UNIQUE,
+    WRITE_NO_SNOOP,
+    WRITE_BACK,
+    WRITE_UNIQUE
+  } ace_trs_t;
 
 endpackage

@@ -96,10 +96,10 @@ module tb_ace_direct import ariane_pkg::*; import std_cache_pkg::*; import tb_pk
   amo_resp_t                      amo_resp_o;
   dcache_req_i_t [2:0]            req_ports_i;
   dcache_req_o_t [2:0]            req_ports_o;
-  ariane_ace::m2s_nosnoop_t       axi_data_o;
-  ariane_ace::s2m_nosnoop_t       axi_data_i;
-  ariane_ace::m2s_nosnoop_t       axi_bypass_o;
-  ariane_ace::s2m_nosnoop_t       axi_bypass_i;
+  ariane_ace::req_nosnoop_t       axi_data_o;
+  ariane_ace::resp_nosnoop_t      axi_data_i;
+  ariane_ace::req_nosnoop_t       axi_bypass_o;
+  ariane_ace::resp_nosnoop_t      axi_bypass_i;
   ariane_ace::snoop_resp_t        snoop_port_o;
   ariane_ace::snoop_req_t         snoop_port_i;
 
@@ -191,13 +191,13 @@ module tb_ace_direct import ariane_pkg::*; import std_cache_pkg::*; import tb_pk
   assign flush_i = 1'b0;
 
   std_nbdcache  #(
-    .ArianeCfg         ( ArianeCfg                 ),
-    .VLD_SRAM_SIM_INIT ( "zeros"                   ),
-    .AXI_ADDR_WIDTH    ( AxiAddrWidth              ),
-    .AXI_ID_WIDTH      ( AxiIdWidth + 32'd1        ),
-    .AXI_DATA_WIDTH    ( AxiDataWidth              ),
-    .axi_req_t         ( ariane_ace::m2s_nosnoop_t ),
-    .axi_rsp_t         ( ariane_ace::s2m_nosnoop_t )
+    .ArianeCfg         ( ArianeCfg                  ),
+    .VLD_SRAM_SIM_INIT ( "zeros"                    ),
+    .AXI_ADDR_WIDTH    ( AxiAddrWidth               ),
+    .AXI_ID_WIDTH      ( AxiIdWidth + 32'd1         ),
+    .AXI_DATA_WIDTH    ( AxiDataWidth               ),
+    .axi_req_t         ( ariane_ace::req_nosnoop_t  ),
+    .axi_rsp_t         ( ariane_ace::resp_nosnoop_t )
   ) i_dut (
     .clk_i           ( clk_i           ),
     .rst_ni          ( rst_ni          ),
@@ -355,7 +355,7 @@ module tb_ace_direct import ariane_pkg::*; import std_cache_pkg::*; import tb_pk
   // checker
 
   function bit isCleanUnique(
-                             ariane_ace::m2s_nosnoop_t ace_req
+                             ariane_ace::req_nosnoop_t ace_req
                              );
     if (ace_req.ar.snoop == 4'b1011 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b10 || ace_req.ar.domain == 2'b01))
       return 1'b1;
@@ -365,7 +365,7 @@ module tb_ace_direct import ariane_pkg::*; import std_cache_pkg::*; import tb_pk
 
 
   function bit isReadUnique(
-                            ariane_ace::m2s_nosnoop_t ace_req
+                            ariane_ace::req_nosnoop_t ace_req
                             );
     if (ace_req.ar.snoop == 4'b0111 && ace_req.ar.bar[0] == 1'b0 && (ace_req.ar.domain == 2'b01 || ace_req.ar.domain == 2'b10))
       return 1'b1;
@@ -374,7 +374,7 @@ module tb_ace_direct import ariane_pkg::*; import std_cache_pkg::*; import tb_pk
   endfunction
 
   function bit isWriteBack(
-                           ariane_ace::m2s_nosnoop_t ace_req
+                           ariane_ace::req_nosnoop_t ace_req
                            );
     if (ace_req.aw.snoop == 3'b011 && ace_req.aw.bar[0] == 1'b0 && (ace_req.aw.domain == 2'b00 || ace_req.aw.domain == 2'b01 || ace_req.aw.domain == 2'b10))
       return 1'b1;

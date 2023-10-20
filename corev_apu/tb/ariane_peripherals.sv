@@ -30,7 +30,7 @@ module ariane_peripherals #(
     AXI_BUS.Slave      spi             ,
     AXI_BUS.Slave      ethernet        ,
     AXI_BUS.Slave      timer           ,
-    output logic [ariane_soc::NumTargets-1:0] irq_o   ,
+    output logic [(ariane_soc::NumHarts)-1:0][1:0] irq_o,
     // UART
     input  logic       rx_i            ,
     output logic       tx_o            ,
@@ -167,7 +167,7 @@ module ariane_peripherals #(
 
     plic_top #(
       .N_SOURCE    ( ariane_soc::NumSources  ),
-      .N_TARGET    ( ariane_soc::NumTargets  ),
+      .N_TARGET    ( (ariane_soc::NumTargets)*(ariane_soc::NumHarts) ),
       .MAX_PRIO    ( ariane_soc::MaxPriority ),
       .reg_req_t   ( plic_req_t              ),
       .reg_rsp_t   ( plic_rsp_t              )

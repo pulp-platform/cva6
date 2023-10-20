@@ -21,13 +21,13 @@
 	url = https://github.com/lowRISC/ariane-ethernet.git
 [submodule "corev_apu/src/axi_riscv_atomics"]
 	path = corev_apu/src/axi_riscv_atomics
-	url = git@github.com:planvtech/axi_riscv_atomics.git
+	url = https://github.com/pulp-platform/axi_riscv_atomics.git
 [submodule "corev_apu/riscv-dbg"]
 	path = corev_apu/riscv-dbg
 	url = https://github.com/pulp-platform/riscv-dbg.git
 [submodule "corev_apu/rv_plic"]
 	path = corev_apu/rv_plic
-	url = https://github.com/pulp-platform/rv_plic.git
+	url = git@github.com:planvtech/rv_plic.git
 [submodule "corev_apu/clic"]
 	path = corev_apu/clic
 	url = https://github.com/pulp-platform/clic.git

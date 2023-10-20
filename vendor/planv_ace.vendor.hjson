@@ -15,7 +15,7 @@
         // URL
         url: "https://github.com/planvtech/ace.git",
         // revision
-        rev: "7f23fdc795159bd6c0b3607f9e990d435180c1d7",
+        rev: "v0.0.6-pulp",
     }
 
     // Patch dir for local changes
@@ -34,7 +34,8 @@
         "ips_list.yml",
         "scripts",
         "src_files.yml",
-        "test",
+        "test/tb_ace_ccu_top.sv",
+        "test/tb_ace_ccu_top_sanity.sv",
         "Makefile",
     ]
 }

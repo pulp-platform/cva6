@@ -91,7 +91,7 @@ endif
 # target takes one of the following cva6 hardware configuration:
 # cv64a6_imafdc_sv39, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv32a6_ima_sv32_fpga
 # Changing the default target to cv32a60x for Step1 verification
-target     ?= cv64a6_imafdc_sv39_wb
+target     ?= cv64a6_imafdcsclic_sv39
 ifndef TARGET_CFG
 	export TARGET_CFG = $(target)
 endif
@@ -170,11 +170,21 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/riscv-dbg/src/dm_top.sv                                            \
         corev_apu/riscv-dbg/debug_rom/debug_rom.sv                                   \
         corev_apu/register_interface/src/apb_to_reg.sv                               \
+        corev_apu/register_interface/src/axi_to_reg.sv                               \
+        corev_apu/register_interface/src/reg_demux.sv                                \
+        corev_apu/register_interface/src/reg_err_slv.sv                              \
+        corev_apu/register_interface/src/axi_lite_to_reg.sv                          \
         vendor/pulp-platform/axi/src/axi_multicut.sv                                 \
+        vendor/pulp-platform/common_cells/src/cb_filter_pkg.sv                       \
+        vendor/pulp-platform/common_cells/src/cb_filter.sv                           \
         vendor/pulp-platform/common_cells/src/rstgen_bypass.sv                       \
         vendor/pulp-platform/common_cells/src/rstgen.sv                              \
         vendor/pulp-platform/common_cells/src/addr_decode.sv                         \
         vendor/pulp-platform/common_cells/src/stream_register.sv                     \
+        vendor/pulp-platform/common_cells/src/stream_fifo.sv                         \
+        vendor/pulp-platform/common_cells/src/stream_xbar.sv                         \
+        vendor/pulp-platform/common_cells/src/onehot_to_bin.sv                       \
+        vendor/pulp-platform/common_cells/src/sub_per_hash.sv                        \
         vendor/pulp-platform/axi/src/axi_intf.sv                                     \
         vendor/pulp-platform/axi/src/axi_cut.sv                                      \
         vendor/pulp-platform/axi/src/axi_join.sv                                     \
@@ -186,6 +196,11 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         vendor/pulp-platform/axi/src/axi_mux.sv                                      \
         vendor/pulp-platform/axi/src/axi_demux.sv                                    \
         vendor/pulp-platform/axi/src/axi_xbar.sv                                     \
+        vendor/pulp-platform/axi/src/axi_isolate.sv                                  \
+        vendor/pulp-platform/axi/src/axi_burst_splitter.sv                           \
+        vendor/pulp-platform/axi/src/axi_dw_upsizer.sv                               \
+        vendor/pulp-platform/axi/src/axi_dw_downsizer.sv                             \
+        vendor/pulp-platform/axi/src/axi_dw_converter.sv                             \
         vendor/pulp-platform/common_cells/src/cdc_2phase.sv                          \
         vendor/pulp-platform/common_cells/src/spill_register_flushable.sv            \
         vendor/pulp-platform/common_cells/src/spill_register.sv                      \
@@ -193,6 +208,11 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         vendor/pulp-platform/common_cells/src/deprecated/fifo_v2.sv                  \
         vendor/pulp-platform/common_cells/src/stream_delay.sv                        \
         vendor/pulp-platform/common_cells/src/lfsr_16bit.sv                          \
+        vendor/pulp-platform/common_cells/src/onehot_to_bin.sv                       \
+        vendor/pulp-platform/common_cells/src/id_queue.sv                            \
+        vendor/pulp-platform/common_cells/src/stream_fork.sv                         \
+        vendor/pulp-platform/common_cells/src/stream_filter.sv                       \
+        vendor/pulp-platform/common_cells/src/fall_through_register.sv               \
         vendor/pulp-platform/tech_cells_generic/src/deprecated/cluster_clk_cells.sv  \
         vendor/pulp-platform/tech_cells_generic/src/deprecated/pulp_clk_cells.sv     \
         vendor/pulp-platform/tech_cells_generic/src/rtl/tc_clk.sv                    \
@@ -224,7 +244,8 @@ fpga_src :=  $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/*.sv)
              $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/bootrom/*.sv))              \
              $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/ariane-ethernet/*.sv))      \
              common/local/util/tc_sram_fpga_wrapper.sv                \
-             vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
+             vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv \
+             vendor/pulp-platform/tech_cells_generic/src/fpga/tc_sram_xilinx.sv
 fpga_src := $(addprefix $(root-dir), $(fpga_src))
 
 # look for testbenches
@@ -233,6 +254,8 @@ tbs := $(addprefix $(root-dir), $(tbs))
 
 # RISCV asm tests and benchmark setup (used for CI)
 # there is a definesd test-list with selected CI tests
+riscv-litmus-test-dir     := tmp/riscv-litmus-tests/binaries/
+riscv-litmus-tests-list   := ci/riscv-litmus-tests.list
 riscv-test-dir            := tmp/riscv-tests/build/isa/
 riscv-benchmarks-dir      := tmp/riscv-tests/build/benchmarks/
 riscv-hyp-test            := tmp/riscv-hyp-tests/build/cva6/rvh_test.elf
@@ -242,6 +265,7 @@ riscv-mul-tests-list      := $(root-dir)ci/riscv-mul-tests.list
 riscv-fp-tests-list       := $(root-dir)ci/riscv-fp-tests.list
 riscv-clic-tests-list     := $(root-dir)ci/riscv-clic-tests.list
 riscv-benchmarks-list     := $(root-dir)ci/riscv-benchmarks.list
+riscv-litmus-tests        := $(shell xargs printf '\n%s' < $(riscv-litmus-tests-list)  | cut -b 1-)
 riscv-asm-tests           := $(shell xargs printf '\n%s' < $(riscv-asm-tests-list)  | cut -b 1-)
 riscv-amo-tests           := $(shell xargs printf '\n%s' < $(riscv-amo-tests-list)  | cut -b 1-)
 riscv-mul-tests           := $(shell xargs printf '\n%s' < $(riscv-mul-tests-list)  | cut -b 1-)
@@ -256,7 +280,7 @@ incdir := vendor/pulp-platform/common_cells/include/ vendor/pulp-platform/axi/in
 compile_flag     += +cover=bcfst+/dut -incr -64 -nologo -quiet -suppress 13262 -permissive -svinputport=compat +define+$(defines)
 
 uvm-flags        += +UVM_NO_RELNOTES +UVM_VERBOSITY=LOW
-questa-flags     += -t 1ns -64 -coverage -classdebug $(gui-sim) $(QUESTASIM_FLAGS) +tohost_addr=$(tohost_addr)
+questa-flags     += -t 1ns -64 -coverage -classdebug $(gui-sim) $(QUESTASIM_FLAGS)
 compile_flag_vhd += -64 -nologo -quiet -2008
 
 # Iterate over all include directories and write them with +incdir+ prefixed
@@ -315,11 +339,12 @@ build: $(library) $(library)/.build-srcs $(library)/.build-tb $(dpi-library)/ari
 
 # src files
 $(library)/.build-srcs: $(library)
-	$(VLOG) $(compile_flag) -timescale "1ns / 1ns" -work $(library) -pedanticerrors $(addprefix -f , ${flists}) $(list_incdir) -suppress 2583 +defines+$(defines)
-	$(VLOG) $(compile_flag) -work $(library) $(filter %.sv,$(ariane_pkg)) $(list_incdir) -suppress 2583 +defines+$(defines)
+	$(VLOG) $(compile_flag) -timescale "1ns / 1ns" -work $(library) -pedanticerrors $(addprefix -f , ${flists}) $(list_incdir) -suppress 2583
+	$(VLOG) $(compile_flag) -work $(library) $(filter %.sv,$(ariane_pkg)) $(list_incdir) -suppress 2583
 	# Suppress message that always_latch may not be checked thoroughly by QuestaSim.
-	$(VCOM) $(compile_flag_vhd) -work $(library) $(filter %.vhd,$(uart_src)) +defines+$(defines)
-	$(VLOG) $(compile_flag) -timescale "1ns / 1ns" -work $(library) -pedanticerrors $(filter %.sv,$(src)) $(list_incdir) -suppress 2583 +defines+$(defines)
+	$(VCOM) $(compile_flag_vhd) -work $(library) -pedanticerrors $(filter %.vhd,$(uart_src)) -suppress 1653
+	# Suppress message 1653 that -pedanticerrors may not be used with -2008 switch
+	$(VLOG) $(compile_flag) -timescale "1ns / 1ns" -work $(library) -pedanticerrors $(filter %.sv,$(src)) $(list_incdir) -suppress 2583
 	touch $(library)/.build-srcs
 
 # build TBs
@@ -353,6 +378,14 @@ sim: build
 	$(VSIM) +permissive $(questa-flags) $(questa-cmd) -wlf dump.wlf -lib $(library) +MAX_CYCLES=$(max_cycles) +UVM_TESTNAME=$(test_case) \
 	+BASEDIR=$(riscv-test-dir) $(uvm-flags) $(QUESTASIM_FLAGS) -gblso $(SPIKE_ROOT)/lib/libfesvr.so -sv_lib $(dpi-library)/ariane_dpi  \
 	${top_level}_optimized +permissive-off ++$(elf-bin) ++$(target-options) | tee sim.log
+
+$(riscv-litmus-tests): $(riscv-litmus-tests-list) build
+	$(VSIM) +permissive $(questa-flags) $(questa-cmd) +define+RVFI_PORT=1 +PRELOAD=$(riscv-litmus-test-dir)/$@ ++$(target-options) -lib $(library) +max-cycles=$(max_cycles) +UVM_TESTNAME=$(test_case) \
+	+BASEDIR=$(riscv-litmus-test-dir) $(uvm-flags) +jtag_rbb_enable=0 +debug_disable +tohost_addr=90000000 -gblso $(SPIKE_ROOT)/lib/libfesvr.so -sv_lib $(dpi-library)/ariane_dpi        \
+	${top_level}_optimized $(QUESTASIM_FLAGS) +permissive-off ++none | tee tmp/riscv-litmus-tests-$@.log
+
+$(riscv-litmus-tests-list):
+	basename -a `find $(riscv-litmus-test-dir) -name "*.elf" | sed 's/\[/\\\[/g'` > $@
 
 $(riscv-asm-tests): build
 	$(VSIM) +permissive $(questa-flags) $(questa-cmd) -lib $(library) +max-cycles=$(max_cycles) +UVM_TESTNAME=$(test_case) \
@@ -389,7 +422,28 @@ $(riscv-benchmarks): build
 	+BASEDIR=$(riscv-benchmarks-dir) $(uvm-flags) +jtag_rbb_enable=0 -gblso $(SPIKE_ROOT)/lib/libfesvr.so -sv_lib $(dpi-library)/ariane_dpi   \
 	${top_level}_optimized $(QUESTASIM_FLAGS) +permissive-off ++$(riscv-benchmarks-dir)/$@ ++$(target-options) | tee tmp/riscv-benchmarks-$@.log
 
+tmp/riscv-litmus-tests-%.uart.log: %
+	sed -n 's/^# \[UART\]: \(.*\S\)\s*$$/\1/p' tmp/riscv-litmus-tests-$<.log > $@
+
+tmp/riscv-litmus-tests-%.uart.log-verilator: %
+	sed -n 's/^# \[UART\]: \(.*\S\)\s*$$/\1/p' tmp/riscv-litmus-tests-$<.log > $@
+
+tmp/riscv-litmus-tests-%.litmus.log: tmp/riscv-litmus-tests-%.uart.log
+	echo "Test $(basename $* .elf) Allowed" > $@
+	echo "Histogram" >> $@
+	cat $< >> $@
+	echo "" >> $@
+
 # can use -jX to run ci tests in parallel using X processes
+run-litmus-tests: $(addprefix tmp/riscv-litmus-tests-, $(addsuffix .litmus.log,$(riscv-litmus-tests)))
+	cat $^ > litmus.log
+
+litmus.log:
+	cat tmp/*.litmus.log > $@
+
+check-litmus-tests: litmus.log
+	cd ${riscv-litmus-test-dir}/../ && ! ci/compare_model.sh | grep "Warning negative differences"
+
 run-asm-tests: $(riscv-asm-tests)
 	$(MAKE) check-asm-tests
 
@@ -646,6 +700,14 @@ $(addsuffix -verilator,$(riscv-clic-tests)): verilate
 riscv-hyp-test-verilator: verilate
 	$(ver-library)/Variane_testharness $(riscv-hyp-test)
 
+$(addsuffix -verilator,$(riscv-litmus-tests)): verilate
+	$(ver-library)/Variane_testharness $(riscv-litmus-test-dir)/$(subst -verilator,,$@) +debug_disable +tohost_addr=90000000 > tmp/$@.log
+	sed -rn '/^[0-9]+:>/,/Time/p' < tmp/$@.log > tmp/$@.uart.log
+	echo "Test $(subst .elf-verilator,,$@) Allowed" > tmp/$(subst -verilator,,$@).litmus.log
+	echo "Histogram" >> tmp/$(subst -verilator,,$@).litmus.log
+	cat tmp/$@.uart.log >> tmp/$(subst -verilator,,$@).litmus.log
+	echo "" >> tmp/$(subst -verilator,,$@).litmus.log
+
 $(addsuffix -verilator,$(riscv-benchmarks)): verilate
 	$(ver-library)/Variane_testharness $(riscv-benchmarks-dir)/$(subst -verilator,,$@)
 
@@ -666,6 +728,8 @@ run-fp-f-verilator: $(addsuffix -verilator, $(filter rv64uf%, $(riscv-fp-tests))
 run-clic-verilator: $(addsuffix -verilator, $(riscv-clic-tests))
 
 run-hyp-verilator: riscv-hyp-test-verilator
+
+run-litmus-tests-verilator: $(addsuffix -verilator, $(riscv-litmus-tests))
 
 run-benchmarks-verilator: $(addsuffix -verilator,$(riscv-benchmarks))
 
@@ -741,6 +805,7 @@ build-spike:
 	cd tb/riscv-isa-sim && mkdir -p build && cd build && ../configure --prefix=`pwd`/../install --with-fesvr=$(RISCV) --enable-commitlog && make -j8 install
 
 clean:
+	rm -rf log/*
 	rm -rf $(riscv-torture-dir)/output/test*
 	rm -rf $(library)/ $(dpi-library)/ $(ver-library)/ $(vcs-library)/
 	rm -f tmp/*.ucdb tmp/*.log *.wlf *vstf wlft* *.ucdb

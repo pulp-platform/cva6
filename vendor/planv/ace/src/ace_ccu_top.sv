@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2018 ETH Zurich, University of Bologna
-// Copyright (c) 2022 PlanV GmbH
+// Copyright (c) 2023 PlanV GmbH
 //
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
@@ -13,43 +13,44 @@
 // ace_ccu_top: Top level module for closely coupled cache coherency protocol
 `include "ace/assign.svh"
 `include "ace/typedef.svh"
+
 module ace_ccu_top
-import cf_math_pkg::idx_width;
+  import cf_math_pkg::idx_width;
 #(
-  parameter ace_pkg::ccu_cfg_t Cfg                                   = '0,
-  parameter bit  ATOPs                                                = 1'b1,
-  parameter type slv_aw_chan_t                                        = logic,
-  parameter type mst_aw_chan_t                                        = logic,
-  parameter type mst_stg_aw_chan_t                                    = logic,
-  parameter type w_chan_t                                             = logic,
-  parameter type slv_b_chan_t                                         = logic,
-  parameter type mst_b_chan_t                                         = logic,
-  parameter type mst_stg_b_chan_t                                     = logic,
-  parameter type slv_ar_chan_t                                        = logic,
-  parameter type mst_ar_chan_t                                        = logic,
-  parameter type mst_stg_ar_chan_t                                    = logic,
-  parameter type slv_r_chan_t                                         = logic,
-  parameter type mst_r_chan_t                                         = logic,
-  parameter type mst_stg_r_chan_t                                     = logic,
-  parameter type slv_req_t                                            = logic,
-  parameter type slv_resp_t                                           = logic,
-  parameter type mst_req_t                                            = logic,
-  parameter type mst_resp_t                                           = logic,
-  parameter type mst_stg_req_t                                        = logic,
-  parameter type mst_stg_resp_t                                       = logic,
-  parameter type snoop_req_t                                          = logic,
-  parameter type snoop_resp_t                                         = logic
+  parameter ace_pkg::ccu_cfg_t Cfg = '0,
+  parameter bit  ATOPs             = 1'b1,
+  parameter type slv_aw_chan_t     = logic,
+  parameter type mst_aw_chan_t     = logic,
+  parameter type mst_stg_aw_chan_t = logic,
+  parameter type w_chan_t          = logic,
+  parameter type slv_b_chan_t      = logic,
+  parameter type mst_b_chan_t      = logic,
+  parameter type mst_stg_b_chan_t  = logic,
+  parameter type slv_ar_chan_t     = logic,
+  parameter type mst_ar_chan_t     = logic,
+  parameter type mst_stg_ar_chan_t = logic,
+  parameter type slv_r_chan_t      = logic,
+  parameter type mst_r_chan_t      = logic,
+  parameter type mst_stg_r_chan_t  = logic,
+  parameter type slv_req_t         = logic,
+  parameter type slv_resp_t        = logic,
+  parameter type mst_req_t         = logic,
+  parameter type mst_resp_t        = logic,
+  parameter type mst_stg_req_t     = logic,
+  parameter type mst_stg_resp_t    = logic,
+  parameter type snoop_req_t       = logic,
+  parameter type snoop_resp_t      = logic
 
 ) (
-  input  logic                                                          clk_i,
-  input  logic                                                          rst_ni,
-  input  logic                                                          test_i,
-  input  slv_req_t    [Cfg.NoSlvPorts-1:0]                              slv_ports_req_i,
-  output slv_resp_t   [Cfg.NoSlvPorts-1:0]                              slv_ports_resp_o,
-  output snoop_req_t  [Cfg.NoSlvPorts-1:0]                              slv_snp_req_o,
-  input  snoop_resp_t [Cfg.NoSlvPorts-1:0]                              slv_snp_resp_i,
-  output mst_req_t                                                      mst_ports_req_o,
-  input  mst_resp_t                                                     mst_ports_resp_i
+  input  logic                             clk_i,
+  input  logic                             rst_ni,
+  input  logic                             test_i,
+  input  slv_req_t    [Cfg.NoSlvPorts-1:0] slv_ports_req_i,
+  output slv_resp_t   [Cfg.NoSlvPorts-1:0] slv_ports_resp_o,
+  output snoop_req_t  [Cfg.NoSlvPorts-1:0] slv_snp_req_o,
+  input  snoop_resp_t [Cfg.NoSlvPorts-1:0] slv_snp_resp_i,
+  output mst_req_t                         mst_ports_req_o,
+  input  mst_resp_t                        mst_ports_resp_i
 );
 
 // signals from the ace_demuxes
@@ -58,7 +59,7 @@ slv_resp_t [Cfg.NoSlvPorts-1:0] [1:0]      slv_resps;
 // signals into the ace_muxes
 mst_stg_req_t  [Cfg.NoSlvPorts:0]          mst_reqs;   // one extra port for CCU
 mst_stg_resp_t [Cfg.NoSlvPorts:0]          mst_resps;
-mst_stg_req_t  [Cfg.NoSlvPorts-1:0]          mst_reqs_tmp;
+mst_stg_req_t  [Cfg.NoSlvPorts:0]          mst_reqs_tmp;
 // signals into the CCU
 slv_req_t  [Cfg.NoSlvPorts-1:0]            ccu_reqs_i;
 slv_resp_t [Cfg.NoSlvPorts-1:0]            ccu_resps_o;
@@ -151,23 +152,34 @@ axi_mux #(
 );
 
 
-// connection reqs and resps for non-shareable tarnsactions with axi_mux
+// connection reqs and resps for non-shareable transactions with axi_mux
 for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_non_shared_conn
-    `ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[i], slv_reqs[i][0])
-    `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][0], mst_resps[i])
+  `ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[i], slv_reqs[i][0])
+  `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][0], mst_resps[i])
 
   always_comb begin
     mst_reqs[i] = mst_reqs_tmp[i];
-    mst_reqs[i].aw.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)] = i[$clog2(Cfg.NoSlvPorts)-1:0];
-    mst_reqs[i].ar.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)] = i[$clog2(Cfg.NoSlvPorts)-1:0];
+    mst_reqs[i].aw.user[$clog2(Cfg.NoSlvPorts)-1:0] = i[$clog2(Cfg.NoSlvPorts)-1:0];
+    mst_reqs[i].ar.user[$clog2(Cfg.NoSlvPorts)-1:0] = i[$clog2(Cfg.NoSlvPorts)-1:0];
+
   end
 end
 
+// connect CCU reqs and resps to mux
+always_comb begin
+  mst_reqs[Cfg.NoSlvPorts] = mst_reqs_tmp[Cfg.NoSlvPorts];
+  mst_reqs[Cfg.NoSlvPorts].aw.user[$clog2(Cfg.NoSlvPorts)-1:0] = mst_reqs_tmp[Cfg.NoSlvPorts].aw.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)];
+  mst_reqs[Cfg.NoSlvPorts].ar.user[$clog2(Cfg.NoSlvPorts)-1:0] = mst_reqs_tmp[Cfg.NoSlvPorts].ar.id[Cfg.AxiIdWidthSlvPorts +: $clog2(Cfg.NoSlvPorts)];
+end
+`ACE_ASSIGN_REQ_STRUCT(mst_reqs_tmp[Cfg.NoSlvPorts], ccu_reqs_o)
+`ACE_ASSIGN_RESP_STRUCT(ccu_resps_i, mst_resps[Cfg.NoSlvPorts])
+
 // connection reqs and resps for shareable transactions with CCU
 for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_shared_conn
-    `ACE_ASSIGN_REQ_STRUCT(ccu_reqs_i[i], slv_reqs[i][1])
-    `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][1], ccu_resps_o[i])
+  `ACE_ASSIGN_REQ_STRUCT(ccu_reqs_i[i], slv_reqs[i][1])
+  `ACE_ASSIGN_RESP_STRUCT(slv_resps[i][1], ccu_resps_o[i])
 end
+
 
 axi_mux #(
   .SlvAxiIDWidth ( Cfg.AxiIdWidthSlvPorts ), // ID width of the slave ports
@@ -202,9 +214,9 @@ axi_mux #(
   .mst_resp_i  ( ccu_resps_mux_i  )
 );
 
-
-ccu_fsm
-#(
+ccu_fsm #(
+    .DcacheLineWidth ( Cfg.DcacheLineWidth    ),
+    .AxiDataWidth    ( Cfg.AxiDataWidth       ),
     .NoMstPorts      ( Cfg.NoSlvPorts         ),
     .SlvAxiIDWidth   ( Cfg.AxiIdWidthSlvPorts ), // ID width of the slave ports
     .mst_req_t       ( mst_stg_req_t          ),
@@ -223,29 +235,22 @@ ccu_fsm
     .m2s_resp_i      ( slv_snp_resp_i     )
 );
 
-
-
-// connect CCU reqs and resps to mux
-`ACE_ASSIGN_REQ_STRUCT(mst_reqs[Cfg.NoSlvPorts], ccu_reqs_o)
-`ACE_ASSIGN_RESP_STRUCT(ccu_resps_i, mst_resps[Cfg.NoSlvPorts])
-
 endmodule
 
 
 
 module ace_ccu_top_intf
-import cf_math_pkg::idx_width;
+  import cf_math_pkg::idx_width;
 #(
-  parameter int unsigned AXI_USER_WIDTH =  0,
   parameter ace_pkg::ccu_cfg_t Cfg      = '0,
   parameter bit ATOPS                   = 1'b1
 ) (
-  input  logic                                                      clk_i,
-  input  logic                                                      rst_ni,
-  input  logic                                                      test_i,
-  SNOOP_BUS.Slave                                                   snoop_ports [Cfg.NoSlvPorts-1:0],
-  ACE_BUS.Slave                                                     slv_ports [Cfg.NoSlvPorts-1:0],
-  AXI_BUS.Master                                                    mst_ports
+  input  logic     clk_i,
+  input  logic     rst_ni,
+  input  logic     test_i,
+  SNOOP_BUS.Slave  snoop_ports [Cfg.NoSlvPorts-1:0],
+  ACE_BUS.Slave    slv_ports   [Cfg.NoSlvPorts-1:0],
+  AXI_BUS.Master   mst_ports
 );
 
   localparam int unsigned AxiIdWidthMstPortsStage = Cfg.AxiIdWidthSlvPorts +$clog2(Cfg.NoSlvPorts);
@@ -257,7 +262,7 @@ import cf_math_pkg::idx_width;
   typedef logic [Cfg.AxiAddrWidth       -1:0] addr_t;
   typedef logic [Cfg.AxiDataWidth       -1:0] data_t;
   typedef logic [Cfg.AxiDataWidth/8     -1:0] strb_t;
-  typedef logic [AXI_USER_WIDTH         -1:0] user_t;
+  typedef logic [Cfg.AxiUserWidth       -1:0] user_t;
 
     // snoop channel conversion
   `ACE_TYPEDEF_AW_CHAN_T(mst_ace_stg_aw_chan_t, addr_t, id_mst_stg_t, user_t)
@@ -294,15 +299,13 @@ import cf_math_pkg::idx_width;
   snoop_resp_t      [Cfg.NoSlvPorts-1:0]  snoop_resps;
 
 
-
-  /// Assigning ACE request from CCU Mux to slave(RAM )
+  /// Assigning ACE request from CCU Mux to slave(RAM)
   `AXI_ASSIGN_FROM_REQ(mst_ports, mst_ace_reqs)
   /// Assigning AXI response from slave (RAM) to CCU mux which accepts only ACE type response
   `ACE_ASSIGN_TO_RESP(mst_ace_resps, mst_ports)
 
 
   for (genvar i = 0; i < Cfg.NoSlvPorts; i++) begin : gen_assign_slv
-
     `ACE_ASSIGN_TO_REQ(slv_ace_reqs[i], slv_ports[i])
     `ACE_ASSIGN_FROM_RESP(slv_ports[i], slv_ace_resps[i])
     /// Assigning SNOOP request from CCU logic to master

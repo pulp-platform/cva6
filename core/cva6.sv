@@ -237,15 +237,6 @@ module cva6 import ariane_pkg::*; #(
   logic                     itlb_miss_ex_perf;
   logic                     dtlb_miss_ex_perf;
   logic                     dcache_miss_cache_perf;
-  logic                     dcache_hit_cache_perf;
-  logic                     dcache_flushing_cache_perf;
-
-  logic                     dcache_write_hit_unique_cache_perf;
-  logic                     dcache_write_hit_shared_cache_perf;
-  logic                     dcache_write_miss_cache_perf;
-  logic                     dcache_clean_invalid_hit_cache_perf;
-  logic                     dcache_clean_invalid_miss_cache_perf;
-
   logic                     icache_miss_cache_perf;
   logic [NumPorts-1:0][DCACHE_SET_ASSOC-1:0] miss_vld_bits;
   logic                     stall_issue;
@@ -734,43 +725,33 @@ module cva6 import ariane_pkg::*; #(
   // ------------------------
   if (PERF_COUNTER_EN) begin: gen_perf_counter
   perf_counters #(
-    .NumPorts             ( NumPorts                   )
+    .NumPorts            ( NumPorts                  )
   ) perf_counters_i (
-    .clk_i                ( clk_i                      ),
-    .rst_ni               ( rst_ni                     ),
-    .debug_mode_i         ( debug_mode                 ),
-    .addr_i               ( addr_csr_perf              ),
-    .we_i                 ( we_csr_perf                ),
-    .data_i               ( data_csr_perf              ),
-    .data_o               ( data_perf_csr              ),
-    .commit_instr_i       ( commit_instr_id_commit     ),
-    .commit_ack_i         ( commit_ack                 ), 
- 
-    .l1_icache_miss_i     ( icache_miss_cache_perf     ),
-    .l1_dcache_miss_i     ( dcache_miss_cache_perf     ),
-    .l1_dcache_hit_i      ( dcache_hit_cache_perf      ),
-    .l1_dcache_flushing_i ( dcache_flushing_cache_perf ),
+    .clk_i               ( clk_i                     ),
+    .rst_ni              ( rst_ni                    ),
+    .debug_mode_i        ( debug_mode                ),
+    .addr_i              ( addr_csr_perf             ),
+    .we_i                ( we_csr_perf               ),
+    .data_i              ( data_csr_perf             ),
+    .data_o              ( data_perf_csr             ),
+    .commit_instr_i      ( commit_instr_id_commit    ),
+    .commit_ack_i        ( commit_ack                ),
 
-    .l1_dcache_write_hit_unique_i   ( dcache_write_hit_unique_cache_perf   ),
-    .l1_dcache_write_hit_shared_i   ( dcache_write_hit_shared_cache_perf   ),
-    .l1_dcache_write_miss_i         ( dcache_write_miss_cache_perf         ),
-    .l1_dcache_clean_invalid_hit_i  ( dcache_clean_invalid_hit_cache_perf  ),
-    .l1_dcache_clean_invalid_miss_i ( dcache_clean_invalid_miss_cache_perf ),
-
-    .amo_i                ( amo_req.req                ),
-    .itlb_miss_i          ( itlb_miss_ex_perf          ),
-    .dtlb_miss_i          ( dtlb_miss_ex_perf          ),
-    .sb_full_i            ( sb_full                    ),
-    .if_empty_i           ( ~fetch_valid_if_id         ),
-    .ex_i                 ( ex_commit                  ),
-    .eret_i               ( eret                       ),
-    .resolved_branch_i    ( resolved_branch            ),
-    .branch_exceptions_i  ( flu_exception_ex_id        ),
-    .l1_icache_access_i   ( icache_dreq_if_cache       ),
-    .l1_dcache_access_i   ( dcache_req_ports_ex_cache  ),
-    .miss_vld_bits_i      ( miss_vld_bits              ),
-    .i_tlb_flush_i        ( flush_tlb_ctrl_ex          ),
-    .stall_issue_i        ( stall_issue                )
+    .l1_icache_miss_i    ( icache_miss_cache_perf    ),
+    .l1_dcache_miss_i    ( dcache_miss_cache_perf    ),
+    .itlb_miss_i         ( itlb_miss_ex_perf         ),
+    .dtlb_miss_i         ( dtlb_miss_ex_perf         ),
+    .sb_full_i           ( sb_full                   ),
+    .if_empty_i          ( ~fetch_valid_if_id        ),
+    .ex_i                ( ex_commit                 ),
+    .eret_i              ( eret                      ),
+    .resolved_branch_i   ( resolved_branch           ),
+    .branch_exceptions_i ( flu_exception_ex_id       ),
+    .l1_icache_access_i  ( icache_dreq_if_cache      ),
+    .l1_dcache_access_i  ( dcache_req_ports_ex_cache ),
+    .miss_vld_bits_i     ( miss_vld_bits             ),
+    .i_tlb_flush_i       ( flush_tlb_ctrl_ex         ),
+    .stall_issue_i       ( stall_issue               )
   );
  end
 
@@ -877,6 +858,13 @@ module cva6 import ariane_pkg::*; #(
     .axi_resp_i            ( axi_resp_i                  )
 `endif
   );
+
+  // pragma translate_off
+  `ifndef VERILATOR
+  initial a_not_coherent : assert(DCACHE_COHERENT == 0) else $error("DCACHE_COHERENT only supported with WB cache");
+  `endif
+  // pragma translate_on
+
   end else begin : WB
 
   std_cache_subsystem #(
@@ -916,15 +904,6 @@ module cva6 import ariane_pkg::*; #(
     .amo_req_i             ( amo_req                     ),
     .amo_resp_o            ( amo_resp                    ),
     .dcache_miss_o         ( dcache_miss_cache_perf      ),
-    .dcache_hit_o          ( dcache_hit_cache_perf       ),
-    .dcache_flushing_o     ( dcache_flushing_cache_perf  ),
-
-    .dcache_write_hit_unique_o   ( dcache_write_hit_unique_cache_perf   ),
-    .dcache_write_hit_shared_o   ( dcache_write_hit_shared_cache_perf   ),
-    .dcache_write_miss_o         ( dcache_write_miss_cache_perf         ),
-    .dcache_clean_invalid_hit_o  ( dcache_clean_invalid_hit_cache_perf  ),
-    .dcache_clean_invalid_miss_o ( dcache_clean_invalid_miss_cache_perf ),
-
     // this is statically set to 1 as the std_cache does not have a wbuffer
     .wbuffer_empty_o       ( dcache_commit_wbuffer_empty ),
     // from PTW, Load Unit  and Store Unit
