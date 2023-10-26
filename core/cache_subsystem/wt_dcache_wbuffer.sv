@@ -419,6 +419,12 @@ module wt_dcache_wbuffer import ariane_pkg::*; import wt_cache_pkg::*; #(
     req_port_o.data_gnt = 1'b0;
     wbuffer_wren        = 1'b0;
 
+    // set inputs of user-bits D-FF to a constant if they are not used 
+    if(!ariane_pkg::DATA_USER_EN) begin
+      for (int k=0; k<DCACHE_WBUF_DEPTH; k++)
+        wbuffer_d[k].user = '0;
+    end
+
     // TAG lookup returns, mark corresponding word
     if (check_en_q1) begin
       if (wbuffer_q[check_ptr_q1].valid) begin
@@ -489,8 +495,6 @@ module wt_dcache_wbuffer import ariane_pkg::*; import wt_cache_pkg::*; #(
             wbuffer_d[wr_ptr].data[k*8 +: 8] = req_port_i.data_wdata[k*8 +: 8];
             if (ariane_pkg::DATA_USER_EN) begin
               wbuffer_d[wr_ptr].user[k*8 +: 8] = req_port_i.data_wuser[k*8 +: 8];
-            end else begin
-              wbuffer_d[wr_ptr].user[k*8 +: 8] = '0;
             end
           end
         end
