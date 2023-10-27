@@ -1419,7 +1419,7 @@ package tb_std_cache_subsystem_pkg;
                 cnt = 0;
                 // 1. wait for grant to read cache
                 while (!gnt_vif.gnt[1]) begin
-                    $display("%t ns %s: skipping cycle without grant for snoop", $time, name);
+                    $display("%t ns %s.update_cache_from_snoop: skipping cycle without grant for snoop", $time, name);
                     @(posedge sram_vif.clk); // skip cycles without grant
                     cnt++;
                     if (cnt > 1000) begin
@@ -1427,6 +1427,7 @@ package tb_std_cache_subsystem_pkg;
                         break;
                     end
                 end
+                $display("%t ns %s.update_cache_from_snoop: got grant for snoop", $time, name);
                 @(posedge sram_vif.clk);
 
                 // 2. wait for FSM
@@ -1447,7 +1448,7 @@ package tb_std_cache_subsystem_pkg;
                               ac.ac_snoop == snoop_pkg::READ_UNIQUE ||
                               ac.ac_snoop == snoop_pkg::CLEAN_INVALID)) begin
                     while (!gnt_vif.snoop_wr_gnt) begin
-                        $display("%t ns %s: skipping cycle without grant for snoop", $time, name);
+                        $display("%t ns %s.update_cache_from_snoop: skipping cycle without grant for snoop", $time, name);
                         @(posedge sram_vif.clk); // skip cycles without grant
                         cnt++;
                         if (cnt > 1000) begin
@@ -1457,7 +1458,7 @@ package tb_std_cache_subsystem_pkg;
                     end
                 end
                 @(posedge sram_vif.clk);
-                $display("%t ns %s updating cache status from snoop", $time, name);
+                $display("%t ns %s.update_cache_from_snoop updating cache status from snoop", $time, name);
 
                 // check hit again, might have been invalidated by eviction
                 hit_v = 1'b0;
@@ -1491,7 +1492,7 @@ package tb_std_cache_subsystem_pkg;
                             $display("Update mem [%0d][%0d] from READ_ONCE", mem_idx_v, hit_way);
                         end
                         default: begin
-                            $error("%s: unexpected snoop type %0d", name, ac.ac_snoop);
+                            $error("%t unexpected snoop type %0d", name, ac.ac_snoop);
                         end
                     endcase
                     if (cache_status[mem_idx_v][hit_way].valid) begin
@@ -1534,6 +1535,7 @@ package tb_std_cache_subsystem_pkg;
                         logic [63:0]                                      addr_v;
                         bit                                               CheckOK;
                         logic [$clog2(DCACHE_SET_ASSOC)-1:0]              target_way;
+                        logic [$clog2(DCACHE_SET_ASSOC)-1:0]              dut_way;
                         bit                                               hit;
                         dcache_req                                        req;
 
@@ -1567,6 +1569,8 @@ package tb_std_cache_subsystem_pkg;
                                 end
                             end
                             $display("%t ns %s.update_cache_from_req: got grant for dcache req : %s", $time, name, req.print_me());
+                            dut_way = one_hot_to_bin(gnt_vif.get_way(.use_be(req_t.prio==0)));
+                            $display("%t ns %s.update_cache_from_req: got DUT target way %0d for dcache req : %s", $time, name, dut_way, req.print_me());
                             @(posedge sram_vif.clk);
                             $display("%t ns %s.update_cache_from_req: updating cache status from dcache req : %s", $time, name, req.print_me());
                         end else begin
@@ -1629,6 +1633,9 @@ package tb_std_cache_subsystem_pkg;
                                 end else begin
                                     $display("Empty way found");
                                     target_way = one_hot_to_bin(get_victim_cl(~valid_v));
+                                    if (target_way != dut_way)
+                                        $warning("Adjusting target way %0d to match DUT way %0d", target_way, dut_way);
+                                    target_way = dut_way;
                                 end
                                 cache_status[mem_idx_v][target_way].tag   = req.address_tag;
 

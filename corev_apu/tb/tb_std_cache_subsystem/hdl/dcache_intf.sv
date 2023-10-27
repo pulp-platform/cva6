@@ -91,14 +91,33 @@ interface dcache_sram_if (input logic clk);
 endinterface
 
 //------------------------------------------------------------------------------
-// interface to probe internal cache grant signals
+// interface to probe internal cache signals
 //------------------------------------------------------------------------------
 interface dcache_gnt_if (input logic clk);
-    logic [4:0] gnt;
-    logic [4:0] rd_gnt;
-    logic [2:0] bypass_gnt;
-    logic [2:0] miss_gnt;
-    logic [2:0] wr_gnt;
-    logic       snoop_wr_gnt;
-    logic [2:0] mshr_match;
+    import ariane_pkg::*;
+    import std_cache_pkg::*;
+    logic                     [4:0] gnt;
+    logic                     [4:0] rd_gnt;
+    logic                     [2:0] bypass_gnt;
+    logic                     [2:0] miss_gnt;
+    logic                     [2:0] wr_gnt;
+    logic                           snoop_wr_gnt;
+    logic                     [2:0] mshr_match;
+    logic    [DCACHE_SET_ASSOC-1:0] way;
+    vldrty_t [DCACHE_SET_ASSOC-1:0] be_vld;
+
+    function logic [DCACHE_SET_ASSOC-1:0] get_way (
+        input logic use_be = 1'b0
+    );
+        logic [DCACHE_SET_ASSOC-1:0] result;
+        if (use_be) begin
+            for (int w=0; w<DCACHE_SET_ASSOC; w++) begin
+                result[w] = be_vld[w].valid;
+            end
+        end else begin
+            result = way;
+        end
+        return result;
+    endfunction
+
 endinterface
