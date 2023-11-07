@@ -84,7 +84,7 @@ package tb_std_cache_subsystem_pkg;
 
 
     function automatic logic [63:0] get_rand_addr_from_cfg(ariane_cfg_t cfg);
-        logic [63:0] start_addr, end_addr;
+        logic [63:0] start_addr, end_addr, range;
         logic [31:0] addr_msb, addr_lsb;
         int region;
 
@@ -104,11 +104,13 @@ package tb_std_cache_subsystem_pkg;
             end
         endcase
 
-        a_lsb_zero : assert (start_addr[31:0] === 0 && end_addr[31:0] === 0) else
-            $error("expected 32 LSB zeros for address range");
+        range = end_addr - start_addr - 1;
 
-        addr_msb = $urandom_range((end_addr-1) >> 32, start_addr>>32);
-        addr_lsb = $urandom;
+        a_lsb_zero : assert (range[63:32] === 0) else
+            $error("expected address range less than 32 bits");
+
+        addr_msb = start_addr>>32;
+        addr_lsb = start_addr[31:0] + $urandom_range(range);
 
         return {addr_msb, addr_lsb};
 
@@ -854,6 +856,114 @@ package tb_std_cache_subsystem_pkg;
 
     endclass
 
+    //--------------------------------------------------------------------------
+    // icache request
+    //--------------------------------------------------------------------------
+    class icache_req;
+        logic [riscv::VLEN-1:0] vaddr;
+        // helper variables
+        int                     id;
+
+        function new(int id = 0);
+            this.id = id;
+        endfunction
+
+        function string print_me();
+            return $sformatf("id %0d, vaddr %0h", id, vaddr);
+        endfunction
+    endclass
+
+
+    //--------------------------------------------------------------------------
+    // Driver for the CPU / instruction cache interface
+    //--------------------------------------------------------------------------
+    class icache_driver;
+
+        virtual icache_intf vif;
+        ariane_cfg_t cfg;
+        string name;
+        int verbosity;
+        logic en_random_req;
+        logic random_req_running;
+
+        function new (virtual icache_intf vif, ariane_cfg_t cfg, string name="icache_driver");
+            this.vif      = vif;
+            this.cfg      = cfg;
+            vif.req       = '0;
+            vif.req.vaddr = $urandom;
+            this.name     = name;
+            verbosity     = 0;
+            en_random_req = 0;
+            random_req_running = 0;
+        endfunction
+
+        // read request
+        task automatic rd_resp (
+            input logic  [63:0] addr      = '0,
+            input bit           rand_addr = 0,
+            output logic [63:0] result
+        );
+            logic [63:0] addr_int;
+
+            if (rand_addr) begin
+                addr_int = get_rand_addr_from_cfg(this.cfg);
+            end else begin
+                addr_int = addr;
+            end
+
+            if (verbosity > 0) begin
+                $display("%t ns %s: sending read request for address 0x%8h", $time, name, addr_int);
+            end
+
+            #0;
+            vif.req.req   = 1'b1;
+            vif.req.vaddr = addr_int;
+
+            do begin
+                @(posedge vif.clk);
+            end while (!vif.resp.ready);
+            vif.req.req = 1'b0;
+
+        endtask
+
+        // wrapper to rd_resp without result output mapped
+        task automatic rd (
+            input logic  [63:0] addr      = '0,
+            input bit           rand_addr = 0
+        );
+            logic [63:0] dummy_result;
+            rd_resp (
+                .addr      ( addr         ),
+                .rand_addr ( rand_addr    ),
+                .result    ( dummy_result )
+            );
+        endtask
+
+        task automatic start_random_req(input int wait_time=10);
+
+            this.en_random_req      = 1;
+            this.random_req_running = 1;
+            fork begin
+                while (en_random_req) begin
+                    rd(.rand_addr(1));
+                    `WAIT_CYC(vif.clk,$urandom_range(wait_time));
+                end
+                random_req_running = 0;
+            end join_none;
+
+        endtask
+
+        task automatic stop_random_req();
+            this.en_random_req = 0;
+            while (random_req_running) begin
+                `WAIT_CYC(vif.clk,1);
+            end
+        endtask
+
+
+    endclass
+
+
 
     //--------------------------------------------------------------------------
     // dcache management transaction
@@ -1030,6 +1140,8 @@ package tb_std_cache_subsystem_pkg;
         int amo_msg_timeout    = 10000;
         int mgmt_trans_timeout = 10000;
 
+        int verbosity;
+
         function new (
             virtual dcache_sram_if sram_vif,
             virtual dcache_gnt_if  gnt_vif,
@@ -1054,6 +1166,8 @@ package tb_std_cache_subsystem_pkg;
             req_to_cache_update = new();
             req_to_cache_check = new();
             snoop_to_cache_update = new();
+
+            verbosity = 0;
 
         endfunction
 
@@ -1839,7 +1953,6 @@ package tb_std_cache_subsystem_pkg;
         endtask
 
 
-
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         // filter AXI bus
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1894,13 +2007,6 @@ package tb_std_cache_subsystem_pkg;
 
             end
         endtask
-
-
-
-
-
-
-
 
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2332,13 +2438,18 @@ package tb_std_cache_subsystem_pkg;
                         // wait for possible MSHR match
                         int cnt = 0;
                         while (gnt_vif.mshr_match[msg.port_idx]) begin
-                            $display("%t ns %s.check_cache_msg: wait for MSHR match for message : %s", $time, name, msg.print_me());
+                            if (cnt == 0 || verbosity > 0) begin
+                                $display("%t ns %s.check_cache_msg: wait for MSHR match for message : %s", $time, name, msg.print_me());
+                            end
                             @(posedge sram_vif.clk);
                             cnt++;
                             if (cnt > cache_msg_timeout) begin
                                 $error("%s.check_cache_msg : Timeout while waiting for MSHR match for message : %s", name, msg.print_me());
                                 break;
                             end
+                        end
+                        if (cnt > 0) begin
+                            $display("%t ns %s.check_cache_msg: MSHR match ended for message : %s", $time, name, msg.print_me());
                         end
 
                         // go to hit or miss routine

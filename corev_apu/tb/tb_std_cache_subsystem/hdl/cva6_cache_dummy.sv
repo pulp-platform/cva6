@@ -85,8 +85,14 @@ module cva6
 
   assign icache_en_csr            = 1'b1;
   assign icache_flush_ctrl_cache  = 1'b0;
-  assign icache_areq_ex_cache     = '0;
-  assign icache_dreq_if_cache     = '0;
+  // assign icache_areq_ex_cache     = '0;
+  // assign icache_dreq_if_cache     = '0;
+
+  // dummy translation paddr = vaddr;
+  assign icache_areq_ex_cache.fetch_valid     = icache_areq_cache_ex.fetch_req;
+  assign icache_areq_ex_cache.fetch_paddr     = icache_areq_cache_ex.fetch_vaddr;
+  assign icache_areq_ex_cache.fetch_exception = '0;
+
 
   assign cvxif_req_o = '0;
   assign rvfi_o      = '0;
