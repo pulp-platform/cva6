@@ -125,9 +125,10 @@ package tb_std_cache_subsystem_pkg;
         logic [63:0] addr; // address
         logic [63:0] data; // data as layouted in the register
         logic  [1:0] size;
+        int          id;
 
         function string print_me();
-            return $sformatf("type %0s, address 0x%16h, data 0x%16h, size 0b%2b", op.name(), addr, data, size);
+            return $sformatf("id %0d, type %0s, address 0x%16h, data 0x%16h, size 0b%2b", id, op.name(), addr, data, size);
         endfunction
     endclass
 
@@ -138,9 +139,10 @@ package tb_std_cache_subsystem_pkg;
     class amo_resp;
         amo_t        op;
         logic [63:0] data;
+        int          id;
 
         function string print_me();
-            return $sformatf("type %0s, data 0x%16h", op.name(), data);
+            return $sformatf("id %0d, type %0s, data 0x%16h", id, op.name(), data);
         endfunction
     endclass
 
@@ -285,11 +287,13 @@ package tb_std_cache_subsystem_pkg;
 
         string              name;
         int                 verbosity;
+        int                 id;
 
         function new (virtual amo_intf vif, string name="amo_monitor");
             this.vif  = vif;
             this.name = name;
             verbosity = 0;
+            id = 0;
         endfunction
 
         // get read requests and responses
@@ -306,6 +310,7 @@ package tb_std_cache_subsystem_pkg;
                     req.addr = vif.req.operand_a;
                     req.data = vif.req.operand_b;
                     req.size = vif.req.size;
+                    req.id   = id;
                     op       = vif.req.amo_op; // remember op
 
                     if (verbosity > 0) begin
@@ -321,6 +326,8 @@ package tb_std_cache_subsystem_pkg;
                     resp      = new();
                     resp.op   = op;
                     resp.data = vif.resp.result;
+                    resp.id   = id;
+                    this.id++;
 
                     #0; // add zero delay here to make sure read response is repoerted after read request if it gets served immediately
                     if (verbosity > 0) begin
@@ -363,6 +370,7 @@ package tb_std_cache_subsystem_pkg;
         logic [$clog2(DCACHE_SET_ASSOC)-1:0] target_way;
         logic                                target_way_valid;
         logic                                redo_hit;
+        int                                  id;
 
         function new();
             this.target_way_valid = 1'b0;
@@ -386,11 +394,11 @@ package tb_std_cache_subsystem_pkg;
 
         function string print_me();
             if ((trans_type == WR_REQ) || (trans_type == RD_RESP)) begin
-                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h, data 0x%16h",trans_type.name(), port_idx, prio, address_tag, address_index, size, be, data);
+                return $sformatf("id %0d, type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h, data 0x%16h", id, trans_type.name(), port_idx, prio, address_tag, address_index, size, be, data);
             end else if (trans_type == READBACK) begin
-                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h, data 0x%16h_%16h",trans_type.name(), port_idx, prio, address_tag, address_index, size, be, cache_line[127:64], cache_line[63:0]);
+                return $sformatf("id %0d, type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h, data 0x%16h_%16h", id, trans_type.name(), port_idx, prio, address_tag, address_index, size, be, cache_line[127:64], cache_line[63:0]);
             end else begin
-                return $sformatf("type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h",trans_type.name(), port_idx, prio, address_tag, address_index, size, be);
+                return $sformatf("id %0d, type %0s, port idx %0d (prio %0d), tag 0x%11h, index 0x%3h, size %0d, be 0x%2h", id, trans_type.name(), port_idx, prio, address_tag, address_index, size, be);
             end
         endfunction
 
@@ -403,6 +411,7 @@ package tb_std_cache_subsystem_pkg;
     class dcache_resp;
         dcache_trans_t trans_type;
         riscv::xlen_t  data;
+        int            id;
 
         function new();
             this.trans_type = UNDEF;
@@ -411,9 +420,9 @@ package tb_std_cache_subsystem_pkg;
 
         function string print_me();
             if (trans_type == RD_RESP) begin
-                return $sformatf("type %0s, data 0x%16h",trans_type.name(), data);
+                return $sformatf("id %0d, type %0s, data 0x%16h", id, trans_type.name(), data);
             end else begin
-                return $sformatf("type %0s",trans_type.name());
+                return $sformatf("id %0d, type %0s", id, trans_type.name());
             end
         endfunction
 
@@ -693,6 +702,8 @@ package tb_std_cache_subsystem_pkg;
         int                    rd_kill_cnt;
         int                    rd_resp_cnt;
         int                    wr_req_cnt;
+        int                    req_id;
+        int                    resp_id;
 
         function new (virtual dcache_intf vif, int port_idx=0, string name="dcache_monitor");
             this.vif       = vif;
@@ -704,6 +715,8 @@ package tb_std_cache_subsystem_pkg;
             rd_kill_cnt = 0;
             rd_resp_cnt = 0;
             wr_req_cnt = 0;
+            req_id = 0;
+            resp_id = 0;
 
         endfunction
 
@@ -731,7 +744,9 @@ package tb_std_cache_subsystem_pkg;
                     rd_req.be            = vif.req.data_be;
                     rd_req.size          = vif.req.data_size;
                     rd_req.port_idx      = port_idx;
+                    rd_req.id            = this.req_id;
                     this.rd_req_cnt++;
+                    this.req_id++;
 
                     @(posedge vif.clk);
                     while (!vif.req.tag_valid) begin
@@ -786,7 +801,9 @@ package tb_std_cache_subsystem_pkg;
                     rd_resp = new();
                     rd_resp.trans_type = RD_RESP;
                     rd_resp.data = vif.resp.data_rdata;
+                    rd_resp.id = this.resp_id;
                     this.rd_resp_cnt++;
+                    this.resp_id++;
                     #0; // add zero delay here to make sure read response is repoerted after read request if it gets served immediately
                     if (verbosity > 0) begin
                         $display("%t ns %s got read response with data 0x%8h", $time, name, rd_resp.data);
@@ -820,11 +837,14 @@ package tb_std_cache_subsystem_pkg;
                     wr_req.be            = vif.req.data_be;
                     wr_req.size          = vif.req.data_size;
                     wr_req.port_idx      = port_idx;
-
-                    @(posedge vif.clk);                   // <--- THIS SHOULD PROBABLY BE REMOVED
-
+                    wr_req.id            = this.req_id;
                     wr_req.address_tag   = vif.req.address_tag;
                     wr_req.set_data_offset();
+
+                    this.req_id++;
+
+                    // add one more cycle here to get same timing as read requests
+                    @(posedge vif.clk);
 
                     if (verbosity > 0) begin
                         $display("%t ns %s got request for write tag 0x%6h, index 0x%3h, data 0x%8h", $time, name, wr_req.address_tag, wr_req.address_index, wr_req.data);
@@ -836,6 +856,8 @@ package tb_std_cache_subsystem_pkg;
                     end
                     wr_resp = new();
                     wr_resp.trans_type = WR_RESP;
+                    wr_resp.id = this.resp_id;
+                    this.resp_id++;
 
                     if (verbosity > 0) begin
                         $display("%t ns %s got write response %s", $time, name, wr_resp.print_me());
@@ -1142,6 +1164,8 @@ package tb_std_cache_subsystem_pkg;
 
         int verbosity;
 
+        logic axi_id_per_port = 0; // set to 1 if the lower 2 bits of the AXI ID corresponds to port ID
+
         function new (
             virtual dcache_sram_if sram_vif,
             virtual dcache_gnt_if  gnt_vif,
@@ -1155,7 +1179,6 @@ package tb_std_cache_subsystem_pkg;
 
             this.dcache_req_mbox_prio = new();
             this.dcache_req_mbox_prio_tmp = new();
-//            this.mgmt_mbox            = new();
 
             this.dcache_resp_mbox_prio = new();
             this.dcache_resp_mbox_prio_tmp = new();
@@ -1287,7 +1310,10 @@ package tb_std_cache_subsystem_pkg;
         endfunction
 
         function automatic bit isDCache( input ax_ace_beat_t ax );
-            return (ax.ax_id == 4'b1100);
+            unique case (ax.ax_id)
+                4'b1100, 4'b1101, 4'b1110, 4'b1111: return 1;
+                default:                            return 0;
+            endcase
         endfunction
 
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1665,17 +1691,6 @@ package tb_std_cache_subsystem_pkg;
 
                                 $display("%t ns %s.update_cache_from_req: skipping cycle without grant for dcache req : %s", $time, name, req.print_me());
                                 @(posedge sram_vif.clk); // skip cycles without grant
-
-                                hit = isHit(addr_v);
-                                if ((req.prio > 0) && !hit) begin
-                                    // cache was invalidated and update will now be done by miss handler
-                                    $display("%t ns %s.update_cache_from_req: cache changed from hit to miss for dcache req : %s", $time, name, req.print_me());
-
-                                    req.prio = 0;
-                                    req.insert_readback = 1'b0;
-                                    do_miss(req);
-                                end
-
                                 cnt++;
                                 if (cnt > cache_msg_timeout) begin
                                     $error("%s.update_cache_from_req:: Timeout while waiting for grant for dcache req : %s", name, req.print_me());
@@ -1698,9 +1713,18 @@ package tb_std_cache_subsystem_pkg;
                             // cache hit
                             $display("Cache hit");
                             target_way = getHitWay(addr_v);
+
+                            if (target_way != dut_way)
+                                $error("Mismatch between target way %0d DUT way %0d", target_way, dut_way);
+
                             if (req.trans_type == WR_REQ) begin
                                 cache_status[mem_idx_v][target_way].dirty  = 1'b1;
                                 cache_status[mem_idx_v][target_way].shared = 1'b0;
+
+                                $display("cache_date[%0d][%0d]: before update: 0x%16h_%16h", mem_idx_v, target_way,
+                                    cache_status[mem_idx_v][target_way].data[127:64],
+                                    cache_status[mem_idx_v][target_way].data[63:0]
+                                );
                                 update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
                             end
                         end else begin
@@ -2014,43 +2038,71 @@ package tb_std_cache_subsystem_pkg;
         // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         local task automatic do_hit (input dcache_req msg);
             logic [63:0]  addr_v;
+            int cnt = 0;
+            logic mshr_match = 0;
+            logic redo_hit;
 
             $display("%t ns %s started hit task for message : %s", $time, name, msg.print_me());
             addr_v = tag_index2addr(.tag(msg.address_tag), .index(msg.address_index));
+            redo_hit = msg.redo_hit;
+            msg.redo_hit = 1'b0;
+
             if (msg.trans_type == WR_REQ) begin
                 ace_ac_beat_t ac = new();
                 msg.update_cache = 1'b1;
 
+
+                while (gnt_vif.req[msg.prio] && (!gnt_vif.rd_gnt[msg.prio])) begin
+                    $display("%t ns %s.do_hit: wait for cache grant for message : %s", $time, name, msg.print_me());
+                    @(posedge sram_vif.clk); // skip cycles without grant
+                    cnt++;
+                    if (cnt > cache_msg_timeout) begin
+                        $error("%s : Timeout while waiting for cache grant for message : %s", name, msg.print_me());
+                        break;
+                    end
+                end
+                $display("%t ns %s.do_hit: got cache grant for message : %s", $time, name, msg.print_me());
+
                 // empty snoop mailbox
                 while (ac_mbx_int.try_get(ac));
 
-                // Add one additional cycle before checking cache status, mimicing cache ctrl FSM.
-                @(posedge sram_vif.clk);
+                if (isShared(addr_v)) begin
+                    ax_ace_beat_t ar_beat      = new();
+                    ax_ace_beat_t ar_beat_peek = new();
+                    r_ace_beat_t  r_beat       = new();
+                    r_ace_beat_t  r_beat_peek  = new();
 
-                if (isShared(addr_v) || msg.redo_hit == 1) begin
-                    ax_ace_beat_t ar_beat     = new();
-                    r_ace_beat_t  r_beat      = new();
-                    r_ace_beat_t  r_beat_peek = new();
+                    $display("%t ns %s.do_hit: Got status shared = %0d, redo_hit = %0d for message: %s", $time, name, isShared(addr_v), redo_hit, msg.print_me());
 
-                    msg.redo_hit = 0;
-
-                    if (msg.prio >= 2) begin
-                        int cnt = 0;
-                        // this is a request from a cache controller, wait for grant from miss handler
-                        $display("%t ns %s.do_hit: wait for miss handler grant for message : %s", $time, name, msg.print_me());
-                        while (!gnt_vif.miss_gnt[msg.port_idx]) begin
-                            @(posedge sram_vif.clk); // skip cycles without grant
-                            cnt++;
-                            if (cnt > cache_msg_timeout) begin
-                                $error("%s : Timeout while waiting for miss handler grant for message : %s", name, msg.print_me());
-                                break;
+                    if (axi_id_per_port) begin
+                        logic [3:0] exp_id = 4'hC + msg.port_idx;
+                        // wait for AR beat with expected ID
+                        while (ar_beat_peek.ax_id[3:0] != exp_id) begin
+                            ar_mbx.peek(ar_beat_peek);
+                            if (ar_beat_peek.ax_id != exp_id) begin
+                                $display("%t ns %s.do_hit: ignoring AR beat with ID 0x%0h for message : %s", $time, name, ar_beat_peek.ax_id, msg.print_me());
+                                @(posedge sram_vif.clk);
+                            end
+                        end
+                    end else begin
+                        if (msg.prio >= 2) begin
+                            int cnt = 0;
+                            // this is a request from a cache controller, wait for grant from miss handler
+                            $display("%t ns %s.do_hit: wait for miss handler grant for message : %s", $time, name, msg.print_me());
+                            while (!gnt_vif.miss_gnt[msg.port_idx]) begin
+                                @(posedge sram_vif.clk); // skip cycles without grant
+                                cnt++;
+                                if (cnt > cache_msg_timeout) begin
+                                    $error("%s : Timeout while waiting for miss handler grant for message : %s", name, msg.print_me());
+                                    break;
+                                end
                             end
                         end
                     end
 
                     // wait for AR beat
                     ar_mbx.get(ar_beat);
-                    $display("%t ns %s.do_hit: got AR beat with ID %0h for message : %s", $time, name, ar_beat.ax_id, msg.print_me());
+                    $display("%t ns %s.do_hit: got AR beat with ID 0x%0h for message : %s", $time, name, ar_beat.ax_id, msg.print_me());
                     if (!isCleanUnique(ar_beat))
                         $error("%s Error CLEAN_UNIQUE expected for message : %s", name, msg.print_me());
 
@@ -2060,9 +2112,9 @@ package tb_std_cache_subsystem_pkg;
                         if (r_beat_peek.r_id == ar_beat.ax_id) begin
                             // this is our response
                             r_mbx.get(r_beat);
-                            $display("%t ns %s.do_hit: got R beat with last = %0d for message : %s", $time, name, r_beat.r_last, msg.print_me());
+                            $display("%t ns %s.do_hit: got R beat with ID 0x%0h and last = %0d for message : %s", $time, name, r_beat.r_id, r_beat.r_last, msg.print_me());
                         end else begin
-                            $display("%t ns %s.do_hit: ignoring R beat with ID %0h for message : %s", $time, name, r_beat.r_last, r_beat_peek.r_id, msg.print_me());
+                            $display("%t ns %s.do_hit: ignoring R beat with ID 0x%0h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
                             @(posedge sram_vif.clk);
                         end
                     end
@@ -2173,6 +2225,8 @@ package tb_std_cache_subsystem_pkg;
                     r_ace_beat_t  r_beat       = new();
                     r_ace_beat_t  r_beat_peek  = new();
                     int           r_cnt        = 0;
+                    int cnt =0;
+                    logic mshr_match = 0;
 
                     if (msg.prio >= 2) begin
                         int cnt = 0;
@@ -2198,11 +2252,11 @@ package tb_std_cache_subsystem_pkg;
                             // this is our response
                             ar_mbx.get(ar_beat);
                         end else begin
-                            $display("%t ns %s.do_miss.check_axi: ignoring AR beat with ID 0x%2h for message : %s", $time, name, ar_beat_peek.ax_id, msg.print_me());
+                            $display("%t ns %s.do_miss.check_axi: ignoring AR beat with ID 0x%0h for message : %s", $time, name, ar_beat_peek.ax_id, msg.print_me());
                             @(posedge sram_vif.clk);
                         end
                     end
-                    $display("%t ns %s.do_miss.check_axi: got AR beat for message : %s", $time, name, msg.print_me());
+                    $display("%t ns %s.do_miss.check_axi: got AR beat with ID 0x%0h for message : %s", $time, name, ar_beat.ax_id, msg.print_me());
 
                     if (msg.trans_type == WR_REQ) begin
                         if (is_inside_shareable_regions(ArianeCfg, msg.get_addr())) begin
@@ -2233,7 +2287,7 @@ package tb_std_cache_subsystem_pkg;
                             // this is our response
                             r_mbx.get(r_beat);
                             msg.add_to_cache_line(r_beat.r_data);
-                            $display("%t ns %s.do_miss.check_axi: got R beat with last = %0d for message : %s", $time, name, r_beat.r_last, msg.print_me());
+                            $display("%t ns %s.do_miss.check_axi: got R beat with ID 0x%0h and last = %0d for message : %s", $time, name, r_beat.r_id, r_beat.r_last, msg.print_me());
                             if (msg.trans_type == RD_REQ) begin
                                 if (r_cnt == msg.data_offset) begin
                                     $display("%t ns %s.do_miss.check_axi: got R beat with valid data, changing type from RD_REQ to RD_RESP for message : %s", $time, name, msg.print_me());
@@ -2254,7 +2308,6 @@ package tb_std_cache_subsystem_pkg;
                         // write readback data to cache
                         readback_msg = new();
                         readback_msg.prio          = 0;            // this will be written by miss handler
-                        msg.prio                   = msg.port_idx + 2; // the original port will do the last write, revert prio
                         readback_msg.port_idx      = msg.port_idx; // keep port that caused the readback for logging reasons
                         readback_msg.trans_type    = READBACK;
                         readback_msg.address_tag   = msg.address_tag;   // keep tag
@@ -2265,9 +2318,16 @@ package tb_std_cache_subsystem_pkg;
                         readback_msg.be            = '1;
                         readback_msg.size          = 3;
 
-                        $display("%t ns %s inserting a new dcache message : %s", $time, name, readback_msg.print_me());
 
+                        $display("%t ns %s inserting a new dcache message : %s", $time, name, readback_msg.print_me());
                         req_to_cache_update.put(readback_msg);
+
+                        $display("%t ns %s.do_miss: expect hit after readback, calling hit routine for message : %s", $time, name, msg.print_me());
+                        msg.prio            = msg.port_idx + 2; // the original port will do the last write, revert prio
+                        msg.insert_readback = 0;
+                        msg.redo_hit        = 1'b1;
+
+
                     end else begin
                         msg.prio = 0; // miss handler will do the final writeback
                     end
@@ -2297,7 +2357,7 @@ package tb_std_cache_subsystem_pkg;
             join_any
             disable fork;
 
-            if (isHit(addr_v)) begin
+            if (isHit(addr_v) || msg.redo_hit) begin
                 $display("%t ns %s.do_miss: Calling hit routine for message : %s", $time, name, msg.print_me());
                 do_hit(msg);
             end
@@ -2399,7 +2459,7 @@ package tb_std_cache_subsystem_pkg;
                                     // this is our response
                                     ar_mbx.get(ar_beat);
                                 end else begin
-                                    $display("%t ns %s.check_cache_msg: ignoring AR beat with ID 0x%2h for message : %s", $time, name, ar_beat_peek.ax_id, msg.print_me());
+                                    $display("%t ns %s.check_cache_msg: ignoring AR beat with ID 0x%0h for message : %s", $time, name, ar_beat_peek.ax_id, msg.print_me());
                                     @(posedge sram_vif.clk);
                                 end
                             end
@@ -2420,9 +2480,9 @@ package tb_std_cache_subsystem_pkg;
                                 if (r_beat_peek.r_id == ar_beat.ax_id) begin
                                     // this is our response
                                     r_mbx.get(r_beat);
-                                    $display("%t ns %s.check_cache_msg: got R beat with last = %0d and ID 0x%2h for message : %s", $time, name, r_beat.r_last, r_beat.r_id, msg.print_me());
+                                    $display("%t ns %s.check_cache_msg: got R beat with last = %0d and ID 0x%0h for message : %s", $time, name, r_beat.r_last, r_beat.r_id, msg.print_me());
                                 end else begin
-                                    $display("%t ns %s.check_cache_msg: ignoring R beat with ID 0x%2h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
+                                    $display("%t ns %s.check_cache_msg: ignoring R beat with ID 0x%0h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
                                     @(posedge sram_vif.clk);
                                 end
                             end
@@ -2434,9 +2494,10 @@ package tb_std_cache_subsystem_pkg;
                     end
                     // cacheable
                     else begin
+                        logic mshr_match = 0;
+                        int cnt = 0;
 
                         // wait for possible MSHR match
-                        int cnt = 0;
                         while (gnt_vif.mshr_match[msg.port_idx]) begin
                             if (cnt == 0 || verbosity > 0) begin
                                 $display("%t ns %s.check_cache_msg: wait for MSHR match for message : %s", $time, name, msg.print_me());
@@ -2446,6 +2507,19 @@ package tb_std_cache_subsystem_pkg;
                             if (cnt > cache_msg_timeout) begin
                                 $error("%s.check_cache_msg : Timeout while waiting for MSHR match for message : %s", name, msg.print_me());
                                 break;
+                            end
+
+                            if (!gnt_vif.mshr_match[msg.port_idx]) begin
+                                // if there was an MHSR match we need to get cache grant again
+                                $display("%t ns %s.check_cache_msg: MSHR match ended, wait for cache grant for message : %s", $time, name, msg.print_me());
+                                while (!gnt_vif.rd_gnt[msg.prio]) begin
+                                    @(posedge sram_vif.clk); // skip cycles without grant
+                                    cnt++;
+                                    if (cnt > cache_msg_timeout) begin
+                                        $error("%s : Timeout while waiting for cache grant for message : %s", name, msg.print_me());
+                                        break;
+                                    end
+                                end
                             end
                         end
                         if (cnt > 0) begin
@@ -2475,6 +2549,7 @@ package tb_std_cache_subsystem_pkg;
                                 end
                             end
                         join
+
                     end
 
                 end

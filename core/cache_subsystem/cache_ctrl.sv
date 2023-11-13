@@ -336,11 +336,10 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                 // check if the MSHR still doesn't match
                 mshr_addr_o = {mem_req_q.tag, mem_req_q.index};
 
-                updating_cache_o = 1'b1;
-
                 // We need to re-check for MSHR aliasing here as the store requires at least
                 // two memory look-ups on a single-ported SRAM and therefore is non-atomic
                 if (!mshr_index_matches_i) begin
+                    updating_cache_o = 1'b1;
                     // store data, write dirty bit
                     req_o      = hit_way_q;
                     addr_o     = mem_req_q.index;
@@ -435,17 +434,12 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
             // ~> wait for critical word to arrive
             WAIT_CRITICAL_WORD: begin
-                // speculatively request another word
-                if (req_port_i.data_req) begin
-                    // request the cache line
-                    req_o = '1;
-                end
-
                 if (critical_word_valid_i) begin
                     req_port_o.data_rvalid = ~mem_req_q.killed;
                     req_port_o.data_rdata = critical_word_i;
                     // we can make another request
                     if (req_port_i.data_req && !stall_i) begin
+                        req_o = '1;
                         // save index, be and we
                         mem_req_d.index = req_port_i.address_index;
                         mem_req_d.be    = req_port_i.data_be;
