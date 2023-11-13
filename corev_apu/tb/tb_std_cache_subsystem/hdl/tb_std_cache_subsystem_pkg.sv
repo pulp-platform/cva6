@@ -2071,7 +2071,7 @@ package tb_std_cache_subsystem_pkg;
 
                     // check if a ReadShared has arrived during writing
                     while (ac_mbx_int.try_get(ac)) begin
-                        if (ac.ac_snoop == snoop_pkg::READ_SHARED && ac.ac_addr == addr_v) begin
+                        if (ac.ac_snoop == snoop_pkg::READ_SHARED && (ac.ac_addr >> DCACHE_BYTE_OFFSET) == (addr_v >> DCACHE_BYTE_OFFSET)) begin
                             $display("%t ns %s Got matching ReadShared during hit + write shared, calling hit routine for message : %s", $time, name, msg.print_me());
                             msg.redo_hit = 1'b1;
                         end

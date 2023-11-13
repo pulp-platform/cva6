@@ -491,7 +491,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         end
         // check if we've received a ReadShared while doing a CleanUnique
         // in this case, we have to rerun the CleanUnique
-        if (sample_readshared_q & readshared_done_i.valid & readshared_done_i.addr == {mem_req_q.tag, mem_req_q.index})
+        if (sample_readshared_q & readshared_done_i.valid & readshared_done_i.addr[63:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]})
           colliding_read_d = 1'b1;
     end
 
