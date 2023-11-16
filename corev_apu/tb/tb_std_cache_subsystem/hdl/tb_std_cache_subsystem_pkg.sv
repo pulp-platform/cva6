@@ -1708,7 +1708,6 @@ package tb_std_cache_subsystem_pkg;
 
                         $display("%t ns %s addr: 0x%16h, mem_idx: %0d", $time, name, addr_v, mem_idx_v);
 
-
                         if (hit) begin
                             // cache hit
                             $display("Cache hit");
@@ -1856,15 +1855,11 @@ package tb_std_cache_subsystem_pkg;
                                 // send snoop to do_hit()
                                 ac_mbx_int.put(ac);
 
-                                // wait to prepare expected response until last cycle before cache is updated by snoop
-                                // 1. wait for grant to read cache
+                                // wait for grant to read cache
                                 while (!gnt_vif.gnt[1]) begin
                                     $display("%t ns %s.check_snoop: skipping cycle without grant for snoop", $time, name);
                                     @(posedge sram_vif.clk); // skip cycles without grant
                                 end
-                                @(posedge sram_vif.clk);
-
-                                // 2. wait for FSM
                                 @(posedge sram_vif.clk);
 
                                 cr_exp = GetCRResp(ac);
@@ -2162,15 +2157,15 @@ package tb_std_cache_subsystem_pkg;
 
                     int cnt = 0;
                     while (!gnt_vif.wr_gnt[msg.port_idx]) begin
-                        // $display("%t ns %s.do_miss.evict: skipping cycle without miss handler grant for message : %s", $time, name, msg.print_me());
+                        // $display("%t ns %s.do_miss.evict: skipping cycle without miss handler processingfor message : %s", $time, name, msg.print_me());
                         @(posedge sram_vif.clk); // skip cycles without grant
                         cnt++;
                         if (cnt > cache_msg_timeout) begin
-                            $error("%s : Timeout while waiting for miss handler grant for message : %s", name, msg.print_me());
+                            $error("%s : Timeout while waiting for miss handler processing for message : %s", name, msg.print_me());
                             break;
                         end
                     end
-                    $display("%t ns %s.do_miss.evict: got miss handler grant for message : %s", $time, name, msg.print_me());
+                    $display("%t ns %s.do_miss.evict: miss handler started processing message : %s", $time, name, msg.print_me());
 
                     msg.target_way_valid = get_way_from_cache(msg.get_addr(), msg.target_way);
                     if (msg.target_way_valid) begin
@@ -2340,7 +2335,12 @@ package tb_std_cache_subsystem_pkg;
                     // in that case stop waiting for an AR beat
                     $display("%t ns %s.do_miss.mon_hit: monitoring hit status for message : %s", $time, name, msg.print_me());
 
-                    while (!isHit(addr_v) || !gnt_vif.rd_gnt[msg.port_idx + 2]) begin
+                    while (!isHit(addr_v)) begin
+                        while (!gnt_vif.rd_gnt[msg.port_idx + 2]) begin
+                            // wait for read grant
+                            @(posedge sram_vif.clk);
+                        end
+                        // got read grant, now wait one more cycle before checking hit status
                         @(posedge sram_vif.clk);
                     end
 
@@ -2520,10 +2520,12 @@ package tb_std_cache_subsystem_pkg;
                                         break;
                                     end
                                 end
+                                $display("%t ns %s.check_cache_msg: got cache grant for message : %s", $time, name, msg.print_me());
+                                @(posedge sram_vif.clk); // wait one more cycle before reading cache status
                             end
                         end
                         if (cnt > 0) begin
-                            $display("%t ns %s.check_cache_msg: MSHR match ended for message : %s", $time, name, msg.print_me());
+                            $display("%t ns %s.check_cache_msg: MSHR match ended and got grant for message : %s", $time, name, msg.print_me());
                         end
 
                         // go to hit or miss routine
