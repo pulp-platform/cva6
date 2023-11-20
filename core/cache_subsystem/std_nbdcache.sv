@@ -190,6 +190,8 @@ import std_cache_pkg::*;
                 .mshr_addr_matches_i   ( mshr_addr_matches [i-1] ),
                 .mshr_index_matches_i  ( mshr_index_matches[i-1] ),
 
+                .snoop_invalidate_i      ( invalidate            ),
+                .snoop_invalidate_addr_i ( invalidate_addr       ),
                 .readshared_done_i     ( readshared_done         ),
                 .updating_cache_o      ( updating_cache    [i]   ),
                 .*

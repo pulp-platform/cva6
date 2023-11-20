@@ -58,6 +58,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     input  logic                                 mshr_addr_matches_i,
     input  logic                                 mshr_index_matches_i,
     // to/from snoop controller
+    input  logic                                 snoop_invalidate_i,
+    input  logic [63:0]                          snoop_invalidate_addr_i,
     input  readshared_done_t                     readshared_done_i,
     output logic                                 updating_cache_o
 );
@@ -92,6 +94,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     logic [DCACHE_SET_ASSOC-1:0] shared_way_d, shared_way_q;
     logic                        colliding_read_d, colliding_read_q;
     logic                        sample_readshared_d, sample_readshared_q;
+    logic                        colliding_clean_d, colliding_clean_q;
+
 
     mem_req_t mem_req_d, mem_req_q;
 
@@ -145,6 +149,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
         sample_readshared_d = sample_readshared_q;
         colliding_read_d = colliding_read_q;
+        colliding_clean_d = colliding_clean_q;
 
         case (state_q)
 
@@ -333,42 +338,62 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
             // ~> we are here as we need a second round of memory access for a store
             STORE_REQ: begin
+                if (snoop_invalidate_i && !colliding_clean_q) begin
+                    colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+                end
+
                 // check if the MSHR still doesn't match
                 mshr_addr_o = {mem_req_q.tag, mem_req_q.index};
 
-                // We need to re-check for MSHR aliasing here as the store requires at least
-                // two memory look-ups on a single-ported SRAM and therefore is non-atomic
-                if (!mshr_index_matches_i) begin
-                    updating_cache_o = 1'b1;
-                    // store data, write dirty bit
-                    req_o      = hit_way_q;
-                    addr_o     = mem_req_q.index;
-                    we_o       = 1'b1;
-
-                    // set the correct byte enable
-                    be_o.data[cl_offset>>3 +: 8]  = mem_req_q.be;
-                    for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
-                      if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, shared: 1, dirty: be_o.data};
-                    end
-                    data_o.data[cl_offset  +: 64] = mem_req_q.wdata;
-                    // ~> change the state
-                    data_o.dirty[cl_offset>>3 +: 8] = mem_req_q.be;
-                    data_o.valid = 1'b1;
-                    data_o.shared = 1'b0;
-
-                    // got a grant ~> this is finished if there has not been a colliding readshared request during a makeunique+write, otherwise redo a CleanUnique
-                    if (gnt_i) begin
-                      if (colliding_read_q) begin
-                          colliding_read_d = 1'b0;
-                          state_d = MAKE_UNIQUE;
-                        end
-                        else begin
-                          req_port_o.data_gnt = 1'b1;
-                          state_d = IDLE;
-                        end
-                    end
-                end else begin
+                if (mshr_index_matches_i) begin
+                    // We need to re-check for MSHR aliasing here as the store requires at least
+                    // two memory look-ups on a single-ported SRAM and therefore is non-atomic
                     state_d = WAIT_MSHR;
+                end else begin
+                    if (colliding_clean_q) begin
+                        // Cache was invalidated while waiting for access. Restart request.
+                        // Note: there is no need to check colliding_clean_d too since it will only be high when the
+                        // snoop controller is updating the cache -> gnt_i will be low
+                        req_o = '1;
+                        addr_o = mem_req_q.index;
+                        if (gnt_i) begin
+                            state_d = WAIT_TAG_SAVED;
+                            colliding_clean_d = 1'b0;
+                            colliding_read_d = 1'b0;
+                        end
+                    end else begin
+                        if (colliding_read_q) begin
+                            // there has been a colliding readshared request during a makeunique+write; redo CleanUnique
+                            colliding_read_d = 1'b0;
+                            colliding_clean_d = 1'b0;
+                            state_d = MAKE_UNIQUE;
+                        end else begin
+                            updating_cache_o = 1'b1;
+                            // store data, write dirty bit
+                            req_o      = hit_way_q;
+                            addr_o     = mem_req_q.index;
+                            we_o       = 1'b1;
+                            // set the correct byte enable
+                            be_o.data[cl_offset>>3 +: 8]  = mem_req_q.be;
+                            for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+                                if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, shared: 1, dirty: be_o.data};
+                            end
+                            data_o.data[cl_offset  +: 64] = mem_req_q.wdata;
+                            // ~> change the state
+                            data_o.dirty[cl_offset>>3 +: 8] = mem_req_q.be;
+                            data_o.valid = 1'b1;
+                            data_o.shared = 1'b0;
+                            // got a grant ~> this is finished
+                            if (gnt_i) begin
+                                req_port_o.data_gnt = 1'b1;
+                                state_d = IDLE;
+                                colliding_read_d = 1'b0;
+                                colliding_clean_d = 1'b0;
+                                a_colliding_clean : assert (!colliding_clean_d) else $error("Unexpected colliding_clean_d");
+                                a_colliding_read : assert (!colliding_read_d) else $error("Unexpected colliding_read_d");
+                            end
+                        end
+                    end
                 end
             end // case: STORE_REQ
 
@@ -499,6 +524,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
             hit_way_q     <= '0;
             shared_way_q <= '0;
             colliding_read_q <= 1'b0;
+            colliding_clean_q <= 1'b0;
             sample_readshared_q <= 1'b0;
         end else begin
             state_q   <= state_d;
@@ -506,6 +532,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
             hit_way_q <= hit_way_d;
             shared_way_q <= shared_way_d;
             colliding_read_q <= colliding_read_d;
+            colliding_clean_q <= colliding_clean_d;
             sample_readshared_q <= sample_readshared_d;
         end
     end
