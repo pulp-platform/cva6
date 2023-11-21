@@ -11,8 +11,8 @@
 package cva6_config_pkg;
 
     typedef enum logic {
-      WB = 0,
-      WT = 1
+      WB = 1,
+      WT = 0
     } cache_type_t ;
 
     localparam CVA6ConfigXlen = 64;

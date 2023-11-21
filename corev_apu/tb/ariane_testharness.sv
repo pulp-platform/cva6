@@ -845,6 +845,7 @@ module ariane_testharness #(
     ) i_ariane (
       .clk_i                ( clk_i               ),
       .rst_ni               ( ndmreset_n          ),
+      .clear_i              ( '0                  ),
       .boot_addr_i          ( ariane_soc::ROMBase ), // start fetching from ROM
       .hart_id_i            ( {56'h0, 8'(i)}      ),
       .irq_i                ( irqs[i]             ),
