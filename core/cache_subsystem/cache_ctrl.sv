@@ -93,11 +93,11 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     logic [DCACHE_SET_ASSOC-1:0] hit_way_d, hit_way_q;
     logic [DCACHE_SET_ASSOC-1:0] shared_way_d, shared_way_q;
     logic                        colliding_read_d, colliding_read_q;
-    logic                        sample_readshared_d, sample_readshared_q;
     logic                        colliding_clean_d, colliding_clean_q;
 
 
     mem_req_t mem_req_d, mem_req_q;
+
 
     assign busy_o = (state_q != IDLE);
     assign tag_o  = mem_req_d.tag;
@@ -147,7 +147,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
         updating_cache_o = 1'b0;
 
-        sample_readshared_d = sample_readshared_q;
         colliding_read_d = colliding_read_q;
         colliding_clean_d = colliding_clean_q;
 
@@ -155,7 +154,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
             IDLE: begin
                 colliding_read_d = 1'b0;
-                sample_readshared_d = 1'b0;
                 // a new request arrived
                 if (req_port_i.data_req && !stall_i) begin
                     // request the cache line - we can do this speculatively
@@ -194,7 +192,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
             // cache enabled and waiting for tag
             WAIT_TAG, WAIT_TAG_SAVED: begin
                 colliding_read_d = 1'b0;
-                sample_readshared_d = 1'b0;
                 // check that the client really wants to do the request and that we have a valid tag
                 if (!req_port_i.kill_req && (req_port_i.tag_valid || state_q == WAIT_TAG_SAVED || mem_req_q.we)) begin
                     // save tag if we didn't already save it
@@ -323,6 +320,11 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
             end
 
             MAKE_UNIQUE: begin
+              // detect if snoop controller is changing our target data to Shared
+              if (readshared_done_i.valid && !colliding_read_d) begin
+                colliding_read_d = (readshared_done_i.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+              end
+
               miss_req_o.valid = 1'b1;
               miss_req_o.make_unique = 1'b1;
               miss_req_o.addr = {mem_req_q.tag, mem_req_q.index};
@@ -331,15 +333,20 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
               miss_req_o.size = '0;
               miss_req_o.we = '0;
               miss_req_o.wdata = '0;
-              sample_readshared_d = 1'b1;
               if (miss_gnt_i)
                 state_d = STORE_REQ;
             end
 
             // ~> we are here as we need a second round of memory access for a store
             STORE_REQ: begin
+                // detect if snoop controller is invalidating our target data
                 if (snoop_invalidate_i && !colliding_clean_q) begin
                     colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+                end
+
+                // detect if snoop controller is changing our target data to "shared"
+                if (readshared_done_i.valid && !colliding_read_d) begin
+                    colliding_read_d = (readshared_done_i.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
                 end
 
                 // check if the MSHR still doesn't match
@@ -349,6 +356,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     // We need to re-check for MSHR aliasing here as the store requires at least
                     // two memory look-ups on a single-ported SRAM and therefore is non-atomic
                     state_d = WAIT_MSHR;
+                    colliding_clean_d = 1'b0;
+                    colliding_read_d = 1'b0;
                 end else begin
                     if (colliding_clean_q) begin
                         // Cache was invalidated while waiting for access. Restart request.
@@ -385,12 +394,12 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                             data_o.shared = 1'b0;
                             // got a grant ~> this is finished
                             if (gnt_i) begin
+                                a_colliding_clean : assert (!colliding_clean_d) else $error("Unexpected colliding_clean_d");
+                                a_colliding_read : assert (!colliding_read_d) else $error("Unexpected colliding_read_d");
                                 req_port_o.data_gnt = 1'b1;
                                 state_d = IDLE;
                                 colliding_read_d = 1'b0;
                                 colliding_clean_d = 1'b0;
-                                a_colliding_clean : assert (!colliding_clean_d) else $error("Unexpected colliding_clean_d");
-                                a_colliding_read : assert (!colliding_read_d) else $error("Unexpected colliding_read_d");
                             end
                         end
                     end
@@ -508,10 +517,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                 state_d = IDLE;
             end
         end
-        // check if we've received a ReadShared while doing a CleanUnique
-        // in this case, we have to rerun the CleanUnique
-        if (sample_readshared_q & readshared_done_i.valid & readshared_done_i.addr[63:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]})
-          colliding_read_d = 1'b1;
+
     end
 
     // --------------
@@ -525,7 +531,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
             shared_way_q <= '0;
             colliding_read_q <= 1'b0;
             colliding_clean_q <= 1'b0;
-            sample_readshared_q <= 1'b0;
         end else begin
             state_q   <= state_d;
             mem_req_q <= mem_req_d;
@@ -533,7 +538,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
             shared_way_q <= shared_way_d;
             colliding_read_q <= colliding_read_d;
             colliding_clean_q <= colliding_clean_d;
-            sample_readshared_q <= sample_readshared_d;
         end
     end
 
