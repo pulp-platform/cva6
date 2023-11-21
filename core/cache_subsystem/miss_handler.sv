@@ -402,7 +402,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                                 data_o.data[(cl_offset + i*8) +: 8] = mshr_q.wdata[i];
                         end
                         // its immediately dirty if we write
-                        data_o.dirty[cl_offset>>3 +: 8] = mshr_q.be;
+                        data_o.dirty[cl_offset>>3 +: 8] |= mshr_q.be; // Use OR since `data_o.dirty` may already have been set for the complete cacheline above
                     end
                     // reset MSHR
                     mshr_d.valid = 1'b0;
