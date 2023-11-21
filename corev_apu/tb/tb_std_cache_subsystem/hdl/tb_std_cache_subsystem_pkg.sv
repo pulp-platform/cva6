@@ -1598,7 +1598,11 @@ package tb_std_cache_subsystem_pkg;
                     end
                 end
                 @(posedge sram_vif.clk);
-                $display("%t ns %s.update_cache_from_snoop updating cache status from snoop", $time, name);
+
+                // send snoop message to do_hit()
+                ac_mbx_int.put(ac);
+
+                $display("%t ns %s.update_cache_from_snoop: updating cache status", $time, name);
 
                 // check hit again, might have been invalidated by eviction
                 hit_v = 1'b0;
@@ -1858,9 +1862,6 @@ package tb_std_cache_subsystem_pkg;
                                 if (is_inside_cacheable_regions(ArianeCfg, ac.ac_addr)) begin
                                     snoop_to_cache_update.put(ac);
                                 end
-
-                                // send snoop to do_hit()
-                                ac_mbx_int.put(ac);
 
                                 // wait for grant to read cache
                                 while (!gnt_vif.gnt[1]) begin
