@@ -961,14 +961,28 @@ package tb_std_cache_subsystem_pkg;
             );
         endtask
 
-        task automatic start_random_req(input int wait_time=10);
-
+        // start generation of random bursts of requests
+        task automatic start_random_req (
+            input int min_req_gap   = 0,     // minimum gap between requests (cycles)
+            input int max_req_gap   = 10,    // maximum gap between requests (cycles)
+            input int min_burst     = 5,     // minimum number of requests in a burst
+            input int max_burst     = 20,    // maximum number of requests in a burst
+            input int min_burst_gap = 100,   // minimum gap between bursts (cycles)
+            input int max_burst_gap = 10000 // maximum gap between bursts (cycles)
+        );
             this.en_random_req      = 1;
             this.random_req_running = 1;
             fork begin
                 while (en_random_req) begin
-                    rd(.rand_addr(1));
-                    `WAIT_CYC(vif.clk,$urandom_range(wait_time));
+                    repeat ($urandom_range(min_burst,max_burst)) begin
+                        if (en_random_req) begin
+                            rd(.rand_addr(1));
+                            `WAIT_CYC(vif.clk,$urandom_range(min_req_gap, max_req_gap));
+                        end
+                    end
+                    if (en_random_req) begin
+                        `WAIT_CYC(vif.clk,$urandom_range(min_burst_gap, max_burst_gap));
+                    end
                 end
                 random_req_running = 0;
             end join_none;
