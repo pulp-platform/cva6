@@ -51,20 +51,48 @@ interface dcache_sram_if (input logic clk);
     import std_cache_pkg::*;
 
     // interface for probing into sram
-    typedef logic [DCACHE_LINE_WIDTH-1:0]    data_t;
-    typedef logic [DCACHE_TAG_WIDTH-1:0]     tag_t;
+
+    typedef logic    [DCACHE_LINE_WIDTH-1:0] data_t;
+    typedef logic    [DCACHE_TAG_WIDTH-1:0]  tag_t;
     typedef vldrty_t [DCACHE_SET_ASSOC-1:0]  vld_t;
 
-    typedef data_t                           data_sram_t [DCACHE_NUM_WORDS-1:0];
-    typedef tag_t                            tag_sram_t  [DCACHE_NUM_WORDS-1:0];
-    typedef vld_t                            vld_sram_t  [DCACHE_NUM_WORDS-1:0];
+    typedef data_t data_sram_t [DCACHE_NUM_WORDS-1:0];
+    typedef tag_t  tag_sram_t  [DCACHE_NUM_WORDS-1:0];
+    typedef vld_t  vld_sram_t  [DCACHE_NUM_WORDS-1:0];
 
-    data_sram_t                                       data_sram [DCACHE_SET_ASSOC-1:0];
-    tag_sram_t                                        tag_sram  [DCACHE_SET_ASSOC-1:0];
-    vld_sram_t                                        vld_sram;
+    data_sram_t data_sram [DCACHE_SET_ASSOC-1:0];
+    tag_sram_t  tag_sram  [DCACHE_SET_ASSOC-1:0];
+    vld_sram_t  vld_sram;
+
     logic                                             vld_req;
     logic                                             vld_we;
     logic [DCACHE_INDEX_WIDTH-DCACHE_BYTE_OFFSET-1:0] vld_index;
+
+    `ifdef USE_XILINX_SRAM
+        // type definitions for using Xilinx SRAMs
+        typedef logic               [$bits(vldrty_t)*8-1:0] vldrty_xilinx_t;
+        typedef logic    [((DCACHE_TAG_WIDTH+8-1)/8)*8-1:0] tag_xilinx_t;    // round up to even number of bytes
+        typedef vldrty_xilinx_t      [DCACHE_SET_ASSOC-1:0] vld_xilinx_t;
+
+        typedef data_t       data_sram_xilinx_t [0:DCACHE_NUM_WORDS-1];
+        typedef tag_xilinx_t tag_sram_xilinx_t  [0:DCACHE_NUM_WORDS-1];
+        typedef vld_xilinx_t vld_sram_xilinx_t  [0:DCACHE_NUM_WORDS-1];
+
+        data_sram_xilinx_t data_sram_xilinx  [DCACHE_SET_ASSOC-1:0];
+        tag_sram_xilinx_t  tag_sram_xilinx   [DCACHE_SET_ASSOC-1:0];
+        vld_sram_xilinx_t  vld_sram_xilinx;
+
+        // map Xilinx SRAM entries to corresponding generic variants
+        for (genvar w=0; w<DCACHE_NUM_WORDS; w++) begin
+            for (genvar i=0; i<DCACHE_SET_ASSOC; i++) begin
+                for (genvar b=0; b<$bits(vldrty_t); b++) begin
+                    assign vld_sram[w][i][b] = vld_sram_xilinx[w][i][b*8];
+                end
+                assign data_sram[i][w] = data_sram_xilinx[i][w];
+                assign tag_sram[i][w] = tag_sram_xilinx[i][w];
+            end
+        end
+    `endif
 
     // helper function to get valid, shared, and dirty bits from VLD sram
     function logic get_valid (
