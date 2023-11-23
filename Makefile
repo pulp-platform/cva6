@@ -255,7 +255,7 @@ tbs := $(addprefix $(root-dir), $(tbs))
 # RISCV asm tests and benchmark setup (used for CI)
 # there is a definesd test-list with selected CI tests
 riscv-litmus-test-dir     := tmp/riscv-litmus-tests/binaries/
-riscv-litmus-tests-list   := ci/riscv-litmus-tests.list
+riscv-litmus-tests-list   := $(root-dir)ci/riscv-litmus-tests.list
 riscv-test-dir            := tmp/riscv-tests/build/isa/
 riscv-benchmarks-dir      := tmp/riscv-tests/build/benchmarks/
 riscv-hyp-test            := tmp/riscv-hyp-tests/build/cva6/rvh_test.elf
