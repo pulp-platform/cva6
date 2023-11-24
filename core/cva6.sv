@@ -26,6 +26,7 @@ module cva6 import ariane_pkg::*; #(
 ) (
   input  logic                         clk_i,
   input  logic                         rst_ni,
+  input  logic                         clear_i,
   // Core ID, Cluster ID and boot address are considered more or less static
   input  logic [riscv::VLEN-1:0]       boot_addr_i,  // reset boot address
   input  logic [riscv::XLEN-1:0]       hart_id_i,    // hart id in a multicore environment (reflected in a CSR)
@@ -301,7 +302,7 @@ module cva6 import ariane_pkg::*; #(
     if (~rst_ni) begin
       rst_uarch_n <= 1'b0;
     end else begin
-      rst_uarch_n <= rst_uarch_controller_n;
+      rst_uarch_n <= rst_uarch_controller_n | ~clear_i;
     end
   end
 
