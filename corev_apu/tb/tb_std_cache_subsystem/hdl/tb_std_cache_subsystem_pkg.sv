@@ -748,9 +748,10 @@ package tb_std_cache_subsystem_pkg;
                     this.rd_req_cnt++;
                     this.req_id++;
 
-                    @(posedge vif.clk);
+                    // need to use negedge here - tag is not clocked in cache ctrl
+                    @(negedge vif.clk);
                     while (!vif.req.tag_valid) begin
-                        @(posedge vif.clk);
+                        @(negedge vif.clk);
                     end
 
                     rd_req.address_tag = vif.req.address_tag;
@@ -844,7 +845,7 @@ package tb_std_cache_subsystem_pkg;
                     this.req_id++;
 
                     // add one more cycle here to get same timing as read requests
-                    @(posedge vif.clk);
+                    @(negedge vif.clk);
 
                     if (verbosity > 0) begin
                         $display("%t ns %s got request for write tag 0x%6h, index 0x%3h, data 0x%8h", $time, name, wr_req.address_tag, wr_req.address_index, wr_req.data);
@@ -2064,48 +2065,22 @@ package tb_std_cache_subsystem_pkg;
             redo_hit = msg.redo_hit;
             msg.redo_hit = 1'b0;
 
-            if (msg.trans_type == WR_REQ) begin
-                ace_ac_beat_t ac = new();
-                msg.update_cache = 1'b1;
-
-                if (redo_hit == 1'b1) begin
-                    // The timing is a bit different when redoing hit - compensate for it here
-                    @(posedge sram_vif.clk);
+            // wait for possible MSHR match
+            while (gnt_vif.mshr_match[msg.port_idx]) begin
+                mshr_match = 1;
+                if (cnt == 0 || verbosity > 0) begin
+                    $display("%t ns %s.do_hit: wait for MSHR match for message : %s", $time, name, msg.print_me());
                 end
-
-                // wait for possible MSHR match
-                while (gnt_vif.mshr_match[msg.port_idx]) begin
-                    mshr_match = 1;
-                    if (cnt == 0 || verbosity > 0) begin
-                        $display("%t ns %s.do_hit: wait for MSHR match for message : %s", $time, name, msg.print_me());
-                    end
-                    @(posedge sram_vif.clk);
-                    cnt++;
-                    if (cnt > cache_msg_timeout) begin
-                        $error("%s.do_hit : Timeout while waiting for MSHR match for message : %s", name, msg.print_me());
-                        break;
-                    end
-                    if (!gnt_vif.mshr_match[msg.port_idx]) begin
-                        // if there was an MHSR match we need to get cache grant again
-                        $display("%t ns %s.do_hit: MSHR match ended, wait for cache grant for message : %s", $time, name, msg.print_me());
-                        while (!gnt_vif.rd_gnt[msg.prio]) begin
-                            @(posedge sram_vif.clk); // skip cycles without grant
-                            cnt++;
-                            if (cnt > cache_msg_timeout) begin
-                                $error("%s : Timeout while waiting for cache grant for message : %s", name, msg.print_me());
-                                break;
-                            end
-                        end
-                        $display("%t ns %s.do_hit: got cache grant for message : %s", $time, name, msg.print_me());
-                        @(posedge sram_vif.clk); // wait one more cycle before reading cache status
-                    end
+                @(posedge sram_vif.clk);
+                cnt++;
+                if (cnt > cache_msg_timeout) begin
+                    $error("%s.do_hit : Timeout while waiting for MSHR match for message : %s", name, msg.print_me());
+                    break;
                 end
-
-                if (mshr_match) begin
-                    $display("%t ns %s.do_hit: MSHR match ended and got grant for message : %s", $time, name, msg.print_me());
-                end else begin
-                    while (gnt_vif.req[msg.prio] && (!gnt_vif.rd_gnt[msg.prio])) begin
-                        $display("%t ns %s.do_hit: wait for cache grant for message : %s", $time, name, msg.print_me());
+                if (!gnt_vif.mshr_match[msg.port_idx]) begin
+                    // if there was an MHSR match we need to get cache grant again
+                    $display("%t ns %s.do_hit: MSHR match ended, wait for cache grant for message : %s", $time, name, msg.print_me());
+                    while (!gnt_vif.rd_gnt[msg.prio]) begin
                         @(posedge sram_vif.clk); // skip cycles without grant
                         cnt++;
                         if (cnt > cache_msg_timeout) begin
@@ -2114,6 +2089,32 @@ package tb_std_cache_subsystem_pkg;
                         end
                     end
                     $display("%t ns %s.do_hit: got cache grant for message : %s", $time, name, msg.print_me());
+                    @(posedge sram_vif.clk); // wait one more cycle before reading cache status
+                end
+            end
+
+            if (mshr_match) begin
+                $display("%t ns %s.do_hit: MSHR match ended and got grant for message : %s", $time, name, msg.print_me());
+            end else begin
+                while (gnt_vif.req[msg.prio] && (!gnt_vif.rd_gnt[msg.prio])) begin
+                    $display("%t ns %s.do_hit: wait for cache grant for message : %s", $time, name, msg.print_me());
+                    @(posedge sram_vif.clk); // skip cycles without grant
+                    cnt++;
+                    if (cnt > cache_msg_timeout) begin
+                        $error("%s : Timeout while waiting for cache grant for message : %s", name, msg.print_me());
+                        break;
+                    end
+                end
+                $display("%t ns %s.do_hit: got cache grant for message : %s", $time, name, msg.print_me());
+            end
+
+            if (msg.trans_type == WR_REQ && isHit(addr_v)) begin
+                ace_ac_beat_t ac = new();
+                msg.update_cache = 1'b1;
+
+                if (redo_hit == 1'b1) begin
+                    // The timing is a bit different when redoing hit - compensate for it here
+                    @(posedge sram_vif.clk);
                 end
 
                 // empty snoop mailbox
