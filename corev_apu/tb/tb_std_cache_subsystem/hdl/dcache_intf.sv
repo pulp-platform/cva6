@@ -109,7 +109,14 @@ interface dcache_sram_if (input logic clk);
         return vld_sram[index][way].shared;
     endfunction
 
-    function logic get_dirty (
+    function logic [DCACHE_LINE_WIDTH/8-1:0] get_dirty (
+        input int unsigned index,
+        input int unsigned way
+    );
+        return vld_sram[index][way].dirty;
+    endfunction
+
+    function logic get_dirty_bit (
         input int unsigned index,
         input int unsigned way
     );

@@ -66,20 +66,24 @@ package tb_std_cache_subsystem_pkg;
 
     // update part of cache line with <data> at <offset>
     function automatic void update_cache_line (
-        inout logic [DCACHE_LINE_WIDTH-1:0] cache_line,
+        inout cache_line_t                  cache_line,
         input riscv::xlen_t                 data,
         input logic [(riscv::XLEN/8)-1:0]   be,
         input int unsigned                  offset // in units of data width
     );
-        logic [riscv::XLEN-1:0]       data_mask;
-        logic [DCACHE_LINE_WIDTH-1:0] line_mask;
+        logic [riscv::XLEN-1:0]         data_mask;
+        logic [DCACHE_LINE_WIDTH-1:0]   line_mask;
+        logic [DCACHE_LINE_WIDTH/8-1:0] be_int;
 
         for (int i=0; i<(riscv::XLEN/8); i++) begin
             data_mask[i*8 +: 8] = {8{be[i]}};
         end
         line_mask = data_mask; // zero-extend
+        be_int    = be; // zero-extend
 
-        cache_line = ((line_mask & data) << (offset * riscv::XLEN)) | (cache_line & ~(line_mask << (offset * riscv::XLEN)));
+        cache_line.data  = ((line_mask & data) << (offset * riscv::XLEN))    | (cache_line.data & ~(line_mask << (offset * riscv::XLEN)));
+        cache_line.dirty = be_int              << (offset * (riscv::XLEN/8)) | cache_line.dirty;
+
     endfunction
 
 
@@ -1238,7 +1242,7 @@ package tb_std_cache_subsystem_pkg;
 
         function automatic bit isDirty (input logic [63:0] addr);
             for (int i = 0; i < DCACHE_SET_ASSOC; i++) begin
-                if (cache_status[addr2mem_idx(addr)][i].dirty && cache_status[addr2mem_idx(addr)][i].valid && cache_status[addr2mem_idx(addr)][i].tag == addr2tag(addr))
+                if ((|cache_status[addr2mem_idx(addr)][i].dirty) && cache_status[addr2mem_idx(addr)][i].valid && cache_status[addr2mem_idx(addr)][i].tag == addr2tag(addr))
                     return 1'b1;
             end
             return 1'b0;
@@ -1342,7 +1346,7 @@ package tb_std_cache_subsystem_pkg;
                 valid = valid & cache_status[addr2mem_idx(addr)][i].valid;
             end
             // check if target way is dirty
-            if (!isHit(addr) && valid == 1'b1 && cache_status[addr2mem_idx(addr)][msg.target_way].dirty == 1'b1) begin
+            if (!isHit(addr) && valid == 1'b1 && |cache_status[addr2mem_idx(addr)][msg.target_way].dirty) begin
                 assert (msg.target_way_valid) else $error("mustEvict(): Expected valid target way");
                 return 1'b1;
             end else begin
@@ -1420,7 +1424,8 @@ package tb_std_cache_subsystem_pkg;
             logic [DCACHE_TAG_WIDTH-1:0]                      tag_v;
             bit                                               OK;
 
-            logic vld_sram_valid, vld_sram_shared, vld_sram_dirty;
+            logic vld_sram_valid, vld_sram_shared;
+            logic [DCACHE_LINE_WIDTH/8-1:0] vld_sram_dirty;
 
             OK        = 1'b1;
             mem_idx_v = addr2mem_idx(addr);
@@ -1441,7 +1446,7 @@ package tb_std_cache_subsystem_pkg;
 
                 if (cache_status[mem_idx_v][way].dirty != vld_sram_dirty) begin
                     OK = 1'b0;
-                    $error("%s: Cache mismatch index %h tag %h way %h - dirty bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].dirty, vld_sram_dirty);
+                    $error("%s: Cache mismatch index %h tag %h way %h - dirty bits: expected %04h, actual %04h", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].dirty, vld_sram_dirty);
                 end
 
                 if (cache_status[mem_idx_v][way].shared != vld_sram_shared) begin
@@ -1634,18 +1639,20 @@ package tb_std_cache_subsystem_pkg;
                         snoop_pkg::READ_SHARED: begin
                             $display("Update mem [%0d][%0d] from READ_SHARED", mem_idx_v, hit_way);
                             cache_status[mem_idx_v][hit_way].shared = 1'b1;
+                            // the snoop cache controller will set all dirty bits if any is set
+                            cache_status[mem_idx_v][hit_way].dirty = |cache_status[mem_idx_v][hit_way].dirty ? '1 : '0;
                         end
                         snoop_pkg::READ_UNIQUE: begin
                             $display("Update mem [%0d][%0d] from READ_UNIQUE", mem_idx_v, hit_way);
                             cache_status[mem_idx_v][hit_way].shared = 1'b0;
                             cache_status[mem_idx_v][hit_way].valid = 1'b0;
-                            cache_status[mem_idx_v][hit_way].dirty = 1'b0;
+                            cache_status[mem_idx_v][hit_way].dirty = '0;
                         end
                         snoop_pkg::CLEAN_INVALID: begin
                             $display("Update mem [%0d][%0d] from CLEAN_INVALID", mem_idx_v, hit_way);
                             cache_status[mem_idx_v][hit_way].shared = 1'b0;
                             cache_status[mem_idx_v][hit_way].valid = 1'b0;
-                            cache_status[mem_idx_v][hit_way].dirty = 1'b0;
+                            cache_status[mem_idx_v][hit_way].dirty = '0;
                         end
                         snoop_pkg::READ_ONCE: begin
                             $display("Update mem [%0d][%0d] from READ_ONCE", mem_idx_v, hit_way);
@@ -1655,7 +1662,7 @@ package tb_std_cache_subsystem_pkg;
                         end
                     endcase
                     if (cache_status[mem_idx_v][hit_way].valid) begin
-                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %0d, shared : %0d, tag : 0x%6h, data : 0x%16h_%16h", mem_idx_v, hit_way,
+                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %04h, shared : %0d, tag : 0x%6h, data : 0x%16h_%16h", mem_idx_v, hit_way,
                             cache_status[mem_idx_v][hit_way].valid,
                             cache_status[mem_idx_v][hit_way].dirty,
                             cache_status[mem_idx_v][hit_way].shared,
@@ -1663,7 +1670,7 @@ package tb_std_cache_subsystem_pkg;
                             cache_status[mem_idx_v][hit_way].data[127:64],
                             cache_status[mem_idx_v][hit_way].data[63:0]);
                     end else begin
-                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %0d, shared : %0d, tag : 0x%6h", mem_idx_v, hit_way,
+                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %04h, shared : %0d, tag : 0x%6h", mem_idx_v, hit_way,
                             cache_status[mem_idx_v][hit_way].valid,
                             cache_status[mem_idx_v][hit_way].dirty,
                             cache_status[mem_idx_v][hit_way].shared,
@@ -1743,14 +1750,12 @@ package tb_std_cache_subsystem_pkg;
                                 $error("Mismatch between target way %0d DUT way %0d", target_way, dut_way);
 
                             if (req.trans_type == WR_REQ) begin
-                                cache_status[mem_idx_v][target_way].dirty  = 1'b1;
-                                cache_status[mem_idx_v][target_way].shared = 1'b0;
-
                                 $display("cache_date[%0d][%0d]: before update: 0x%16h_%16h", mem_idx_v, target_way,
                                     cache_status[mem_idx_v][target_way].data[127:64],
                                     cache_status[mem_idx_v][target_way].data[63:0]
                                 );
-                                update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
+                                cache_status[mem_idx_v][target_way].shared = 1'b0;
+                                update_cache_line(cache_status[mem_idx_v][target_way], req.data, req.be, req.data_offset);
                             end
                         end else begin
                             logic [DCACHE_SET_ASSOC-1:0] valid_v;
@@ -1772,17 +1777,17 @@ package tb_std_cache_subsystem_pkg;
                                 if (req.trans_type == EVICT) begin
                                     $display("Evict");
                                     cache_status[mem_idx_v][target_way].valid  = 1'b0;
-                                    cache_status[mem_idx_v][target_way].dirty  = 1'b0;
+                                    cache_status[mem_idx_v][target_way].dirty  = '0;
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
                                 end else  if (req.trans_type == WR_REQ) begin
                                     cache_status[mem_idx_v][target_way].tag    = req.address_tag;
-                                    cache_status[mem_idx_v][target_way].dirty  = 1'b1;
+                                    cache_status[mem_idx_v][target_way].dirty  = req.r_dirty ? '1 : '0; // we got passDirty
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
-                                    update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
+                                    update_cache_line(cache_status[mem_idx_v][target_way], req.data, req.be, req.data_offset);
                                 end else  if (req.trans_type == READBACK || req.trans_type == RD_RESP) begin
                                     cache_status[mem_idx_v][target_way].tag    = req.address_tag;
-                                    cache_status[mem_idx_v][target_way].dirty  = req.r_dirty;
+                                    cache_status[mem_idx_v][target_way].dirty  = req.r_dirty ? '1 : '0;
                                     cache_status[mem_idx_v][target_way].shared = req.r_shared;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
                                 end else begin
@@ -1805,18 +1810,18 @@ package tb_std_cache_subsystem_pkg;
                                 if (req.trans_type == EVICT) begin
                                     $display("Evict");
                                     cache_status[mem_idx_v][target_way].valid  = 1'b0;
-                                    cache_status[mem_idx_v][target_way].dirty  = 1'b0;
+                                    cache_status[mem_idx_v][target_way].dirty  = '0;
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
                                 end else  if (req.trans_type == WR_REQ) begin
                                     cache_status[mem_idx_v][target_way].valid  = 1'b1;
-                                    cache_status[mem_idx_v][target_way].dirty  = 1'b1;
+                                    cache_status[mem_idx_v][target_way].dirty  = req.r_dirty ? '1 : '0; // we got passDirty
                                     cache_status[mem_idx_v][target_way].shared = 1'b0;
                                     cache_status[mem_idx_v][target_way].tag    = req.address_tag;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
-                                    update_cache_line(cache_status[mem_idx_v][target_way].data, req.data, req.be, req.data_offset);
+                                    update_cache_line(cache_status[mem_idx_v][target_way], req.data, req.be, req.data_offset);
                                 end else  if (req.trans_type == READBACK || req.trans_type == RD_RESP) begin
                                     cache_status[mem_idx_v][target_way].valid  = 1'b1;
-                                    cache_status[mem_idx_v][target_way].dirty  = req.r_dirty;
+                                    cache_status[mem_idx_v][target_way].dirty  = req.r_dirty ? '1 : '0;
                                     cache_status[mem_idx_v][target_way].shared = req.r_shared;
                                     cache_status[mem_idx_v][target_way].tag    = req.address_tag;
                                     cache_status[mem_idx_v][target_way].data   = req.cache_line;
@@ -1832,7 +1837,7 @@ package tb_std_cache_subsystem_pkg;
                             assert (req.update_cache == 1) else $error("Expected cache update for a write or miss");
                         end
 
-                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %0d, shared : %0d, tag : 0x%6h, data : 0x%16h_%16h", mem_idx_v, target_way,
+                        $display("Updated cache_status[%0d][%0d]: valid : %0d, dirty : %04h, shared : %0d, tag : 0x%6h, data : 0x%16h_%16h", mem_idx_v, target_way,
                                 cache_status[mem_idx_v][target_way].valid,
                                 cache_status[mem_idx_v][target_way].dirty,
                                 cache_status[mem_idx_v][target_way].shared,
@@ -2617,7 +2622,7 @@ package tb_std_cache_subsystem_pkg;
             for (int w = 0; w < DCACHE_NUM_WORDS; w++) begin
                 int w_cnt = 0;
                 for (int l = 0; l < DCACHE_SET_ASSOC; l++) begin
-                    if (cache_status[w][l].valid && cache_status[w][l].dirty) begin
+                    if (cache_status[w][l].valid && |cache_status[w][l].dirty) begin
                         fork
                             begin
                                 automatic int ll = l;
@@ -2699,7 +2704,7 @@ package tb_std_cache_subsystem_pkg;
             int w_cnt = 0;
             for (int l = 0; l < DCACHE_SET_ASSOC; l++) begin
                 int w = addr[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET];
-                if (cache_status[w][l].valid && cache_status[w][l].dirty && cache_status[w][l].tag == addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]) begin
+                if (cache_status[w][l].valid && |cache_status[w][l].dirty && cache_status[w][l].tag == addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_INDEX_WIDTH]) begin
                     fork
                         begin
                             automatic int ll = l;
@@ -3009,7 +3014,7 @@ package tb_std_cache_subsystem_pkg;
                                     logic [DCACHE_LINE_WIDTH-1:0] cc_data;
                                     logic [63:0]                  cc_addr;
 
-                                    cc_dirty  = dc_sram_vif[cc].get_dirty(.index(index), .way(cw));
+                                    cc_dirty  = dc_sram_vif[cc].get_dirty_bit(.index(index), .way(cw));
                                     cc_valid  = dc_sram_vif[cc].get_valid(.index(index), .way(cw));
                                     cc_shared = dc_sram_vif[cc].get_shared(.index(index), .way(cw));
                                     cc_tag    = dc_sram_vif[cc].tag_sram[cw][index];
@@ -3028,7 +3033,7 @@ package tb_std_cache_subsystem_pkg;
                                                     logic [DCACHE_TAG_WIDTH:0]    oc_tag;
                                                     logic [DCACHE_LINE_WIDTH-1:0] oc_data;
 
-                                                    oc_dirty  = dc_sram_vif[oc].get_dirty(.index(index), .way(ow));
+                                                    oc_dirty  = dc_sram_vif[oc].get_dirty_bit(.index(index), .way(ow));
                                                     oc_valid  = dc_sram_vif[oc].get_valid(.index(index), .way(ow));
                                                     oc_shared = dc_sram_vif[oc].get_shared(.index(index), .way(ow));
                                                     oc_tag    = dc_sram_vif[oc].tag_sram[ow][index];
