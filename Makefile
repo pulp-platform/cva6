@@ -174,6 +174,11 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         vendor/pulp-platform/common_cells/src/rstgen.sv                              \
         vendor/pulp-platform/common_cells/src/addr_decode.sv                         \
 	vendor/pulp-platform/common_cells/src/stream_register.sv                     \
+        vendor/pulp-platform/common_cells/src/id_queue.sv                            \
+        vendor/pulp-platform/common_cells/src/stream_fork.sv                         \
+        vendor/pulp-platform/common_cells/src/fall_through_register.sv               \
+        vendor/pulp-platform/common_cells/src/onehot_to_bin.sv                       \
+        vendor/pulp-platform/common_cells/src/stream_filter.sv                       \
         vendor/pulp-platform/axi/src/axi_cut.sv                                      \
         vendor/pulp-platform/axi/src/axi_join.sv                                     \
         vendor/pulp-platform/axi/src/axi_delayer.sv                                  \
