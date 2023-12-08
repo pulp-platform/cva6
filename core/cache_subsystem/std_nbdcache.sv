@@ -91,6 +91,9 @@ import std_cache_pkg::*;
     logic [2:0]                        bypass_valid;
     logic [2:0][63:0]                  bypass_data;
 
+    logic [4:0]                        start_req;
+    logic [4:0]                        start_ack;
+
     logic                              invalidate;
     logic [63:0]                       invalidate_addr;
 
@@ -128,6 +131,9 @@ import std_cache_pkg::*;
         // from ACE
         .snoop_port_i         ( snoop_port_i          ),
         .snoop_port_o         ( snoop_port_o          ),
+        //
+        .start_req_o          ( start_req         [1] ),
+        .start_ack_i          ( start_ack         [1] ),
         // to SRAM array
         .req_o                ( req               [1] ),
         .addr_o               ( addr              [1] ),
@@ -162,6 +168,9 @@ import std_cache_pkg::*;
                 .hit_o                 ( /* NC */             ),
                 .unique_o              ( /* NC */             ),
                 .stall_i               ( stall_i | flush_i    ),
+                //
+                .start_req_o           ( start_req       [i+1] ),
+                .start_ack_i           ( start_ack       [i+1] ),
                 // from core
                 .req_port_i            ( req_ports_i     [i-1] ),
                 .req_port_o            ( req_ports_o     [i-1] ),
@@ -214,6 +223,10 @@ import std_cache_pkg::*;
         .busy_o                 ( miss_handler_busy    ),
         .flush_i                ( flush_i              ),
         .busy_i                 ( |busy                ),
+
+        .start_req_o            ( start_req        [0] ),
+        .start_ack_i            ( start_ack        [0] ),
+
         // AMOs
         .amo_req_i              ( amo_req_i            ),
         .amo_resp_o             ( amo_resp_o           ),
@@ -250,6 +263,19 @@ import std_cache_pkg::*;
     );
 
     assign tag[0] = '0;
+
+
+    // arbitrate cache controllers
+    always_comb begin
+        start_ack = '0;
+        for (int i = 0; i < 5; i++) begin
+            if (start_req[i] && !busy_o) begin
+                start_ack[i] = 1'b1;
+                break;
+            end
+        end
+    end
+
 
 
     // --------------

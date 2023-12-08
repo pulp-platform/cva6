@@ -37,6 +37,9 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                        serving_amo_o,
     output logic [63:0]                                 serving_amo_addr_o,
     output logic                                        updating_cache_o,
+    //
+    output logic                                        start_req_o,
+    input  logic                                        start_ack_i,
     // Bypass or miss
     input  logic [NR_PORTS-1:0][$bits(miss_req_t)-1:0]  miss_req_i,
     // Bypass handling
@@ -252,6 +255,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         amo_resp_o.ack = 1'b0;
         amo_resp_o.result = '0;
         amo_operand_b = '0;
+        start_req_o = 1'b0;
 
         // Detect if a MAKE_UNIQUE request collides with an invalidation from snoop
         for (int unsigned i = 0; i < NR_PORTS; i++) begin
@@ -266,15 +270,21 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             IDLE: begin
                 // lowest priority are AMOs, wait until everything else is served before going for the AMOs
                 if (amo_req_i.req && !busy_i) begin
-                    state_d = AMO_WB_REQ;
-                    serve_amo_d = 1'b1;
-                    cnt_d = '0;
+                    start_req_o = 1'b1;
+                    if (start_ack_i) begin
+                        state_d = AMO_WB_REQ;
+                        serve_amo_d = 1'b1;
+                        cnt_d = '0;
+                    end
                 end
                 // check if we want to flush and can flush e.g.: we are not busy anymore
                 // TODO: Check that the busy flag is indeed needed
                 if (flush_i && !busy_i) begin
-                    state_d = FLUSH_REQ_STATUS;
-                    cnt_d = '0;
+                    start_req_o = 1'b1;
+                    if (start_ack_i) begin
+                        state_d = FLUSH_REQ_STATUS;
+                        cnt_d = '0;
+                    end
                 end
 
                 // check if one of the state machines missed

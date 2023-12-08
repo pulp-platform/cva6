@@ -21,6 +21,9 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
    // Snoop interface
   input  ariane_ace::snoop_req_t             snoop_port_i,
   output ariane_ace::snoop_resp_t            snoop_port_o,
+  //
+  output logic                               start_req_o,
+  input  logic                               start_ack_i,
    // SRAM interface
   output logic        [DCACHE_SET_ASSOC-1:0] req_o, // req is valid
   output logic      [DCACHE_INDEX_WIDTH-1:0] addr_o, // address into cache array
@@ -145,6 +148,7 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
     invalidate_o      = 1'b0;
     invalidate_addr_o = {mem_req_q.tag, mem_req_q.index};
+    start_req_o = 1'b0;
 
     case (state_q)
 
@@ -156,6 +160,7 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
         // we receive a snooping request
         if (snoop_port_i.ac_valid == 1'b1 && flushing_i == 1'b0 && !(amo_valid_i == 1'b1 && amo_addr_i[63:DCACHE_BYTE_OFFSET] == snoop_port_i.ac.addr[63:DCACHE_BYTE_OFFSET])) begin
+          start_req_o = 1'b1;
           snoop_port_o.ac_ready = 1'b1;
           // save the request details
           mem_req_d.index = snoop_port_i.ac.addr[DCACHE_INDEX_WIDTH-1:0];

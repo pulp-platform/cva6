@@ -28,6 +28,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                 hit_o,     // to performance counter
     output logic                                 unique_o,  // to performance counter
     input  logic                                 stall_i,   // stall new memory requests
+    // 
+    output logic                                 start_req_o,
+    input  logic                                 start_ack_i,
     // Core request ports
     input  dcache_req_i_t                        req_port_i,
     output dcache_req_o_t                        req_port_o,
@@ -150,12 +153,18 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         colliding_read_d = colliding_read_q;
         colliding_clean_d = colliding_clean_q;
 
+        start_req_o = 1'b0;
+
         case (state_q)
 
             IDLE: begin
                 colliding_read_d = 1'b0;
                 // a new request arrived
                 if (req_port_i.data_req && !stall_i) begin
+                    start_req_o = 1'b1;
+
+
+if (start_ack_i) begin
                     // request the cache line - we can do this speculatively
                     req_o = '1;
 
@@ -187,6 +196,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                         end
                     end
                 end
+end
             end
 
             // cache enabled and waiting for tag
