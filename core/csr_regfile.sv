@@ -23,6 +23,7 @@ module csr_regfile import ariane_pkg::*; #(
 ) (
     input  logic                  clk_i,                      // Clock
     input  logic                  rst_ni,                     // Asynchronous reset active low
+    input  logic                  clear_i,
     input  logic                  time_irq_i,                 // Timer threw a interrupt
     // send a flush request out if a CSR with a side effect has changed (e.g. written)
     output logic                  flush_o,
@@ -2182,6 +2183,84 @@ module csr_regfile import ariane_pkg::*; #(
             pmpcfg_q               <= '0;
             pmpaddr_q              <= '0;
         end else begin
+          if (clear_i) begin
+            priv_lvl_q             <= riscv::PRIV_LVL_M;
+            v_q                    <= '0;
+            // floating-point registers
+            fcsr_q                 <= '0;
+            // debug signals
+            debug_mode_q           <= 1'b0;
+            dcsr_q                 <= '0;
+            dcsr_q.prv             <= riscv::PRIV_LVL_M;
+            dcsr_q.xdebugver       <= 4'h4;
+            dpc_q                  <= '0;
+            dscratch0_q            <= {riscv::XLEN{1'b0}};
+            dscratch1_q            <= {riscv::XLEN{1'b0}};
+            // machine mode registers
+            mstatus_q              <= 64'b0;
+            // set to boot address + direct mode + 4 byte offset which is the initial trap
+            mtvec_rst_load_q       <= 1'b1;
+            mtvec_q                <= '0;
+            medeleg_q              <= {riscv::XLEN{1'b0}};
+            mideleg_q              <= {riscv::XLEN{1'b0}};
+            mip_q                  <= {riscv::XLEN{1'b0}};
+            mie_q                  <= {riscv::XLEN{1'b0}};
+            mintstatus_q           <= 32'b0;
+            mintthresh_q           <= 8'b0;
+            mepc_q                 <= {riscv::XLEN{1'b0}};
+            mcause_q               <= {riscv::XLEN{1'b0}};
+            mcounteren_q           <= {riscv::XLEN{1'b0}};
+            mtvt_q                 <= {riscv::XLEN{1'b0}};
+            mscratch_q             <= {riscv::XLEN{1'b0}};
+            mtval_q                <= {riscv::XLEN{1'b0}};
+            mtval2_q               <= {riscv::XLEN{1'b0}};
+            mtinst_q               <= {riscv::XLEN{1'b0}};
+            menvcfg_q              <= '0;
+            senvcfg_q              <= '0;
+            dcache_q               <= {{riscv::XLEN-1{1'b0}}, 1'b1};
+            icache_q               <= {{riscv::XLEN-1{1'b0}}, 1'b1};
+            fence_t_pad_q          <= {riscv::XLEN{1'b0}};
+            fence_t_ceil_q         <= {riscv::XLEN{1'b0}};
+            // supervisor mode registers
+            sepc_q                 <= {riscv::XLEN{1'b0}};
+            scause_q               <= {riscv::XLEN{1'b0}};
+            stvec_q                <= {riscv::XLEN{1'b0}};
+            sintthresh_q           <= 8'b0;
+            scounteren_q           <= {riscv::XLEN{1'b0}};
+            stvt_q                 <= {riscv::XLEN{1'b0}};
+            sscratch_q             <= {riscv::XLEN{1'b0}};
+            stval_q                <= {riscv::XLEN{1'b0}};
+            satp_q                 <= {riscv::XLEN{1'b0}};
+            hstatus_q              <= {riscv::XLEN{1'b0}};
+            hedeleg_q              <= {riscv::XLEN{1'b0}};
+            hideleg_q              <= {riscv::XLEN{1'b0}};
+            hgeie_q                <= {riscv::XLEN{1'b0}};
+            hgatp_q                <= {riscv::XLEN{1'b0}};
+            hcounteren_q           <= {riscv::XLEN{1'b0}};
+            htval_q                <= {riscv::XLEN{1'b0}};
+            htinst_q               <= {riscv::XLEN{1'b0}};
+            henvcfg_q              <= '0;
+            // virtual supervisor mode registers
+            vsstatus_q             <= 64'b0;
+            vsepc_q                <= {riscv::XLEN{1'b0}};
+            vscause_q              <= {riscv::XLEN{1'b0}};
+            vstvec_q               <= {riscv::XLEN{1'b0}};
+            vsscratch_q            <= {riscv::XLEN{1'b0}};
+            vstval_q               <= {riscv::XLEN{1'b0}};
+            vsatp_q                <= {riscv::XLEN{1'b0}};
+            vsintthresh_q           <= 8'b0;
+            // timer and counters
+            cycle_q                <= {riscv::XLEN{1'b0}};
+            instret_q              <= {riscv::XLEN{1'b0}};
+            // aux registers
+            en_ld_st_translation_q <= 1'b0;
+            en_ld_st_g_translation_q <= 1'b0;
+            // wait for interrupt
+            wfi_q                  <= 1'b0;
+            // pmp
+            pmpcfg_q               <= '0;
+            pmpaddr_q              <= '0;
+          end else begin
             priv_lvl_q             <= priv_lvl_d;
             v_q                    <= v_d;
             // floating-point registers
@@ -2268,6 +2347,7 @@ module csr_regfile import ariane_pkg::*; #(
                     pmpaddr_q[i] <= '0;
                 end
             end
+          end
         end
     end
 

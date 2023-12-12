@@ -302,7 +302,7 @@ module cva6 import ariane_pkg::*; #(
     if (~rst_ni) begin
       rst_uarch_n <= 1'b0;
     end else begin
-      rst_uarch_n <= rst_uarch_controller_n | ~clear_i;
+      rst_uarch_n <= rst_uarch_controller_n & ~clear_i;
     end
   end
 
@@ -1022,7 +1022,7 @@ module cva6 import ariane_pkg::*; #(
   instr_tracer_if tracer_if (clk_i);
   // assign instruction tracer interface
   // control signals
-  assign tracer_if.rstn              = rst_ni;
+  assign tracer_if.rstn              = rst_ni & ~clear_i;
   assign tracer_if.flush_unissued    = flush_unissued_instr_ctrl_id;
   assign tracer_if.flush             = flush_ctrl_ex;
   // fetch

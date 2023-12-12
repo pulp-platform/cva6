@@ -437,12 +437,13 @@ module issue_read_operands import ariane_pkg::*; #(
             .NR_WRITE_PORTS ( NR_COMMIT_PORTS ),
             .ZERO_REG_ZERO  ( 1               )
         ) i_ariane_regfile (
-            .test_en_i ( 1'b0       ),
-            .raddr_i   ( raddr_pack ),
-            .rdata_o   ( rdata      ),
-            .waddr_i   ( waddr_pack ),
-            .wdata_i   ( wdata_pack ),
-            .we_i      ( we_pack    ),
+            .clear_i   ( ~rst_uarch_ni ),
+            .test_en_i ( 1'b0          ),
+            .raddr_i   ( raddr_pack    ),
+            .rdata_o   ( rdata         ),
+            .waddr_i   ( waddr_pack    ),
+            .wdata_i   ( wdata_pack    ),
+            .we_i      ( we_pack       ),
             .*
         );
     end
@@ -484,6 +485,7 @@ module issue_read_operands import ariane_pkg::*; #(
                     .NR_WRITE_PORTS ( NR_COMMIT_PORTS ),
                     .ZERO_REG_ZERO  ( 0               )
                 ) i_ariane_fp_regfile (
+                    .clear_i   ( ~rst_uarch_ni ),
                     .test_en_i ( 1'b0          ),
                     .raddr_i   ( fp_raddr_pack ),
                     .rdata_o   ( fprdata       ),
