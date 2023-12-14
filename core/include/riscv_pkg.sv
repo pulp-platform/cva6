@@ -153,6 +153,17 @@ package riscv;
   } mstatus_rv_t;
 
   typedef struct packed {
+    logic        stce;   // not implemented - requires Sctc extension
+    logic        pbmte;  // not implemented - requires Svpbmt extension
+    logic [61:8] wpri1;  // writes preserved reads ignored
+    logic        cbze;   // not implemented - requires Zicboz extension
+    logic        cbcfe;  // not implemented - requires Zicbom extension
+    logic [1:0]  cbie;   // not implemented - requires Zicbom extension
+    logic [2:0]  wpri0;  // writes preserved reads ignored
+    logic        fiom;   // fence of I/O implies memory
+  } envcfg_rv_t;
+
+  typedef struct packed {
     logic [ModeW-1:0] mode;
     logic [ASIDW-1:0] asid;
     logic [PPNW-1:0]  ppn;
@@ -454,6 +465,7 @@ package riscv;
     CSR_SIE              = 12'h104,
     CSR_STVEC            = 12'h105,
     CSR_SCOUNTEREN       = 12'h106,
+    CSR_SENVCFG          = 12'h10A,
     CSR_SSCRATCH         = 12'h140,
     CSR_SEPC             = 12'h141,
     CSR_SCAUSE           = 12'h142,
@@ -472,6 +484,8 @@ package riscv;
     CSR_HVIP             = 12'h645,
     CSR_HTINST           = 12'h64A,
     CSR_HGEIP            = 12'hE12,
+    CSR_HENVCFG          = 12'h60A,
+    CSR_HENVCFGH         = 12'h61A,
     CSR_HGATP            = 12'h680,
     CSR_HCONTEXT         = 12'h6A8,
     CSR_HTIMEDELTA       = 12'h605,
@@ -741,6 +755,15 @@ package riscv;
   localparam logic [63:0] MSTATUS_UXL = {30'h0000000, IS_XLEN64, IS_XLEN64, 32'h00000000};
   localparam logic [63:0] MSTATUS_SXL = {28'h0000000, IS_XLEN64, IS_XLEN64, 34'h00000000};
   localparam logic [63:0] MSTATUS_SD = {IS_XLEN64, 31'h00000000, ~IS_XLEN64, 31'h00000000};
+
+  localparam logic [63:0] MENVCFG_FIOM = 'h00000001;
+  localparam logic [63:0] MENVCFG_CBIE = 'h00000030;
+  localparam logic [63:0] MENVCFG_CBFE = 'h00000040;
+  localparam logic [63:0] MENVCFG_CBZE = 'h00000080;
+  localparam logic [63:0] MENVCFG_PBMTE = 64'h4000000000000000;
+  localparam logic [63:0] MENVCFG_STCE = 64'h8000000000000000;
+
+
 
   typedef enum logic [2:0] {
     CSRRW  = 3'h1,
