@@ -50,6 +50,7 @@ module issue_read_operands
     output riscv::xlen_t rs2_forwarding_o,  // unregistered version of fu_data_o.operandb
     output logic [riscv::VLEN-1:0] pc_o,
     output logic is_compressed_instr_o,
+    output riscv::xlen_t tinst_o,  // Transformed instruction
     // ALU 1
     input logic flu_ready_i,  // Fixed latency unit ready to accept a new request
     output logic alu_valid_o,  // Output is valid
@@ -108,6 +109,7 @@ module issue_read_operands
   logic [TRANS_ID_BITS-1:0] trans_id_n, trans_id_q;
   fu_op operator_n, operator_q;  // operation to perform
   fu_t fu_n, fu_q;  // functional unit to use
+  riscv::xlen_t tinst_n, tinst_q;  // transformed instruction
 
   // forwarding signals
   logic forward_rs1, forward_rs2, forward_rs3;
@@ -138,6 +140,7 @@ module issue_read_operands
   assign cvxif_valid_o       = CVA6Cfg.CvxifEn ? cvxif_valid_q : '0;
   assign cvxif_off_instr_o   = CVA6Cfg.CvxifEn ? cvxif_off_instr_q : '0;
   assign stall_issue_o       = stall;
+  assign tinst_o             = tinst_q;
   // ---------------
   // Issue Stage
   // ---------------
@@ -252,6 +255,7 @@ module issue_read_operands
     trans_id_n = issue_instr_i.trans_id;
     fu_n       = issue_instr_i.fu;
     operator_n = issue_instr_i.op;
+    tinst_n    = issue_instr_i.ex.tinst;
     // or should we forward
     if (forward_rs1) begin
       operand_a_n = rs1_i;
@@ -566,6 +570,7 @@ module issue_read_operands
       fu_q                  <= NONE;
       operator_q            <= ADD;
       trans_id_q            <= '0;
+      tinst_q               <= '0;
       pc_o                  <= '0;
       is_compressed_instr_o <= 1'b0;
       branch_predict_o      <= {cf_t'(0), {riscv::VLEN{1'b0}}};
@@ -576,6 +581,7 @@ module issue_read_operands
       fu_q                  <= fu_n;
       operator_q            <= operator_n;
       trans_id_q            <= trans_id_n;
+      tinst_q               <= tinst_n;
       pc_o                  <= issue_instr_i.pc;
       is_compressed_instr_o <= issue_instr_i.is_compressed;
       branch_predict_o      <= issue_instr_i.bp;

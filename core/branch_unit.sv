@@ -17,6 +17,7 @@ module branch_unit #(
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic v_i,
     input logic debug_mode_i,
     input ariane_pkg::fu_data_t fu_data_i,
     input logic [riscv::VLEN-1:0] pc_i,  // PC of instruction
@@ -99,7 +100,9 @@ module branch_unit #(
     if (CVA6Cfg.TvalEn)
       branch_exception_o.tval = {{riscv::XLEN - riscv::VLEN{pc_i[riscv::VLEN-1]}}, pc_i};
     else branch_exception_o.tval = '0;
+    branch_exception_o.tval2 = {riscv::XLEN{1'b0}};
     branch_exception_o.tinst = {riscv::XLEN{1'b0}};
+    branch_exception_o.gva = v_i;
     // Only throw instruction address misaligned exception if this is indeed a `taken` conditional branch or
     // an unconditional jump
     if (branch_valid_i && (target_address[0] || (!CVA6Cfg.RVC && target_address[1])) && jump_taken) begin
