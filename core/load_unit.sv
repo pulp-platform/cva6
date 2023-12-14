@@ -257,6 +257,9 @@ module load_unit import ariane_pkg::*; #(
 
         // we got an exception
         if (ex_i.valid && valid_i) begin
+            // kill any ongoing request
+            req_port_o.kill_req = 1'b1;
+            req_port_o.tag_valid = 1'b1;
             // the next state will be the idle state
             state_d = IDLE;
             // pop load - but only if we are not getting an rvalid in here - otherwise we will over-write an incoming transaction
