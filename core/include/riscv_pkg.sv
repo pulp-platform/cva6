@@ -829,7 +829,9 @@ package riscv;
   // -----
   typedef struct packed {
     logic [31:28] xdebugver;
-    logic [27:16] zero2;
+    logic [27:18] zero2;
+    logic         ebreakvs;
+    logic         ebreakvu;
     logic         ebreakm;
     logic         zero1;
     logic         ebreaks;
@@ -838,7 +840,7 @@ package riscv;
     logic         stopcount;
     logic         stoptime;
     logic [8:6]   cause;
-    logic         zero0;
+    logic         v;
     logic         mprven;
     logic         nmip;
     logic         step;
