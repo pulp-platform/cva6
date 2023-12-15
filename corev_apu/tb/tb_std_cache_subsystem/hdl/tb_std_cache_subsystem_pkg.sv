@@ -1437,42 +1437,32 @@ package tb_std_cache_subsystem_pkg;
             vld_sram_valid  = sram_vif.get_valid(.index(mem_idx_v), .way(way));
 
             // check the target way
-            if (cache_status[mem_idx_v][way].valid != vld_sram_valid) begin
-                OK = 1'b0;
+            a_valid : assert (cache_status[mem_idx_v][way].valid == vld_sram_valid) else
                 $error("%s: Cache mismatch index %h tag %h way %h - valid bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].valid, vld_sram_valid);
-            end
 
             if (vld_sram_valid) begin
 
-                if (cache_status[mem_idx_v][way].dirty != vld_sram_dirty) begin
-                    OK = 1'b0;
+                a_dirty : assert (cache_status[mem_idx_v][way].dirty == vld_sram_dirty) else
                     $error("%s: Cache mismatch index %h tag %h way %h - dirty bits: expected %04h, actual %04h", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].dirty, vld_sram_dirty);
-                end
 
-                if (cache_status[mem_idx_v][way].shared != vld_sram_shared) begin
-                    OK = 1'b0;
+                a_shared : assert (cache_status[mem_idx_v][way].shared == vld_sram_shared) else
                     $error("%s: Cache mismatch index %h tag %h way %h - shared bit: expected %d, actual %d", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].shared, vld_sram_shared);
-                end
             end
 
             // check tags and data for valid entries
-            for (int w=0;w<DCACHE_SET_ASSOC; w++) begin
+            for (int w=0;w<DCACHE_SET_ASSOC; w++) begin : WAY
                 vld_sram_valid = sram_vif.get_valid(.index(mem_idx_v), .way(w));
                 if (cache_status[mem_idx_v][w].valid) begin
 
-                    if (cache_status[mem_idx_v][w].tag != sram_vif.tag_sram[w][mem_idx_v][47:0]) begin
-                        OK = 1'b0;
-                        $error("%s: Cache mismatch index %h tag %h way %0h - tag: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].tag, sram_vif.tag_sram[w][mem_idx_v][47:0]);
-                    end
+                    a_tag : assert (cache_status[mem_idx_v][w].tag == sram_vif.tag_sram[w][mem_idx_v]) else
+                        $error("%s: Cache mismatch index %h tag %h way %0h - tag: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].tag, sram_vif.tag_sram[w][mem_idx_v]);
 
-                    if (cache_status[mem_idx_v][w].data != sram_vif.data_sram[w][mem_idx_v]) begin
-                        OK = 1'b0;
+                    a_data : assert (cache_status[mem_idx_v][w].data == sram_vif.data_sram[w][mem_idx_v]) else
                         $error("%s: Cache mismatch index %h tag %h way %h - data: expected 0x%16h_%16h, actual 0x%16h_%16h", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].data[127:64], cache_status[mem_idx_v][way].data[63:0], sram_vif.data_sram[way][mem_idx_v][127:64], sram_vif.data_sram[way][mem_idx_v][63:0]);
-                    end
 
-                end else if (vld_sram_valid) begin
-                    OK = 1'b0;
-                    $error("%s: Cache mismatch index %h tag %h way %0h - valid: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].valid, vld_sram_valid);
+                end else begin
+                    a_valid : assert (!vld_sram_valid) else
+                        $error("%s: Cache mismatch index %h tag %h way %0h - valid: expected %h, actual %h", {name,".",origin}, idx_v, tag_v, w, cache_status[mem_idx_v][w].valid, vld_sram_valid);
                 end
             end
             return OK;
@@ -1530,25 +1520,20 @@ package tb_std_cache_subsystem_pkg;
             bit OK;
             OK = 1'b1;
 
-            if (exp.cr_resp.error != resp.cr_resp.error) begin
+            assert (exp.cr_resp.error == resp.cr_resp.error) else
                 $error("%s: CR.resp.error mismatch: expected %h, actual %h", name, exp.cr_resp.error, resp.cr_resp.error);
 
-                OK = 1'b0;
-            end
 
-            if (exp.cr_resp.isShared != resp.cr_resp.isShared && resp.cr_resp.error == 1'b0) begin
-                $error("%s: CR.resp.isShared mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.isShared, resp.cr_resp.isShared);
-                OK = 1'b0;
-            end
+            if (exp.cr_resp.error == 1'b0) begin
 
-            if(exp.cr_resp.passDirty != resp.cr_resp.passDirty && resp.cr_resp.error == 1'b0) begin
-                $error("%s: CR.resp.passDirty mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.passDirty, resp.cr_resp.passDirty);
-                OK = 1'b0;
-            end
+                a_isShared : assert (exp.cr_resp.isShared == resp.cr_resp.isShared) else
+                    $error("%s: CR.resp.isShared mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.isShared, resp.cr_resp.isShared);
 
-            if(exp.cr_resp.dataTransfer != resp.cr_resp.dataTransfer && resp.cr_resp.error == 1'b0) begin
-                $error("%s: CR.resp.dataTransfer mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.dataTransfer, resp.cr_resp.dataTransfer);
-                OK = 1'b0;
+                a_passDirty : assert (exp.cr_resp.passDirty == resp.cr_resp.passDirty) else
+                    $error("%s: CR.resp.passDirty mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.passDirty, resp.cr_resp.passDirty);
+
+                a_dataTransfer : assert (exp.cr_resp.dataTransfer == resp.cr_resp.dataTransfer) else
+                    $error("%s: CR.resp.dataTransfer mismatch for address 0x%16h : expected %h, actual %h", name, req.ac_addr, exp.cr_resp.dataTransfer, resp.cr_resp.dataTransfer);
             end
 
             return OK;
@@ -2374,6 +2359,7 @@ package tb_std_cache_subsystem_pkg;
                         readback_msg.update_cache  = 1'b1;
                         readback_msg.r_dirty       = r_beat.r_resp[2];
                         readback_msg.r_shared      = r_beat.r_resp[3];
+                        readback_msg.cache_line    = msg.cache_line;
                         readback_msg.be            = '1;
                         readback_msg.size          = 3;
 
