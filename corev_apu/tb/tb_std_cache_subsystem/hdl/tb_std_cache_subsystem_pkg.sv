@@ -1321,6 +1321,13 @@ package tb_std_cache_subsystem_pkg;
                 return 1'b0;
         endfunction
 
+        function automatic bit isAmo( input ax_ace_beat_t ax );
+            unique case (ax.ax_id)
+                4'b1011: return 1;
+                default: return 0;
+            endcase
+        endfunction
+
         function automatic bit isBypass( input ax_ace_beat_t ax );
             unique case (ax.ax_id)
                 4'b1000, 4'b1001, 4'b1010, 4'b1011: return 1;
@@ -2440,19 +2447,28 @@ package tb_std_cache_subsystem_pkg;
                 begin
                     // bypass
                     if (!is_inside_cacheable_regions(ArianeCfg, addr_v)) begin
+                        automatic logic [3:0] exp_id = 4'h8 + msg.port_idx;
                         $display("%t ns %s message is outside cacheable region: %s", $time, name, msg.print_me());
                         if (msg.trans_type == WR_REQ) begin
-                            b_beat_t b_beat = new();
-                            w_beat_t w_beat = new();
+                            b_beat_t b_beat            = new();
+                            w_beat_t w_beat            = new();
+                            ax_ace_beat_t aw_beat      = new();
+                            ax_ace_beat_t aw_beat_peek = new();
 
                             if (is_inside_shareable_regions(ArianeCfg, addr_v)) begin
-                                ax_ace_beat_t aw_beat = new();
+                                // wait for AW beat with expected ID
+                                while (aw_beat_peek.ax_id[3:0] != exp_id) begin
+                                    aw_mbx.peek(aw_beat_peek);
+                                    if (aw_beat_peek.ax_id != exp_id) begin
+                                        $display("%t ns %s.check_cache_msg: ignoring AW beat with ID 0x%0h for message : %s", $time, name, aw_beat_peek.ax_id, msg.print_me());
+                                        @(posedge sram_vif.clk);
+                                    end
+                                end
                                 aw_mbx.get(aw_beat);
                                 $display("%t ns %s.check_cache_msg: got AW beat for message : %s", $time, name, msg.print_me());
                                 if (!isWriteUnique(aw_beat))
                                     $error("%s.check_cache_msg : WRITE_UNIQUE request expected for message : %s", name, msg.print_me());
                             end else begin
-                                ax_ace_beat_t aw_beat = new();
                                 int cnt = 0;
 
                                 // wait for grant before checking AW, a snoop transaction may be active
@@ -2467,6 +2483,13 @@ package tb_std_cache_subsystem_pkg;
                                 end
                                 $display("%t ns %s.check_cache_msg: got miss handler bypass grant for message : %s", $time, name, msg.print_me());
 
+                                while (aw_beat_peek.ax_id[3:0] != exp_id) begin
+                                    aw_mbx.peek(aw_beat_peek);
+                                    if (aw_beat_peek.ax_id != exp_id) begin
+                                        $display("%t ns %s.check_cache_msg: ignoring AW beat with ID 0x%0h for message : %s", $time, name, aw_beat_peek.ax_id, msg.print_me());
+                                        @(posedge sram_vif.clk);
+                                    end
+                                end
                                 aw_mbx.get(aw_beat);
                                 $display("%t ns %s.check_cache_msg: got AW beat for message : %s", $time, name, msg.print_me());
                                 if (!isWriteNoSnoop(aw_beat))
@@ -2504,9 +2527,9 @@ package tb_std_cache_subsystem_pkg;
 
                             // wait for AR beat
                             $display("%t ns %s.check_cache_msg: waiting for AR beat for message : %s", $time, name, msg.print_me());
-                            while (!isBypass(ar_beat)) begin
+                            while (ar_beat_peek.ax_id[3:0] != exp_id) begin
                                 ar_mbx.peek(ar_beat_peek);
-                                if (isBypass(ar_beat_peek)) begin
+                                if (ar_beat_peek.ax_id[3:0] == exp_id) begin
                                     // this is our response
                                     ar_mbx.get(ar_beat);
                                 end else begin
@@ -2696,15 +2719,25 @@ package tb_std_cache_subsystem_pkg;
                             automatic int ll = l;
                             automatic int ww = w;
                             // expect write back of dirty data
-                            ax_ace_beat_t aw_beat = new();
-                            b_beat_t      b_beat  = new();
-                            w_beat_t      w_beat  = new();
+                            ax_ace_beat_t aw_beat      = new();
+                            ax_ace_beat_t aw_beat_peek = new();
+                            b_beat_t      b_beat       = new();
+                            w_beat_t      w_beat       = new();
 
-                            // wait for AW beat
-                            aw_mbx.get(aw_beat);
+                            while (!isDCache(aw_beat)) begin
+                                aw_mbx.peek(aw_beat_peek);
+                                if (isDCache(aw_beat_peek)) begin
+                                    // this is our response
+                                    aw_mbx.get(aw_beat);
+                                end else begin
+                                    $display("%t ns %s.invalidate: ignoring AW beat with ID 0x%0h for for cache[%0d][%0d]", $time, name, aw_beat_peek.ax_id, ww, ll);
+                                    @(posedge sram_vif.clk);
+                                end
+                            end
                             $display("%t ns %s.invalidate: got AW beat for cache[%0d][%0d]", $time, name, ww, ll);
+
                             if (!isWriteBack(aw_beat))
-                                $error("%s.flush_invalidatecache : WRITEBACK request expected after eviction of cache[%0d][%0d]", name, ww, ll);
+                                $error("%s.invalidate : WRITEBACK request expected after eviction of cache[%0d][%0d]", name, ww, ll);
                             a_empty_aw : assert (aw_mbx.num() == 0) else $error ("%S.invalidate : AW mailbox not empty", name);
 
                             // wait for W beat
@@ -2719,6 +2752,7 @@ package tb_std_cache_subsystem_pkg;
                             $display("%t ns %s.invalidate: got B beat for cache[%0d][%0d]", $time, name, ww, ll);
                             a_empty_b : assert (b_mbx.num() == 0) else $error ("%S.invalidate : B mailbox not empty", name);
                         end
+
                         begin
                             // expect clear of cache entry
                             automatic int ll  = l;
@@ -2782,13 +2816,26 @@ package tb_std_cache_subsystem_pkg;
                     begin
                         invalidate(msg.addr);
                         if (msg.op != AMO_LR) begin
-                            ax_ace_beat_t aw_beat     = new();
-                            b_beat_t      b_beat      = new();
-                            w_beat_t      w_beat      = new();
-                            r_ace_beat_t  r_beat      = new();
-                            r_ace_beat_t  r_beat_peek = new();
+                            ax_ace_beat_t aw_beat      = new();
+                            ax_ace_beat_t aw_beat_peek = new();
+                            b_beat_t      b_beat       = new();
+                            b_beat_t      b_beat_peek  = new();
+                            w_beat_t      w_beat       = new();
+                            r_ace_beat_t  r_beat       = new();
+                            r_ace_beat_t  r_beat_peek  = new();
 
-                            aw_mbx.get(aw_beat);
+                            // wait for AW beat
+                            $display("%t ns %s.check_amo_msg: waiting for AW beat for message : %s", $time, name, msg.print_me());
+                            while (!isAmo(aw_beat)) begin
+                                aw_mbx.peek(aw_beat_peek);
+                                if (isAmo(aw_beat_peek)) begin
+                                    // this is our response
+                                    aw_mbx.get(aw_beat);
+                                end else begin
+                                    $display("%t ns %s.check_amo_msg: ignoring AW beat with ID 0x%0h for message : %s", $time, name, aw_beat_peek.ax_id, msg.print_me());
+                                    @(posedge sram_vif.clk);
+                                end
+                            end
                             $display("%t ns %s.check_amo_msg: got AW beat for message %s", $time, name, msg.print_me());
 
                             if (is_inside_shareable_regions(ArianeCfg, msg.addr)) begin
@@ -2808,8 +2855,17 @@ package tb_std_cache_subsystem_pkg;
                             a_empty_w : assert (w_mbx.num() == 0) else $error ("%S.check_amo_msg : W mailbox not empty", name);
 
                             // wait for B beat
-                            b_mbx.get(b_beat);
-                            $display("%t ns %s.check_amo_msg: got B beat for message %s", $time, name, msg.print_me());
+                            while (b_beat_peek.b_id != aw_beat.ax_id) begin
+                                b_mbx.peek(b_beat_peek);
+                                if (b_beat_peek.b_id == aw_beat.ax_id) begin
+                                    // this is our response
+                                    b_mbx.get(b_beat);
+                                    $display("%t ns %s.check_amo_msg: got B beat with ID 0x%0h for message %s", $time, name, b_beat.b_id, msg.print_me());
+                                end else begin
+                                    $display("%t ns %s.check_amo_msg: ignoring B beat with ID 0x%0h for message : %s", $time, name, b_beat_peek.b_id, msg.print_me());
+                                    @(posedge sram_vif.clk);
+                                end
+                            end
                             a_empty_b : assert (b_mbx.num() == 0) else $error ("%S.check_amo_msg : B mailbox not empty", name);
 
                             if (msg.op != AMO_SC) begin // AMO_SC has no data response, only OK/ not OK decoded from B beat
@@ -2827,12 +2883,24 @@ package tb_std_cache_subsystem_pkg;
                             end
 
                         end else begin
-                            ax_ace_beat_t ar_beat     = new();
-                            r_ace_beat_t  r_beat      = new();
-                            r_ace_beat_t  r_beat_peek = new();
+                            ax_ace_beat_t ar_beat      = new();
+                            ax_ace_beat_t ar_beat_peek = new();
+                            r_ace_beat_t  r_beat       = new();
+                            r_ace_beat_t  r_beat_peek  = new();
 
-                            ar_mbx.get(ar_beat);
+                            $display("%t ns %s.check_amo_msg: waiting for AR beat for message : %s", $time, name, msg.print_me());
+                            while (!isAmo(ar_beat)) begin
+                                ar_mbx.peek(ar_beat_peek);
+                                if (isAmo(ar_beat_peek)) begin
+                                    // this is our response
+                                    ar_mbx.get(ar_beat);
+                                end else begin
+                                    $display("%t ns %s.check_amo_msg: ignoring AR beat with ID 0x%0h for message : %s", $time, name, ar_beat_peek.ax_id, msg.print_me());
+                                    @(posedge sram_vif.clk);
+                                end
+                            end
                             $display("%t ns %s.check_amo_msg: got AR beat for message %s", $time, name, msg.print_me());
+
                             if (is_inside_shareable_regions(ArianeCfg, msg.addr)) begin
                                 if (!isReadOnce(ar_beat))
                                     $error("%s.check_amo_msg : READ_ONCE request expected for message %s",name, msg.print_me());
@@ -3215,7 +3283,7 @@ package tb_std_cache_subsystem_pkg;
 
         task monitor;
             mon_dcache();
-            // check_amo_lock() must be xplicitly started from the tests that require it
+            // check_amo_lock() must be explicitly started from the tests that require it
         endtask
 
     endclass
