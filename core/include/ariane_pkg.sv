@@ -140,6 +140,25 @@ package ariane_pkg;
                                                     | riscv::SSTATUS_FS
                                                     | riscv::SSTATUS_SUM
                                                     | riscv::SSTATUS_MXR;
+
+  localparam logic [63:0] HSTATUS_WRITE_MASK      = riscv::HSTATUS_VSBE
+                                                    | riscv::HSTATUS_GVA
+                                                    | riscv::HSTATUS_SPV
+                                                    | riscv::HSTATUS_SPVP
+                                                    | riscv::HSTATUS_HU
+                                                    | riscv::HSTATUS_VTVM
+                                                    | riscv::HSTATUS_VTW
+                                                    | riscv::HSTATUS_VTSR;
+
+  // hypervisor delegable interrupts
+  localparam logic [63:0] HS_DELEG_INTERRUPTS     = riscv::MIP_VSSIP
+                                                    | riscv::MIP_VSTIP
+                                                    | riscv::MIP_VSEIP;
+  // virtual supervisor delegable interrupts
+  localparam logic [63:0] VS_DELEG_INTERRUPTS     = riscv::MIP_VSSIP
+                                                    | riscv::MIP_VSTIP
+                                                    | riscv::MIP_VSEIP;
+
   // ---------------
   // AXI
   // ---------------
@@ -173,6 +192,7 @@ package ariane_pkg;
     riscv::xlen_t cause;  // cause of exception
     riscv::xlen_t       tval;  // additional information of causing exception (e.g.: instruction causing it),
     // address of LD/ST fault
+    riscv::xlen_t tinst;  // transformed instruction information
     logic valid;
   } exception_t;
 
@@ -262,6 +282,7 @@ package ariane_pkg;
     riscv::xlen_t mie;
     riscv::xlen_t mip;
     riscv::xlen_t mideleg;
+    riscv::xlen_t hideleg;
     logic         sie;
     logic         global_enable;
   } irq_ctrl_t;
@@ -386,6 +407,8 @@ package ariane_pkg;
     FENCE,
     FENCE_I,
     SFENCE_VMA,
+    HFENCE_VVMA,
+    HFENCE_GVMA,
     CSR_WRITE,
     CSR_READ,
     CSR_SET,
@@ -402,6 +425,20 @@ package ariane_pkg;
     LB,
     SB,
     LBU,
+    // Hypervisor Virtual-Machine Load and Store Instructions
+    HLV_B,
+    HLV_BU,
+    HLV_H,
+    HLV_HU,
+    HLVX_HU,
+    HLV_W,
+    HLVX_WU,
+    HSV_B,
+    HSV_H,
+    HSV_W,
+    HLV_WU,
+    HLV_D,
+    HSV_D,
     // Atomic Memory Operations
     AMO_LRW,
     AMO_LRD,

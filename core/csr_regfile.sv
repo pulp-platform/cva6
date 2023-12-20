@@ -18,6 +18,7 @@ module csr_regfile
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg        = config_pkg::cva6_cfg_empty,
     parameter int                    AsidWidth      = 1,
+    parameter int                    VmidWidth      = 1,
     parameter int unsigned           MHPMCounterNum = 6
 ) (
     input logic clk_i,  // Clock
@@ -47,15 +48,17 @@ module csr_regfile
                                          // level or to write  a read-only register also
                                          // raises illegal instruction exceptions.
     // Interrupts/Exceptions
-    output logic  [riscv::VLEN-1:0] epc_o,                    // Output the exception PC to PC Gen, the correct CSR (mepc, sepc) is set accordingly
+    output logic  [riscv::VLEN-1:0] epc_o,                    // Output the exception PC to PC Gen, the correct CSR (mepc, sepc, vsepc) is set accordingly
     output logic eret_o,  // Return from exception, set the PC of epc_o
-    output logic  [riscv::VLEN-1:0] trap_vector_base_o,       // Output base of exception vector, correct CSR is output (mtvec, stvec)
+    output logic  [riscv::VLEN-1:0] trap_vector_base_o,       // Output base of exception vector, correct CSR is output (mtvec, stvec, vstvec)
     output riscv::priv_lvl_t priv_lvl_o,  // Current privilege level the CPU is in
+    output logic v_o,  // Current virtualization mode state
     // FP Imprecise exceptions
     input  logic            [4:0] acc_fflags_ex_i,            // Imprecise FP exception from the accelerator (fcsr.fflags format)
     input logic acc_fflags_ex_valid_i,  // An FP exception from the accelerator occurred
     // FPU
     output riscv::xs_t fs_o,  // Floating point extension status
+    output riscv::xs_t vfs_o,  // Floating point extension virtual status
     output logic [4:0] fflags_o,  // Floating-Point Accured Exceptions
     output logic [2:0] frm_o,  // Floating-Point Dynamic Rounding Mode
     output logic [6:0] fprec_o,  // Floating-Point Precision Control
@@ -79,9 +82,11 @@ module csr_regfile
     // Virtualization Support
     output logic tvm_o,  // trap virtual memory
     output logic tw_o,  // timeout wait
+    output logic vtw_o,  // virtual timeout wait
     output logic tsr_o,  // trap sret
     output logic debug_mode_o,  // we are in debug mode -> that will change some decoding
     output logic single_step_o,  // we are in single-step mode
+    output logic hu_o,  // hypervisor user mode
     // Caches
     output logic icache_en_o,  // L1 ICache Enable
     output logic dcache_en_o,  // L1 DCache Enable
@@ -99,9 +104,11 @@ module csr_regfile
 );
   // internal signal to keep track of access exceptions
   logic read_access_exception, update_access_exception, privilege_violation;
+  logic virtual_read_access_exception, virtual_update_access_exception, virtual_privilege_violation;
   logic csr_we, csr_read;
   riscv::xlen_t csr_wdata, csr_rdata;
   riscv::priv_lvl_t trap_to_priv_lvl;
+  logic             trap_to_v;
   // register for enabling load store address translation, this is critical, hence the register
   logic en_ld_st_translation_d, en_ld_st_translation_q;
   logic mprv;
@@ -111,12 +118,19 @@ module csr_regfile
   // CSR write causes us to mark the FPU state as dirty
   logic dirty_fp_state_csr;
   riscv::mstatus_rv_t mstatus_q, mstatus_d;
+  riscv::hstatus_rv_t hstatus_q, hstatus_d;
+  riscv::mstatus_rv_t vsstatus_q, vsstatus_d;
   riscv::xlen_t mstatus_extended;
+  riscv::xlen_t vsstatus_extended;
+  riscv::satp_t vsatp_q, vsatp_d;
   riscv::satp_t satp_q, satp_d;
+  riscv::hgatp_t hgatp_q, hgatp_d;
   riscv::dcsr_t dcsr_q, dcsr_d;
   riscv::csr_t csr_addr;
+  riscv::csr_t conv_csr_addr;
   // privilege level register
   riscv::priv_lvl_t priv_lvl_d, priv_lvl_q;
+  logic v_q, v_d;  // virtualization mode
   // we are in debug
   logic debug_mode_q, debug_mode_d;
   logic mtvec_rst_load_q;  // used to determine whether we came out of reset
@@ -134,6 +148,7 @@ module csr_regfile
   riscv::xlen_t mepc_q, mepc_d;
   riscv::xlen_t mcause_q, mcause_d;
   riscv::xlen_t mtval_q, mtval_d;
+  riscv::xlen_t mtinst_q, mtinst_d;
   logic fiom_d, fiom_q;
 
   riscv::xlen_t stvec_q, stvec_d;
@@ -142,6 +157,18 @@ module csr_regfile
   riscv::xlen_t sepc_q, sepc_d;
   riscv::xlen_t scause_q, scause_d;
   riscv::xlen_t stval_q, stval_d;
+  riscv::xlen_t hedeleg_q, hedeleg_d;
+  riscv::xlen_t hideleg_q, hideleg_d;
+  riscv::xlen_t hcounteren_q, hcounteren_d;
+  riscv::xlen_t hgeie_q, hgeie_d;
+  riscv::xlen_t htinst_q, htinst_d;
+
+  riscv::xlen_t vstvec_q, vstvec_d;
+  riscv::xlen_t vsscratch_q, vsscratch_d;
+  riscv::xlen_t vsepc_q, vsepc_d;
+  riscv::xlen_t vscause_q, vscause_d;
+  riscv::xlen_t vstval_q, vstval_d;
+
   riscv::xlen_t dcache_q, dcache_d;
   riscv::xlen_t icache_q, icache_d;
   riscv::xlen_t acc_cons_q, acc_cons_d;
@@ -161,6 +188,7 @@ module csr_regfile
   | (riscv::XLEN'(CVA6Cfg.RVC) << 2)  // C - Compressed extension
   | (riscv::XLEN'(CVA6Cfg.RVD) << 3)  // D - Double precision floating-point extension
   | (riscv::XLEN'(CVA6Cfg.RVF) << 5)  // F - Single precision floating-point extension
+  | (riscv::XLEN'(1) << 7)  // H - Hypervisor extension
   | (riscv::XLEN'(1) << 8)  // I - RV32I/64I/128I base ISA
   | (riscv::XLEN'(1) << 12)  // M - Integer Multiply/Divide extension
   | (riscv::XLEN'(0) << 13)  // N - User level interrupts supported
@@ -178,40 +206,44 @@ module csr_regfile
   // Assignments
   // ----------------
   assign csr_addr = riscv::csr_t'(csr_addr_i);
+  assign conv_csr_addr = riscv::convert_vs_access_csr((riscv::csr_t'(csr_addr_i)), v_q);
   assign fs_o = mstatus_q.fs;
+  assign vfs_o = vsstatus_q.fs;
   assign vs_o = mstatus_q.vs;
   // ----------------
   // CSR Read logic
   // ----------------
   assign mstatus_extended = riscv::IS_XLEN64 ? mstatus_q[riscv::XLEN-1:0] :
                               {mstatus_q.sd, mstatus_q.wpri3[7:0], mstatus_q[22:0]};
-
+  assign vsstatus_extended = riscv::IS_XLEN64 ? vsstatus_q[riscv::XLEN-1:0] :
+                              {vsstatus_q.sd, vsstatus_q.wpri3[7:0], vsstatus_q[22:0]};
 
   always_comb begin : csr_read_process
     // a read access exception can only occur if we attempt to read a CSR which does not exist
     read_access_exception = 1'b0;
+    virtual_read_access_exception = 1'b0;
     csr_rdata = '0;
     perf_addr_o = csr_addr.address[11:0];
     index = '0;
 
     if (csr_read) begin
-      unique case (csr_addr.address)
+      unique case (conv_csr_addr.address)
         riscv::CSR_FFLAGS: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{riscv::XLEN - 5{1'b0}}, fcsr_q.fflags};
           end else begin
             read_access_exception = 1'b1;
           end
         end
         riscv::CSR_FRM: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{riscv::XLEN - 3{1'b0}}, fcsr_q.frm};
           end else begin
             read_access_exception = 1'b1;
           end
         end
         riscv::CSR_FCSR: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{riscv::XLEN - 8{1'b0}}, fcsr_q.frm, fcsr_q.fflags};
           end else begin
             read_access_exception = 1'b1;
@@ -219,7 +251,7 @@ module csr_regfile
         end
         // non-standard extension
         riscv::CSR_FTRAN: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             csr_rdata = {{riscv::XLEN - 7{1'b0}}, fcsr_q.fprec};
           end else begin
             read_access_exception = 1'b1;
@@ -243,6 +275,18 @@ module csr_regfile
         riscv::CSR_TDATA1: read_access_exception = 1'b1;  // not implemented
         riscv::CSR_TDATA2: read_access_exception = 1'b1;  // not implemented
         riscv::CSR_TDATA3: read_access_exception = 1'b1;  // not implemented
+        riscv::CSR_VSSTATUS: csr_rdata = vsstatus_extended;
+        riscv::CSR_VSIE: csr_rdata = (mie_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1;
+        riscv::CSR_VSIP: csr_rdata = (mip_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1;
+        riscv::CSR_VSTVEC: csr_rdata = vstvec_q;
+        riscv::CSR_VSSCRATCH: csr_rdata = vsscratch_q;
+        riscv::CSR_VSEPC: csr_rdata = vsepc_q;
+        riscv::CSR_VSCAUSE: csr_rdata = vscause_q;
+        riscv::CSR_VSTVAL: csr_rdata = vstval_q;
+        riscv::CSR_VSATP:
+        if (priv_lvl_o == riscv::PRIV_LVL_S && hstatus_q.vtvm && v_q)
+          virtual_read_access_exception = 1'b1;
+        else csr_rdata = vsatp_q;
         // supervisor registers
         riscv::CSR_SSTATUS: begin
           if (CVA6Cfg.RVS)
@@ -250,10 +294,10 @@ module csr_regfile
           else read_access_exception = 1'b1;
         end
         riscv::CSR_SIE:
-        if (CVA6Cfg.RVS) csr_rdata = mie_q & mideleg_q;
+        if (CVA6Cfg.RVS) csr_rdata = mie_q & mideleg_q & ~HS_DELEG_INTERRUPTS;
         else read_access_exception = 1'b1;
         riscv::CSR_SIP:
-        if (CVA6Cfg.RVS) csr_rdata = mip_q & mideleg_q;
+        if (CVA6Cfg.RVS) csr_rdata = mip_q & mideleg_q & ~HS_DELEG_INTERRUPTS;
         else read_access_exception = 1'b1;
         riscv::CSR_STVEC:
         if (CVA6Cfg.RVS) csr_rdata = stvec_q;
@@ -285,6 +329,26 @@ module csr_regfile
             read_access_exception = 1'b1;
           end
         end
+        // hypervisor mode registers
+        riscv::CSR_HSTATUS: csr_rdata = hstatus_q[riscv::XLEN-1:0];
+        riscv::CSR_HEDELEG: csr_rdata = hedeleg_q;
+        riscv::CSR_HIDELEG: csr_rdata = hideleg_q;
+        riscv::CSR_HIE: csr_rdata = mie_q & HS_DELEG_INTERRUPTS;
+        riscv::CSR_HIP: csr_rdata = mip_q & HS_DELEG_INTERRUPTS;
+        riscv::CSR_HVIP: csr_rdata = mip_q & VS_DELEG_INTERRUPTS;
+        riscv::CSR_HCOUNTEREN: csr_rdata = hcounteren_q;
+        riscv::CSR_HTINST: ;  //TODO: implement htinst
+        riscv::CSR_HGEIE: csr_rdata = '0;
+        riscv::CSR_HGEIP: csr_rdata = '0;
+        riscv::CSR_HGATP: begin
+          // intercept reads to HGATP if in HS-Mode and TVM is enabled
+          if (priv_lvl_o == riscv::PRIV_LVL_S && !v_q && mstatus_q.tvm) begin
+            read_access_exception = 1'b1;
+          end else begin
+            csr_rdata = hgatp_q;
+          end
+        end
+
         // machine mode registers
         riscv::CSR_MSTATUS: csr_rdata = mstatus_extended;
         riscv::CSR_MSTATUSH:
@@ -304,6 +368,7 @@ module csr_regfile
         riscv::CSR_MEPC: csr_rdata = mepc_q;
         riscv::CSR_MCAUSE: csr_rdata = mcause_q;
         riscv::CSR_MTVAL: csr_rdata = mtval_q;
+        riscv::CSR_MTINST: csr_rdata = mtinst_q;
         riscv::CSR_MIP: csr_rdata = mip_q;
         riscv::CSR_MENVCFG: csr_rdata = '0 | fiom_q;
         riscv::CSR_MENVCFGH: begin
@@ -549,10 +614,14 @@ module csr_regfile
   riscv::xlen_t mask;
   always_comb begin : csr_update
     automatic riscv::satp_t satp;
+    automatic riscv::satp_t vsatp;
+    automatic riscv::hgatp_t hgatp;
     automatic logic [63:0] instret;
 
 
     satp            = satp_q;
+    hgatp           = hgatp_q;
+    vsatp           = vsatp_q;
     instret         = instret_q;
 
     mcountinhibit_d = mcountinhibit_q;
@@ -573,24 +642,28 @@ module csr_regfile
       else cycle_d = cycle_q;
     end
 
-    eret_o                  = 1'b0;
-    flush_o                 = 1'b0;
-    update_access_exception = 1'b0;
+    eret_o                          = 1'b0;
+    flush_o                         = 1'b0;
+    update_access_exception         = 1'b0;
+    virtual_update_access_exception = 1'b0;
 
-    set_debug_pc_o          = 1'b0;
+    set_debug_pc_o                  = 1'b0;
 
-    perf_we_o               = 1'b0;
-    perf_data_o             = 'b0;
+    perf_we_o                       = 1'b0;
+    perf_data_o                     = 'b0;
 
-    fcsr_d                  = fcsr_q;
+    fcsr_d                          = fcsr_q;
 
-    priv_lvl_d              = priv_lvl_q;
-    debug_mode_d            = debug_mode_q;
-    dcsr_d                  = dcsr_q;
-    dpc_d                   = dpc_q;
-    dscratch0_d             = dscratch0_q;
-    dscratch1_d             = dscratch1_q;
-    mstatus_d               = mstatus_q;
+    priv_lvl_d                      = priv_lvl_q;
+    v_d                             = v_q;
+    debug_mode_d                    = debug_mode_q;
+    dcsr_d                          = dcsr_q;
+    dpc_d                           = dpc_q;
+    dscratch0_d                     = dscratch0_q;
+    dscratch1_d                     = dscratch1_q;
+    mstatus_d                       = mstatus_q;
+    hstatus_d                       = hstatus_q;
+    vsstatus_d                      = vsstatus_q;
 
     // check whether we come out of reset
     // this is a workaround. some tools have issues
@@ -613,10 +686,19 @@ module csr_regfile
     mcounteren_d           = mcounteren_q;
     mscratch_d             = mscratch_q;
     mtval_d                = mtval_q;
+    mtinst_d               = mtinst_q;
     fiom_d                 = fiom_q;
     dcache_d               = dcache_q;
     icache_d               = icache_q;
     acc_cons_d             = acc_cons_q;
+
+    vsstatus_d             = vsstatus_q;
+    vstvec_d               = vstvec_q;
+    vsscratch_d            = vsscratch_q;
+    vsepc_d                = vsepc_q;
+    vscause_d              = vscause_q;
+    vstval_d               = vstval_q;
+    vsatp_d                = vsatp_q;
 
     sepc_d                 = sepc_q;
     scause_d               = scause_q;
@@ -625,6 +707,12 @@ module csr_regfile
     sscratch_d             = sscratch_q;
     stval_d                = stval_q;
     satp_d                 = satp_q;
+    hedeleg_d              = hedeleg_q;
+    hideleg_d              = hideleg_q;
+    hgeie_d                = hgeie_q;
+    hgatp_d                = hgatp_q;
+    hcounteren_d           = hcounteren_q;
+    htinst_d               = htinst_q;
 
     en_ld_st_translation_d = en_ld_st_translation_q;
     dirty_fp_state_csr     = 1'b0;
@@ -634,10 +722,10 @@ module csr_regfile
 
     // check for correct access rights and that we are writing
     if (csr_we) begin
-      unique case (csr_addr.address)
+      unique case (conv_csr_addr.address)
         // Floating-Point
         riscv::CSR_FFLAGS: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             dirty_fp_state_csr = 1'b1;
             fcsr_d.fflags = csr_wdata[4:0];
             // this instruction has side-effects
@@ -647,7 +735,7 @@ module csr_regfile
           end
         end
         riscv::CSR_FRM: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             dirty_fp_state_csr = 1'b1;
             fcsr_d.frm    = csr_wdata[2:0];
             // this instruction has side-effects
@@ -657,7 +745,7 @@ module csr_regfile
           end
         end
         riscv::CSR_FCSR: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             dirty_fp_state_csr = 1'b1;
             fcsr_d[7:0] = csr_wdata[7:0];  // ignore writes to reserved space
             // this instruction has side-effects
@@ -667,7 +755,7 @@ module csr_regfile
           end
         end
         riscv::CSR_FTRAN: begin
-          if (CVA6Cfg.FpPresent) begin
+          if (CVA6Cfg.FpPresent && !(mstatus_q.fs == riscv::Off || (v_q && vsstatus_q.fs == riscv::Off))) begin
             dirty_fp_state_csr = 1'b1;
             fcsr_d.fprec = csr_wdata[6:0];  // ignore writes to reserved space
             // this instruction has side-effects
@@ -704,6 +792,43 @@ module csr_regfile
         riscv::CSR_TDATA1: update_access_exception = 1'b1;  // not implemented
         riscv::CSR_TDATA2: update_access_exception = 1'b1;  // not implemented
         riscv::CSR_TDATA3: update_access_exception = 1'b1;  // not implemented
+        // virtual supervisor registers
+        riscv::CSR_VSSTATUS: begin
+          mask = ariane_pkg::SMODE_STATUS_WRITE_MASK[riscv::XLEN-1:0];
+          vsstatus_d = (vsstatus_q & ~{{64-riscv::XLEN{1'b0}}, mask}) | {{64-riscv::XLEN{1'b0}}, (csr_wdata & mask)};
+          // hardwire to zero if floating point extension is not present
+          vsstatus_d.xs = riscv::Off;
+          if (!CVA6Cfg.FpPresent) begin
+            vsstatus_d.fs = riscv::Off;
+          end
+        end
+        riscv::CSR_VSIE: mie_d = (mie_q & ~hideleg_q) | ((csr_wdata << 1) & hideleg_q);
+        riscv::CSR_VSIP: begin
+          // only the virtual supervisor software interrupt is write-able, iff delegated
+          mask  = riscv::MIP_VSSIP & hideleg_q;
+          mip_d = (mip_q & ~mask) | ((csr_wdata << 1) & mask);
+        end
+        riscv::CSR_VSTVEC: begin
+          vstvec_d = {csr_wdata[riscv::XLEN-1:2], 1'b0, csr_wdata[0]};
+        end
+        riscv::CSR_VSSCRATCH: vsscratch_d = csr_wdata;
+        riscv::CSR_VSEPC: vsepc_d = {csr_wdata[riscv::XLEN-1:1], 1'b0};
+        riscv::CSR_VSCAUSE: vscause_d = csr_wdata;
+        riscv::CSR_VSTVAL: vstval_d = csr_wdata;
+        // virtual supervisor address translation and protection
+        riscv::CSR_VSATP: begin
+          if (priv_lvl_o == riscv::PRIV_LVL_S && hstatus_q.vtvm && v_q) begin
+            virtual_update_access_exception = 1'b1;
+          end else begin
+            vsatp      = riscv::satp_t'(csr_wdata);
+            // only make ASID_LEN - 1 bit stick, that way software can figure out how many ASID bits are supported
+            vsatp.asid = vsatp.asid & {{(riscv::ASIDW - AsidWidth) {1'b0}}, {AsidWidth{1'b1}}};
+            // only update if we actually support this mode
+            if (riscv::vm_mode_t'(vsatp.mode) == riscv::ModeOff ||
+                              riscv::vm_mode_t'(vsatp.mode) == riscv::MODE_SV)
+              vsatp_d = vsatp;
+          end
+        end
         // sstatus is a subset of mstatus - mask it accordingly
         riscv::CSR_SSTATUS: begin
           if (CVA6Cfg.RVS) begin
@@ -727,8 +852,9 @@ module csr_regfile
         // if the corresponding bit in mideleg is set
         riscv::CSR_SIE: begin
           if (CVA6Cfg.RVS) begin
+            mask  = mideleg_q & ~HS_DELEG_INTERRUPTS;
             // the mideleg makes sure only delegate-able register (and therefore also only implemented registers) are written
-            mie_d = (mie_q & ~mideleg_q) | (csr_wdata & mideleg_q);
+            mie_d = (mie_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;
           end
@@ -783,6 +909,66 @@ module csr_regfile
             update_access_exception = 1'b1;
           end
         end
+        //hypervisor mode registers
+        riscv::CSR_HSTATUS: begin
+          mask = ariane_pkg::HSTATUS_WRITE_MASK[riscv::XLEN-1:0];
+          hstatus_d = (hstatus_q & ~{{64-riscv::XLEN{1'b0}}, mask}) | {{64-riscv::XLEN{1'b0}}, (csr_wdata & mask)};
+          // this instruction has side-effects
+          flush_o = 1'b1;
+        end
+        riscv::CSR_HEDELEG: begin
+          mask = (1 << riscv::INSTR_ADDR_MISALIGNED) |
+                           (1 << riscv::INSTR_ACCESS_FAULT) |
+                           (1 << riscv::ILLEGAL_INSTR) |
+                           (1 << riscv::BREAKPOINT) |
+                           (1 << riscv::LD_ADDR_MISALIGNED) |
+                           (1 << riscv::LD_ACCESS_FAULT) |
+                           (1 << riscv::ST_ADDR_MISALIGNED) |
+                           (1 << riscv::ST_ACCESS_FAULT) |
+                           (1 << riscv::ENV_CALL_UMODE) |
+                           (1 << riscv::INSTR_PAGE_FAULT) |
+                           (1 << riscv::LOAD_PAGE_FAULT) |
+                           (1 << riscv::STORE_PAGE_FAULT);
+          hedeleg_d = (hedeleg_q & ~mask) | (csr_wdata & mask);
+        end
+        riscv::CSR_HIDELEG: begin
+          hideleg_d = (hideleg_q & ~VS_DELEG_INTERRUPTS) | (csr_wdata & VS_DELEG_INTERRUPTS);
+        end
+        riscv::CSR_HIE: begin
+          mask  = HS_DELEG_INTERRUPTS;
+          mie_d = (mie_q & ~mask) | (csr_wdata & mask);
+        end
+        riscv::CSR_HIP: begin
+          mask  = riscv::MIP_VSSIP;
+          mip_d = (mip_q & ~mask) | (csr_wdata & mask);
+
+        end
+        riscv::CSR_HVIP: begin
+          mask  = VS_DELEG_INTERRUPTS;
+          mip_d = (mip_q & ~mask) | (csr_wdata & mask);
+        end
+        riscv::CSR_HCOUNTEREN: hcounteren_d = {{riscv::XLEN - 32{1'b0}}, csr_wdata[31:0]};
+        riscv::CSR_HTINST: htinst_d = {{riscv::XLEN - 32{1'b0}}, csr_wdata[31:0]};
+        riscv::CSR_HGEIE: ;  //TODO: implement htinst write
+        riscv::CSR_HGATP: begin
+          // intercept HGATP writes if in HS-Mode and TVM is enabled
+          if (priv_lvl_o == riscv::PRIV_LVL_S && !v_q && mstatus_q.tvm)
+            update_access_exception = 1'b1;
+          else begin
+            hgatp      = riscv::hgatp_t'(csr_wdata);
+            //hardwire PPN[1:0] to zero
+            hgatp[1:0] = 2'b0;
+            // only make VMID_LEN - 1 bit stick, that way software can figure out how many VMID bits are supported
+            hgatp.vmid = hgatp.vmid & {{(riscv::VMIDW - VmidWidth) {1'b0}}, {VmidWidth{1'b1}}};
+            // only update if we actually support this mode
+            if (riscv::vm_mode_t'(hgatp.mode) == riscv::ModeOff ||
+                            riscv::vm_mode_t'(hgatp.mode) == riscv::MODE_SV)
+              hgatp_d = hgatp;
+          end
+          // changing the mode can have side-effects on address translation (e.g.: other instructions), re-fetch
+          // the next instruction by executing a flush
+          flush_o = 1'b1;
+        end
 
         riscv::CSR_MSTATUS: begin
           mstatus_d    = {{64 - riscv::XLEN{1'b0}}, csr_wdata};
@@ -809,11 +995,22 @@ module csr_regfile
         riscv::CSR_MEDELEG: begin
           if (CVA6Cfg.RVS) begin
             mask = (1 << riscv::INSTR_ADDR_MISALIGNED) |
+                             (1 << riscv::INSTR_ACCESS_FAULT) |
+                             (1 << riscv::ILLEGAL_INSTR) |
                              (1 << riscv::BREAKPOINT) |
+                             (1 << riscv::LD_ADDR_MISALIGNED) |
+                             (1 << riscv::LD_ACCESS_FAULT) |
+                             (1 << riscv::ST_ADDR_MISALIGNED) |
+                             (1 << riscv::ST_ACCESS_FAULT) |
                              (1 << riscv::ENV_CALL_UMODE) |
+                             (1 << riscv::ENV_CALL_VSMODE) |
                              (1 << riscv::INSTR_PAGE_FAULT) |
                              (1 << riscv::LOAD_PAGE_FAULT) |
-                             (1 << riscv::STORE_PAGE_FAULT);
+                             (1 << riscv::STORE_PAGE_FAULT) |
+                             (1 << riscv::INSTR_GUEST_PAGE_FAULT) |
+                             (1 << riscv::LOAD_GUEST_PAGE_FAULT) |
+                             (1 << riscv::VIRTUAL_INSTRUCTION) |
+                             (1 << riscv::STORE_GUEST_PAGE_FAULT);
             medeleg_d = (medeleg_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;
@@ -824,14 +1021,14 @@ module csr_regfile
         riscv::CSR_MIDELEG: begin
           if (CVA6Cfg.RVS) begin
             mask = riscv::MIP_SSIP | riscv::MIP_STIP | riscv::MIP_SEIP;
-            mideleg_d = (mideleg_q & ~mask) | (csr_wdata & mask);
+            mideleg_d = (mideleg_q & ~mask) | (csr_wdata & mask) | HS_DELEG_INTERRUPTS;
           end else begin
             update_access_exception = 1'b1;
           end
         end
         // mask the register so that unsupported interrupts can never be set
         riscv::CSR_MIE: begin
-          mask = riscv::MIP_SSIP | riscv::MIP_STIP | riscv::MIP_SEIP | riscv::MIP_MSIP | riscv::MIP_MTIP | riscv::MIP_MEIP;
+          mask = HS_DELEG_INTERRUPTS | riscv::MIP_SSIP | riscv::MIP_STIP | riscv::MIP_SEIP | riscv::MIP_MSIP | riscv::MIP_MTIP | riscv::MIP_MEIP;
           mie_d = (mie_q & ~mask) | (csr_wdata & mask); // we only support supervisor and M-mode interrupts
         end
 
@@ -850,8 +1047,9 @@ module csr_regfile
           if (CVA6Cfg.TvalEn) mtval_d = csr_wdata;
           else update_access_exception = 1'b1;
         end
+        riscv::CSR_MTINST: mtinst_d = {{riscv::XLEN - 32{1'b0}}, csr_wdata[31:0]};
         riscv::CSR_MIP: begin
-          mask  = riscv::MIP_SSIP | riscv::MIP_STIP | riscv::MIP_SEIP;
+          mask  = riscv::MIP_SSIP | riscv::MIP_STIP | riscv::MIP_SEIP | riscv::MIP_VSSIP;
           mip_d = (mip_q & ~mask) | (csr_wdata & mask);
         end
         riscv::CSR_MENVCFG: if (CVA6Cfg.RVS) fiom_d = csr_wdata[0];
@@ -1037,16 +1235,23 @@ module csr_regfile
     if (!CVA6Cfg.RVU) begin
       mstatus_d.mpp = riscv::PRIV_LVL_M;
     end
+
+    hstatus_d.vsxl = riscv::XLEN_64;
+    vsstatus_d.uxl = riscv::XLEN_64;
     // mark the floating point extension register as dirty
     if (CVA6Cfg.FpPresent && (dirty_fp_state_csr || dirty_fp_state_i)) begin
       mstatus_d.fs = riscv::Dirty;
+      if (v_q) begin
+        vsstatus_d.fs = riscv::Dirty;
+      end
     end
     // mark the vector extension register as dirty
     if (CVA6Cfg.RVV && dirty_v_state_i) begin
       mstatus_d.vs = riscv::Dirty;
     end
     // hardwired extension registers
-    mstatus_d.sd = (mstatus_q.xs == riscv::Dirty) | (mstatus_q.fs == riscv::Dirty);
+    mstatus_d.sd  = (mstatus_q.xs == riscv::Dirty) | (mstatus_q.fs == riscv::Dirty);
+    vsstatus_d.sd = (vsstatus_q.xs == riscv::Dirty) | (vsstatus_q.fs == riscv::Dirty);
 
     // reserve PMPCFG bits 5 and 6 (hardwire to 0)
     for (int i = 0; i < CVA6Cfg.NrPMPEntries; i++) pmpcfg_d[i].reserved = 2'b0;
@@ -1082,6 +1287,7 @@ module csr_regfile
     // update exception CSRs
     // we got an exception update cause, pc and stval register
     trap_to_priv_lvl = riscv::PRIV_LVL_M;
+    trap_to_v = 1'b0;
     // Exception is taken and we are not in debug mode
     // exceptions in debug mode don't update any fields
     if ((CVA6Cfg.DebugEn && !debug_mode_q && ex_i.cause != riscv::DEBUG_REQUEST && ex_i.valid) || (!CVA6Cfg.DebugEn && ex_i.valid)) begin
@@ -1093,28 +1299,58 @@ module csr_regfile
       // the cause register can only be $clog2(riscv::XLEN) bits long (as we only support XLEN exceptions)
       if (CVA6Cfg.RVS && ((ex_i.cause[riscv::XLEN-1] && mideleg_q[ex_i.cause[$clog2(
               riscv::XLEN
+          )-1:0]] && ~hideleg_q[ex_i.cause[$clog2(
+              riscv::XLEN
           )-1:0]]) || (~ex_i.cause[riscv::XLEN-1] && medeleg_q[ex_i.cause[$clog2(
+              riscv::XLEN
+          )-1:0]] && ~hedeleg_q[ex_i.cause[$clog2(
               riscv::XLEN
           )-1:0]]))) begin
         // traps never transition from a more-privileged mode to a less privileged mode
         // so if we are already in M mode, stay there
         if (priv_lvl_o == riscv::PRIV_LVL_M) trap_to_priv_lvl = riscv::PRIV_LVL_M;
         else trap_to_priv_lvl = riscv::PRIV_LVL_S;
+      end else if ((ex_i.cause[riscv::XLEN-1] && hideleg_q[ex_i.cause[$clog2(
+              riscv::XLEN
+          )-1:0]]) || (~ex_i.cause[riscv::XLEN-1] && hedeleg_q[ex_i.cause[$clog2(
+              riscv::XLEN
+          )-1:0]])) begin
+        trap_to_priv_lvl = (priv_lvl_o == riscv::PRIV_LVL_M) ? riscv::PRIV_LVL_M : riscv::PRIV_LVL_S;
+        // trap to VS only if it is  the currently active mode
+        trap_to_v = v_q;
       end
 
       // trap to supervisor mode
       if (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S) begin
-        // update sstatus
-        mstatus_d.sie = 1'b0;
-        mstatus_d.spie = mstatus_q.sie;
-        // this can either be user or supervisor mode
-        mstatus_d.spp = priv_lvl_q[0];
-        // set cause
-        scause_d = ex_i.cause;
-        // set epc
-        sepc_d = {{riscv::XLEN - riscv::VLEN{pc_i[riscv::VLEN-1]}}, pc_i};
-        // set mtval or stval
-        stval_d        = (ariane_pkg::ZERO_TVAL
+        if (trap_to_v) begin
+          // update sstatus
+          vsstatus_d.sie = 1'b0;
+          vsstatus_d.spie = vsstatus_q.sie;
+          // this can either be user or supervisor mode
+          vsstatus_d.spp = priv_lvl_q[0];
+          // set cause
+          vscause_d = ex_i.cause[riscv::XLEN-1] ? {ex_i.cause[riscv::XLEN-1:2], 2'b01} : ex_i.cause;
+          // set epc
+          vsepc_d = {{riscv::XLEN - riscv::VLEN{pc_i[riscv::VLEN-1]}}, pc_i};
+          // set vstval
+          vstval_d        = (ariane_pkg::ZERO_TVAL
+                                      && (ex_i.cause inside {
+                                        riscv::ILLEGAL_INSTR,
+                                        riscv::BREAKPOINT,
+                                        riscv::ENV_CALL_UMODE
+                                      } || ex_i.cause[riscv::XLEN-1])) ? '0 : ex_i.tval;
+        end else begin
+          // update sstatus
+          mstatus_d.sie = 1'b0;
+          mstatus_d.spie = mstatus_q.sie;
+          // this can either be user or supervisor mode
+          mstatus_d.spp = priv_lvl_q[0];
+          // set cause
+          scause_d = ex_i.cause;
+          // set epc
+          sepc_d = {{riscv::XLEN - riscv::VLEN{pc_i[riscv::VLEN-1]}}, pc_i};
+          // set mtval or stval
+          stval_d        = (ariane_pkg::ZERO_TVAL
                                   && (ex_i.cause inside {
                                     riscv::ILLEGAL_INSTR,
                                     riscv::BREAKPOINT,
@@ -1122,6 +1358,22 @@ module csr_regfile
                                     riscv::ENV_CALL_SMODE,
                                     riscv::ENV_CALL_MMODE
                                   } || ex_i.cause[riscv::XLEN-1])) ? '0 : ex_i.tval;
+          htinst_d       = (ariane_pkg::ZERO_TVAL
+                                  && (ex_i.cause inside {
+                                    riscv::INSTR_ACCESS_FAULT,
+                                    riscv::ILLEGAL_INSTR,
+                                    riscv::BREAKPOINT,
+                                    riscv::ENV_CALL_UMODE,
+                                    riscv::ENV_CALL_SMODE,
+                                    riscv::ENV_CALL_MMODE,
+                                    riscv::INSTR_PAGE_FAULT,
+                                    riscv::INSTR_GUEST_PAGE_FAULT,
+                                    riscv::VIRTUAL_INSTRUCTION
+                                  } || ex_i.cause[riscv::XLEN-1])) ? '0 : ex_i.tinst;
+          hstatus_d.spvp = v_q ? priv_lvl_q[0] : hstatus_d.spvp;
+          // TODO: set GVA bit
+          hstatus_d.spv = v_q;
+        end
         // trap to machine mode
       end else begin
         // update mstatus
@@ -1129,6 +1381,8 @@ module csr_regfile
         mstatus_d.mpie = mstatus_q.mie;
         // save the previous privilege mode
         mstatus_d.mpp = priv_lvl_q;
+        // save previous virtualization mode
+        mstatus_d.mpv = v_q;
         mcause_d = ex_i.cause;
         // set epc
         mepc_d = {{riscv::XLEN - riscv::VLEN{pc_i[riscv::VLEN-1]}}, pc_i};
@@ -1145,9 +1399,21 @@ module csr_regfile
         end else begin
           mtval_d = '0;
         end
+        mtinst_d       = (ariane_pkg::ZERO_TVAL
+                                  && (ex_i.cause inside {
+                                    riscv::ILLEGAL_INSTR,
+                                    riscv::BREAKPOINT,
+                                    riscv::ENV_CALL_UMODE,
+                                    riscv::ENV_CALL_SMODE,
+                                    riscv::ENV_CALL_MMODE,
+                                    riscv::INSTR_PAGE_FAULT,
+                                    riscv::INSTR_GUEST_PAGE_FAULT,
+                                    riscv::VIRTUAL_INSTRUCTION
+                                  } || ex_i.cause[riscv::XLEN-1])) ? '0 : ex_i.tinst;
       end
 
       priv_lvl_d = trap_to_priv_lvl;
+      v_d        = trap_to_v;
     end
 
     // ------------------------------
@@ -1270,9 +1536,14 @@ module csr_regfile
       end
       // set mpie to 1
       mstatus_d.mpie = 1'b1;
+      // set virtualization mode
+      v_d            = mstatus_q.mpv;
+      //set mstatus mpv to false
+      mstatus_d.mpv  = 1'b0;
+      if (mstatus_q.mpp != riscv::PRIV_LVL_M) mstatus_d.mprv = 1'b0;
     end
 
-    if (CVA6Cfg.RVS && sret) begin
+    if (CVA6Cfg.RVS && sret && !v_q) begin
       // return from exception, IF doesn't care from where we are returning
       eret_o         = 1'b1;
       // return the previous supervisor interrupt enable flag
@@ -1283,6 +1554,24 @@ module csr_regfile
       mstatus_d.spp  = 1'b0;
       // set spie to 1
       mstatus_d.spie = 1'b1;
+      // set virtualization mode
+      v_d            = hstatus_q.spv;
+      //set hstatus spv to false
+      hstatus_d.spv  = 1'b0;
+      mstatus_d.mprv = 1'b0;
+    end
+
+    if (sret && v_q) begin
+      // return from exception, IF doesn't care from where we are returning
+      eret_o          = 1'b1;
+      // return the previous supervisor interrupt enable flag
+      vsstatus_d.sie  = vsstatus_q.spie;
+      // restore the previous privilege level
+      priv_lvl_d      = riscv::priv_lvl_t'({1'b0, vsstatus_q.spp});
+      // set spp to user mode
+      vsstatus_d.spp  = 1'b0;
+      // set spie to 1
+      vsstatus_d.spie = 1'b1;
     end
 
     // return from debug mode
@@ -1344,8 +1633,9 @@ module csr_regfile
 
   assign irq_ctrl_o.mie = mie_q;
   assign irq_ctrl_o.mip = mip_q;
-  assign irq_ctrl_o.sie = mstatus_q.sie;
+  assign irq_ctrl_o.sie = v_q ? vsstatus_q.sie : mstatus_q.sie;
   assign irq_ctrl_o.mideleg = mideleg_q;
+  assign irq_ctrl_o.hideleg = hideleg_q;
   assign irq_ctrl_o.global_enable = (~debug_mode_q)
       // interrupts are enabled during single step or we are not stepping
       // No need to check interrupts during single step if we don't support DEBUG mode
@@ -1354,15 +1644,23 @@ module csr_regfile
                                     | (priv_lvl_o != riscv::PRIV_LVL_M));
 
   always_comb begin : privilege_check
+    automatic riscv::priv_lvl_t access_priv;
+    automatic riscv::priv_lvl_t curr_priv;
+    // transforms S mode accesses into HS mode
+    access_priv = (priv_lvl_o == riscv::PRIV_LVL_S && !v_q) ? riscv::PRIV_LVL_HS : priv_lvl_o;
+    curr_priv = priv_lvl_o;
     // -----------------
     // Privilege Check
     // -----------------
     privilege_violation = 1'b0;
+    virtual_privilege_violation = 1'b0;
     // if we are reading or writing, check for the correct privilege level this has
     // precedence over interrupts
     if (csr_op_i inside {CSR_WRITE, CSR_SET, CSR_CLEAR, CSR_READ}) begin
-      if ((riscv::priv_lvl_t'(priv_lvl_o & csr_addr.csr_decode.priv_lvl) != csr_addr.csr_decode.priv_lvl)) begin
-        privilege_violation = 1'b1;
+      if (access_priv < csr_addr.csr_decode.priv_lvl) begin
+        if (v_q && csr_addr.csr_decode.priv_lvl == riscv::PRIV_LVL_HS)
+          virtual_privilege_violation = 1'b1;
+        else privilege_violation = 1'b1;
       end
       // check access to debug mode only CSRs
       if ((!CVA6Cfg.DebugEn && csr_addr_i[11:4] == 8'h7b) || (CVA6Cfg.DebugEn && csr_addr_i[11:4] == 8'h7b && !debug_mode_q)) begin
@@ -1371,10 +1669,16 @@ module csr_regfile
       // check counter-enabled counter CSR accesses
       // counter address range is C00 to C1F
       if (csr_addr_i inside {[riscv::CSR_CYCLE : riscv::CSR_HPM_COUNTER_31]}) begin
-        if (priv_lvl_o == riscv::PRIV_LVL_S && CVA6Cfg.RVS) begin
+        if (curr_priv == riscv::PRIV_LVL_S && CVA6Cfg.RVS) begin
+          virtual_privilege_violation = v_q & mcounteren_q[csr_addr_i[4:0]] & ~hcounteren_q[csr_addr_i[4:0]];
           privilege_violation = ~mcounteren_q[csr_addr_i[4:0]];
         end else if (priv_lvl_o == riscv::PRIV_LVL_U && CVA6Cfg.RVU) begin
-          privilege_violation = ~mcounteren_q[csr_addr_i[4:0]] | ~scounteren_q[csr_addr_i[4:0]];
+          virtual_privilege_violation = v_q & mcounteren_q[csr_addr_i[4:0]] & ~hcounteren_q[csr_addr_i[4:0]];
+          if (v_q) begin
+            privilege_violation = ~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]] & hcounteren_q[csr_addr_i[4:0]];
+          end else begin
+            privilege_violation = ~mcounteren_q[csr_addr_i[4:0]] & ~scounteren_q[csr_addr_i[4:0]];
+          end
         end else if (priv_lvl_o == riscv::PRIV_LVL_M) begin
           privilege_violation = 1'b0;
         end
@@ -1385,7 +1689,7 @@ module csr_regfile
   // CSR Exception Control
   // ----------------------
   always_comb begin : exception_ctrl
-    csr_exception_o = {{riscv::XLEN{1'b0}}, {riscv::XLEN{1'b0}}, 1'b0};
+    csr_exception_o = {{riscv::XLEN{1'b0}}, {riscv::XLEN{1'b0}}, {riscv::XLEN{1'b0}}, 1'b0};
     // ----------------------------------
     // Illegal Access (decode exception)
     // ----------------------------------
@@ -1400,6 +1704,11 @@ module csr_regfile
 
     if (privilege_violation) begin
       csr_exception_o.cause = riscv::ILLEGAL_INSTR;
+      csr_exception_o.valid = 1'b1;
+    end
+
+    if (virtual_update_access_exception || virtual_read_access_exception || virtual_privilege_violation) begin
+      csr_exception_o.cause = riscv::VIRTUAL_INSTRUCTION;
       csr_exception_o.valid = 1'b1;
     end
   end
@@ -1426,7 +1735,7 @@ module csr_regfile
     trap_vector_base_o = {mtvec_q[riscv::VLEN-1:2], 2'b0};
     // output user mode stvec
     if (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S) begin
-      trap_vector_base_o = {stvec_q[riscv::VLEN-1:2], 2'b0};
+      trap_vector_base_o = trap_to_v ? {vstvec_q[riscv::VLEN-1:2], 2'b0} : {stvec_q[riscv::VLEN-1:2], 2'b0};
     end
 
     // if we are in debug mode jump to a specific address
@@ -1441,8 +1750,12 @@ module csr_regfile
     // activated for _that_ privilege level.
     if (ex_i.cause[riscv::XLEN-1] &&
                 ((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0]) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && mtvec_q[0]))
-               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && stvec_q[0]))) begin
+               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0]))) begin
       trap_vector_base_o[7:2] = ex_i.cause[5:0];
+    end
+    if (ex_i.cause[riscv::XLEN-1] &&
+                (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0])) begin
+      trap_vector_base_o[7:2] = {ex_i.cause[5:2], 2'b01};
     end
 
     epc_o = mepc_q[riscv::VLEN-1:0];
@@ -1465,12 +1778,12 @@ module csr_regfile
     // bit and the interrupt signal from the interrupt controller.
     csr_rdata_o = csr_rdata;
 
-    unique case (csr_addr.address)
+    unique case (conv_csr_addr.address)
       riscv::CSR_MIP:
       csr_rdata_o = csr_rdata | ({{riscv::XLEN - 1{1'b0}}, irq_i[1]} << riscv::IRQ_S_EXT);
       // in supervisor mode we also need to check whether we delegated this bit
       riscv::CSR_SIP: begin
-        if (CVA6Cfg.RVS) begin
+        if (CVA6Cfg.RVS && !v_q) begin
           csr_rdata_o = csr_rdata
                               | ({{riscv::XLEN-1{1'b0}}, (irq_i[1] & mideleg_q[riscv::IRQ_S_EXT])} << riscv::IRQ_S_EXT);
         end
@@ -1481,6 +1794,7 @@ module csr_regfile
 
   // in debug mode we execute with privilege level M
   assign priv_lvl_o = (CVA6Cfg.DebugEn && debug_mode_q) ? riscv::PRIV_LVL_M : priv_lvl_q;
+  assign v_o = v_q;
   // FPU outputs
   assign fflags_o = fcsr_q.fflags;
   assign frm_o = fcsr_q.frm;
@@ -1488,16 +1802,18 @@ module csr_regfile
   // MMU outputs
   assign satp_ppn_o = satp_q.ppn;
   assign asid_o = satp_q.asid[AsidWidth-1:0];
-  assign sum_o = mstatus_q.sum;
+  assign sum_o = v_q ? vsstatus_q.sum : mstatus_q.sum;
+  assign hu_o = hstatus_q.hu;
   // we support bare memory addressing and SV39
   assign en_translation_o = ((CVA6Cfg.RVS && riscv::vm_mode_t'(satp_q.mode) == riscv::MODE_SV) &&
                                priv_lvl_o != riscv::PRIV_LVL_M)
                               ? 1'b1
                               : 1'b0;
-  assign mxr_o = mstatus_q.mxr;
-  assign tvm_o = mstatus_q.tvm;
+  assign mxr_o = v_q ? vsstatus_q.mxr : mstatus_q.mxr;
+  assign tvm_o = v_q ? hstatus_q.vtvm : mstatus_q.tvm;
   assign tw_o = mstatus_q.tw;
-  assign tsr_o = mstatus_q.tsr;
+  assign vtw_o = hstatus_q.vtw;
+  assign tsr_o = v_q ? hstatus_q.vtsr : mstatus_q.tsr;
   assign halt_csr_o = wfi_q;
 `ifdef PITON_ARIANE
   assign icache_en_o = icache_q[0];
@@ -1517,6 +1833,7 @@ module csr_regfile
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
       priv_lvl_q   <= riscv::PRIV_LVL_M;
+      v_q          <= '0;
       // floating-point registers
       fcsr_q       <= '0;
       // debug signals
@@ -1542,6 +1859,7 @@ module csr_regfile
       mscratch_q       <= {riscv::XLEN{1'b0}};
       mtval_q          <= {riscv::XLEN{1'b0}};
       fiom_q           <= '0;
+      mtinst_q         <= {riscv::XLEN{1'b0}};
       dcache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
       icache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q  <= '0;
@@ -1558,6 +1876,21 @@ module csr_regfile
         stval_q      <= {riscv::XLEN{1'b0}};
         satp_q       <= {riscv::XLEN{1'b0}};
       end
+      hstatus_q              <= {riscv::XLEN{1'b0}};
+      hedeleg_q              <= {riscv::XLEN{1'b0}};
+      hideleg_q              <= {riscv::XLEN{1'b0}};
+      hgeie_q                <= {riscv::XLEN{1'b0}};
+      hgatp_q                <= {riscv::XLEN{1'b0}};
+      hcounteren_q           <= {riscv::XLEN{1'b0}};
+      htinst_q               <= {riscv::XLEN{1'b0}};
+      // virtual supervisor mode registers
+      vsstatus_q             <= 64'b0;
+      vsepc_q                <= {riscv::XLEN{1'b0}};
+      vscause_q              <= {riscv::XLEN{1'b0}};
+      vstvec_q               <= {riscv::XLEN{1'b0}};
+      vsscratch_q            <= {riscv::XLEN{1'b0}};
+      vstval_q               <= {riscv::XLEN{1'b0}};
+      vsatp_q                <= {riscv::XLEN{1'b0}};
       // timer and counters
       cycle_q                <= 64'b0;
       instret_q              <= 64'b0;
@@ -1577,6 +1910,7 @@ module csr_regfile
       end
     end else begin
       priv_lvl_q <= priv_lvl_d;
+      v_q        <= v_d;
       // floating-point registers
       fcsr_q     <= fcsr_d;
       // debug signals
@@ -1598,11 +1932,12 @@ module csr_regfile
       mcounteren_q     <= mcounteren_d;
       mscratch_q       <= mscratch_d;
       if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
-      fiom_q          <= fiom_d;
-      dcache_q        <= dcache_d;
-      icache_q        <= icache_d;
-      mcountinhibit_q <= mcountinhibit_d;
-      acc_cons_q      <= acc_cons_d;
+      mtinst_q         <= mtinst_d;
+      fiom_q           <= fiom_d;
+      dcache_q         <= dcache_d;
+      icache_q         <= icache_d;
+      mcountinhibit_q  <= mcountinhibit_d;
+      acc_cons_q       <= acc_cons_d;
       // supervisor mode registers
       if (CVA6Cfg.RVS) begin
         medeleg_q    <= medeleg_d;
@@ -1615,6 +1950,22 @@ module csr_regfile
         if (CVA6Cfg.TvalEn) stval_q <= stval_d;
         satp_q <= satp_d;
       end
+      // hypervisor mode registers
+      hstatus_q              <= hstatus_d;
+      hedeleg_q              <= hedeleg_d;
+      hideleg_q              <= hideleg_d;
+      hgeie_q                <= hgeie_d;
+      hgatp_q                <= hgatp_d;
+      hcounteren_q           <= hcounteren_d;
+      htinst_q               <= htinst_d;
+      // virtual supervisor mode registers
+      vsstatus_q             <= vsstatus_d;
+      vsepc_q                <= vsepc_d;
+      vscause_q              <= vscause_d;
+      vstvec_q               <= vstvec_d;
+      vsscratch_q            <= vsscratch_d;
+      vstval_q               <= vstval_d;
+      vsatp_q                <= vsatp_d;
       // timer and counters
       cycle_q                <= cycle_d;
       instret_q              <= instret_d;
