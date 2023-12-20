@@ -69,12 +69,13 @@ module issue_read_operands
     output logic [riscv::VLEN-1:0] pc_o,
     // Is compressed instruction - TO_BE_COMPLETED
     output logic is_compressed_instr_o,
+    output riscv::xlen_t tinst_o,  // Transformed instruction
     // Fixed Latency Unit ready to accept new request - TO_BE_COMPLETED
-    input logic flu_ready_i,
+    input logic flu_ready_i,  // Fixed latency unit ready to accept a new request
     // ALU output is valid - TO_BE_COMPLETED
-    output logic alu_valid_o,
+    output logic alu_valid_o,  // Output is valid
     // Branch instruction is valid - TO_BE_COMPLETED
-    output logic branch_valid_o,
+    output logic branch_valid_o,  // this is a valid branch instruction
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     output branchpredict_sbe_t branch_predict_o,
     // Load Store Unit is ready - TO_BE_COMPLETED
@@ -135,6 +136,7 @@ module issue_read_operands
   logic [TRANS_ID_BITS-1:0] trans_id_n, trans_id_q;
   fu_op operator_n, operator_q;  // operation to perform
   fu_t fu_n, fu_q;  // functional unit to use
+  riscv::xlen_t tinst_n, tinst_q;  // transformed instruction
 
   // forwarding signals
   logic forward_rs1, forward_rs2, forward_rs3;
@@ -165,6 +167,7 @@ module issue_read_operands
   assign cvxif_valid_o       = CVA6Cfg.CvxifEn ? cvxif_valid_q : '0;
   assign cvxif_off_instr_o   = CVA6Cfg.CvxifEn ? cvxif_off_instr_q : '0;
   assign stall_issue_o       = stall;
+  assign tinst_o             = CVA6Cfg.RVH ? tinst_q : '0;
   // ---------------
   // Issue Stage
   // ---------------
@@ -279,6 +282,9 @@ module issue_read_operands
     trans_id_n = issue_instr_i.trans_id;
     fu_n       = issue_instr_i.fu;
     operator_n = issue_instr_i.op;
+    if (CVA6Cfg.RVH) begin
+      tinst_n = issue_instr_i.ex.tinst;
+    end
     // or should we forward
     if (forward_rs1) begin
       operand_a_n = rs1_i;
@@ -587,22 +593,28 @@ module issue_read_operands
   // ----------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      operand_a_q           <= '{default: 0};
-      operand_b_q           <= '{default: 0};
-      imm_q                 <= '0;
-      fu_q                  <= NONE;
-      operator_q            <= ADD;
-      trans_id_q            <= '0;
+      operand_a_q <= '{default: 0};
+      operand_b_q <= '{default: 0};
+      imm_q       <= '0;
+      fu_q        <= NONE;
+      operator_q  <= ADD;
+      trans_id_q  <= '0;
+      if (CVA6Cfg.RVH) begin
+        tinst_q <= '0;
+      end
       pc_o                  <= '0;
       is_compressed_instr_o <= 1'b0;
       branch_predict_o      <= {cf_t'(0), {riscv::VLEN{1'b0}}};
     end else begin
-      operand_a_q           <= operand_a_n;
-      operand_b_q           <= operand_b_n;
-      imm_q                 <= imm_n;
-      fu_q                  <= fu_n;
-      operator_q            <= operator_n;
-      trans_id_q            <= trans_id_n;
+      operand_a_q <= operand_a_n;
+      operand_b_q <= operand_b_n;
+      imm_q       <= imm_n;
+      fu_q        <= fu_n;
+      operator_q  <= operator_n;
+      trans_id_q  <= trans_id_n;
+      if (CVA6Cfg.RVH) begin
+        tinst_q <= tinst_n;
+      end
       pc_o                  <= issue_instr_i.pc;
       is_compressed_instr_o <= issue_instr_i.is_compressed;
       branch_predict_o      <= issue_instr_i.bp;

@@ -64,6 +64,8 @@ package config_pkg;
     bit                          RVV;
     // Compress RISC-V extension
     bit                          RVC;
+    // Hypervisor extension
+    bit                          RVH;
     // Zcb RISC-V extension
     bit                          RVZCB;
     // Non standard Vector Floating Point

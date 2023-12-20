@@ -68,6 +68,9 @@ module instr_queue
     input ariane_pkg::frontend_exception_t exception_i,
     // Exception address - CACHE
     input logic [riscv::VLEN-1:0] exception_addr_i,
+    input logic [riscv::GPLEN-1:0] exception_gpaddr_i,
+    input logic [riscv::XLEN-1:0] exception_tinst_i,
+    input logic exception_gva_i,
     // Branch predict - FRONTEND
     input logic [riscv::VLEN-1:0] predict_address_i,
     // Instruction predict address - FRONTEND
@@ -85,10 +88,13 @@ module instr_queue
 );
 
   typedef struct packed {
-    logic [31:0]                     instr;     // instruction word
-    ariane_pkg::cf_t                 cf;        // branch was taken
-    ariane_pkg::frontend_exception_t ex;        // exception happened
-    logic [riscv::VLEN-1:0]          ex_vaddr;  // lower VLEN bits of tval for exception
+    logic [31:0]                     instr;      // instruction word
+    ariane_pkg::cf_t                 cf;         // branch was taken
+    ariane_pkg::frontend_exception_t ex;         // exception happened
+    logic [riscv::VLEN-1:0]          ex_vaddr;   // lower VLEN bits of tval for exception
+    logic [riscv::GPLEN-1:0]         ex_gpaddr;  // lower GPLEN bits of tval2 for exception
+    logic [riscv::XLEN-1:0]          ex_tinst;   // tinst of exception
+    logic                            ex_gva;
   } instr_data_t;
 
   logic [ariane_pkg::LOG2_INSTR_PER_FETCH-1:0] branch_index;
@@ -206,6 +212,9 @@ ariane_pkg::FETCH_FIFO_DEPTH
       assign instr_data_in[i].cf = cf[i+idx_is_q];
       assign instr_data_in[i].ex = exception_i;  // exceptions hold for the whole fetch packet
       assign instr_data_in[i].ex_vaddr = exception_addr_i;
+      assign instr_data_in[i].ex_gpaddr = exception_gpaddr_i;
+      assign instr_data_in[i].ex_tinst = exception_tinst_i;
+      assign instr_data_in[i].ex_gva = exception_gva_i;
       /* verilator lint_on WIDTH */
     end
   end else begin : gen_multiple_instr_per_fetch_without_C
@@ -235,6 +244,9 @@ ariane_pkg::FETCH_FIFO_DEPTH
     assign instr_data_in[0].cf = cf_type_i[0];
     assign instr_data_in[0].ex = exception_i;  // exceptions hold for the whole fetch packet
     assign instr_data_in[0].ex_vaddr = exception_addr_i;
+    assign instr_data_in[0].ex_gpaddr = exception_gpaddr_i;
+    assign instr_data_in[0].ex_tinst = exception_tinst_i;
+    assign instr_data_in[0].ex_gva = exception_gva_i;
     /* verilator lint_on WIDTH */
   end
 
@@ -283,6 +295,9 @@ ariane_pkg::FETCH_FIFO_DEPTH
       fetch_entry_o.ex.cause = '0;
 
       fetch_entry_o.ex.tval = '0;
+      fetch_entry_o.ex.tval2 = '0;
+      fetch_entry_o.ex.gva = 1'b0;
+      fetch_entry_o.ex.tinst = '0;
       fetch_entry_o.branch_predict.predict_address = address_out;
       fetch_entry_o.branch_predict.cf = ariane_pkg::NoCF;
       // output mux select
@@ -290,6 +305,8 @@ ariane_pkg::FETCH_FIFO_DEPTH
         if (idx_ds_q[i]) begin
           if (instr_data_out[i].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
             fetch_entry_o.ex.cause = riscv::INSTR_ACCESS_FAULT;
+          end else if (instr_data_out[i].ex == ariane_pkg::FE_INSTR_GUEST_PAGE_FAULT) begin
+            fetch_entry_o.ex.cause = riscv::INSTR_GUEST_PAGE_FAULT;
           end else begin
             fetch_entry_o.ex.cause = riscv::INSTR_PAGE_FAULT;
           end
@@ -299,6 +316,11 @@ ariane_pkg::FETCH_FIFO_DEPTH
             fetch_entry_o.ex.tval = {
               {(riscv::XLEN - riscv::VLEN) {1'b0}}, instr_data_out[i].ex_vaddr
             };
+          if (CVA6Cfg.RVH) begin
+            fetch_entry_o.ex.tval2 = instr_data_out[i].ex_gpaddr;
+            fetch_entry_o.ex.tinst = instr_data_out[i].ex_tinst;
+            fetch_entry_o.ex.gva   = instr_data_out[i].ex_gva;
+          end
           fetch_entry_o.branch_predict.cf = instr_data_out[i].cf;
           pop_instr[i] = fetch_entry_valid_o & fetch_entry_ready_i;
         end
@@ -316,6 +338,9 @@ ariane_pkg::FETCH_FIFO_DEPTH
       idx_is_d = '0;
       fetch_entry_o.instruction = instr_data_out[0].instr;
       fetch_entry_o.address = pc_q;
+      fetch_entry_o.ex.tval2 = '0;
+      fetch_entry_o.ex.tinst = '0;
+      fetch_entry_o.ex.gva = 1'b0;
 
       fetch_entry_o.ex.valid = instr_data_out[0].ex != ariane_pkg::FE_NONE;
       if (instr_data_out[0].ex == ariane_pkg::FE_INSTR_ACCESS_FAULT) begin
@@ -326,6 +351,12 @@ ariane_pkg::FETCH_FIFO_DEPTH
       if (CVA6Cfg.TvalEn)
         fetch_entry_o.ex.tval = {{64 - riscv::VLEN{1'b0}}, instr_data_out[0].ex_vaddr};
       else fetch_entry_o.ex.tval = '0;
+      if (CVA6Cfg.RVH) begin
+        fetch_entry_o.ex.tval2 = instr_data_out[0].ex_gpaddr;
+        fetch_entry_o.ex.tinst = instr_data_out[0].ex_tinst;
+        fetch_entry_o.ex.gva   = instr_data_out[0].ex_gva;
+      end
+
       fetch_entry_o.branch_predict.predict_address = address_out;
       fetch_entry_o.branch_predict.cf = instr_data_out[0].cf;
 

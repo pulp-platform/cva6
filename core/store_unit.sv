@@ -56,6 +56,9 @@ module store_unit
     output logic [riscv::VLEN-1:0] vaddr_o,
     // RVFI information - RVFI
     output [riscv::PLEN-1:0] rvfi_mem_paddr_o,
+    output logic [riscv::VLEN-1:0] tinst_o,  // transformed instruction out
+    output logic hs_ld_st_inst_o,
+    output logic hlvx_inst_o,
     // Physical address - TO_BE_COMPLETED
     input logic [riscv::PLEN-1:0] paddr_i,
     // Exception raised before store - TO_BE_COMPLETED
@@ -101,8 +104,11 @@ module store_unit
   logic [TRANS_ID_BITS-1:0] trans_id_n, trans_id_q;
 
   // output assignments
-  assign vaddr_o    = lsu_ctrl_i.vaddr; // virtual address
-  assign trans_id_o = trans_id_q; // transaction id from previous cycle
+  assign vaddr_o         = lsu_ctrl_i.vaddr;  // virtual address
+  assign hs_ld_st_inst_o = CVA6Cfg.RVH ? lsu_ctrl_i.hs_ld_st_inst : 1'b0;
+  assign hlvx_inst_o     = CVA6Cfg.RVH ? lsu_ctrl_i.hlvx_inst : 1'b0;
+  assign tinst_o         = CVA6Cfg.RVH ? lsu_ctrl_i.tinst : '0;  // transformed instruction
+  assign trans_id_o      = trans_id_q;  // transaction id from previous cycle
 
   always_comb begin : store_control
     translation_req_o      = 1'b0;
