@@ -29,3 +29,4 @@ sudo apt install libfl-dev help2man
 bash verif/regress/install-verilator.sh
 (source verif/sim/setup-env.sh; bash verif/regress/install-spike.sh)
 ci/build-riscv-tests.sh
+ci/build-hyp-riscv-tests.sh
