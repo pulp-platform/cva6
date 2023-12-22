@@ -55,3 +55,27 @@ jobs:
           tar xf tmp.tar
           source verif/sim/setup-env.sh
           make run-${{ matrix.testcase}}-verilator target=${{ matrix.target }}
+  execute-hyp-riscv-tests:
+    name: execute-hyp-riscv-tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [cv64a6_imafdch_sv39]
+    env:
+      RISCV: /riscv
+    needs:
+      build-riscv-tests
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Download a single artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: compiled-tools
+    - name: Run RISC-V Hypervisor Tests
+      run: |
+          tar xf tools.tar
+          tar xf tmp.tar
+          source verif/regress/install-cva6.sh
+          make run-hyp-tests-verilator target=${{ matrix.target }}
