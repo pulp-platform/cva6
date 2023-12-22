@@ -1,5 +1,5 @@
 package:
-  name: ariane
+  name: cva6
   authors:
     - "Florian Zaruba <zarubaf@iis.ee.ethz.ch>"
     - "Michael Schaffner <schaffner@iis.ee.ethz.ch>"
@@ -39,6 +39,22 @@ sources:
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
           - core/cva6_accel_first_pass_decoder_stub.sv
+          - core/mmu_sv39x4/cva6_tlb_sv39x4.sv
+          - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
+          - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
+
+      - target: cv64a6_imafdcsclic_sv39
+        files:
+          - core/include/cv64a6_imafdcsclic_sv39_config_pkg.sv
+          - core/include/riscv_pkg.sv
+          - core/include/ariane_pkg.sv
+          - core/mmu_sv39/tlb.sv
+          - core/mmu_sv39/mmu.sv
+          - core/mmu_sv39/ptw.sv
+          - core/mmu_sv39x4/cva6_tlb_sv39x4.sv
+          - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
+          - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
+          - core/cva6_clic_controller.sv
 
       - target: cv64a6_imafdc_sv39_wb
         files:
@@ -90,6 +106,14 @@ sources:
       - core/include/acc_pkg.sv
 
       # for all the below files use Flist.cva6 as baseline and also look at Makefile pd/synth
+
+      # FPGA support keep vendoring here because too old
+      - target: all(fpga, xilinx)
+        files:
+          - vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv
+          - vendor/pulp-platform/fpga-support/rtl/AsyncDpRam.sv
+          - vendor/pulp-platform/fpga-support/rtl/AsyncThreePortRam.sv
+
       # CVXIF
       - core/include/instr_tracer_pkg.sv
       - core/include/cvxif_pkg.sv
@@ -136,6 +160,7 @@ sources:
       #     - vendor/openhwgroup/cvfpu/src/fpu_div_sqrt_mvp/hdl/preprocess_mvp.sv
 
       # Top-level source files (not necessarily instantiated at the top of the cva6).
+      - corev_apu/tb/ariane.sv
       - core/cva6.sv
       - core/alu.sv
       # Note: depends on fpnew_pkg, above
@@ -160,6 +185,7 @@ sources:
       - core/perf_counters.sv
       - core/ariane_regfile_ff.sv
       - core/ariane_regfile_fpga.sv
+      - core/re_name.sv
       # NOTE: scoreboard.sv modified for DSIM (unchanged for other simulators)
       - core/scoreboard.sv
       - core/store_buffer.sv
@@ -186,11 +212,13 @@ sources:
       - core/cache_subsystem/wt_cache_subsystem.sv
       - core/cache_subsystem/wt_axi_adapter.sv
       - core/cache_subsystem/tag_cmp.sv
-      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
+      - core/cache_subsystem/cache_ctrl.sv
+      - core/cache_subsystem/amo_alu.sv
+      - core/cache_subsystem/wt_l15_adapter.sv
       - core/cache_subsystem/axi_adapter.sv
       - core/cache_subsystem/miss_handler.sv
-      - core/cache_subsystem/cache_ctrl.sv
       - core/cache_subsystem/std_nbdcache.sv
+      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
       - core/cache_subsystem/std_cache_subsystem.sv
 
       # Physical Memory Protection
@@ -215,6 +243,7 @@ sources:
           - common/local/util
         files:
           - common/local/util/tc_sram_fpga_wrapper.sv
+          - vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
 
       - target: not(synthesis)
         include_dirs:
@@ -225,6 +254,8 @@ sources:
           - core/include/instr_tracer_pkg.sv
           - common/local/util/instr_tracer.sv
           - common/local/util/instr_tracer_if.sv
+          - common/local/util/instr_trace_item.svh
+          - common/local/util/ex_trace_item.svh
 
     # TODO target define FPGA target + verification etc
     #   - target: test
