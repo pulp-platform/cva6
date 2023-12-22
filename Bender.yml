@@ -1,5 +1,5 @@
 package:
-  name: ariane
+  name: cva6
   authors:
     - "Florian Zaruba <zarubaf@iis.ee.ethz.ch>"
     - "Michael Schaffner <schaffner@iis.ee.ethz.ch>"
@@ -30,6 +30,10 @@ sources:
       - target: cv64a6_imafdc_sv39
         files:
           - core/include/cv64a6_imafdc_sv39_config_pkg.sv
+
+      - target: cv64a6_imafdcsclic_sv39
+        files:
+          - core/include/cv64a6_imafdcsclic_sv39_config_pkg.sv
 
       - target: cv64a6_imafdc_sv39_wb
         files:
@@ -71,9 +75,21 @@ sources:
           - core/cva6_mmu/cva6_mmu.sv
           - core/cva6_mmu/cva6_ptw.sv
 
+      # Return to CLIC target here to add controller
+      - target: cv64a6_imafdcsclic_sv39
+        files:
+          - core/cva6_clic_controller.sv
+
       # Packages
       - core/include/wt_cache_pkg.sv
       - core/include/std_cache_pkg.sv
+
+      # FPGA support keep vendoring here because too old
+      - target: all(fpga, xilinx)
+        files:
+          - vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv
+          - vendor/pulp-platform/fpga-support/rtl/AsyncDpRam.sv
+          - vendor/pulp-platform/fpga-support/rtl/AsyncThreePortRam.sv
 
       # Extension Interface
       - core/cvxif_example/include/cvxif_instr_pkg.sv
@@ -85,6 +101,7 @@ sources:
       - core/cva6_rvfi_probes.sv
       - core/cva6_fifo_v3.sv
       # Top-level source files (not necessarily instantiated at the top of the cva6).
+      # - corev_apu/tb/ariane.sv
       - core/cva6.sv
       - core/alu.sv
       - core/fpu_wrap.sv # depends on fpnew_pkg, above
@@ -114,6 +131,8 @@ sources:
       - core/store_unit.sv
       - core/commit_stage.sv
       - core/axi_shim.sv
+      - core/acc_dispatcher.sv
+      - core/cva6_rvfi_probes.sv
 
       # Frontend (i.e., fetch, decode, dispatch)
       - core/frontend/btb.sv
@@ -132,11 +151,13 @@ sources:
       - core/cache_subsystem/wt_axi_adapter.sv
       - core/cache_subsystem/cva6_icache.sv
       - core/cache_subsystem/tag_cmp.sv
-      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
+      - core/cache_subsystem/cache_ctrl.sv
+      - core/cache_subsystem/amo_alu.sv
+      # - core/cache_subsystem/wt_l15_adapter.sv
       - core/cache_subsystem/axi_adapter.sv
       - core/cache_subsystem/miss_handler.sv
-      - core/cache_subsystem/cache_ctrl.sv
       - core/cache_subsystem/std_nbdcache.sv
+      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
       - core/cache_subsystem/std_cache_subsystem.sv
 
       # Physical Memory Protection
@@ -159,6 +180,7 @@ sources:
           - common/local/util
         files:
           - common/local/util/tc_sram_fpga_wrapper.sv
+          - vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
 
       - target: not(synthesis)
         include_dirs:
@@ -168,3 +190,5 @@ sources:
           # Tracer (behavioral code, not RTL)
           - core/include/instr_tracer_pkg.sv
           - common/local/util/instr_tracer.sv
+          - common/local/util/instr_trace_item.svh
+          - common/local/util/ex_trace_item.svh
