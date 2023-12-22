@@ -761,7 +761,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         .AXI_ADDR_WIDTH        ( AXI_ADDR_WIDTH     ),
         .AXI_DATA_WIDTH        ( AXI_DATA_WIDTH     ),
         .AXI_ID_WIDTH          ( AXI_ID_WIDTH       ),
-        .AXI_ACE               ( 1                  ),
+        .AXI_ACE               ( DCACHE_COHERENT    ),
         .axi_req_t             ( axi_req_t          ),
         .axi_rsp_t             ( axi_rsp_t          )
     ) i_bypass_axi_adapter (
@@ -803,7 +803,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         .AXI_ADDR_WIDTH        ( AXI_ADDR_WIDTH     ),
         .AXI_DATA_WIDTH        ( AXI_DATA_WIDTH     ),
         .AXI_ID_WIDTH          ( AXI_ID_WIDTH       ),
-        .AXI_ACE               ( 1                  ),
+        .AXI_ACE               ( DCACHE_COHERENT    ),
         .axi_req_t             ( axi_req_t          ),
         .axi_rsp_t             ( axi_rsp_t          )
     ) i_miss_axi_adapter (

@@ -1,4 +1,3 @@
-../../../core/include/cv64a6_imafdc_sv39_wb_config_pkg.sv
 ../../../core/include/riscv_pkg.sv
 ../common_verification/src/clk_rst_gen.sv
 ../common_verification/src/rand_id_queue.sv
@@ -52,6 +51,7 @@
 ../../src/axi_riscv_atomics/src/axi_riscv_lrsc.sv
 ../../src/axi_riscv_atomics/src/axi_riscv_atomics.sv
 ../../src/axi_riscv_atomics/src/axi_riscv_atomics_wrap.sv
+../../../vendor/pulp-platform/common_cells/src/deprecated/fifo_v2.sv
 ../../../vendor/pulp-platform/common_cells/src/id_queue.sv
 ../../../vendor/pulp-platform/common_cells/src/stream_fork.sv
 ../../../vendor/pulp-platform/common_cells/src/stream_filter.sv

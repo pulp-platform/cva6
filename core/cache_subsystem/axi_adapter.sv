@@ -77,8 +77,17 @@ module axi_adapter #(
   // Busy if we're not idle
   assign busy_o = state_q != IDLE;
 
-  logic       dirty_d, dirty_q;
-  logic       shared_d, shared_q;
+  logic       dirty, dirty_d, dirty_q;
+  logic       shared, shared_d, shared_q;
+
+  if (AXI_ACE) begin
+    assign dirty  = axi_resp_i.r.resp[2];
+    assign shared = axi_resp_i.r.resp[3];
+  end else begin
+    assign dirty  = 1'b0;
+    assign shared = 1'b0;
+  end
+
 
   always_comb begin : axi_fsm
     // Default assignments
@@ -390,8 +399,8 @@ module axi_adapter #(
           // this is the last read
           if (axi_resp_i.r.last) begin
             id_d    = axi_resp_i.r.id;
-            dirty_d = axi_resp_i.r.resp[2];
-            shared_d = axi_resp_i.r.resp[3];
+            dirty_d = dirty;
+            shared_d = shared;
             state_d = COMPLETE_READ;
           end
 
