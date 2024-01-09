@@ -211,6 +211,10 @@ sources:
       - include_dirs:
         - common/local/util
         files:
+          - common/local/util/secded_13_8.sv
+          - common/local/util/secded_39_32.sv
+          - common/local/util/secded_72_64.sv
+          - common/local/util/ecc_wrap.sv
           - common/local/util/sram_pulp.sv
 
       - target: not(all(fpga, xilinx))
