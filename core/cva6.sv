@@ -18,6 +18,7 @@ module cva6 import ariane_pkg::*; #(
   parameter int unsigned AxiAddrWidth = ariane_axi::AddrWidth,
   parameter int unsigned AxiDataWidth = ariane_axi::DataWidth,
   parameter int unsigned AxiIdWidth   = ariane_axi::IdWidth,
+  parameter bit          EnableEcc    = 0,
   parameter type axi_ar_chan_t = ariane_axi::ar_chan_t,
   parameter type axi_aw_chan_t = ariane_axi::aw_chan_t,
   parameter type axi_w_chan_t  = ariane_axi::w_chan_t,
@@ -874,6 +875,7 @@ module cva6 import ariane_pkg::*; #(
     // not as important since this cache subsystem is about to be
     // deprecated
     .ArianeCfg             ( ArianeCfg                   ),
+    .EnableEcc             ( EnableEcc                   ),
     .AxiAddrWidth          ( AxiAddrWidth                ),
     .AxiDataWidth          ( AxiDataWidth                ),
     .AxiIdWidth            ( AxiIdWidth                  ),

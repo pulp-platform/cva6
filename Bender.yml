@@ -12,6 +12,8 @@ dependencies:
   fpnew: { git: "https://github.com/pulp-platform/cvfpu.git", rev: pulp-v0.1.1 }
   tech_cells_generic:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.12 }
+  redundancy_cells:
+    { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: c37bdb47339bf70e8323de8df14ea8bbeafb6583 } # branch: astral_rebase
 
 frozen: true
 
@@ -211,6 +213,10 @@ sources:
       - include_dirs:
         - common/local/util
         files:
+          - common/local/util/secded_13_8.sv
+          - common/local/util/secded_39_32.sv
+          - common/local/util/secded_72_64.sv
+          - common/local/util/ecc_wrap.sv
           - common/local/util/sram_pulp.sv
 
       - target: not(all(fpga, xilinx))

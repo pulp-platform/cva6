@@ -282,21 +282,23 @@ module wt_dcache_mem import ariane_pkg::*; import wt_cache_pkg::*; #(
   for (genvar k = 0; k < DCACHE_NUM_BANKS; k++) begin : gen_data_banks
     // Data RAM
     sram #(
-      .USER_WIDTH ( ariane_pkg::DCACHE_SET_ASSOC * DATA_USER_WIDTH ),
-      .DATA_WIDTH ( ariane_pkg::DCACHE_SET_ASSOC * riscv::XLEN ),
-      .USER_EN    ( ariane_pkg::DATA_USER_EN          ),
-      .NUM_WORDS  ( wt_cache_pkg::DCACHE_NUM_WORDS    )
-    ) i_data_sram (
-      .clk_i      ( clk_i               ),
-      .rst_ni     ( rst_ni              ),
-      .req_i      ( bank_req   [k]      ),
-      .we_i       ( bank_we    [k]      ),
-      .addr_i     ( bank_idx   [k]      ),
-      .wuser_i    ( bank_wuser [k]      ),
-      .wdata_i    ( bank_wdata [k]      ),
-      .be_i       ( bank_be    [k]      ),
-      .ruser_o    ( bank_ruser [k]      ),
-      .rdata_o    ( bank_rdata [k]      )
+      .USER_WIDTH   ( ariane_pkg::DCACHE_SET_ASSOC * DATA_USER_WIDTH ),
+      .DATA_WIDTH   ( ariane_pkg::DCACHE_SET_ASSOC * riscv::XLEN ),
+      .USER_EN      ( ariane_pkg::DATA_USER_EN          ),
+      .NUM_WORDS    ( wt_cache_pkg::DCACHE_NUM_WORDS    )
+    ) i_data_sram   (
+      .clk_i        ( clk_i               ),
+      .rst_ni       ( rst_ni              ),
+      .req_i        ( bank_req   [k]      ),
+      .we_i         ( bank_we    [k]      ),
+      .addr_i       ( bank_idx   [k]      ),
+      .wuser_i      ( bank_wuser [k]      ),
+      .wdata_i      ( bank_wdata [k]      ),
+      .be_i         ( bank_be    [k]      ),
+      .ruser_o      ( bank_ruser [k]      ),
+      .rdata_o      ( bank_rdata [k]      ),
+      .error_o      (                     ),
+      .user_error_o (                     )
     );
   end
 
@@ -310,17 +312,19 @@ module wt_dcache_mem import ariane_pkg::*; import wt_cache_pkg::*; #(
       // tag + valid bit
       .DATA_WIDTH ( ariane_pkg::DCACHE_TAG_WIDTH + 1 ),
       .NUM_WORDS  ( wt_cache_pkg::DCACHE_NUM_WORDS   )
-    ) i_tag_sram (
-      .clk_i     ( clk_i               ),
-      .rst_ni    ( rst_ni              ),
-      .req_i     ( vld_req[i]          ),
-      .we_i      ( vld_we              ),
-      .addr_i    ( vld_addr            ),
-      .wuser_i   ( '0                  ),
-      .wdata_i   ( {vld_wdata[i], wr_cl_tag_i} ),
-      .be_i      ( '1                  ),
-      .ruser_o   (                     ),
-      .rdata_o   ( vld_tag_rdata[i]    )
+    ) i_tag_sram    (
+      .clk_i        ( clk_i               ),
+      .rst_ni       ( rst_ni              ),
+      .req_i        ( vld_req[i]          ),
+      .we_i         ( vld_we              ),
+      .addr_i       ( vld_addr            ),
+      .wuser_i      ( '0                  ),
+      .wdata_i      ( {vld_wdata[i], wr_cl_tag_i} ),
+      .be_i         ( '1                  ),
+      .ruser_o      (                     ),
+      .rdata_o      ( vld_tag_rdata[i]    ),
+      .error_o      (                     ),
+      .user_error_o (                     )
     );
   end
 

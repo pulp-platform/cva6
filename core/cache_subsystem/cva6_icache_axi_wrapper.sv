@@ -15,6 +15,7 @@
 
 module cva6_icache_axi_wrapper import ariane_pkg::*; import wt_cache_pkg::*; #(
   parameter ariane_cfg_t ArianeCfg = ArianeDefaultConfig,  // contains cacheable regions
+  parameter bit          EnableEcc = 0,
   parameter int unsigned AxiAddrWidth = 0,
   parameter int unsigned AxiDataWidth = 0,
   parameter int unsigned AxiIdWidth   = 0,
@@ -103,6 +104,7 @@ module cva6_icache_axi_wrapper import ariane_pkg::*; import wt_cache_pkg::*; #(
   // -------
   cva6_icache #(
     // use ID 0 for icache reads
+    .EnableEcc          ( EnableEcc     ),
     .RdTxId             ( 0             ),
     .ArianeCfg          ( ArianeCfg     )
   ) i_cva6_icache (
