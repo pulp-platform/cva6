@@ -91,14 +91,11 @@ package cva6_config_pkg;
       CvxifEn: bit'(CVA6ConfigCvxifEn),
       ZiCondExtEn: bit'(CVA6ConfigZiCondExtEn),
       // Extended
-      RVF:
-      bit'(
-      0
-      ),
+      RVF: bit'(1),
       RVD: bit'(0),
-      FpPresent: bit'(0),
+      FpPresent: bit'(1),
       NSX: bit'(0),
-      FLen: unsigned'(0),
+      FLen: unsigned'(32),
       RVFVec: bit'(0),
       XF16Vec: bit'(0),
       XF16ALTVec: bit'(0),
