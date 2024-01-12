@@ -264,19 +264,21 @@ import std_cache_pkg::*;
 
     assign tag[0] = '0;
 
-
     // arbitrate cache controllers
     always_comb begin
-        start_ack = '0;
-        for (int i = 0; i < 5; i++) begin
-            if (start_req[i] && !busy_o) begin
-                start_ack[i] = 1'b1;
-                break;
-            end
-        end
+        // miss handler and snoop controller always get to start (this code is
+        // redundant but put here for clarity)
+        start_ack[0] = 1'b1;
+        start_ack[1] = 1'b1;
+        // cache_ctrl 0 and 1 can run in parallel but may not start
+        // if cache_ctrl[2] is running
+        start_ack[2] = start_req[2] && !busy[3];
+        start_ack[3] = start_req[3] && !busy[3];
+        // cache_ctrl 2 can only start if cache_ctrl 0 and 1 are idle
+        start_ack[4] = start_req[4] &&
+                      !start_req[2] && !busy[1] &&
+                      !start_req[3] && !busy[2];
     end
-
-
 
     // --------------
     // Memory Arrays
