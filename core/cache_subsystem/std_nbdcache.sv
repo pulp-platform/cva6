@@ -15,6 +15,7 @@
 
 module std_nbdcache import std_cache_pkg::*; import ariane_pkg::*; #(
     parameter ariane_cfg_t ArianeCfg        = ArianeDefaultConfig, // contains cacheable regions
+    parameter bit          EnableEcc        = 0,
     parameter int unsigned AXI_ADDR_WIDTH   = 0,
     parameter int unsigned AXI_DATA_WIDTH   = 0,
     parameter int unsigned AXI_ID_WIDTH     = 0,
@@ -187,7 +188,7 @@ import std_cache_pkg::*;
         sram #(
             .DATA_WIDTH      ( DCACHE_LINE_WIDTH                 ),
             .NUM_WORDS       ( DCACHE_NUM_WORDS                  ),
-            .ENABLE_ECC      ( 1                                 ),
+            .ENABLE_ECC      ( EnableEcc                         ),
             .ECC_GRANULARITY ( 32                                ),
             .ECC_ENCODING    ( "Hsiao"                           )
         ) data_sram (
@@ -208,7 +209,7 @@ import std_cache_pkg::*;
         sram #(
             .DATA_WIDTH   ( DCACHE_TAG_WIDTH                  ),
             .NUM_WORDS    ( DCACHE_NUM_WORDS                  ),
-            .ENABLE_ECC   ( 1                                 ),
+            .ENABLE_ECC   ( EnableEcc                         ),
             .ECC_ENCODING ( "Hamming"                         )
         ) tag_sram (
             .req_i        ( req_ram [i]                          ),
@@ -246,7 +247,7 @@ import std_cache_pkg::*;
         .DATA_WIDTH      ( DCACHE_SET_ASSOC*$bits(vldrty_t) ),
         .BYTE_WIDTH      ( 1                                ),
         .NUM_WORDS       ( DCACHE_NUM_WORDS                 ),
-        .ENABLE_ECC      ( 1                                ),
+        .ENABLE_ECC      ( EnableEcc                        ),
         .ECC_GRANULARITY ( 8                                ), // TODO: fix to use 32
         .ECC_ENCODING    ( "Hsiao"                          )
     ) valid_dirty_sram (

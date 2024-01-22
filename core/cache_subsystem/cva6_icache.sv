@@ -26,6 +26,7 @@
 
 
 module cva6_icache import ariane_pkg::*; import wt_cache_pkg::*; #(
+  parameter bit                         EnableEcc          = 0,
   parameter logic [MEM_TID_WIDTH-1:0]   RdTxId             = 0,                                  // ID to be used for read transactions
   parameter ariane_pkg::ariane_cfg_t    ArianeCfg          = ariane_pkg::ArianeDefaultConfig     // contains cacheable regions
 ) (
@@ -432,7 +433,7 @@ end else begin : gen_piton_offset
       // tag + valid bit
       .DATA_WIDTH   ( ICACHE_TAG_WIDTH+1 ),
       .NUM_WORDS    ( ICACHE_NUM_WORDS   ),
-      .ENABLE_ECC   ( 1                  ),
+      .ENABLE_ECC   ( EnableEcc          ),
       .ECC_ENCODING ( "Hamming"          )
     ) tag_sram (
       .clk_i        ( clk_i                    ),
@@ -460,7 +461,7 @@ end else begin : gen_piton_offset
       .DATA_WIDTH      ( ICACHE_LINE_WIDTH         ),
       .USER_EN         ( ariane_pkg::FETCH_USER_EN ),
       .NUM_WORDS       ( ICACHE_NUM_WORDS          ),
-      .ENABLE_ECC      ( 1                         ),
+      .ENABLE_ECC      ( EnableEcc                 ),
       .ECC_GRANULARITY ( 32                        ), // TODO: fix to use 32-bit granularity
       .ECC_ENCODING    ( "Hsiao"                   )
     ) data_sram (
