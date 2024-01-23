@@ -84,7 +84,6 @@ end else if (Encoding == "Hamming") begin: gen_hamming_ecc
   );
 
   assign syndrome_o = {rdata_i[EccDataWidth-1], syndrome};
-end else begin
-  $fatal("%s encoding not supported!", Encoding);
 end
+
 endmodule: ecc_wrap
