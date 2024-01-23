@@ -33,16 +33,14 @@ Based on the various types of memory locations mentioned above, we have identifi
 | Read                     | cacheable                    | UC, UD, SC, SD           | \-                       | \-                    | trivial                                                                                                              | UC, UD, SC, SD         |
 | Read                     | non-shareable, cacheable     | I                        | ReadNoSnoop              | \-                    | transaction forwarded to target                                                                                      | UC                     |
 | Read                     | shareable, cacheable         | I                        | ReadShared               | ReadShared            | if a cache responds positively, use that data                                                                        | SC, SD                 |
-|                          |                              |                          |                          |                       | use data from memory<sup>1</sup>                                                                                     | UC                     |
+| Read                     | shareable, cacheable         | I                        | ReadShared               | ReadShared            | if no cache responds positively, use data from memory<sup>1</sup>                                                    | UC                     |
 | Read                     | shareable, non-cacheable     | \-                       | ReadOnce                 | ReadOnce              | if a cache responds positively, use that data; otherwise, use data from memory<sup>1</sup>                           | \-                     |
 | Read                     | non-shareable, non-cacheable | \-                       | ReadNoSnoop              | \-                    | transaction forwarded to target                                                                                      | \-                     |
 | Write                    | non-shareable, cacheable     | I                        | ReadNoSnoop              | \-                    | trivial                                                                                                              | UD                     |
-|                          | non-shareable, cacheable     | UC, UD                   | \-                       | \-                    | trivial                                                                                                              | UD                     |
+| Write                    | non-shareable, cacheable     | UC, UD                   | \-                       | \-                    | trivial                                                                                                              | UD                     |
 | Write                    | shareable                    | SD, SC                   | CleanUnique              | CleanInvalid          | update cache at the end of snooping                                                                                  | UD                     |
 | Write                    | shareable                    | UC, UD                   | \-                       | \-                    | trivial                                                                                                              | UD                     |
-| Write                    | shareable                    | I                        | ReadUnique               | ReadUnique            | if a cache responds positively, use that data; otherwise, use data from memory<sup>1</sup>
-
-Update the cache content | UD                     |
+| Write                    | shareable                    | I                        | ReadUnique               | ReadUnique            | if a cache responds positively, use that data; otherwise, use data from memory<sup>1</sup>. Update the cache content | UD                     |
 | Write                    | shareable, non-cacheable     | \-                       | WriteUnique              | CleanInvalid          | transaction forwarded to target                                                                                      | \-                     |
 | Write                    | non-shareable, non-cacheable | \-                       | WriteNoSnoop             | \-                    | transaction forwarded to target                                                                                      | \-                     |
 | Writeback after eviction |                              | SD, UD                   | WriteBack                | \-                    | data forwarded to memory                                                                                             | \-                     |
@@ -54,17 +52,17 @@ Update the cache content | UD                     |
 | **Incoming snoop transaction** | **Cache initial status** | **Cache final status** |                                   |
 | ------------------------------ | ------------------------ | ---------------------- | --------------------------------- |
 | ReadOnce                       | I                        | I                      | \-                                |
-|                                | SC, SD, UC, UD           | SC,SD, UC, UD          | forward cache content             |
+| ReadOnce                       | SC, SD, UC, UD           | SC,SD, UC, UD          | forward cache content             |
 | ReadShared                     | I                        | I                      | \-                                |
-|                                | SC, SD, UC, UD           | SC, SD                 | forward cache content             |
+| ReadShared                     | SC, SD, UC, UD           | SC, SD                 | forward cache content             |
 | CleanInvalid                   | I, SC, UC                | I                      | \-                                |
-|                                | SD, UD                   | I-                     | Update memory content<sup>1</sup> |
+| CleanInvalid                   | SD, UD                   | I                      | Update memory content<sup>1</sup> |
 | ReadUnique                     | I                        | I                      | \-                                |
-|                                | SC, SD, UC, UD           | I                      | transfer cache content            |
+| ReadUnique                     | SC, SD, UC, UD           | I                      | transfer cache content            |
 
-1.  Data transfer is necessary. A CleanInvalid is the result of a CleanUnique or WriteUnique
-    1.  CleanUnique: the master has a copy of a the cacheline, the CleanInvalid results in a transfer of the ownership (Updating the shared memory would in this case be redundant).
-    2.  WriteUnique: the master could write a portion of the cacheline, so the shared memory must be up-to-date.
+1.  Data transfer is necessary. A CleanInvalid is the result of a **CleanUnique** or **WriteUnique**:
+    -  **CleanUnique**: the master has a copy of a the cacheline, the CleanInvalid results in a transfer of the ownership (Updating the shared memory would in this case be redundant).
+    -  **WriteUnique**: the master could write a portion of the cacheline, so the shared memory must be up-to-date.
 
 ## Cornercases
 
