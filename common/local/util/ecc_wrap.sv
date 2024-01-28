@@ -14,7 +14,6 @@
 module ecc_wrap #(
   parameter  int unsigned DataWidth    = 32,
   parameter  int unsigned ParityWidth  = 7 ,
-  parameter               Encoding     = "Hsiao",
   localparam int unsigned EccDataWidth = DataWidth + ParityWidth
 )(
   input  logic [DataWidth-1:0]    wdata_i,
@@ -25,65 +24,24 @@ module ecc_wrap #(
   output logic [1:0]              error_o
 );
 
-if (Encoding == "Hsiao") begin: gen_hsiao_ecc
-  if (DataWidth == 8) begin: gen_13bit_secded
-    secded_13_8_enc i_ecc_encoder (
-      .in  ( wdata_i ),
-      .out ( wdata_o )
-    );
+hsiao_ecc_enc #(
+  .DataWidth  ( DataWidth    ),
+  .ProtWidth  ( ParityWidth  ),
+  .TotalWidth ( EccDataWidth )
+) i_ecc_encoder (
+  .in  ( wdata_i ),
+  .out ( wdata_o )
+);
 
-    secded_13_8_dec i_ecc_decoder (
-      .in         ( rdata_i    ),
-      .d_o        ( rdata_o    ),
-      .syndrome_o ( syndrome_o ),
-      .err_o      ( error_o    )
-    );
-  end else if (DataWidth == 32) begin: gen_39bit_secded
-    secded_39_32_enc i_ecc_encoder (
-      .in  ( wdata_i ),
-      .out ( wdata_o )
-    );
-
-    secded_39_32_dec i_ecc_decoder (
-      .in         ( rdata_i    ),
-      .d_o        ( rdata_o    ),
-      .syndrome_o ( syndrome_o ),
-      .err_o      ( error_o    )
-    );
-  end else if (DataWidth == 64) begin: gen_72bit_secded
-    secded_72_64_enc i_ecc_encoder (
-      .in  ( wdata_i ),
-      .out ( wdata_o )
-    );
-
-    secded_72_64_dec i_ecc_decoder (
-      .in         ( rdata_i    ),
-      .d_o        ( rdata_o    ),
-      .syndrome_o ( syndrome_o ),
-      .err_o      ( error_o    )
-    );
-  end
-end else if (Encoding == "Hamming") begin: gen_hamming_ecc
-  logic [ParityWidth-2:0] syndrome;
-  ecc_encode     #(
-    .DataWidth    ( DataWidth )
-  ) i_ecc_encoder (
-    .data_i       ( wdata_i   ),
-    .data_o       ( wdata_o   )
-  );
-
-  ecc_decode       #(
-    .DataWidth      ( DataWidth  )
-  ) i_ecc_decoder   (
-    .data_i         ( rdata_i    ),
-    .data_o         ( rdata_o    ),
-    .syndrome_o     ( syndrome   ),
-    .single_error_o ( error_o[0] ),
-    .parity_error_o (            ),
-    .double_error_o ( error_o[1] )
-  );
-
-  assign syndrome_o = {rdata_i[EccDataWidth-1], syndrome};
-end
+hsiao_ecc_dec #(
+  .DataWidth  ( DataWidth    ),
+  .ProtWidth  ( ParityWidth  ),
+  .TotalWidth ( EccDataWidth )
+) i_ecc_decoder (
+  .in         ( rdata_i    ),
+  .d_o        ( rdata_o    ),
+  .syndrome_o ( syndrome_o ),
+  .err_o      ( error_o    )
+);
 
 endmodule: ecc_wrap

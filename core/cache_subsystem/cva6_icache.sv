@@ -433,8 +433,7 @@ end else begin : gen_piton_offset
       // tag + valid bit
       .DATA_WIDTH   ( ICACHE_TAG_WIDTH+1 ),
       .NUM_WORDS    ( ICACHE_NUM_WORDS   ),
-      .ENABLE_ECC   ( EnableEcc          ),
-      .ECC_ENCODING ( "Hamming"          )
+      .ENABLE_ECC   ( EnableEcc          )
     ) tag_sram (
       .clk_i        ( clk_i                    ),
       .rst_ni       ( rst_ni                   ),
@@ -462,8 +461,7 @@ end else begin : gen_piton_offset
       .USER_EN         ( ariane_pkg::FETCH_USER_EN ),
       .NUM_WORDS       ( ICACHE_NUM_WORDS          ),
       .ENABLE_ECC      ( EnableEcc                 ),
-      .ECC_GRANULARITY ( 32                        ), // TODO: fix to use 32-bit granularity
-      .ECC_ENCODING    ( "Hsiao"                   )
+      .ECC_GRANULARITY ( 32                        )
     ) data_sram (
       .clk_i        ( clk_i               ),
       .rst_ni       ( rst_ni              ),

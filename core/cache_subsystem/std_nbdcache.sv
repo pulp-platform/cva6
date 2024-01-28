@@ -189,8 +189,7 @@ import std_cache_pkg::*;
             .DATA_WIDTH      ( DCACHE_LINE_WIDTH                 ),
             .NUM_WORDS       ( DCACHE_NUM_WORDS                  ),
             .ENABLE_ECC      ( EnableEcc                         ),
-            .ECC_GRANULARITY ( 32                                ),
-            .ECC_ENCODING    ( "Hsiao"                           )
+            .ECC_GRANULARITY ( 32                                )
         ) data_sram (
             .req_i        ( req_ram [i]                          ),
             .rst_ni       ( rst_ni                               ),
@@ -209,8 +208,7 @@ import std_cache_pkg::*;
         sram #(
             .DATA_WIDTH   ( DCACHE_TAG_WIDTH                  ),
             .NUM_WORDS    ( DCACHE_NUM_WORDS                  ),
-            .ENABLE_ECC   ( EnableEcc                         ),
-            .ECC_ENCODING ( "Hamming"                         )
+            .ENABLE_ECC   ( EnableEcc                         )
         ) tag_sram (
             .req_i        ( req_ram [i]                          ),
             .rst_ni       ( rst_ni                               ),
@@ -248,8 +246,7 @@ import std_cache_pkg::*;
         .BYTE_WIDTH      ( 1                                ),
         .NUM_WORDS       ( DCACHE_NUM_WORDS                 ),
         .ENABLE_ECC      ( EnableEcc                        ),
-        .ECC_GRANULARITY ( 8                                ), // TODO: fix to use 32
-        .ECC_ENCODING    ( "Hsiao"                          )
+        .ECC_GRANULARITY ( 8                                ) // TODO: fix to use 32
     ) valid_dirty_sram (
         .clk_i        ( clk_i                               ),
         .rst_ni       ( rst_ni                              ),

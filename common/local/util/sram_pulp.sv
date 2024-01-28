@@ -26,8 +26,7 @@ module sram #(
     parameter USER_EN         = 0,
     parameter NUM_WORDS       = 1024,
     parameter ENABLE_ECC      = 0, // Enable or disable SRAM with error correcting codes
-    parameter ECC_GRANULARITY = 32,
-    parameter ECC_ENCODING    = "Hsiao",
+    parameter ECC_GRANULARITY = 0,
     parameter SIM_INIT        = "zeros",
     parameter OUT_REGS        = 0     // enables output registers in FPGA macro (read lat = 2)
 )(
@@ -47,16 +46,10 @@ module sram #(
 
 if (ENABLE_ECC) begin: gen_ecc_sram
 
-  function automatic int unsigned get_parity_width (input int unsigned data_width);
-    int unsigned cw_width = 2;
-    while (unsigned'(2**cw_width) < cw_width + data_width + 1) cw_width++;
-    return cw_width;
-  endfunction
-
-  localparam int unsigned G = (ECC_ENCODING == "Hamming") ? DATA_WIDTH : ECC_GRANULARITY;
+  localparam int unsigned G = (ECC_GRANULARITY == 0) ? DATA_WIDTH : ECC_GRANULARITY;
   localparam int unsigned NumBanks = DATA_WIDTH/G;
 
-  localparam int unsigned K = get_parity_width(G) + 1;
+  localparam int unsigned K = $clog2(G) + 2;
 
   localparam int unsigned EccDataWidth = G + K;
   localparam int unsigned BeWidth = (G+BYTE_WIDTH-1)/BYTE_WIDTH;
@@ -84,8 +77,7 @@ if (ENABLE_ECC) begin: gen_ecc_sram
 
     ecc_wrap #(
       .DataWidth   ( G            ),
-      .ParityWidth ( K            ),
-      .Encoding    ( ECC_ENCODING )
+      .ParityWidth ( K            )
     ) i_ecc_wrap   (
       .wdata_i     ( wdata[i]     ),
       .wdata_o     ( ecc_wdata[i] ),
@@ -122,8 +114,7 @@ if (ENABLE_ECC) begin: gen_ecc_sram
       
       ecc_wrap #(
         .DataWidth   ( G            ),
-        .ParityWidth ( K            ),
-        .Encoding    ( ECC_ENCODING )
+        .ParityWidth ( K            )
       ) i_ecc_wrap   (
         .wdata_i     ( wuser[i]          ),
         .wdata_o     ( ecc_wuser[i]      ),

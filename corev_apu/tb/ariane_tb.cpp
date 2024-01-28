@@ -341,7 +341,7 @@ done_processing:
   memif.read(0x80000000, mem_size, (void *)top->rootp->ariane_testharness__DOT__i_sram__DOT__i_tc_sram__DOT__sram.data());
 #else
   // Verilator v4
-  memif.read(0x80000000, mem_size, (void *)top->ariane_testharness__DOT__i_sram__DOT__i_tc_sram__DOT__sram);
+  memif.read(0x80000000, mem_size, (void *)top->ariane_testharness__DOT__i_sram__DOT__gen_standard_sram__DOT__i_tc_sram__DOT__sram);
 #endif
   // memif.read(0x84000000, mem_size, (void *)top->ariane_testharness__DOT__i_sram__DOT__gen_cut__BRA__0__KET____DOT__gen_mem__DOT__gen_mem_user__DOT__i_tc_sram_wrapper_user__DOT__i_tc_sram__DOT__sram);
 
