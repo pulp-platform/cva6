@@ -19,9 +19,7 @@
 // inferrable RAMS with byte enable. define `FPGA_TARGET_XILINX or
 // `FPGA_TARGET_ALTERA in your build environment (default is ALTERA)
 
-module sram
-  import ecc_pkg::*;
-#(
+module sram #(
     parameter DATA_WIDTH      = 64,
     parameter BYTE_WIDTH      = 8,
     parameter USER_WIDTH      = 1,
@@ -48,6 +46,12 @@ module sram
 );
 
 if (ENABLE_ECC) begin: gen_ecc_sram
+
+  function automatic int unsigned get_parity_width (input int unsigned data_width);
+    int unsigned cw_width = 2;
+    while (unsigned'(2**cw_width) < cw_width + data_width + 1) cw_width++;
+    return cw_width;
+  endfunction
 
   localparam int unsigned G = (ECC_ENCODING == "Hamming") ? DATA_WIDTH : ECC_GRANULARITY;
   localparam int unsigned NumBanks = DATA_WIDTH/G;
