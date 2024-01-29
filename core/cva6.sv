@@ -1367,8 +1367,8 @@ module cva6
         rvfi_o[i].rs1_addr = commit_instr_id_commit[i].rs1[4:0];
         rvfi_o[i].rs2_addr = commit_instr_id_commit[i].rs2[4:0];
         rvfi_o[i].rd_addr = commit_instr_id_commit[i].rd[4:0];
-        rvfi_o[i].rd_wdata =
-            (CVA6ExtendCfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_id_commit[i].op)) ?
+        rvfi_o[i].rd_wdata = (CVA6ExtendCfg.FpPresent &&
+                              ariane_pkg::is_rd_fpr(commit_instr_id_commit[i].op)) ?
             commit_instr_id_commit[i].result : wdata_commit_id[i];
         rvfi_o[i].pc_rdata = commit_instr_id_commit[i].pc;
 
