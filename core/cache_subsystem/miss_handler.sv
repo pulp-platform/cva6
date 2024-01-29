@@ -138,6 +138,12 @@ module miss_handler
   ariane_pkg::amo_t                                           amo_op;
   logic                [                          63:0]       amo_operand_b;
 
+  struct packed {
+    logic [63:3] address;
+    logic        valid;
+  }
+      reservation_d, reservation_q;
+
   // ------------------------------
   // Cache Management
   // ------------------------------
