@@ -25,6 +25,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigAExtEn = 1;
   localparam CVA6ConfigBExtEn = 0;
   localparam CVA6ConfigVExtEn = 1;
+  localparam CVA6ConfigZiCondExtEn = 0;
   localparam CVA6ConfigSclicExtEn = 0;
   localparam CVA6ConfigHExtEn = 0;  // hypervisor extension disabled by default
 
