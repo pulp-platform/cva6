@@ -77,5 +77,5 @@ jobs:
       run: |
           tar xf tools.tar
           tar xf tmp.tar
-          source verif/regress/install-cva6.sh
+          source verif/sim/setup-env.sh
           make run-hyp-tests-verilator target=${{ matrix.target }}
