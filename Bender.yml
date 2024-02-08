@@ -213,7 +213,7 @@ sources:
       - core/cache_subsystem/tag_cmp.sv
       - core/cache_subsystem/cache_ctrl.sv
       - core/cache_subsystem/amo_alu.sv
-      - core/cache_subsystem/wt_l15_adapter.sv
+      # - core/cache_subsystem/wt_l15_adapter.sv
       - core/cache_subsystem/axi_adapter.sv
       - core/cache_subsystem/miss_handler.sv
       - core/cache_subsystem/std_nbdcache.sv
