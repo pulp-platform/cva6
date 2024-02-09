@@ -51,6 +51,7 @@ sources:
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
+          - core/cva6_accel_first_pass_decoder_stub.sv
           - core/mmu_sv39x4/cva6_tlb_sv39x4.sv
           - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
           - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
@@ -192,6 +193,8 @@ sources:
       - core/store_unit.sv
       - core/commit_stage.sv
       - core/axi_shim.sv
+      - core/acc_dispatcher.sv
+      - core/cva6_rvfi_probes.sv
 
       # What is "frontend"?
       - core/frontend/btb.sv
