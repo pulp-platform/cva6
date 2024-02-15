@@ -240,7 +240,7 @@ module csr_regfile
     read_access_exception = 1'b0;
     virtual_read_access_exception = 1'b0;
     csr_rdata = '0;
-    perf_addr_o = csr_addr.address[11:0];
+    perf_addr_o = conv_csr_addr.address[11:0];
     index = '0;
 
     if (csr_read) begin
