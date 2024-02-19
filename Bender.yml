@@ -13,7 +13,7 @@ dependencies:
   tech_cells_generic:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.12 }
   redundancy_cells:
-    { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: 651441e4a6459f84f3dde4242cf34961925a2142 } # branch: astral_rebase
+    { git: "https://github.com/pulp-platform/redundancy_cells.git", rev: c37bdb47339bf70e8323de8df14ea8bbeafb6583 } # branch: astral_rebase
 
 frozen: true
 
