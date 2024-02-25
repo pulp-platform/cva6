@@ -4,6 +4,10 @@ All notable changes to the `pulp` branch of this project will be documented in t
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## pulp-v1.0.0 - 2024-02-25
+### Changed
+- Rebase onto openhwgroup:cva6:master#68f952b4 (2024-02-23)
+
 ## pulp-v0.4.3 - 2023-08-12
 ### Changed
 - `tech_cells_generic`: Bump v0.2.12
