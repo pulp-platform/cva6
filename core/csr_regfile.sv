@@ -25,6 +25,8 @@ module csr_regfile
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high
+    input logic clear_i,
     // Timer threw a interrupt - SUBSYSTEM
     input logic time_irq_i,
     // send a flush request out when a CSR with a side effect changes - CONTROLLER
@@ -2497,97 +2499,186 @@ module csr_regfile
         end
       end
     end else begin
-      priv_lvl_q <= priv_lvl_d;
-      // floating-point registers
-      fcsr_q     <= fcsr_d;
-      // debug signals
-      if (CVA6Cfg.DebugEn) begin
-        debug_mode_q <= debug_mode_d;
-        dcsr_q       <= dcsr_d;
-        dpc_q        <= dpc_d;
-        dscratch0_q  <= dscratch0_d;
-        dscratch1_q  <= dscratch1_d;
-      end
-      // machine mode registers
-      mstatus_q        <= mstatus_d;
-      mtvec_rst_load_q <= 1'b0;
-      mtvec_q          <= mtvec_d;
-      mip_q            <= mip_d;
-      mie_q            <= mie_d;
-      mintstatus_q     <= mintstatus_d;
-      mintthresh_q     <= mintthresh_d;
-      mepc_q           <= mepc_d;
-      mcause_q         <= mcause_d;
-      mcounteren_q     <= mcounteren_d;
-      mtvt_q           <= mtvt_d;
-      mscratch_q       <= mscratch_d;
-      if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
-      fiom_q          <= fiom_d;
-      dcache_q        <= dcache_d;
-      icache_q        <= icache_d;
-      mcountinhibit_q <= mcountinhibit_d;
-      acc_cons_q      <= acc_cons_d;
-      fence_t_pad_q   <= fence_t_pad_d;
-      fence_t_ceil_q  <= fence_t_ceil_d;
-      // supervisor mode registers
-      if (CVA6Cfg.RVS) begin
-        medeleg_q    <= medeleg_d;
-        mideleg_q    <= mideleg_d;
-        sepc_q       <= sepc_d;
-        scause_q     <= scause_d;
-        stvec_q      <= stvec_d;
-        scounteren_q <= scounteren_d;
-        sscratch_q   <= sscratch_d;
-        if (CVA6Cfg.TvalEn) stval_q <= stval_d;
-        satp_q <= satp_d;
-      end
-      if (CVA6Cfg.RVH) begin
-        v_q                      <= v_d;
-        mtval2_q                 <= mtval2_d;
-        mtinst_q                 <= mtinst_d;
-        // hypervisor mode registers
-        hstatus_q                <= hstatus_d;
-        hedeleg_q                <= hedeleg_d;
-        hideleg_q                <= hideleg_d;
-        hgeie_q                  <= hgeie_d;
-        hgatp_q                  <= hgatp_d;
-        hcounteren_q             <= hcounteren_d;
-        htval_q                  <= htval_d;
-        htinst_q                 <= htinst_d;
-        // virtual supervisor mode registers
-        vsstatus_q               <= vsstatus_d;
-        vsepc_q                  <= vsepc_d;
-        vscause_q                <= vscause_d;
-        vstvec_q                 <= vstvec_d;
-        vsscratch_q              <= vsscratch_d;
-        vstval_q                 <= vstval_d;
-        vsatp_q                  <= vsatp_d;
-        en_ld_st_g_translation_q <= en_ld_st_g_translation_d;
-      end
-      // timer and counters
-      cycle_q                <= cycle_d;
-      instret_q              <= instret_d;
-      // aux registers
-      en_ld_st_translation_q <= en_ld_st_translation_d;
-      // wait for interrupt
-      wfi_q                  <= wfi_d;
-      // pmp
-      for (int i = 0; i < 16; i++) begin
-        if (i < CVA6Cfg.NrPMPEntries) begin
-          // We only support >=8-byte granularity, NA4 is disabled
-          if(!CVA6Cfg.PMPEntryReadOnly[i] && pmpcfg_d[i].addr_mode != riscv::NA4 && !(pmpcfg_d[i].access_type.r == '0 && pmpcfg_d[i].access_type.w == '1)) begin
-            pmpcfg_q[i] <= pmpcfg_d[i];
+      if (clear_i) begin
+        priv_lvl_q   <= riscv::PRIV_LVL_M;
+        // floating-point registers
+        fcsr_q       <= '0;
+        // debug signals
+        debug_mode_q <= 1'b0;
+        if (CVA6Cfg.DebugEn) begin
+          dcsr_q           <= '0;
+          dcsr_q.prv       <= riscv::PRIV_LVL_M;
+          dcsr_q.xdebugver <= 4'h4;
+          dpc_q            <= '0;
+          dscratch0_q      <= {riscv::XLEN{1'b0}};
+          dscratch1_q      <= {riscv::XLEN{1'b0}};
+        end
+        // machine mode registers
+        mstatus_q        <= 64'b0;
+        // set to boot address + direct mode + 4 byte offset which is the initial trap
+        mtvec_rst_load_q <= 1'b1;
+        mtvec_q          <= '0;
+        mip_q            <= {riscv::XLEN{1'b0}};
+        mie_q            <= {riscv::XLEN{1'b0}};
+        mintstatus_q     <= 32'b0;
+        mintthresh_q     <= 8'b0;
+        mepc_q           <= {riscv::XLEN{1'b0}};
+        mcause_q         <= {riscv::XLEN{1'b0}};
+        mcounteren_q     <= {riscv::XLEN{1'b0}};
+        mtvt_q           <= {riscv::XLEN{1'b0}};
+        mscratch_q       <= {riscv::XLEN{1'b0}};
+        mtval_q          <= {riscv::XLEN{1'b0}};
+        fiom_q           <= '0;
+        dcache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
+        icache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
+        mcountinhibit_q  <= '0;
+        acc_cons_q       <= {{riscv::XLEN - 1{1'b0}}, CVA6Cfg.EnableAccelerator};
+        fence_t_pad_q    <= {riscv::XLEN{1'b0}};
+        fence_t_ceil_q   <= {riscv::XLEN{1'b0}};
+        // supervisor mode registers
+        if (CVA6Cfg.RVS) begin
+          medeleg_q    <= {riscv::XLEN{1'b0}};
+          mideleg_q    <= {riscv::XLEN{1'b0}};
+          sepc_q       <= {riscv::XLEN{1'b0}};
+          scause_q     <= {riscv::XLEN{1'b0}};
+          stvec_q      <= {riscv::XLEN{1'b0}};
+          scounteren_q <= {riscv::XLEN{1'b0}};
+          sscratch_q   <= {riscv::XLEN{1'b0}};
+          stval_q      <= {riscv::XLEN{1'b0}};
+          satp_q       <= {riscv::XLEN{1'b0}};
+        end
+        if (CVA6Cfg.RVH) begin
+          v_q                      <= '0;
+          mtval2_q                 <= {riscv::XLEN{1'b0}};
+          mtinst_q                 <= {riscv::XLEN{1'b0}};
+          hstatus_q                <= {riscv::XLEN{1'b0}};
+          hedeleg_q                <= {riscv::XLEN{1'b0}};
+          hideleg_q                <= {riscv::XLEN{1'b0}};
+          hgeie_q                  <= {riscv::XLEN{1'b0}};
+          hgatp_q                  <= {riscv::XLEN{1'b0}};
+          hcounteren_q             <= {riscv::XLEN{1'b0}};
+          htval_q                  <= {riscv::XLEN{1'b0}};
+          htinst_q                 <= {riscv::XLEN{1'b0}};
+          // virtual supervisor mode registers
+          vsstatus_q               <= 64'b0;
+          vsepc_q                  <= {riscv::XLEN{1'b0}};
+          vscause_q                <= {riscv::XLEN{1'b0}};
+          vstvec_q                 <= {riscv::XLEN{1'b0}};
+          vsscratch_q              <= {riscv::XLEN{1'b0}};
+          vstval_q                 <= {riscv::XLEN{1'b0}};
+          vsatp_q                  <= {riscv::XLEN{1'b0}};
+          en_ld_st_g_translation_q <= 1'b0;
+        end
+        // timer and counters
+        cycle_q                <= 64'b0;
+        instret_q              <= 64'b0;
+        // aux registers
+        en_ld_st_translation_q <= 1'b0;
+        // wait for interrupt
+        wfi_q                  <= 1'b0;
+        // pmp
+        for (int i = 0; i < 16; i++) begin
+          if (i < CVA6Cfg.NrPMPEntries) begin
+            pmpcfg_q[i]  <= riscv::pmpcfg_t'(CVA6Cfg.PMPCfgRstVal[i]);
+            pmpaddr_q[i] <= CVA6Cfg.PMPAddrRstVal[i][riscv::PLEN-3:0];
           end else begin
-            pmpcfg_q[i] <= pmpcfg_q[i];
+            pmpcfg_q[i]  <= '0;
+            pmpaddr_q[i] <= '0;
           end
-          if (!CVA6Cfg.PMPEntryReadOnly[i]) begin
-            pmpaddr_q[i] <= pmpaddr_d[i];
+        end
+      end else begin
+        priv_lvl_q <= priv_lvl_d;
+        // floating-point registers
+        fcsr_q     <= fcsr_d;
+        // debug signals
+        if (CVA6Cfg.DebugEn) begin
+          debug_mode_q <= debug_mode_d;
+          dcsr_q       <= dcsr_d;
+          dpc_q        <= dpc_d;
+          dscratch0_q  <= dscratch0_d;
+          dscratch1_q  <= dscratch1_d;
+        end
+        // machine mode registers
+        mstatus_q        <= mstatus_d;
+        mtvec_rst_load_q <= 1'b0;
+        mtvec_q          <= mtvec_d;
+        mip_q            <= mip_d;
+        mie_q            <= mie_d;
+        mintstatus_q     <= mintstatus_d;
+        mintthresh_q     <= mintthresh_d;
+        mepc_q           <= mepc_d;
+        mcause_q         <= mcause_d;
+        mcounteren_q     <= mcounteren_d;
+        mtvt_q           <= mtvt_d;
+        mscratch_q       <= mscratch_d;
+        if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
+        fiom_q          <= fiom_d;
+        dcache_q        <= dcache_d;
+        icache_q        <= icache_d;
+        mcountinhibit_q <= mcountinhibit_d;
+        acc_cons_q      <= acc_cons_d;
+        fence_t_pad_q   <= fence_t_pad_d;
+        fence_t_ceil_q  <= fence_t_ceil_d;
+        // supervisor mode registers
+        if (CVA6Cfg.RVS) begin
+          medeleg_q    <= medeleg_d;
+          mideleg_q    <= mideleg_d;
+          sepc_q       <= sepc_d;
+          scause_q     <= scause_d;
+          stvec_q      <= stvec_d;
+          scounteren_q <= scounteren_d;
+          sscratch_q   <= sscratch_d;
+          if (CVA6Cfg.TvalEn) stval_q <= stval_d;
+          satp_q <= satp_d;
+        end
+        if (CVA6Cfg.RVH) begin
+          v_q                      <= v_d;
+          mtval2_q                 <= mtval2_d;
+          mtinst_q                 <= mtinst_d;
+          // hypervisor mode registers
+          hstatus_q                <= hstatus_d;
+          hedeleg_q                <= hedeleg_d;
+          hideleg_q                <= hideleg_d;
+          hgeie_q                  <= hgeie_d;
+          hgatp_q                  <= hgatp_d;
+          hcounteren_q             <= hcounteren_d;
+          htval_q                  <= htval_d;
+          htinst_q                 <= htinst_d;
+          // virtual supervisor mode registers
+          vsstatus_q               <= vsstatus_d;
+          vsepc_q                  <= vsepc_d;
+          vscause_q                <= vscause_d;
+          vstvec_q                 <= vstvec_d;
+          vsscratch_q              <= vsscratch_d;
+          vstval_q                 <= vstval_d;
+          vsatp_q                  <= vsatp_d;
+          en_ld_st_g_translation_q <= en_ld_st_g_translation_d;
+        end
+        // timer and counters
+        cycle_q                <= cycle_d;
+        instret_q              <= instret_d;
+        // aux registers
+        en_ld_st_translation_q <= en_ld_st_translation_d;
+        // wait for interrupt
+        wfi_q                  <= wfi_d;
+        // pmp
+        for (int i = 0; i < 16; i++) begin
+          if (i < CVA6Cfg.NrPMPEntries) begin
+            // We only support >=8-byte granularity, NA4 is disabled
+            if(!CVA6Cfg.PMPEntryReadOnly[i] && pmpcfg_d[i].addr_mode != riscv::NA4 && !(pmpcfg_d[i].access_type.r == '0 && pmpcfg_d[i].access_type.w == '1)) begin
+              pmpcfg_q[i] <= pmpcfg_d[i];
+            end else begin
+              pmpcfg_q[i] <= pmpcfg_q[i];
+            end
+            if (!CVA6Cfg.PMPEntryReadOnly[i]) begin
+              pmpaddr_q[i] <= pmpaddr_d[i];
+            end else begin
+              pmpaddr_q[i] <= pmpaddr_q[i];
+            end
           end else begin
-            pmpaddr_q[i] <= pmpaddr_q[i];
+            pmpcfg_q[i]  <= '0;
+            pmpaddr_q[i] <= '0;
           end
-        end else begin
-          pmpcfg_q[i]  <= '0;
-          pmpaddr_q[i] <= '0;
         end
       end
     end
