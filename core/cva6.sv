@@ -119,6 +119,8 @@ module cva6
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high
+    input logic clear_i,
     // Reset boot address - SUBSYSTEM
     input logic [riscv::VLEN-1:0] boot_addr_i,
     // Hard ID reflected as CSR - SUBSYSTEM
@@ -520,7 +522,7 @@ module cva6
     if (~rst_ni) begin
       rst_uarch_n <= 1'b0;
     end else begin
-      rst_uarch_n <= rst_uarch_controller_n;
+      rst_uarch_n <= rst_uarch_controller_n & ~clear_i;
     end
   end
 
@@ -1446,7 +1448,7 @@ module cva6
   instr_tracer_if tracer_if (clk_i);
   // assign instruction tracer interface
   // control signals
-  assign tracer_if.rstn           = rst_ni;
+  assign tracer_if.rstn           = rst_ni & ~clear_i;
   assign tracer_if.flush_unissued = flush_unissued_instr_ctrl_id;
   assign tracer_if.flush          = flush_ctrl_ex;
   // fetch
