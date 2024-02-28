@@ -34,6 +34,7 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                           busy_o,
     input  logic                           stall_i,                // stall new memory requests
     input  logic                           init_ni,                // do not init after reset
+    output logic                           ongoing_write_o,
     // I$
     input  logic                           icache_en_i,            // enable icache (or bypass e.g: in debug mode)
     input  logic                           icache_flush_i,         // flush the icache, flush and kill have to be asserted together
@@ -164,10 +165,7 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
       .axi_data_i   ( ace_resp_data          ),
       .req_ports_i  ( dcache_req_ports_i     ),
       .req_ports_o  ( dcache_req_ports_o     ),
-      .amo_req_i,
-      .amo_resp_o,
-      .snoop_port_i,
-      .snoop_port_o
+      .*
    );
 
     // -----------------------

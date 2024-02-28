@@ -36,7 +36,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                        flushing_o,
     output logic                                        serving_amo_o,
     output logic [63:0]                                 serving_amo_addr_o,
-    output logic                                        updating_cache_o,
+    output logic                                        ongoing_write_o,
     //
     output logic                                        start_req_o,
     input  logic                                        start_ack_i,
@@ -63,8 +63,6 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     // to/from snoop ctrl
     input  logic                                        snoop_invalidate_i,
     input  logic [63:0]                                 snoop_invalidate_addr_i,
-    output logic [DCACHE_SET_ASSOC-1:0]                 invalidate_req_o,
-    output logic [DCACHE_INDEX_WIDTH-1:0]               invalidate_addr_o,
 
     input  logic [NR_PORTS-1:0][55:0]                   mshr_addr_i,
     output logic [NR_PORTS-1:0]                         mshr_addr_matches_o,
@@ -180,11 +178,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     assign serving_amo_o = serve_amo_q;
     assign serving_amo_addr_o = amo_req_i.operand_a;
 
-    // inform snoop controller when invalidating a cache line
-    assign invalidate_addr_o = addr_o;
-    for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-        assign invalidate_req_o[i] = (req_o[0] && we_o && !data_o.valid) ? (be_o.vldrty[i].valid) : 1'b0;
-    end
+    assign ongoing_write_o = mshr_q.we & mshr_q.valid;
 
     // ID for regular (non-bypass) AXI bus
     assign req_fsm_miss_id = {{AXI_ID_WIDTH-4{1'b0}}, 4'b1100};
@@ -214,7 +208,6 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         miss_gnt_o = '0;
         active_serving_o = '0;
         flushing_o = 1'b0;
-        updating_cache_o = 1'b0;
         // LFSR replacement unit
         lfsr_enable = 1'b0;
         // to AXI refill
@@ -387,8 +380,6 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 cl_offset = mshr_q.addr[DCACHE_BYTE_OFFSET-1:3] << 6;
                 // we've got a valid response from refill unit
                 if (valid_miss_fsm) begin
-                    updating_cache_o = 1'b1;
-
                     addr_o       = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
                     req_o        = evict_way_q;
                     we_o         = 1'b1;
