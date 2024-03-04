@@ -114,8 +114,8 @@ module branch_unit #(
     else branch_exception_o.tval = '0;
     branch_exception_o.tval2 = {riscv::GPLEN{1'b0}};
     branch_exception_o.tinst = {riscv::XLEN{1'b0}};
-    branch_exception_o.gva   = CVA6Cfg.RVH ? v_i : 1'b0;
-    branch_exception_o.priv_lvl  = riscv::PRIV_LVL_M;
+    branch_exception_o.gva = CVA6Cfg.RVH ? v_i : 1'b0;
+    branch_exception_o.priv_lvl = riscv::PRIV_LVL_M;
     branch_exception_o.trap_to_v = 1'b0;
     // Only throw instruction address misaligned exception if this is indeed a `taken` conditional branch or
     // an unconditional jump
