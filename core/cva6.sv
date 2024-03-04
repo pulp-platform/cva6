@@ -270,6 +270,7 @@ module cva6 import ariane_pkg::*; #(
   logic                     busy_cache_ctrl;
   logic                     stall_ctrl_cache;
   logic                     init_ctrl_cache_n;
+  logic                     ongoing_write_cache;
 
   icache_areq_i_t           icache_areq_ex_cache;
   icache_areq_o_t           icache_areq_cache_ex;
@@ -593,7 +594,7 @@ module cva6 import ariane_pkg::*; #(
 
   // we have to make sure that the whole write buffer path is empty before
   // used e.g. for fence instructions.
-  assign no_st_pending_commit = no_st_pending_ex & dcache_commit_wbuffer_empty;
+  assign no_st_pending_commit = no_st_pending_ex & dcache_commit_wbuffer_empty & ~ongoing_write_cache;
 
   commit_stage #(
     .NR_COMMIT_PORTS ( NR_COMMIT_PORTS )
@@ -888,6 +889,7 @@ module cva6 import ariane_pkg::*; #(
     .busy_o                ( busy_cache_ctrl             ),
     .stall_i               ( stall_ctrl_cache            ),
     .init_ni               ( init_ctrl_cache_n           ),
+    .ongoing_write_o       ( ongoing_write_cache         ),
     // I$
     .icache_en_i           ( icache_en_csr               ),
     .icache_flush_i        ( icache_flush_ctrl_cache     ),

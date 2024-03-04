@@ -28,6 +28,9 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                 hit_o,     // to performance counter
     output logic                                 unique_o,  // to performance counter
     input  logic                                 stall_i,   // stall new memory requests
+    // 
+    output logic                                 start_req_o,
+    input  logic                                 start_ack_i,
     // Core request ports
     input  dcache_req_i_t                        req_port_i,
     output dcache_req_o_t                        req_port_o,
@@ -150,6 +153,8 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         colliding_read_d = colliding_read_q;
         colliding_clean_d = colliding_clean_q;
 
+        start_req_o = 1'b0;
+
         case (state_q)
 
             IDLE: begin
@@ -208,7 +213,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     if (|hit_way_i) begin
                         hit_o = state_q == WAIT_TAG; // only count as hit when we get here the first time
                         // we can request another cache-line if this was a load
-                        if (req_port_i.data_req && !mem_req_q.we && !stall_i) begin
+                        if (req_port_i.data_req && !mem_req_q.we && start_ack_i && !stall_i) begin
                             state_d          = WAIT_TAG; // switch back to WAIT_TAG
                             mem_req_d.index  = req_port_i.address_index;
                             mem_req_d.be     = req_port_i.data_be;
@@ -431,7 +436,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
             // ~> wait for grant from miss unit
             WAIT_REFILL_GNT: begin
-
                 mshr_addr_o = {mem_req_q.tag, mem_req_q.index};
 
                 miss_req_o.valid = 1'b1;

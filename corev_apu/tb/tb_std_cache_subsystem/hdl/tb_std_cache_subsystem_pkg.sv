@@ -1449,7 +1449,7 @@ package tb_std_cache_subsystem_pkg;
 
             if (vld_sram_valid) begin
 
-                a_dirty : assert (cache_status[mem_idx_v][way].dirty == vld_sram_dirty) else
+                a_dirty : assert (|cache_status[mem_idx_v][way].dirty == |vld_sram_dirty) else
                     $error("%s: Cache mismatch index %h tag %h way %h - dirty bits: expected %04h, actual %04h", {name,".",origin}, idx_v, tag_v, way, cache_status[mem_idx_v][way].dirty, vld_sram_dirty);
 
                 a_shared : assert (cache_status[mem_idx_v][way].shared == vld_sram_shared) else
