@@ -19,7 +19,7 @@ jobs:
       - uses: niwis/verible-formatter-action@pulp
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: '$(find core -regex ".*\.\(v\|sv\)$" | grep -v "^core/include/.*_config_pkg.sv$")'
+          files: 'core/**/*.{v,sv}'
           fail_on_formatting_suggestions: false
           reviewdog_reporter: github-check
           reviewdog_fail_on_error: true
