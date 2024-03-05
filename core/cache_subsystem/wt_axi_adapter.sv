@@ -13,6 +13,7 @@
 // Description: adapter module to connect the L1D$ and L1I$ to a 64bit AXI bus.
 //
 
+`include "common_cells/registers.svh"
 
 module wt_axi_adapter
   import ariane_pkg::*;
@@ -619,39 +620,20 @@ module wt_axi_adapter
   // assign dcache_rtrn_o.inv.vld  = '0;
   // assign dcache_rtrn_o.inv.all  = '0;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_rd_buf
-    if (!rst_ni) begin
-      icache_first_q         <= 1'b1;
-      dcache_first_q         <= 1'b1;
-      icache_rd_shift_q      <= '0;
-      icache_rd_shift_user_q <= '0;
-      dcache_rd_shift_q      <= '0;
-      dcache_rd_shift_user_q <= '0;
-      icache_rtrn_vld_q      <= '0;
-      dcache_rtrn_vld_q      <= '0;
-      icache_rtrn_tid_q      <= '0;
-      dcache_rtrn_tid_q      <= '0;
-      dcache_rtrn_type_q     <= wt_cache_pkg::DCACHE_LOAD_ACK;
-      dcache_rtrn_inv_q      <= '0;
-      amo_off_q              <= '0;
-      amo_gen_r_q            <= 1'b0;
-    end else begin
-      icache_first_q         <= icache_first_d;
-      dcache_first_q         <= dcache_first_d;
-      icache_rd_shift_q      <= icache_rd_shift_d;
-      icache_rd_shift_user_q <= icache_rd_shift_user_d;
-      dcache_rd_shift_q      <= dcache_rd_shift_d;
-      dcache_rd_shift_user_q <= dcache_rd_shift_user_d;
-      icache_rtrn_vld_q      <= icache_rtrn_vld_d;
-      dcache_rtrn_vld_q      <= dcache_rtrn_vld_d;
-      icache_rtrn_tid_q      <= icache_rtrn_tid_d;
-      dcache_rtrn_tid_q      <= dcache_rtrn_tid_d;
-      dcache_rtrn_type_q     <= dcache_rtrn_type_d;
-      dcache_rtrn_inv_q      <= dcache_rtrn_inv_d;
-      amo_off_q              <= amo_off_d;
-      amo_gen_r_q            <= amo_gen_r_d;
-    end
-  end
+  `FFARNC(icache_first_q         , icache_first_d        , 1'b0, 1'b1                         , clk_i, rst_ni)
+  `FFARNC(dcache_first_q         , dcache_first_d        , 1'b0, 1'b1                         , clk_i, rst_ni)
+  `FFARNC(icache_rd_shift_q      , icache_rd_shift_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(icache_rd_shift_user_q , icache_rd_shift_user_d, 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(dcache_rd_shift_q      , dcache_rd_shift_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(dcache_rd_shift_user_q , dcache_rd_shift_user_d, 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(icache_rtrn_vld_q      , icache_rtrn_vld_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_vld_q      , dcache_rtrn_vld_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(icache_rtrn_tid_q      , icache_rtrn_tid_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_tid_q      , dcache_rtrn_tid_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_type_q     , dcache_rtrn_type_d    , 1'b0, wt_cache_pkg::DCACHE_LOAD_ACK, clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_inv_q      , dcache_rtrn_inv_d     , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(amo_off_q              , amo_off_d             , 1'b0, '0                           , clk_i, rst_ni)
+  `FFARNC(amo_gen_r_q            , amo_gen_r_d           , 1'b0, '0                           , clk_i, rst_ni)
 
 
   ///////////////////////////////////////////////////////

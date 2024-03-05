@@ -17,6 +17,7 @@
 //
 // Description: Cache controller
 
+`include "common_cells/registers.svh"
 
 module cache_ctrl
   import ariane_pkg::*;
@@ -442,17 +443,9 @@ module cache_ctrl
   // --------------
   // Registers
   // --------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q   <= IDLE;
-      mem_req_q <= '0;
-      hit_way_q <= '0;
-    end else begin
-      state_q   <= state_d;
-      mem_req_q <= mem_req_d;
-      hit_way_q <= hit_way_d;
-    end
-  end
+  `FFARNC(state_q   , state_d  , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(mem_req_q , mem_req_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(hit_way_q , hit_way_d, 1'b0, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR

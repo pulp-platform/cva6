@@ -13,6 +13,7 @@
 // Description: miss controller for WT dcache. Note that the current assumption
 // is that the port with the highest index issues writes instead of reads.
 
+`include "common_cells/registers.svh"
 
 module wt_dcache_missunit
   import ariane_pkg::*;
@@ -592,33 +593,17 @@ module wt_dcache_missunit
   // ff's
   ///////////////////////////////////////////////////////
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-    if (!rst_ni) begin
-      state_q               <= INIT;
-      cnt_q                 <= '0;
-      enable_q              <= '0;
-      flush_ack_q           <= '0;
-      mshr_vld_q            <= '0;
-      mshr_vld_q1           <= '0;
-      mshr_q                <= '0;
-      mshr_rdrd_collision_q <= '0;
-      miss_req_masked_q     <= '0;
-      amo_req_q             <= '0;
-      stores_inflight_q     <= '0;
-    end else begin
-      state_q               <= state_d;
-      cnt_q                 <= cnt_d;
-      enable_q              <= enable_d;
-      flush_ack_q           <= flush_ack_d;
-      mshr_vld_q            <= mshr_vld_d;
-      mshr_vld_q1           <= mshr_vld_q;
-      mshr_q                <= mshr_d;
-      mshr_rdrd_collision_q <= mshr_rdrd_collision_d;
-      miss_req_masked_q     <= miss_req_masked_d;
-      amo_req_q             <= amo_req_d;
-      stores_inflight_q     <= stores_inflight_d;
-    end
-  end
+  `FFARNC(state_q              , state_d              , 1'b0, INIT, clk_i, rst_ni)
+  `FFARNC(cnt_q                , cnt_d                , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(enable_q             , enable_d             , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(flush_ack_q          , flush_ack_d          , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(mshr_vld_q           , mshr_vld_d           , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(mshr_vld_q1          , mshr_vld_q           , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(mshr_q               , mshr_d               , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(mshr_rdrd_collision_q, mshr_rdrd_collision_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(miss_req_masked_q    , miss_req_masked_d    , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(amo_req_q            , amo_req_d            , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(stores_inflight_q    , stores_inflight_d    , 1'b0, '0  , clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

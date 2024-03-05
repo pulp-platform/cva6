@@ -26,6 +26,8 @@
 
 /* verilator lint_off WIDTH */
 
+`include "common_cells/registers.svh"
+
 module cva6_ptw_sv32
   import ariane_pkg::*;
 #(
@@ -370,31 +372,16 @@ module cva6_ptw_sv32
   end
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q           <= IDLE;
-      is_instr_ptw_q    <= 1'b0;
-      ptw_lvl_q         <= LVL1;
-      tag_valid_q       <= 1'b0;
-      tlb_update_asid_q <= '0;
-      vaddr_q           <= '0;
-      ptw_pptr_q        <= '0;
-      global_mapping_q  <= 1'b0;
-      data_rdata_q      <= '0;
-      data_rvalid_q     <= 1'b0;
-    end else begin
-      state_q           <= state_d;
-      ptw_pptr_q        <= ptw_pptr_n;
-      is_instr_ptw_q    <= is_instr_ptw_n;
-      ptw_lvl_q         <= ptw_lvl_n;
-      tag_valid_q       <= tag_valid_n;
-      tlb_update_asid_q <= tlb_update_asid_n;
-      vaddr_q           <= vaddr_n;
-      global_mapping_q  <= global_mapping_n;
-      data_rdata_q      <= req_port_i.data_rdata;
-      data_rvalid_q     <= req_port_i.data_rvalid;
-    end
-  end
+  `FFARNC(state_q           , state_d               , 1'b0, IDLE, clk_i, rst_ni)
+  `FFARNC(ptw_pptr_q        , ptw_pptr_n            , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(is_instr_ptw_q    , is_instr_ptw_n        , 1'b0, 1'b0, clk_i, rst_ni)
+  `FFARNC(ptw_lvl_q         , ptw_lvl_n             , 1'b0, LVL1, clk_i, rst_ni)
+  `FFARNC(tag_valid_q       , tag_valid_n           , 1'b0, 1'b0, clk_i, rst_ni)
+  `FFARNC(tlb_update_asid_q , tlb_update_asid_n     , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(vaddr_q           , vaddr_n               , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(global_mapping_q  , global_mapping_n      , 1'b0, 1'b0, clk_i, rst_ni)
+  `FFARNC(data_rdata_q      , req_port_i.data_rdata , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(data_rvalid_q     , req_port_i.data_rvalid, 1'b0, 1'b0, clk_i, rst_ni)
 
 endmodule
 /* verilator lint_on WIDTH */

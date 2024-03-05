@@ -16,6 +16,8 @@
  */
 //import std_cache_pkg::*;
 
+`include "common_cells/registers.svh"
+
 module axi_adapter #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned DATA_WIDTH = 256,
@@ -461,28 +463,14 @@ module axi_adapter #(
   // ----------------
   // Registers
   // ----------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      // start in flushing state and initialize the memory
-      state_q              <= IDLE;
-      cnt_q                <= '0;
-      cache_line_q         <= '0;
-      addr_offset_q        <= '0;
-      id_q                 <= '0;
-      amo_q                <= ariane_pkg::AMO_NONE;
-      size_q               <= '0;
-      outstanding_aw_cnt_q <= '0;
-    end else begin
-      state_q              <= state_d;
-      cnt_q                <= cnt_d;
-      cache_line_q         <= cache_line_d;
-      addr_offset_q        <= addr_offset_d;
-      id_q                 <= id_d;
-      amo_q                <= amo_d;
-      size_q               <= size_d;
-      outstanding_aw_cnt_q <= outstanding_aw_cnt_d;
-    end
-  end
+  `FFARNC(state_q              , state_d             , 1'b0, IDLE                , clk_i, rst_ni)
+  `FFARNC(cnt_q                , cnt_d               , 1'b0, '0                  , clk_i, rst_ni)
+  `FFARNC(cache_line_q         , cache_line_d        , 1'b0, '0                  , clk_i, rst_ni)
+  `FFARNC(addr_offset_q        , addr_offset_d       , 1'b0, '0                  , clk_i, rst_ni)
+  `FFARNC(id_q                 , id_d                , 1'b0, '0                  , clk_i, rst_ni)
+  `FFARNC(amo_q                , amo_d               , 1'b0, ariane_pkg::AMO_NONE, clk_i, rst_ni)
+  `FFARNC(size_q               , size_d              , 1'b0, '0                  , clk_i, rst_ni)
+  `FFARNC(outstanding_aw_cnt_q , outstanding_aw_cnt_d, 1'b0, '0                  , clk_i, rst_ni)
 
   function automatic axi_pkg::atop_t atop_from_amo(ariane_pkg::amo_t amo);
     axi_pkg::atop_t result = 6'b000000;

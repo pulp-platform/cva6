@@ -25,6 +25,7 @@
 //        4) Read ports with same priority are RR arbited. but high prio ports (rd_prio_i[port_nr] = '1b1) will stall
 //           low prio ports (rd_prio_i[port_nr] = '1b0)
 
+`include "common_cells/registers.svh"
 
 module wt_dcache_mem
   import ariane_pkg::*;
@@ -340,19 +341,10 @@ module wt_dcache_mem
     );
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-    if (!rst_ni) begin
-      bank_idx_q <= '0;
-      bank_off_q <= '0;
-      vld_sel_q  <= '0;
-      cmp_en_q   <= '0;
-    end else begin
-      bank_idx_q <= bank_idx_d;
-      bank_off_q <= bank_off_d;
-      vld_sel_q  <= vld_sel_d;
-      cmp_en_q   <= cmp_en_d;
-    end
-  end
+  `FFARNC(bank_idx_q , bank_idx_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(bank_off_q , bank_off_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(vld_sel_q  , vld_sel_d , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(cmp_en_q   , cmp_en_d  , 1'b0, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions
@@ -404,12 +396,17 @@ module wt_dcache_mem
       vld_mirror <= '{default: '0};
       tag_mirror <= '{default: '0};
     end else begin
-      for (int i = 0; i < DCACHE_SET_ASSOC; i++) begin
-        if (vld_req[i] & vld_we) begin
-          vld_mirror[vld_addr][i] <= vld_wdata[i];
-          tag_mirror[vld_addr][i] <= wr_cl_tag_i;
+      // if (clear_i) begin
+      //   vld_mirror <= '{default: '0};
+      //   tag_mirror <= '{default: '0};
+      // end else begin
+        for (int i = 0; i < DCACHE_SET_ASSOC; i++) begin
+          if (vld_req[i] & vld_we) begin
+            vld_mirror[vld_addr][i] <= vld_wdata[i];
+            tag_mirror[vld_addr][i] <= wr_cl_tag_i;
+          end
         end
-      end
+      // end
     end
   end
 

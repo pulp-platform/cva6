@@ -16,6 +16,8 @@
 // MISS Handler
 // --------------
 
+`include "common_cells/registers.svh"
+
 module miss_handler
   import ariane_pkg::*;
   import std_cache_pkg::*;
@@ -505,23 +507,12 @@ module miss_handler
   // --------------------
   // Sequential Process
   // --------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      mshr_q      <= '0;
-      state_q     <= INIT;
-      cnt_q       <= '0;
-      evict_way_q <= '0;
-      evict_cl_q  <= '0;
-      serve_amo_q <= 1'b0;
-    end else begin
-      mshr_q      <= mshr_d;
-      state_q     <= state_d;
-      cnt_q       <= cnt_d;
-      evict_way_q <= evict_way_d;
-      evict_cl_q  <= evict_cl_d;
-      serve_amo_q <= serve_amo_d;
-    end
-  end
+  `FFARNC(mshr_q      , mshr_d     , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(state_q     , state_d    , 1'b0, INIT, clk_i, rst_ni)
+  `FFARNC(cnt_q       , cnt_d      , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(evict_way_q , evict_way_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(evict_cl_q  , evict_cl_d , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(serve_amo_q , serve_amo_d, 1'b0, '0  , clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR
@@ -798,19 +789,11 @@ module axi_adapter_arbiter #(
     endcase
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q           <= IDLE;
-      sel_q             <= '0;
-      req_q             <= '0;
-      outstanding_cnt_q <= '0;
-    end else begin
-      state_q           <= state_d;
-      sel_q             <= sel_d;
-      req_q             <= req_d;
-      outstanding_cnt_q <= outstanding_cnt_d;
-    end
-  end
+  `FFARNC(state_q           , state_d          , 1'b0, IDLE, clk_i, rst_ni)
+  `FFARNC(sel_q             , sel_d            , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(req_q             , req_d            , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(outstanding_cnt_q , outstanding_cnt_d, 1'b0, '0  , clk_i, rst_ni)
+
   // ------------
   // Assertions
   // ------------

@@ -23,6 +23,9 @@
 // the LSU control should sample it and store it for later application to the units. It does so, by storing it in a
 // two element FIFO. This is necessary as we only know very late in the cycle whether the load/store will succeed (address check,
 // TLB hit mainly). So we better unconditionally allow another request to arrive and store this request in case we need to.
+
+`include "common_cells/registers.svh"
+
 module lsu_bypass
   import ariane_pkg::*;
 #(
@@ -114,18 +117,9 @@ module lsu_bypass
   end
 
   // registers
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      mem_q           <= '0;
-      status_cnt_q    <= '0;
-      write_pointer_q <= '0;
-      read_pointer_q  <= '0;
-    end else begin
-      mem_q           <= mem_n;
-      status_cnt_q    <= status_cnt_n;
-      write_pointer_q <= write_pointer_n;
-      read_pointer_q  <= read_pointer_n;
-    end
-  end
+  `FFARNC(mem_q           , mem_n          , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(status_cnt_q    , status_cnt_n   , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(write_pointer_q , write_pointer_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(read_pointer_q  , read_pointer_n , 1'b0, '0, clk_i, rst_ni)
 endmodule
 

@@ -12,6 +12,7 @@
 // Date: 13.09.2018
 // Description: DCache controller for read port
 
+`include "common_cells/registers.svh"
 
 module wt_dcache_ctrl
   import ariane_pkg::*;
@@ -253,30 +254,15 @@ module wt_dcache_ctrl
   ///////////////////////////////////////////////////////
   // ff's
   ///////////////////////////////////////////////////////
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-    if (!rst_ni) begin
-      state_q       <= IDLE;
-      address_tag_q <= '0;
-      address_idx_q <= '0;
-      address_off_q <= '0;
-      id_q          <= '0;
-      vld_data_q    <= '0;
-      data_size_q   <= '0;
-      rd_req_q      <= '0;
-      rd_ack_q      <= '0;
-    end else begin
-      state_q       <= state_d;
-      address_tag_q <= address_tag_d;
-      address_idx_q <= address_idx_d;
-      address_off_q <= address_off_d;
-      id_q          <= id_d;
-      vld_data_q    <= vld_data_d;
-      data_size_q   <= data_size_d;
-      rd_req_q      <= rd_req_d;
-      rd_ack_q      <= rd_ack_d;
-    end
-  end
+  `FFARNC(state_q       , state_d      , 1'b0, IDLE, clk_i, rst_ni)
+  `FFARNC(address_tag_q , address_tag_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(address_idx_q , address_idx_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(address_off_q , address_off_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(id_q          , id_d         , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(vld_data_q    , vld_data_d   , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(data_size_q   , data_size_d  , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(rd_req_q      , rd_req_d     , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(rd_ack_q      , rd_ack_d     , 1'b0, '0  , clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

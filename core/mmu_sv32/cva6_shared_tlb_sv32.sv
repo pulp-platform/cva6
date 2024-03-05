@@ -17,6 +17,8 @@
 
 /* verilator lint_off WIDTH */
 
+`include "common_cells/registers.svh"
+
 module cva6_shared_tlb_sv32
   import ariane_pkg::*;
 #(
@@ -229,33 +231,17 @@ module cva6_shared_tlb_sv32
   end  //tag_comparison
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      itlb_vpn_q <= '0;
-      dtlb_vpn_q <= '0;
-      tlb_update_asid_q <= '0;
-      shared_tlb_access_q <= '0;
-      shared_tlb_vaddr_q <= '0;
-      shared_tag_valid_q <= '0;
-      vpn0_q <= '0;
-      vpn1_q <= '0;
-      itlb_req_q <= '0;
-      dtlb_req_q <= '0;
-      shared_tag_valid <= '0;
-    end else begin
-      itlb_vpn_q <= itlb_vaddr_i[riscv::SV-1:12];
-      dtlb_vpn_q <= dtlb_vaddr_i[riscv::SV-1:12];
-      tlb_update_asid_q <= tlb_update_asid_d;
-      shared_tlb_access_q <= shared_tlb_access_d;
-      shared_tlb_vaddr_q <= shared_tlb_vaddr_d;
-      shared_tag_valid_q <= shared_tag_valid_d;
-      vpn0_q <= vpn0_d;
-      vpn1_q <= vpn1_d;
-      itlb_req_q <= itlb_req_d;
-      dtlb_req_q <= dtlb_req_d;
-      shared_tag_valid <= shared_tag_valid_q[tag_rd_addr];
-    end
-  end
+  `FFARNC(itlb_vpn_q          , itlb_vaddr_i[riscv::SV-1:12]   , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(dtlb_vpn_q          , dtlb_vaddr_i[riscv::SV-1:12]   , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(tlb_update_asid_q   , tlb_update_asid_d              , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(shared_tlb_access_q , shared_tlb_access_d            , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(shared_tlb_vaddr_q  , shared_tlb_vaddr_d             , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(shared_tag_valid_q  , shared_tag_valid_d             , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(vpn0_q              , vpn0_d                         , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(vpn1_q              , vpn1_d                         , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(itlb_req_q          , itlb_req_d                     , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(dtlb_req_q          , dtlb_req_d                     , 1'b0, '0, clk_i, rstn_i)
+  `FFARNC(shared_tag_valid    , shared_tag_valid_q[tag_rd_addr], 1'b0, '0, clk_i, rstn_i)
 
   // ------------------
   // Update and Flush

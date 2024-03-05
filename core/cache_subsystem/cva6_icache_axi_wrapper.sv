@@ -13,6 +13,8 @@
 // Description: wrapper module to connect the L1I$ to a 64bit AXI bus.
 //
 
+`include "common_cells/registers.svh"
+
 module cva6_icache_axi_wrapper
   import ariane_pkg::*;
   import wt_cache_pkg::*;
@@ -191,18 +193,9 @@ module cva6_icache_axi_wrapper
   end
 
   // Registers
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_rd_buf
-    if (!rst_ni) begin
-      req_valid_q <= 1'b0;
-      req_data_q  <= '0;
-      first_q     <= 1'b1;
-      rd_shift_q  <= '0;
-    end else begin
-      req_valid_q <= req_valid_d;
-      req_data_q  <= req_data_d;
-      first_q     <= first_d;
-      rd_shift_q  <= rd_shift_d;
-    end
-  end
+  `FFARNC(req_valid_q , req_valid_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(req_data_q  , req_data_d , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(first_q     , first_d    , 1'b0, 1'b0, clk_i, rst_ni)
+  `FFARNC(rd_shift_q  , rd_shift_d , 1'b0, '0  , clk_i, rst_ni)
 
 endmodule  // cva6_icache_axi_wrapper

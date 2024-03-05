@@ -18,6 +18,7 @@
 //              This module is an adaptation of the MMU Sv39x4 developed
 //              by Florian Zaruba to the Sv39x4 standard.
 
+`include "common_cells/registers.svh"
 
 module cva6_mmu_sv39x4
   import ariane_pkg::*;
@@ -683,33 +684,16 @@ module cva6_mmu_sv39x4
   // ----------
   // Registers
   // ----------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      lsu_vaddr_q     <= '0;
-      lsu_gpaddr_q    <= '0;
-      lsu_tinst_q     <= '0;
-      hs_ld_st_inst_q <= '0;
-      lsu_req_q       <= '0;
-      misaligned_ex_q <= '0;
-      dtlb_pte_q      <= '0;
-      dtlb_gpte_q     <= '0;
-      dtlb_hit_q      <= '0;
-      lsu_is_store_q  <= '0;
-      dtlb_is_2M_q    <= '0;
-      dtlb_is_1G_q    <= '0;
-    end else begin
-      lsu_vaddr_q     <= lsu_vaddr_n;
-      lsu_gpaddr_q    <= lsu_gpaddr_n;
-      lsu_tinst_q     <= lsu_tinst_n;
-      hs_ld_st_inst_q <= hs_ld_st_inst_n;
-      lsu_req_q       <= lsu_req_n;
-      misaligned_ex_q <= misaligned_ex_n;
-      dtlb_pte_q      <= dtlb_pte_n;
-      dtlb_gpte_q     <= dtlb_gpte_n;
-      dtlb_hit_q      <= dtlb_hit_n;
-      lsu_is_store_q  <= lsu_is_store_n;
-      dtlb_is_2M_q    <= dtlb_is_2M_n;
-      dtlb_is_1G_q    <= dtlb_is_1G_n;
-    end
-  end
+  `FFARNC(lsu_vaddr_q     ,lsu_vaddr_n    , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(lsu_gpaddr_q    ,lsu_gpaddr_n   , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(lsu_tinst_q     ,lsu_tinst_n    , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(hs_ld_st_inst_q ,hs_ld_st_inst_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(lsu_req_q       ,lsu_req_n      , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(misaligned_ex_q ,misaligned_ex_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_pte_q      ,dtlb_pte_n     , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_gpte_q     ,dtlb_gpte_n    , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_hit_q      ,dtlb_hit_n     , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(lsu_is_store_q  ,lsu_is_store_n , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_2M_q    ,dtlb_is_2M_n   , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_1G_q    ,dtlb_is_1G_n   , 1'b0, '0, clk_i, rst_ni)
 endmodule

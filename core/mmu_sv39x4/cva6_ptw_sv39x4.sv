@@ -19,6 +19,8 @@
 
 /* verilator lint_off WIDTH */
 
+`include "common_cells/registers.svh"
+
 module cva6_ptw_sv39x4
   import ariane_pkg::*;
 #(
@@ -596,43 +598,22 @@ module cva6_ptw_sv39x4
   end
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q           <= IDLE;
-      ptw_stage_q       <= S_STAGE;
-      is_instr_ptw_q    <= 1'b0;
-      ptw_lvl_q         <= LVL1;
-      gptw_lvl_q        <= LVL1;
-      tag_valid_q       <= 1'b0;
-      tlb_update_asid_q <= '0;
-      tlb_update_vmid_q <= '0;
-      vaddr_q           <= '0;
-      gpaddr_q          <= '0;
-      ptw_pptr_q        <= '0;
-      gptw_pptr_q       <= '0;
-      global_mapping_q  <= 1'b0;
-      data_rdata_q      <= '0;
-      gpte_q            <= '0;
-      data_rvalid_q     <= 1'b0;
-    end else begin
-      state_q           <= state_d;
-      ptw_stage_q       <= ptw_stage_d;
-      ptw_pptr_q        <= ptw_pptr_n;
-      gptw_pptr_q       <= gptw_pptr_n;
-      is_instr_ptw_q    <= is_instr_ptw_n;
-      ptw_lvl_q         <= ptw_lvl_n;
-      gptw_lvl_q        <= gptw_lvl_n;
-      tag_valid_q       <= tag_valid_n;
-      tlb_update_asid_q <= tlb_update_asid_n;
-      tlb_update_vmid_q <= tlb_update_vmid_n;
-      vaddr_q           <= vaddr_n;
-      gpaddr_q          <= gpaddr_n;
-      global_mapping_q  <= global_mapping_n;
-      data_rdata_q      <= req_port_i.data_rdata;
-      gpte_q            <= gpte_d;
-      data_rvalid_q     <= req_port_i.data_rvalid;
-    end
-  end
+  `FFARNC(state_q           , state_d               , 0    , IDLE   , clk_i, rst_ni)
+  `FFARNC(ptw_stage_q       , ptw_stage_d           , 0    , S_STAGE, clk_i, rst_ni)
+  `FFARNC(is_instr_ptw_q    , is_instr_ptw_n        , 1'b0 , 1'b0   , clk_i, rst_ni)
+  `FFARNC(ptw_lvl_q         , ptw_lvl_n             , 1'b0 , LVL1   , clk_i, rst_ni)
+  `FFARNC(gptw_lvl_q        , gptw_lvl_n            , 1'b0 , LVL1   , clk_i, rst_ni)
+  `FFARNC(tag_valid_q       , tag_valid_n           , 1'b0 , 1'b0   , clk_i, rst_ni)
+  `FFARNC(tlb_update_asid_q , tlb_update_asid_n     , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(tlb_update_vmid_q , tlb_update_vmid_n     , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(vaddr_q           , vaddr_n               , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(gpaddr_q          , gpaddr_n              , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(ptw_pptr_q        , ptw_pptr_n            , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(gptw_pptr_q       , gptw_pptr_n           , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(global_mapping_q  , global_mapping_n      , 1'b0 , 1'b0   , clk_i, rst_ni)
+  `FFARNC(data_rdata_q      , req_port_i.data_rdata , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(gpte_q            , gpte_d                , 1'b0 , '0     , clk_i, rst_ni)
+  `FFARNC(data_rvalid_q     , req_port_i.data_rvalid, 1'b0 , 1'b0   , clk_i, rst_ni)
 
 endmodule
 /* verilator lint_on WIDTH */
