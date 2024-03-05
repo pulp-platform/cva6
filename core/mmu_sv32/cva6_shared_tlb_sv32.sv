@@ -339,7 +339,9 @@ module cva6_shared_tlb_sv32
         .wdata_i(tag_wr_data),
         .be_i   ('1),
         .ruser_o(),
-        .rdata_o(tag_rd_data[i])
+        .rdata_o(tag_rd_data[i]),
+        .error_o(/* TODO: Connect */),
+        .user_error_o(/* TODO: Connect */)
     );
 
     assign shared_tag_rd[i] = shared_tag_t'(tag_rd_data[i]);
@@ -358,7 +360,9 @@ module cva6_shared_tlb_sv32
         .wdata_i(pte_wr_data),
         .be_i   ('1),
         .ruser_o(),
-        .rdata_o(pte_rd_data[i])
+        .rdata_o(pte_rd_data[i]),
+        .error_o(/* TODO: Connect */),
+        .user_error_o(/* TODO: Connect */)
     );
     assign pte[i] = riscv::pte_sv32_t'(pte_rd_data[i]);
   end

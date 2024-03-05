@@ -12,12 +12,12 @@
 // Date: 19.03.2017
 // Description: CVA6 Top-level module
 
-
 module cva6
   import ariane_pkg::*;
 #(
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
+    parameter bit EnableEcc = 0,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
     // RVFI
     parameter type rvfi_probes_t = struct packed {
@@ -1232,6 +1232,7 @@ module cva6
         // not as important since this cache subsystem is about to be
         // deprecated
         .CVA6Cfg      (CVA6ExtendCfg),
+        .EnableEcc    (EnableEcc),
         .NumPorts     (NumPorts),
         .axi_ar_chan_t(axi_ar_chan_t),
         .axi_aw_chan_t(axi_aw_chan_t),

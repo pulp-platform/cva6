@@ -507,16 +507,18 @@ module ariane_testharness #(
 `endif
     .NUM_WORDS  ( NUM_WORDS      )
   ) i_sram (
-    .clk_i      ( clk_i                                                                       ),
-    .rst_ni     ( rst_ni                                                                      ),
-    .req_i      ( req                                                                         ),
-    .we_i       ( we                                                                          ),
-    .addr_i     ( addr[$clog2(NUM_WORDS)-1+$clog2(AXI_DATA_WIDTH/8):$clog2(AXI_DATA_WIDTH/8)] ),
-    .wuser_i    ( wuser                                                                       ),
-    .wdata_i    ( wdata                                                                       ),
-    .be_i       ( be                                                                          ),
-    .ruser_o    ( ruser                                                                       ),
-    .rdata_o    ( rdata                                                                       )
+    .clk_i        ( clk_i                                                                       ),
+    .rst_ni       ( rst_ni                                                                      ),
+    .req_i        ( req                                                                         ),
+    .we_i         ( we                                                                          ),
+    .addr_i       ( addr[$clog2(NUM_WORDS)-1+$clog2(AXI_DATA_WIDTH/8):$clog2(AXI_DATA_WIDTH/8)] ),
+    .wuser_i      ( wuser                                                                       ),
+    .wdata_i      ( wdata                                                                       ),
+    .be_i         ( be                                                                          ),
+    .ruser_o      ( ruser                                                                       ),
+    .rdata_o      ( rdata                                                                       ),
+    .error_o      (                                                                             ),
+    .user_error_o (                                                                             )
   );
 
   // ---------------

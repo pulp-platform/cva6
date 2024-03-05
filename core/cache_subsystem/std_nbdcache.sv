@@ -19,6 +19,7 @@ module std_nbdcache
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned NumPorts = 4,
+    parameter bit EnableEcc = 0,
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -186,7 +187,9 @@ module std_nbdcache
   for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin : sram_block
     sram #(
         .DATA_WIDTH(DCACHE_LINE_WIDTH),
-        .NUM_WORDS (DCACHE_NUM_WORDS)
+        .NUM_WORDS (DCACHE_NUM_WORDS),
+        .ENABLE_ECC(EnableEcc),
+        .ECC_GRANULARITY(32)
     ) data_sram (
         .req_i  (req_ram[i]),
         .rst_ni (rst_ni),
@@ -197,12 +200,15 @@ module std_nbdcache
         .be_i   (be_ram.data),
         .ruser_o(),
         .rdata_o(rdata_ram[i].data),
+        .error_o(/* TODO: Connect */),
+        .user_error_o(/* TODO: Connect */),
         .*
     );
 
     sram #(
         .DATA_WIDTH(DCACHE_TAG_WIDTH),
-        .NUM_WORDS (DCACHE_NUM_WORDS)
+        .NUM_WORDS (DCACHE_NUM_WORDS),
+        .ENABLE_ECC(EnableEcc)
     ) tag_sram (
         .req_i  (req_ram[i]),
         .rst_ni (rst_ni),
@@ -213,6 +219,8 @@ module std_nbdcache
         .be_i   (be_ram.tag),
         .ruser_o(),
         .rdata_o(rdata_ram[i].tag),
+        .error_o(/* TODO: Connect */),
+        .user_error_o(/* TODO: Connect */),
         .*
     );
 
@@ -236,7 +244,9 @@ module std_nbdcache
       .USER_WIDTH(1),
       .DATA_WIDTH(DCACHE_SET_ASSOC * $bits(vldrty_t)),
       .BYTE_WIDTH(1),
-      .NUM_WORDS (DCACHE_NUM_WORDS)
+      .NUM_WORDS (DCACHE_NUM_WORDS),
+      .ENABLE_ECC(EnableEcc),
+      .ECC_GRANULARITY(8) // TODO: fix to use 32
   ) valid_dirty_sram (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
@@ -247,7 +257,9 @@ module std_nbdcache
       .wdata_i(dirty_wdata),
       .be_i   (be_valid_dirty_ram),
       .ruser_o(),
-      .rdata_o(dirty_rdata)
+      .rdata_o(dirty_rdata),
+      .error_o(/* TODO: Connect */),
+      .user_error_o(/* TODO: Connect */)
   );
 
   // ------------------------------------------------

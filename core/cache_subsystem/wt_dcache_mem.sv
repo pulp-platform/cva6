@@ -312,7 +312,9 @@ module wt_dcache_mem
         .wdata_i(bank_wdata[k]),
         .be_i   (bank_be[k]),
         .ruser_o(bank_ruser[k]),
-        .rdata_o(bank_rdata[k])
+        .rdata_o(bank_rdata[k]),
+        .error_o(),
+        .user_error_o()
     );
   end
 
@@ -336,7 +338,9 @@ module wt_dcache_mem
         .wdata_i({vld_wdata[i], wr_cl_tag_i}),
         .be_i   ('1),
         .ruser_o(),
-        .rdata_o(vld_tag_rdata[i])
+        .rdata_o(vld_tag_rdata[i]),
+        .error_o(),
+        .user_error_o()
     );
   end
 

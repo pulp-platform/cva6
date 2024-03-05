@@ -30,6 +30,7 @@ module cva6_icache
   import wt_cache_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
+    parameter bit EnableEcc = 0,
     /// ID to be used for read transactions
     parameter logic [MEM_TID_WIDTH-1:0] RdTxId = 0
 ) (
@@ -455,7 +456,8 @@ module cva6_icache
     sram #(
         // tag + valid bit
         .DATA_WIDTH(ICACHE_TAG_WIDTH + 1),
-        .NUM_WORDS (ICACHE_NUM_WORDS)
+        .NUM_WORDS (ICACHE_NUM_WORDS),
+        .ENABLE_ECC (EnableEcc)
     ) tag_sram (
         .clk_i  (clk_i),
         .rst_ni (rst_ni),
@@ -468,7 +470,9 @@ module cva6_icache
         .wdata_i({vld_wdata[i], cl_tag_q}),
         .be_i   ('1),
         .ruser_o(),
-        .rdata_o(cl_tag_valid_rdata[i])
+        .rdata_o(cl_tag_valid_rdata[i]),
+        .error_o      (/* TODO: Connect */),
+        .user_error_o (/* TODO: Connect */)
     );
 
     assign cl_tag_rdata[i] = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH-1:0];
@@ -479,7 +483,9 @@ module cva6_icache
         .USER_WIDTH(ICACHE_USER_LINE_WIDTH),
         .DATA_WIDTH(ICACHE_LINE_WIDTH),
         .USER_EN   (ariane_pkg::FETCH_USER_EN),
-        .NUM_WORDS (ICACHE_NUM_WORDS)
+        .NUM_WORDS (ICACHE_NUM_WORDS),
+        .ENABLE_ECC(EnableEcc),
+        .ECC_GRANULARITY(32)
     ) data_sram (
         .clk_i  (clk_i),
         .rst_ni (rst_ni),
@@ -490,7 +496,9 @@ module cva6_icache
         .wdata_i(mem_rtrn_i.data),
         .be_i   ('1),
         .ruser_o(cl_ruser[i]),
-        .rdata_o(cl_rdata[i])
+        .rdata_o(cl_rdata[i]),
+        .error_o(/* TODO: Connect */),
+        .user_error_o(/* TODO: Connect */)
     );
   end
 
