@@ -49,7 +49,7 @@ module decoder
     // TO_BE_COMPLETED - CLIC_CTRL
     input logic clic_irq_req_i,
     // TO_BE_COMPLETED - CLIC_CTRL
-    input  riscv::priv_lvl_t clic_irq_priv_i,
+    input riscv::priv_lvl_t clic_irq_priv_i,
     // TO_BE_COMPLETED - CLIC_CTRL
     input logic clic_irq_v_i,
     // TO_BE_COMPLETED - CLIC_CTRL

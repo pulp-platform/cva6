@@ -1080,14 +1080,14 @@ module csr_regfile
           end
         end
         riscv::CSR_VSINTTHRESH: begin
-            if (CVA6Cfg.RVH && CVA6Cfg.RVSCLIC) begin
-                // Writes are legal but ignored in CLINT mode
-                if (clic_mode_o) begin
-                    vsintthresh_d.th = csr_wdata[7:0];
-                end
-            end else begin
-                update_access_exception = 1'b1;
+          if (CVA6Cfg.RVH && CVA6Cfg.RVSCLIC) begin
+            // Writes are legal but ignored in CLINT mode
+            if (clic_mode_o) begin
+              vsintthresh_d.th = csr_wdata[7:0];
             end
+          end else begin
+            update_access_exception = 1'b1;
+          end
         end
         riscv::CSR_VSTVEC: begin
           if (CVA6Cfg.RVH) begin

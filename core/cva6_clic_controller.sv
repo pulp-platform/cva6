@@ -15,7 +15,7 @@ module cva6_clic_controller #(
     input ariane_pkg::irq_ctrl_t irq_ctrl_i,
     input logic [7:0] mintthresh_i,  // M-mode interrupt threshold
     input logic [7:0] sintthresh_i,  // S-mode interrupt threshold
-    input logic [7:0] vsintthresh_i, // VS-mode interrupt threshold
+    input logic [7:0] vsintthresh_i,  // VS-mode interrupt threshold
     input riscv::intstatus_rv_t mintstatus_i,  // interrupt status
     // from/to CLIC
     input logic clic_irq_valid_i,  // interrupt is valid
@@ -42,8 +42,8 @@ module cva6_clic_controller #(
   // mintthresh, because interrupts with higher level have priority.
   logic [7:0] max_mthresh, max_sthresh, max_vsthresh;
 
-  assign max_mthresh = mintthresh_i > mintstatus_i.mil ? mintthresh_i : mintstatus_i.mil;
-  assign max_sthresh = sintthresh_i > mintstatus_i.sil ? sintthresh_i : mintstatus_i.sil;
+  assign max_mthresh  = mintthresh_i > mintstatus_i.mil ? mintthresh_i : mintstatus_i.mil;
+  assign max_sthresh  = sintthresh_i > mintstatus_i.sil ? sintthresh_i : mintstatus_i.sil;
   assign max_vsthresh = vsintthresh_i > mintstatus_i.vsil ? vsintthresh_i : mintstatus_i.vsil;
 
   // Determine if CLIC interrupt shall be accepted
@@ -98,22 +98,22 @@ module cva6_clic_controller #(
       end
       riscv::PRIV_LVL_U: begin
         // Take all M-mode and S-mode interrupts
-        if(clic_irq_priv_i == riscv::PRIV_LVL_M) begin
+        if (clic_irq_priv_i == riscv::PRIV_LVL_M) begin
           clic_irq_req_o = clic_irq_valid_i;
         end else if (clic_irq_priv_i == riscv::PRIV_LVL_S) begin
-          if(v_i) begin   // VU-mode
-            if(clic_irq_v_i) begin // irq is delegated to VM clic_irq_vsid_i
+          if (v_i) begin  // VU-mode
+            if (clic_irq_v_i) begin  // irq is delegated to VM clic_irq_vsid_i
               if (clic_irq_vsid_i == irq_ctrl_i.vgein) begin
                 // VS-mode interrupt is for currently running VS
                 clic_irq_req_o = clic_irq_valid_i;
-                clic_irq_v_o = 1'b1;
+                clic_irq_v_o   = 1'b1;
               end else begin
                 // Received IRQ delegated to a differet VS: trap to hypervisor if SGEIE == 1 (from hie).
                 clic_irq_req_o = (clic_irq_valid_i) && irq_ctrl_i.sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i];
               end
             end else begin
               // (Host) Supervisor interrupt
-              clic_irq_req_o = clic_irq_valid_i; // HS-mode sie is implicitly enabled in VU-mode
+              clic_irq_req_o = clic_irq_valid_i;  // HS-mode sie is implicitly enabled in VU-mode
             end
           end else begin  // U-mode
             if (clic_irq_v_i) begin
@@ -121,7 +121,7 @@ module cva6_clic_controller #(
               // TODO: Received VS-mode interrupt in U-mode: just ignore ?
             end else begin
               // (Host) Supervisor interrupt
-              clic_irq_req_o = clic_irq_valid_i; // HS-mode sie is implicitly enabled in U-mode
+              clic_irq_req_o = clic_irq_valid_i;  // HS-mode sie is implicitly enabled in U-mode
             end
           end
         end

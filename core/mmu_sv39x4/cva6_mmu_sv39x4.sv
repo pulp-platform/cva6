@@ -341,7 +341,7 @@ module cva6_mmu_sv39x4
             1'b1,
             riscv::PRIV_LVL_M,
             1'b0
-         };
+          };
         end else if (!pmp_instr_allow) begin
           icache_areq_o.fetch_exception = {
             riscv::INSTR_ACCESS_FAULT,

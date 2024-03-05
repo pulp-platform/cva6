@@ -165,7 +165,7 @@ package riscv;
 
   typedef struct packed {
     logic [7:0] mil;
-    logic [7:0] vsil; // wpri;
+    logic [7:0] vsil;  // wpri;
     logic [7:0] sil;
     logic [7:0] uil;
   } intstatus_rv_t;

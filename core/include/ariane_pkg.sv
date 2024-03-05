@@ -204,8 +204,8 @@ package ariane_pkg;
     riscv::xlen_t tinst;  // transformed instruction information
     logic gva;  // signals when a guest virtual address is written to tval
     logic valid;
-    riscv::priv_lvl_t priv_lvl; // In CLIC mode, keeps information about
-                                // incoming interrupt target privilege level
+    riscv::priv_lvl_t priv_lvl;  // In CLIC mode, keeps information about
+                                 // incoming interrupt target privilege level
     logic trap_to_v;
   } exception_t;
 
@@ -299,7 +299,7 @@ package ariane_pkg;
     logic         sie;
     logic         sgeie;
     riscv::xlen_t hgeie;
-    logic [5:0]   vgein; // Current VS external interrupt ID
+    logic [5:0]   vgein;          // Current VS external interrupt ID
     logic         global_enable;
   } irq_ctrl_t;
 

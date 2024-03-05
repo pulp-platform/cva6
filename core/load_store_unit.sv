@@ -590,9 +590,9 @@ module load_store_unit
         misaligned_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
           misaligned_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_ctrl.vaddr};
-        misaligned_exception.tval2 = '0;
-        misaligned_exception.tinst = lsu_ctrl.tinst;
-        misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.tval2     = '0;
+        misaligned_exception.tinst     = lsu_ctrl.tinst;
+        misaligned_exception.gva       = ld_st_v_i;
         misaligned_exception.valid     = 1'b1;
         misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
         misaligned_exception.trap_to_v = 1'b0;
@@ -602,9 +602,9 @@ module load_store_unit
         misaligned_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
           misaligned_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_ctrl.vaddr};
-        misaligned_exception.tval2 = '0;
-        misaligned_exception.tinst = lsu_ctrl.tinst;
-        misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.tval2     = '0;
+        misaligned_exception.tinst     = lsu_ctrl.tinst;
+        misaligned_exception.gva       = ld_st_v_i;
         misaligned_exception.valid     = 1'b1;
         misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
         misaligned_exception.trap_to_v = 1'b0;
@@ -618,9 +618,9 @@ module load_store_unit
         misaligned_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
           misaligned_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_ctrl.vaddr};
-        misaligned_exception.tval2 = '0;
-        misaligned_exception.tinst = lsu_ctrl.tinst;
-        misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.tval2     = '0;
+        misaligned_exception.tinst     = lsu_ctrl.tinst;
+        misaligned_exception.gva       = ld_st_v_i;
         misaligned_exception.valid     = 1'b1;
         misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
         misaligned_exception.trap_to_v = 1'b0;
@@ -630,9 +630,9 @@ module load_store_unit
         misaligned_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
           misaligned_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_ctrl.vaddr};
-        misaligned_exception.tval2 = '0;
-        misaligned_exception.tinst = lsu_ctrl.tinst;
-        misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.tval2     = '0;
+        misaligned_exception.tinst     = lsu_ctrl.tinst;
+        misaligned_exception.gva       = ld_st_v_i;
         misaligned_exception.valid     = 1'b1;
         misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
         misaligned_exception.trap_to_v = 1'b0;
@@ -646,9 +646,9 @@ module load_store_unit
         misaligned_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
           misaligned_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_ctrl.vaddr};
-        misaligned_exception.tval2 = '0;
-        misaligned_exception.tinst = lsu_ctrl.tinst;
-        misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.tval2     = '0;
+        misaligned_exception.tinst     = lsu_ctrl.tinst;
+        misaligned_exception.gva       = ld_st_v_i;
         misaligned_exception.valid     = 1'b1;
         misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
         misaligned_exception.trap_to_v = 1'b0;
@@ -657,9 +657,9 @@ module load_store_unit
         misaligned_exception.valid = 1'b1;
         if (CVA6Cfg.TvalEn)
           misaligned_exception.tval = {{riscv::XLEN - riscv::VLEN{1'b0}}, lsu_ctrl.vaddr};
-        misaligned_exception.tval2 = '0;
-        misaligned_exception.tinst = lsu_ctrl.tinst;
-        misaligned_exception.gva   = ld_st_v_i;
+        misaligned_exception.tval2     = '0;
+        misaligned_exception.tinst     = lsu_ctrl.tinst;
+        misaligned_exception.gva       = ld_st_v_i;
         misaligned_exception.valid     = 1'b1;
         misaligned_exception.priv_lvl  = riscv::PRIV_LVL_M;
         misaligned_exception.trap_to_v = 1'b0;
