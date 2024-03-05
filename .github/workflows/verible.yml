@@ -3,8 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: Verible
-on:
-  pull_request_target:
+on: [push, pull_request]
 
 jobs:
   format:
@@ -13,6 +12,8 @@ jobs:
       checks: write
       contents: read
       pull-requests: write
+    # Skip on forks due to missing secrets.
+    if: github.repository == 'pulp-platform/cva6' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@v3
         with:
@@ -22,3 +23,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           files: '$(find core -regex ".*\.\(v\|sv\)$" | grep -v "^core/include/.*_config_pkg.sv$")'
           fail_on_formatting_suggestions: true
+          reviewdog_reporter: github-check
