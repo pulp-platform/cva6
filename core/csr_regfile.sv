@@ -437,7 +437,7 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_SIP:
         if (CVA6Cfg.RVS)
-          csr_rdata = clic_mode_o ? '0 : ((CVA6Cfg.RVH) ? mip_q & mideleg_q & ~HS_DELEG_INTERRUPTS : mip_q & mideleg_q);
+          csr_rdata = clic_mode_o ? '0 : ((CVA6Cfg.RVH) ? mip_q & mideleg_q & ~HIE_MASK : mip_q & mideleg_q);
         else read_access_exception = 1'b1;
         riscv::CSR_STVEC:
         if (CVA6Cfg.RVS)
@@ -521,7 +521,7 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = mie_q & HIE_MASK;
         else read_access_exception = 1'b1;
         riscv::CSR_HIP:
-        if (CVA6Cfg.RVH) csr_rdata = mip_q & HS_DELEG_INTERRUPTS;
+        if (CVA6Cfg.RVH) csr_rdata = mip_q & HIE_MASK;
         else read_access_exception = 1'b1;
         riscv::CSR_HVIP:
         if (CVA6Cfg.RVH) csr_rdata = mip_q & VS_DELEG_INTERRUPTS;
@@ -1284,7 +1284,7 @@ module csr_regfile
         end
         riscv::CSR_HIP: begin
           if (CVA6Cfg.RVH) begin
-            mask  = riscv::MIP_VSSIP;
+            mask  = HIE_MASK;
             mip_d = (mip_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;
