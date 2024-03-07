@@ -14,7 +14,7 @@ jobs:
     if: github.repository == 'pulp-platform/cva6'
     steps:
       - name: Integrate into cheshire
-        uses: pulp-platform/pulp-actions/integrate@v2.2.0
+        uses: pulp-platform/pulp-actions/integrate@nw/integrate
         with:
           ip-name: cva6
           org: pulp-platform
