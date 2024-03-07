@@ -167,6 +167,9 @@ module cva6
   CVA6Cfg.XF8 ? 8 :  // Xf8 ext.
   1;  // Unused in case of no FP
 
+  bogus here
+    
+
   // Transprecision floating-point extensions configuration
   localparam bit RVFVec     = RVF             & CVA6Cfg.XFVec & FLen>32; // FP32 vectors available if vectors and larger fmt enabled
   localparam bit XF16Vec    = CVA6Cfg.XF16    & CVA6Cfg.XFVec & FLen>16; // FP16 vectors available if vectors and larger fmt enabled
