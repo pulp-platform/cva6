@@ -30,6 +30,7 @@ package std_cache_pkg;
         logic [55:0]     addr;
         logic [7:0][7:0] wdata;
         logic [7:0]      be;
+        logic            make_unique;
     } mshr_t;
 
     typedef struct packed {

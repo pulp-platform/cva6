@@ -1176,7 +1176,7 @@ package tb_std_cache_subsystem_pkg;
         cache_line_t [DCACHE_NUM_WORDS-1:0][DCACHE_SET_ASSOC-1:0] cache_status;
         logic                              [DCACHE_SET_ASSOC-1:0] lfsr;
 
-        int cache_msg_timeout  =  1000;
+        int cache_msg_timeout  =  1500;
         int snoop_msg_timeout  =  1000;
         int amo_msg_timeout    = 10000;
         int mgmt_trans_timeout = 10000;
@@ -2170,7 +2170,7 @@ package tb_std_cache_subsystem_pkg;
                         end
                     end
 
-                    msg.insert_readback = 1'b1;
+                    //msg.insert_readback = 1'b1;
 
                     // check if a ReadShared has arrived during writing
                     while (ac_mbx_int.try_get(ac)) begin

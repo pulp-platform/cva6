@@ -92,9 +92,6 @@ import std_cache_pkg::*;
     logic [2:0]                        bypass_valid;
     logic [2:0][63:0]                  bypass_data;
 
-    logic [4:0]                        start_req;
-    logic [4:0]                        start_ack;
-
     logic                              invalidate;
     logic [63:0]                       invalidate_addr;
 
@@ -129,9 +126,6 @@ import std_cache_pkg::*;
         // from ACE
         .snoop_port_i         ( snoop_port_i          ),
         .snoop_port_o         ( snoop_port_o          ),
-        //
-        .start_req_o          ( start_req         [1] ),
-        .start_ack_i          ( start_ack         [1] ),
         // to SRAM array
         .req_o                ( req               [1] ),
         .addr_o               ( addr              [1] ),
@@ -164,9 +158,6 @@ import std_cache_pkg::*;
                 .hit_o                 ( /* NC */             ),
                 .unique_o              ( /* NC */             ),
                 .stall_i               ( stall_i | flush_i    ),
-                //
-                .start_req_o           ( start_req       [i+1] ),
-                .start_ack_i           ( start_ack       [i+1] ),
                 // from core
                 .req_port_i            ( req_ports_i     [i-1] ),
                 .req_port_o            ( req_ports_o     [i-1] ),
@@ -219,10 +210,6 @@ import std_cache_pkg::*;
         .busy_o                 ( miss_handler_busy    ),
         .flush_i                ( flush_i              ),
         .busy_i                 ( |busy                ),
-
-        .start_req_o            ( start_req        [0] ),
-        .start_ack_i            ( start_ack        [0] ),
-
         // AMOs
         .amo_req_i              ( amo_req_i            ),
         .amo_resp_o             ( amo_resp_o           ),
@@ -256,23 +243,6 @@ import std_cache_pkg::*;
     );
 
     assign tag[0] = '0;
-
-    // arbitrate cache controllers
-    always_comb begin
-        // miss handler and snoop controller always get to start (this code is
-        // redundant but put here for clarity)
-        start_ack[0] = 1'b1;
-        start_ack[1] = 1'b1;
-        // cache_ctrl 0 and 1 can run in parallel but may not start
-        // if cache_ctrl[2] is running
-        start_ack[2] = 1'b1; //start_req[2] && !busy[3] && !start_req[4] && !ongoing_write_o;
-        start_ack[3] = i_miss_handler.state_q != 5'h11; //(master_ports[3].i_cache_ctrl.state_q < 4'h5 || master_ports[3].i_cache_ctrl.state_q > 4'h5) ; //start_req[3] && !busy[3] && !start_req[4];// && !ongoing_write_o;
-        //start_ack[3] = 1'b1; //!busy[3];
-        // cache_ctrl 2 can only start if cache_ctrl 0 and 1 are idle
-        start_ack[4] = 1'b1; //start_req[4] &&
-                      //!start_req[2] && !busy[1] &&
-                      //!start_req[3] && !busy[2];
-    end
 
     // --------------
     // Memory Arrays

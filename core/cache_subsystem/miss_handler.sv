@@ -37,9 +37,6 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                        serving_amo_o,
     output logic [63:0]                                 serving_amo_addr_o,
     output logic                                        ongoing_write_o,
-    //
-    output logic                                        start_req_o,
-    input  logic                                        start_ack_i,
     // Bypass or miss
     input  logic [NR_PORTS-1:0][$bits(miss_req_t)-1:0]  miss_req_i,
     // Bypass handling
@@ -110,7 +107,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
     logic [DCACHE_INDEX_WIDTH-1:0]          cnt_d, cnt_q;
     logic [DCACHE_SET_ASSOC-1:0]            evict_way_d, evict_way_q;
 
-    logic [NR_PORTS-1:0]                    colliding_clean_d, colliding_clean_q;
+    logic                                   colliding_clean_d, colliding_clean_q;
 
     // cache line to evict
     cache_line_t                            evict_cl_d, evict_cl_q;
@@ -248,14 +245,11 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         amo_resp_o.ack = 1'b0;
         amo_resp_o.result = '0;
         amo_operand_b = '0;
-        start_req_o = 1'b0;
 
         // Detect if a MAKE_UNIQUE request collides with an invalidation from snoop
-        for (int unsigned i = 0; i < NR_PORTS; i++) begin
-            if (snoop_invalidate_i && miss_req_valid[i] && miss_req_make_unique[i] && !colliding_clean_q[i]) begin
-                colliding_clean_d[i] = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ==
-                                        miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]);
-            end
+        if (snoop_invalidate_i && mshr_q.valid && mshr_q.make_unique && !colliding_clean_q) begin
+            colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] ==
+                                    mshr_q.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]);
         end
 
         case (state_q)
@@ -263,21 +257,15 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             IDLE: begin
                 // lowest priority are AMOs, wait until everything else is served before going for the AMOs
                 if (amo_req_i.req && !busy_i) begin
-                    start_req_o = 1'b1;
-                    if (start_ack_i) begin
-                        state_d = AMO_WB_REQ;
-                        serve_amo_d = 1'b1;
-                        cnt_d = '0;
-                    end
+                    state_d = AMO_WB_REQ;
+                    serve_amo_d = 1'b1;
+                    cnt_d = '0;
                 end
                 // check if we want to flush and can flush e.g.: we are not busy anymore
                 // TODO: Check that the busy flag is indeed needed
                 if (flush_i && !busy_i) begin
-                    start_req_o = 1'b1;
-                    if (start_ack_i) begin
-                        state_d = FLUSH_REQ_STATUS;
-                        cnt_d = '0;
-                    end
+                    state_d = FLUSH_REQ_STATUS;
+                    cnt_d = '0;
                 end
 
                 // check if one of the state machines missed
@@ -289,11 +277,12 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         serve_amo_d  = 1'b0;
                         // save to MSHR
                         mshr_d.valid = 1'b1;
-                        mshr_d.we    = '0;
+                        mshr_d.we    = miss_req_we[i];
                         mshr_d.id    = i;
                         mshr_d.addr  = miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:0];
-                        mshr_d.wdata = '0;
-                        mshr_d.be    = '0;
+                        mshr_d.wdata = miss_req_wdata[i];
+                        mshr_d.be    = miss_req_be[i];
+                        mshr_d.make_unique    = 1'b1;
                         break;
                     end
                     // here comes the refill portion of code
@@ -308,9 +297,12 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         mshr_d.addr  = miss_req_addr[i][DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:0];
                         mshr_d.wdata = miss_req_wdata[i];
                         mshr_d.be    = miss_req_be[i];
+                        mshr_d.make_unique    = 1'b0;
                         break;
                     end
                 end
+                colliding_clean_d = 1'b0;
+
             end
 
             //  ~> we missed on the cache
@@ -338,13 +330,13 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         cnt_d = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
                     // no - we can request a cache line now
                     end else begin
-                        state_d = colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
+                        state_d = colliding_clean_q ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
                     end
                 // we have at least one free way
                 end else begin
                     // get victim cache-line by looking for the first non-valid bit
                     evict_way_d = get_victim_cl(~valid_way);
-                    state_d = colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
+                    state_d = colliding_clean_q ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE;
                 end
             end
 
@@ -365,10 +357,10 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 end
                 if (gnt_miss_fsm) begin
                     state_d = SAVE_CACHELINE;
-                    miss_gnt_o[mshr_q.id] = 1'b1;
+                    miss_gnt_o[mshr_q.id] = state_q != REQ_CACHELINE_UNIQUE ? 1'b1 : 1'b0; //1'b1;
                     if (state_q == REQ_CACHELINE_UNIQUE) begin
                         // we have now handled the colliding invalidation
-                        colliding_clean_d[mshr_q.id] = 1'b0;
+                        colliding_clean_d = 1'b0;
                     end
                 end
             end
@@ -405,10 +397,18 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         // its immediately dirty if we write
                         data_o.dirty[cl_offset>>3 +: 8] |= mshr_q.be; // Use OR since `data_o.dirty` may already have been set for the complete cacheline above
                     end
-                    // reset MSHR
-                    mshr_d.valid = 1'b0;
-                    // go back to idle
-                    state_d = IDLE;
+                    // go back to idle if there's been no collision
+                    if (colliding_clean_q) begin
+                        state_d = MISS;
+                        colliding_clean_d = 1'b0;
+                    end
+                    else begin
+                        state_d = IDLE;
+                        // reset MSHR
+                        mshr_d.valid = 1'b0;
+                        miss_gnt_o[mshr_q.id] = mshr_q.make_unique;
+                        colliding_clean_d = 1'b0;
+                    end
                 end
             end
 
@@ -439,7 +439,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                     end
                     // go back to handling the miss or flushing, depending on where we came from
                     state_d = (state_q == WB_CACHELINE_MISS) ?
-                                (colliding_clean_q[mshr_q.id] ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE) :
+                                (colliding_clean_q ? REQ_CACHELINE_UNIQUE : REQ_CACHELINE) :
                               (state_q == WB_CACHELINE_AMO) ? AMO_REQ : FLUSH_REQ_STATUS;
                 end
             end
@@ -512,7 +512,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
 
               if (valid_miss_fsm) begin
                 // if the cacheline has just been invalidated, request it again
-                if (colliding_clean_q[mshr_q.id]) begin
+                if (colliding_clean_q) begin
                   state_d = MISS;
                 end
                 else begin

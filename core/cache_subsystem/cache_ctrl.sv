@@ -28,9 +28,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     output logic                                 hit_o,     // to performance counter
     output logic                                 unique_o,  // to performance counter
     input  logic                                 stall_i,   // stall new memory requests
-    // 
-    output logic                                 start_req_o,
-    input  logic                                 start_ack_i,
     // Core request ports
     input  dcache_req_i_t                        req_port_i,
     output dcache_req_o_t                        req_port_o,
@@ -153,8 +150,6 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
         colliding_read_d = colliding_read_q;
         colliding_clean_d = colliding_clean_q;
 
-        start_req_o = 1'b0;
-
         case (state_q)
 
             IDLE: begin
@@ -213,7 +208,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
                     if (|hit_way_i) begin
                         hit_o = state_q == WAIT_TAG; // only count as hit when we get here the first time
                         // we can request another cache-line if this was a load
-                        if (req_port_i.data_req && !mem_req_q.we && start_ack_i && !stall_i) begin
+                        if (req_port_i.data_req && !mem_req_q.we && !mshr_addr_matches_i && !stall_i) begin
                             state_d          = WAIT_TAG; // switch back to WAIT_TAG
                             mem_req_d.index  = req_port_i.address_index;
                             mem_req_d.be     = req_port_i.data_be;
@@ -332,14 +327,24 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
               miss_req_o.valid = 1'b1;
               miss_req_o.make_unique = 1'b1;
-              miss_req_o.addr = {mem_req_q.tag, mem_req_q.index};
               miss_req_o.bypass = '0;
-              miss_req_o.be = '0;
-              miss_req_o.size = '0;
-              miss_req_o.we = '0;
-              miss_req_o.wdata = '0;
-              if (miss_gnt_i)
+              miss_req_o.addr = {mem_req_q.tag, mem_req_q.index};
+              miss_req_o.be = mem_req_q.be;
+              miss_req_o.size = mem_req_q.size;
+              miss_req_o.we = mem_req_q.we;
+              miss_req_o.wdata = mem_req_q.wdata;
+              // detect if snoop controller is invalidating our target data
+              if (snoop_invalidate_i && !colliding_clean_q) begin
+                colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+              end
+              // if an invalidate has been processed while we are in this state, 
+              // it's the miss_handler which takes care of the write
+              if (miss_gnt_i & colliding_clean_q) begin
+                state_d = IDLE;
+                colliding_clean_d = 1'b0;
+              end else if (miss_gnt_i) begin
                 state_d = STORE_REQ;
+              end
             end
 
             // ~> we are here as we need a second round of memory access for a store
