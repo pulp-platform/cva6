@@ -39,14 +39,14 @@ module std_cache_subsystem
     input logic icache_flush_i,  // flush the icache, flush and kill have to be asserted together
     output logic icache_miss_o,  // to performance counter
     // address translation requests
-    input icache_areq_t icache_areq_i,  // to/from frontend
-    output icache_arsp_t icache_areq_o,
+    input ariane_pkg::icache_areq_t icache_areq_i,  // to/from frontend
+    output ariane_pkg::icache_arsp_t icache_areq_o,
     // data requests
-    input icache_dreq_t icache_dreq_i,  // to/from frontend
-    output icache_drsp_t icache_dreq_o,
+    input ariane_pkg::icache_dreq_t icache_dreq_i,  // to/from frontend
+    output ariane_pkg::icache_drsp_t icache_dreq_o,
     // AMOs
-    input amo_req_t amo_req_i,
-    output amo_resp_t amo_resp_o,
+    input ariane_pkg::amo_req_t amo_req_i,
+    output ariane_pkg::amo_resp_t amo_resp_o,
     // D$
     // Cache management
     input logic dcache_enable_i,  // from CSR
@@ -55,8 +55,8 @@ module std_cache_subsystem
     output logic dcache_miss_o,  // we missed on a ld/st
     output logic                           wbuffer_empty_o,        // statically set to 1, as there is no wbuffer in this cache system
     // Request ports
-    input dcache_req_i_t [NumPorts-1:0] dcache_req_ports_i,  // to/from LSU
-    output dcache_req_o_t [NumPorts-1:0] dcache_req_ports_o,  // to/from LSU
+    input ariane_pkg::dcache_req_i_t [NumPorts-1:0] dcache_req_ports_i,  // to/from LSU
+    output ariane_pkg::dcache_req_o_t [NumPorts-1:0] dcache_req_ports_o,  // to/from LSU
     // memory side
     output axi_req_t axi_req_o,
     input axi_rsp_t axi_resp_i

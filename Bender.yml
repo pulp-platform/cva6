@@ -47,7 +47,8 @@ sources:
 
       - target: cv64a6_imafdcsclic_sv39
         files:
-          - core/include/cv64a6_imafdcsclic_sv39_config_pkg.sv
+          # - core/include/cv64a6_imafdcsclic_sv39_config_pkg.sv
+          - core/include/cv64a6_imafdcsclic_astral_sv39_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
           - core/mmu_sv39/tlb.sv

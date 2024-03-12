@@ -30,7 +30,8 @@ package config_pkg;
   typedef enum logic [1:0] {
     WB = 0,
     WT = 1,
-    HPDCACHE = 2
+    HPDCACHE = 2,
+    EXTERNAL = 3
   } cache_type_t;
 
   localparam NrMaxRules = 16;

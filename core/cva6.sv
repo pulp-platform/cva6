@@ -18,6 +18,7 @@ module cva6
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
     parameter bit EnableEcc = 0,
+    parameter int unsigned NumDcachePorts = 4,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
     // RVFI
     parameter type rvfi_probes_t = struct packed {
@@ -151,7 +152,33 @@ module cva6
     // noc request, can be AXI or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
-    input noc_resp_t noc_resp_i
+    input noc_resp_t noc_resp_i,
+    // In case of externalized caches, bind the buses outside
+    // Caches meta signals
+    input logic dcache_commit_wbuffer_not_ni_i,
+    input logic inval_ready_i,
+    output riscv::priv_lvl_t priv_lvl_o,
+    input logic busy_i,
+    output logic stall_o,
+    output logic init_no,
+    output logic icache_en_o,
+    output logic icache_flush_o,
+    input logic icache_miss_i,
+    output logic dcache_enable_o,
+    output logic dcache_flush_o,
+    input logic dcache_flush_ack_i,
+    input logic dcache_miss_i,
+    input logic wbuffer_empty_i,
+    // Ports to/from the D$ for data request and atomic access
+    output dcache_req_i_t [NumDcachePorts-1:0] dcache_req_ports_o,
+    input dcache_req_o_t [NumDcachePorts-1:0] dcache_req_ports_i,
+    output amo_req_t amo_req_o,
+    input amo_resp_t amo_resp_i,
+    // Address and Data ports to/from I$
+    output icache_areq_t icache_areq_o,
+    input icache_arsp_t icache_areq_i,
+    output icache_dreq_t icache_dreq_o,
+    input icache_drsp_t icache_dreq_i
 );
 
   // ------------------------------------------
@@ -261,7 +288,7 @@ module cva6
   logic             [CVA6ExtendCfg.NrCommitPorts-1:0] commit_ack;
   logic                                               rst_uarch_n;
 
-  localparam NumPorts = 4;
+  localparam NumPorts = NumDcachePorts;
   cvxif_pkg::cvxif_req_t cvxif_req;
   cvxif_pkg::cvxif_resp_t cvxif_resp;
 
@@ -1169,6 +1196,19 @@ module cva6
         .inval_valid_i     (inval_valid),
         .inval_ready_o     (inval_ready)
     );
+    // Bind buses to external caches to 0
+    assign priv_lvl_o = '0;
+    assign stall_o = '0;
+    assign init_no = '0;
+    assign icache_en_o = '0;
+    assign icache_flush_o = '0;
+    assign dcache_enable_o = '0;
+    assign dcache_flush_o = '0;
+    assign dcache_req_ports_o = '0;
+    assign amo_req_o = '0;
+    assign icache_areq_o = '0;
+    assign icache_areq_i = '0;
+    assign icache_dreq_o = '0;
   end else if (DCACHE_TYPE == int'(config_pkg::HPDCACHE)) begin : gen_cache_hpd
     cva6_hpdcache_subsystem #(
         .CVA6Cfg   (CVA6ExtendCfg),
@@ -1226,7 +1266,20 @@ module cva6
         .noc_resp_i(noc_resp_i)
     );
     assign inval_ready = 1'b1;
-  end else begin : gen_cache_wb
+    // Bind buses to external caches to 0
+    assign priv_lvl_o = '0;
+    assign stall_o = '0;
+    assign init_no = '0;
+    assign icache_en_o = '0;
+    assign icache_flush_o = '0;
+    assign dcache_enable_o = '0;
+    assign dcache_flush_o = '0;
+    assign dcache_req_ports_o = '0;
+    assign amo_req_o = '0;
+    assign icache_areq_o = '0;
+    assign icache_areq_i = '0;
+    assign icache_dreq_o = '0;
+  end else if (DCACHE_TYPE == int'(config_pkg::WB)) begin : gen_cache_wb
     std_cache_subsystem #(
         // note: this only works with one cacheable region
         // not as important since this cache subsystem is about to be
@@ -1274,6 +1327,42 @@ module cva6
     );
     assign dcache_commit_wbuffer_not_ni = 1'b1;
     assign inval_ready                  = 1'b1;
+    // Bind buses to external caches to 0
+    assign priv_lvl_o = '0;
+    assign stall_o = '0;
+    assign init_no = '0;
+    assign icache_en_o = '0;
+    assign icache_flush_o = '0;
+    assign dcache_enable_o = '0;
+    assign dcache_flush_o = '0;
+    assign dcache_req_ports_o = '0;
+    assign amo_req_o = '0;
+    assign icache_areq_o = '0;
+    assign icache_dreq_o = '0;
+  end else if (DCACHE_TYPE == int'(config_pkg::EXTERNAL)) begin : gen_cache_external
+    assign dcache_commit_wbuffer_not_ni = dcache_commit_wbuffer_not_ni_i;
+    assign inval_ready = inval_ready_i;;
+    assign noc_req_o = '0;
+    assign priv_lvl_o = priv_lvl;
+    assign busy_cache_ctrl = busy_i;
+    assign stall_o = stall_ctrl_cache;
+    assign init_no = init_ctrl_cache_n;
+    assign icache_en_o = icache_en_csr;
+    assign icache_flush_o = icache_flush_ctrl_cache;
+    assign icache_miss_cache_perf = icache_miss_i;
+    assign dcache_enable_o = dcache_en_csr_nbdcache;
+    assign dcache_flush_o = dcache_flush_ctrl_cache;
+    assign dcache_flush_ack_cache_ctrl = dcache_flush_ack_i;
+    assign dcache_miss_cache_perf = dcache_miss_i;
+    assign dcache_commit_wbuffer_empty = wbuffer_empty_i;
+    assign icache_areq_o = icache_areq_ex_cache;
+    assign icache_areq_cache_ex = icache_areq_i;
+    assign icache_dreq_o = icache_dreq_if_cache;
+    assign icache_dreq_cache_if = icache_dreq_i;
+    assign dcache_req_ports_o = dcache_req_to_cache;
+    assign dcache_req_from_cache = dcache_req_ports_i;
+    assign amo_req_o = amo_req;
+    assign amo_resp = amo_resp_i;
   end
 
   // ----------------

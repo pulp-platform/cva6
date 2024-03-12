@@ -80,7 +80,29 @@ module ariane import ariane_pkg::*; #(
     .cvxif_req_o          ( cvxif_req                 ),
     .cvxif_resp_i         ( cvxif_resp                ),
     .noc_req_o            ( noc_req_o                 ),
-    .noc_resp_i           ( noc_resp_i                )
+    .noc_resp_i           ( noc_resp_i                ),
+    .dcache_commit_wbuffer_not_ni_i ( '0 ),
+    .inval_ready_i                  ( '0 ),
+    .priv_lvl_o                     (    ),
+    .busy_i                         ( '0 ),
+    .stall_o                        (    ),
+    .init_no                        (    ),
+    .icache_en_o                    (    ),
+    .icache_flush_o                 (    ),
+    .icache_miss_i                  ( '0 ),
+    .dcache_enable_o                (    ),
+    .dcache_flush_o                 (    ),
+    .dcache_flush_ack_i             ( '0 ),
+    .dcache_miss_i                  ( '0 ),
+    .wbuffer_empty_i                ( '0 ),
+    .dcache_req_ports_o             (    ),
+    .dcache_req_ports_i             ( '0 ),
+    .amo_req_o                      (    ),
+    .amo_resp_i                     ( '0 ),
+    .icache_areq_o                  (    ),
+    .icache_areq_i                  ( '0 ),
+    .icache_dreq_o                  (    ),
+    .icache_dreq_i                  ( '0 )
   );
 
   if (CVA6Cfg.CvxifEn) begin : gen_example_coprocessor
