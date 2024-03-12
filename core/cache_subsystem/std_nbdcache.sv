@@ -83,6 +83,7 @@ import std_cache_pkg::*;
 
     logic [2:0][$bits(miss_req_t)-1:0] miss_req;
     logic [2:0]                        miss_gnt;
+    logic                              miss_write_done;
     logic [2:0]                        active_serving;
     logic                              flushing;
     logic                              serving_amo;
@@ -175,6 +176,7 @@ import std_cache_pkg::*;
 
                 .miss_req_o            ( miss_req        [i-1]  ),
                 .miss_gnt_i            ( miss_gnt        [i-1]  ),
+                .miss_write_done_i     ( miss_write_done        ),
                 .active_serving_i      ( active_serving  [i-1]  ),
                 .critical_word_i       ( critical_word        ),
                 .critical_word_valid_i ( critical_word_valid  ),
@@ -217,6 +219,7 @@ import std_cache_pkg::*;
         .snoop_invalidate_addr_i( invalidate_addr      ),
         .miss_req_i             ( miss_req             ),
         .miss_gnt_o             ( miss_gnt             ),
+        .miss_write_done_o      ( miss_write_done      ),
         .bypass_gnt_o           ( bypass_gnt           ),
         .bypass_valid_o         ( bypass_valid         ),
         .bypass_data_o          ( bypass_data          ),

@@ -52,13 +52,12 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
 
   typedef enum logic [2:0] {
     IDLE,            // 0
-    SEND_REQ,        // 1
-    WAIT_GNT,        // 2
-    EVAL_FLAGS,      // 3
-    UPDATE_SHARED,   // 4
-    INVALIDATE,      // 5
-    SEND_CR_RESP,    // 6
-    SEND_CD_RESP     // 7
+    WAIT_GNT,        // 1
+    EVAL_FLAGS,      // 2
+    UPDATE_SHARED,   // 3
+    INVALIDATE,      // 4
+    SEND_CR_RESP,    // 5
+    SEND_CD_RESP     // 6
   } state_t;
 
   state_t state_d, state_q;

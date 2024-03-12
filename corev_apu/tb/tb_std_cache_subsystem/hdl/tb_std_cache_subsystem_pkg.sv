@@ -85,6 +85,26 @@ package tb_std_cache_subsystem_pkg;
         cache_line.dirty = be_int              << (offset * (riscv::XLEN/8)) | cache_line.dirty;
 
     endfunction
+    
+    function automatic void update_cache_line_data (
+        inout logic [DCACHE_LINE_WIDTH-1:0]       cache_line,
+        input riscv::xlen_t                 data,
+        input logic [(riscv::XLEN/8)-1:0]   be,
+        input int unsigned                  offset // in units of data width
+    );
+        logic [riscv::XLEN-1:0]         data_mask;
+        logic [DCACHE_LINE_WIDTH-1:0]   line_mask;
+        logic [DCACHE_LINE_WIDTH/8-1:0] be_int;
+
+        for (int i=0; i<(riscv::XLEN/8); i++) begin
+            data_mask[i*8 +: 8] = {8{be[i]}};
+        end
+        line_mask = data_mask; // zero-extend
+        be_int    = be; // zero-extend
+
+        cache_line  = ((line_mask & data) << (offset * riscv::XLEN))    | (cache_line & ~(line_mask << (offset * riscv::XLEN)));
+
+    endfunction
 
 
     function automatic logic [63:0] get_rand_addr_from_cfg(ariane_cfg_t cfg);
@@ -2056,6 +2076,7 @@ package tb_std_cache_subsystem_pkg;
             int cnt = 0;
             logic mshr_match = 0;
             logic redo_hit;
+            logic readunique_done = 0;
 
             $display("%t ns %s started hit task for message : %s", $time, name, msg.print_me());
             addr_v = tag_index2addr(.tag(msg.address_tag), .index(msg.address_index));
@@ -2154,8 +2175,11 @@ package tb_std_cache_subsystem_pkg;
                     // wait for AR beat
                     ar_mbx.get(ar_beat);
                     $display("%t ns %s.do_hit: got AR beat with ID 0x%0h for message : %s", $time, name, ar_beat.ax_id, msg.print_me());
-                    if (!isCleanUnique(ar_beat))
-                        $error("%s Error CLEAN_UNIQUE expected for message : %s", name, msg.print_me());
+                    // the valid flag of the cacheline might have changed in the meantime
+                    // so both CleanUnique and ReadUnique are valid messages
+                    if (!isCleanUnique(ar_beat) && !isReadUnique(ar_beat))
+                        $error("%s Error CLEAN_UNIQUE or READ_UNIQUE expected for message : %s", name, msg.print_me());
+                    readunique_done = isReadUnique(ar_beat);
 
                     // wait for R beat
                     while (!r_beat.r_last) begin
@@ -2163,6 +2187,7 @@ package tb_std_cache_subsystem_pkg;
                         if (r_beat_peek.r_id == ar_beat.ax_id) begin
                             // this is our response
                             r_mbx.get(r_beat);
+                            msg.add_to_cache_line(r_beat.r_data);
                             $display("%t ns %s.do_hit: got R beat with ID 0x%0h and last = %0d for message : %s", $time, name, r_beat.r_id, r_beat.r_last, msg.print_me());
                         end else begin
                             $display("%t ns %s.do_hit: ignoring R beat with ID 0x%0h for message : %s", $time, name, r_beat_peek.r_id, msg.print_me());
@@ -2170,7 +2195,7 @@ package tb_std_cache_subsystem_pkg;
                         end
                     end
 
-                    //msg.insert_readback = 1'b1;
+                    msg.insert_readback = 1'b1;
 
                     // check if a ReadShared has arrived during writing
                     while (ac_mbx_int.try_get(ac)) begin
@@ -2184,11 +2209,17 @@ package tb_std_cache_subsystem_pkg;
 
             end
 
-            if (!isHit(addr_v)) begin
+            if (readunique_done == 0 && !isHit(addr_v)) begin
                 $display("%t ns %s Cache status changed from hit to miss, calling miss routine for message : %s", $time, name, msg.print_me());
                 msg.prio = 0; // miss handler will handle this
                 do_miss(msg);
-                msg.redo_hit = 1'b0;
+                msg.redo_hit = 1'b0;                
+            end
+            else if (!isHit(addr_v)) begin
+                msg.prio = 0; // miss handler will handle this
+                msg.update_cache  = 1'b1;
+                msg.r_dirty =  1'b1; // we're modifying the read cacheline anyway
+                update_cache_line_data(msg.cache_line, msg.data, msg.be, msg.data_offset);
             end
         endtask
 
@@ -2357,27 +2388,15 @@ package tb_std_cache_subsystem_pkg;
 
                     if (msg.insert_readback) begin
                         // write readback data to cache
-                        readback_msg = new();
-                        readback_msg.prio          = 0;            // this will be written by miss handler
-                        readback_msg.port_idx      = msg.port_idx; // keep port that caused the readback for logging reasons
-                        readback_msg.trans_type    = READBACK;
-                        readback_msg.address_tag   = msg.address_tag;   // keep tag
-                        readback_msg.address_index = msg.address_index; // keep address
-                        readback_msg.update_cache  = 1'b1;
-                        readback_msg.r_dirty       = r_beat.r_resp[2];
-                        readback_msg.r_shared      = r_beat.r_resp[3];
-                        readback_msg.cache_line    = msg.cache_line;
-                        readback_msg.be            = '1;
-                        readback_msg.size          = 3;
+                        msg = new();
+                        msg.trans_type    = READBACK;
+                        msg.update_cache  = 1'b1;
+                        msg.be            = '1;
+                        msg.size          = 3;
+                        msg.r_dirty =  1'b1; // we're modifying the read cacheline anyway
+                        update_cache_line_data(msg.cache_line, msg.data, msg.be, msg.data_offset);
 
-
-                        $display("%t ns %s inserting a new dcache message : %s", $time, name, readback_msg.print_me());
-                        req_to_cache_update.put(readback_msg);
-
-                        $display("%t ns %s.do_miss: expect hit after readback, calling hit routine for message : %s", $time, name, msg.print_me());
-                        msg.prio            = msg.port_idx + 2; // the original port will do the last write, revert prio
                         msg.insert_readback = 0;
-                        msg.redo_hit        = 1'b1;
 
 
                     end else begin

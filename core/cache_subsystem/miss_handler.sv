@@ -50,6 +50,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
 
     // Miss handling (~> cacheline refill)
     output logic [NR_PORTS-1:0]                         miss_gnt_o,
+    output logic                                        miss_write_done_o,
     output logic [NR_PORTS-1:0]                         active_serving_o,
 
     output logic [63:0]                                 critical_word_o,
@@ -98,8 +99,10 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         AMO_REQ,            // E
         WB_CACHELINE_AMO,   // F
         AMO_WAIT_RESP,      // 10
-        SEND_CLEAN,         // 11
-        REQ_CACHELINE_UNIQUE // 12
+        REQ_BEFORE_CLEAN, // 11
+        CHECK_BEFORE_CLEAN, // 12
+        SEND_CLEAN,         // 13
+        REQ_CACHELINE_UNIQUE // 14
     } state_d, state_q;
 
     // Registers
@@ -203,6 +206,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
         we_o   = '0;
         // Cache controller
         miss_gnt_o = '0;
+        miss_write_done_o = 1'b0;
         active_serving_o = '0;
         flushing_o = 1'b0;
         // LFSR replacement unit
@@ -272,7 +276,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 for (int unsigned i = 0; i < NR_PORTS; i++) begin
                     // check if we have to generate a CleanUnique transaction
                     if (miss_req_valid[i] && miss_req_make_unique[i]) begin
-                        state_d = SEND_CLEAN;
+                        state_d = REQ_BEFORE_CLEAN;
                         // we are taking another request so don't take the AMO
                         serve_amo_d  = 1'b0;
                         // save to MSHR
@@ -357,7 +361,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                 end
                 if (gnt_miss_fsm) begin
                     state_d = SAVE_CACHELINE;
-                    miss_gnt_o[mshr_q.id] = state_q != REQ_CACHELINE_UNIQUE ? 1'b1 : 1'b0; //1'b1;
+                    miss_gnt_o[mshr_q.id] = !mshr_q.make_unique;
                     if (state_q == REQ_CACHELINE_UNIQUE) begin
                         // we have now handled the colliding invalidation
                         colliding_clean_d = 1'b0;
@@ -407,6 +411,7 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
                         // reset MSHR
                         mshr_d.valid = 1'b0;
                         miss_gnt_o[mshr_q.id] = mshr_q.make_unique;
+                        miss_write_done_o = mshr_q.make_unique;
                         colliding_clean_d = 1'b0;
                     end
                 end
@@ -505,6 +510,21 @@ module miss_handler import ariane_pkg::*; import std_cache_pkg::*; #(
             // ----------------------
             // Send CleanUnique
             // ----------------------
+            REQ_BEFORE_CLEAN: begin
+                req_o  = '1;
+                addr_o = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+                state_d = CHECK_BEFORE_CLEAN;
+            end
+
+            CHECK_BEFORE_CLEAN: begin
+                req_o  = '0;
+                //addr_o = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+                if (matching_way)
+                    state_d = SEND_CLEAN;
+                else
+                    state_d = MISS;
+            end
+
             SEND_CLEAN: begin
               req_fsm_miss_valid  = 1'b1;
               req_fsm_miss_addr   = mshr_q.addr;

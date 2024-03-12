@@ -46,6 +46,7 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
     output miss_req_t                            miss_req_o,
     // return
     input  logic                                 miss_gnt_i,
+    input  logic                                 miss_write_done_i,
     input  logic                                 active_serving_i, // the miss unit is currently active for this unit, serving the miss
     input  logic [63:0]                          critical_word_i,
     input  logic                                 critical_word_valid_i,
@@ -333,15 +334,12 @@ module cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; #(
               miss_req_o.size = mem_req_q.size;
               miss_req_o.we = mem_req_q.we;
               miss_req_o.wdata = mem_req_q.wdata;
-              // detect if snoop controller is invalidating our target data
-              if (snoop_invalidate_i && !colliding_clean_q) begin
-                colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
-              end
               // if an invalidate has been processed while we are in this state, 
               // it's the miss_handler which takes care of the write
-              if (miss_gnt_i & colliding_clean_q) begin
+              if (miss_gnt_i & miss_write_done_i) begin
                 state_d = IDLE;
                 colliding_clean_d = 1'b0;
+                req_port_o.data_gnt = 1'b1;
               end else if (miss_gnt_i) begin
                 state_d = STORE_REQ;
               end
