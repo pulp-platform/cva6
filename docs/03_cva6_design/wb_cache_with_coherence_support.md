@@ -127,7 +127,9 @@ It might also occur that a CleanUnique is sent while the cache controller receiv
 The diagram above represents the extension needed for the miss\_handler to support invalidate requests:
 
 -   while in IDLE state, the miss\_handler also listens for make\_unique requests coming from the other cache controllers (to write cachelines which are not in UD or US state)
--   it might happen that a CleanInvalid or ReadUnique requests are received while the miss\_handler has started a ReadUnique or CleanUnique transaction (SEND\_CLEAN). In this case the cacheline must be requested again (MISS)
+-   the vanilla flow of operations would require the miss\_handler to start a CleanUnique transaction, and releasing the cache\_ctrl once finished
+-   it might happen that the miss\_handler starts processing the make\_unique request when this has already been processed (e.g. the store cache\_ctrl receives the store request when the cacheline was valid, but the miss\_handler was busy serving another request; during this time the cacheline might be invalidated); to avoid data corruption, the miss\_handler first checks the status of the cacheline, and evaluates whether to start a CleanUnique (SEND\_CLEAN) or a ReadUnique (MISS) transaction
+-   it might happen that a CleanInvalid or ReadUnique requests are received while the miss\_handler has started a CleanUnique transaction (SEND\_CLEAN); in this case the cacheline must be requested again (MISS)
 
 In a multicore system which implements a cache coherence mechanism it is not necessary to flush the whole cache when a `fence` instruction has been received or when an AMO is executed.
 
