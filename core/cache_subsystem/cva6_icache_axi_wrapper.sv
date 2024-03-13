@@ -25,6 +25,7 @@ module cva6_icache_axi_wrapper
 ) (
     input logic             clk_i,
     input logic             rst_ni,
+    input logic             clear_i,
     input riscv::priv_lvl_t priv_lvl_i,
 
     input logic flush_i,  // flush the icache, flush and kill have to be asserted together
@@ -111,6 +112,7 @@ module cva6_icache_axi_wrapper
   ) i_cva6_icache (
       .clk_i         (clk_i),
       .rst_ni        (rst_ni),
+      .clear_i       (clear_i),
       .flush_i       (flush_i),
       .en_i          (en_i),
       .miss_o        (miss_o),
@@ -139,6 +141,7 @@ module cva6_icache_axi_wrapper
   ) i_axi_shim (
       .clk_i      (clk_i),
       .rst_ni     (rst_ni),
+      .clear_i    (clear_i),
       .rd_req_i   (axi_rd_req),
       .rd_gnt_o   (axi_rd_gnt),
       .rd_addr_i  (axi_rd_addr),
@@ -193,9 +196,9 @@ module cva6_icache_axi_wrapper
   end
 
   // Registers
-  `FFARNC(req_valid_q , req_valid_d, 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(req_data_q  , req_data_d , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(first_q     , first_d    , 1'b0, 1'b0, clk_i, rst_ni)
-  `FFARNC(rd_shift_q  , rd_shift_d , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(req_valid_q, req_valid_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(req_data_q, req_data_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(first_q, first_d, clear_i, 1'b0, clk_i, rst_ni)
+  `FFARNC(rd_shift_q, rd_shift_d, clear_i, '0, clk_i, rst_ni)
 
 endmodule  // cva6_icache_axi_wrapper

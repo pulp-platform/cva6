@@ -23,6 +23,8 @@ module issue_stage
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Microreset active low - CONTROLLER
     input logic rst_uarch_ni,
     // Is scoreboard full - PERF_COUNTERS
@@ -164,6 +166,7 @@ module issue_stage
       .CVA6Cfg  (CVA6Cfg),
       .rs3_len_t(rs3_len_t)
   ) i_scoreboard (
+      .clear_i(clear_i),
       .rst_ni(rst_uarch_ni),
 
       .sb_full_o          (sb_full_o),

@@ -23,6 +23,7 @@ module wt_dcache_ctrl
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     input logic cache_en_i,
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
@@ -254,15 +255,15 @@ module wt_dcache_ctrl
   ///////////////////////////////////////////////////////
   // ff's
   ///////////////////////////////////////////////////////
-  `FFARNC(state_q       , state_d      , 1'b0, IDLE, clk_i, rst_ni)
-  `FFARNC(address_tag_q , address_tag_d, 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(address_idx_q , address_idx_d, 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(address_off_q , address_off_d, 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(id_q          , id_d         , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(vld_data_q    , vld_data_d   , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(data_size_q   , data_size_d  , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(rd_req_q      , rd_req_d     , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(rd_ack_q      , rd_ack_d     , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(address_tag_q, address_tag_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(address_idx_q, address_idx_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(address_off_q, address_off_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(id_q, id_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vld_data_q, vld_data_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(data_size_q, data_size_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rd_req_q, rd_req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rd_ack_q, rd_ack_d, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

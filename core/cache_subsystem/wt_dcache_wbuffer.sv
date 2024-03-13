@@ -58,6 +58,7 @@ module wt_dcache_wbuffer
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni, // Asynchronous reset active low
+    input logic clear_i, // Synchronous clear active high
 
     input logic cache_en_i,  // writes are treated as NC if disabled
     output logic empty_o,  // asserted if no data is present in write buffer
@@ -545,17 +546,17 @@ module wt_dcache_wbuffer
   // ff's
   ///////////////////////////////////////////////////////
 
-  `FFARNC(wbuffer_q    , wbuffer_d   , 1'b0, '{default: '0}, clk_i, rst_ni)
-  `FFARNC(tx_stat_q    , tx_stat_d   , 1'b0, '{default: '0}, clk_i, rst_ni)
-  `FFARNC(ni_pending_q , ni_pending_d, 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(check_ptr_q  , check_ptr_d , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(check_ptr_q1 , check_ptr_q , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(check_en_q   , check_en_d  , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(check_en_q1  , check_en_q  , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(rd_tag_q     , rd_tag_d    , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(rd_hit_oh_q  , rd_hit_oh_d , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(wr_cl_vld_q  , wr_cl_vld_d , 1'b0, '0            , clk_i, rst_ni)
-  `FFARNC(wr_cl_idx_q  , wr_cl_idx_d , 1'b0, '0            , clk_i, rst_ni)
+  `FFARNC(wbuffer_q, wbuffer_d, clear_i, '{default: '0}, clk_i, rst_ni)
+  `FFARNC(tx_stat_q, tx_stat_d, clear_i, '{default: '0}, clk_i, rst_ni)
+  `FFARNC(ni_pending_q, ni_pending_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_ptr_q, check_ptr_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_ptr_q1, check_ptr_q, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_en_q, check_en_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_en_q1, check_en_q, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rd_tag_q, rd_tag_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rd_hit_oh_q, rd_hit_oh_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(wr_cl_vld_q, wr_cl_vld_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(wr_cl_idx_q, wr_cl_idx_d, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

@@ -24,6 +24,7 @@ module std_nbdcache
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     // Cache management
     input logic enable_i,  // from CSR
     input logic flush_i,  // high until acknowledged

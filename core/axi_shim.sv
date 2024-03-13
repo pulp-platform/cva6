@@ -18,6 +18,7 @@
  *
  */
 
+`include "common_cells/registers.svh"
 
 module axi_shim #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
@@ -27,6 +28,7 @@ module axi_shim #(
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     // read channel
     // request
     input logic rd_req_i,
@@ -283,16 +285,8 @@ module axi_shim #(
   // ----------------
   // Registers
   // ----------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      // start in flushing state and initialize the memory
-      wr_state_q <= IDLE;
-      wr_cnt_q   <= '0;
-    end else begin
-      wr_state_q <= wr_state_d;
-      wr_cnt_q   <= wr_cnt_d;
-    end
-  end
+  `FFARNC(wr_state_q, wr_state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(wr_cnt_q  , wr_cnt_d  , clear_i, '0, clk_i, rst_ni)
 
   // ----------------
   // Assertions

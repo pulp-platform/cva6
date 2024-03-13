@@ -9,12 +9,15 @@
 // Example coprocessor adds rs1,rs2(,rs3) together and gives back the result to the CPU via the CoreV-X-Interface.
 // Coprocessor delays the sending of the result depending on result least significant bits.
 
+`include "common_cells/registers.svh"
+
 module cvxif_example_coprocessor
   import cvxif_pkg::*;
   import cvxif_instr_pkg::*;
 (
     input  logic        clk_i,        // Clock
     input  logic        rst_ni,       // Asynchronous reset active low
+    input  logic        clear_i,
     input  cvxif_req_t  cvxif_req_i,
     output cvxif_resp_t cvxif_resp_o
 );
@@ -100,13 +103,7 @@ module cvxif_example_coprocessor
   assign req_i.req = x_issue_req_i;
   assign req_i.resp = x_issue_resp_o;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : regs
-    if (!rst_ni) begin
-      x_issue_ready_o <= 1;
-    end else begin
-      x_issue_ready_o <= x_issue_ready_q;
-    end
-  end
+  `FFARNC(x_issue_ready_o, x_issue_ready_q, 1'b0, 1'b1, clk_i, rst_ni)
 
   fifo_v3 #(
       .FALL_THROUGH(1),         //data_o ready and pop in the same cycle
@@ -116,7 +113,7 @@ module cvxif_example_coprocessor
   ) fifo_commit_i (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
-      .flush_i   (1'b0),
+      .flush_i   (clear_i),
       .testmode_i(1'b0),
       .full_o    (fifo_full),
       .empty_o   (fifo_empty),

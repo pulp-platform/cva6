@@ -25,6 +25,7 @@ module wt_dcache_missunit
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     // cache management, signals from/to core
     input logic enable_i,  // from CSR
     input  logic                                       flush_i,     // flush request, this waits for pending tx (write, read) to finish and will clear the cache
@@ -593,17 +594,17 @@ module wt_dcache_missunit
   // ff's
   ///////////////////////////////////////////////////////
 
-  `FFARNC(state_q              , state_d              , 1'b0, INIT, clk_i, rst_ni)
-  `FFARNC(cnt_q                , cnt_d                , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(enable_q             , enable_d             , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(flush_ack_q          , flush_ack_d          , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(mshr_vld_q           , mshr_vld_d           , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(mshr_vld_q1          , mshr_vld_q           , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(mshr_q               , mshr_d               , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(mshr_rdrd_collision_q, mshr_rdrd_collision_d, 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(miss_req_masked_q    , miss_req_masked_d    , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(amo_req_q            , amo_req_d            , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(stores_inflight_q    , stores_inflight_d    , 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, INIT, clk_i, rst_ni)
+  `FFARNC(cnt_q, cnt_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(enable_q, enable_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(flush_ack_q, flush_ack_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(mshr_vld_q, mshr_vld_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(mshr_vld_q1, mshr_vld_q, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(mshr_q, mshr_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(mshr_rdrd_collision_q, mshr_rdrd_collision_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(miss_req_masked_q, miss_req_masked_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(amo_req_q, amo_req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(stores_inflight_q, stores_inflight_d, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

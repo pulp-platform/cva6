@@ -36,6 +36,7 @@ module cva6_icache
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
 
     /// flush the icache, flush and kill have to be asserted together
     input  logic         flush_i,
@@ -495,16 +496,16 @@ module cva6_icache
     );
   end
 
-  `FFARNC(cl_tag_q      , cl_tag_d     , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(flush_cnt_q   , flush_cnt_d  , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(vaddr_q       , vaddr_d      , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(cmp_en_q      , cmp_en_d     , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(cache_en_q    , cache_en_d   , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(flush_q       , flush_d      , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(state_q       , state_d      , 1'b0, FLUSH, clk_i, rst_ni)
-  `FFARNC(cl_offset_q   , cl_offset_d  , 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(repl_way_oh_q , repl_way_oh_d, 1'b0, '0   , clk_i, rst_ni)
-  `FFARNC(inv_q         , inv_d        , 1'b0, '0   , clk_i, rst_ni)
+  `FFARNC(cl_tag_q, cl_tag_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(flush_cnt_q, flush_cnt_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vaddr_q, vaddr_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(cmp_en_q, cmp_en_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(cache_en_q, cache_en_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(flush_q, flush_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, FLUSH, clk_i, rst_ni)
+  `FFARNC(cl_offset_q, cl_offset_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(repl_way_oh_q, repl_way_oh_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(inv_q, inv_d, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

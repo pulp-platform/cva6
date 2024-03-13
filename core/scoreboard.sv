@@ -12,6 +12,8 @@
 // Date: 08.04.2017
 // Description: Scoreboard - keeps track of all decoded, issued and committed instructions
 
+`include "common_cells/registers.svh"
+
 module scoreboard #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type rs3_len_t = logic
@@ -20,6 +22,8 @@ module scoreboard #(
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     output logic sb_full_o,
     // Flush only un-issued instructions - TO_BE_COMPLETED
@@ -429,19 +433,10 @@ module scoreboard #(
 
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin : regs
-    if (!rst_ni) begin
-      mem_q            <= '{default: sb_mem_t'(0)};
-      issue_cnt_q      <= '0;
-      commit_pointer_q <= '0;
-      issue_pointer_q  <= '0;
-    end else begin
-      issue_cnt_q      <= issue_cnt_n;
-      issue_pointer_q  <= issue_pointer_n;
-      mem_q            <= mem_n;
-      commit_pointer_q <= commit_pointer_n;
-    end
-  end
+  `FFARNC(issue_cnt_q     , issue_cnt_n     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(issue_pointer_q , issue_pointer_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(mem_q           , mem_n           , clear_i, '{default: sb_mem_t'(0)}, clk_i, rst_ni)
+  `FFARNC(commit_pointer_q, commit_pointer_n, clear_i, '0, clk_i, rst_ni)
 
   //RVFI
   assign rvfi_issue_pointer_o  = issue_pointer_q;

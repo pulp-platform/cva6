@@ -8,6 +8,7 @@
 // Original Author: Yannick Casamatta - Thales
 // Date: 09/01/2024
 
+`include "common_cells/registers.svh"
 
 module cva6_rvfi
   import ariane_pkg::*;
@@ -19,6 +20,7 @@ module cva6_rvfi
 
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
 
     input rvfi_probes_t rvfi_probes_i,
     output rvfi_instr_t [CVA6Cfg.NrCommitPorts-1:0] rvfi_o
@@ -204,13 +206,7 @@ module cva6_rvfi
     if (flush) issue_n.valid = 1'b0;
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      issue_q <= '0;
-    end else begin
-      issue_q <= issue_n;
-    end
-  end
+  `FFARNC(issue_q, issue_n, clear_i, '0, clk_i, rst_ni)
 
   //ISSUE STAGE
 
@@ -251,13 +247,7 @@ module cva6_rvfi
     end
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : regs
-    if (!rst_ni) begin
-      mem_q <= '{default: sb_mem_t'(0)};
-    end else begin
-      mem_q <= mem_n;
-    end
-  end
+  `FFARNC(mem_q, mem_n, clear_i, '{default: sb_mem_t'(0)}, clk_i, rst_ni)
 
   //----------------------------------------------------------------------------------------------------------
   // PACK

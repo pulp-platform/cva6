@@ -38,6 +38,7 @@ module cva6_mmu_sv32
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     input logic flush_i,
     input logic enable_translation_i,
     input logic en_ld_st_translation_i,  // enable virtual memory translation for load/stores
@@ -566,11 +567,11 @@ module cva6_mmu_sv32
   // ----------
   // Registers
   // ----------
-  `FFARNC(lsu_vaddr_q     ,lsu_vaddr_n    , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(lsu_req_q       ,lsu_req_n      , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(misaligned_ex_q ,misaligned_ex_n, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_pte_q      ,dtlb_pte_n     , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_hit_q      ,dtlb_hit_n     , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(lsu_is_store_q  ,lsu_is_store_n , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_is_4M_q    ,dtlb_is_4M_n   , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(lsu_vaddr_q     ,lsu_vaddr_n    , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_req_q       ,lsu_req_n      , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(misaligned_ex_q ,misaligned_ex_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_pte_q      ,dtlb_pte_n     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_hit_q      ,dtlb_hit_n     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_is_store_q  ,lsu_is_store_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_4M_q    ,dtlb_is_4M_n   , clear_i, '0, clk_i, rst_ni)
 endmodule

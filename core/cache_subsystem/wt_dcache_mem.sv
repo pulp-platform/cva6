@@ -36,6 +36,7 @@ module wt_dcache_mem
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
 
     // ports
     input logic [NumPorts-1:0][DCACHE_TAG_WIDTH-1:0] rd_tag_i,  // tag in - comes one cycle later
@@ -396,17 +397,17 @@ module wt_dcache_mem
       vld_mirror <= '{default: '0};
       tag_mirror <= '{default: '0};
     end else begin
-      // if (clear_i) begin
-      //   vld_mirror <= '{default: '0};
-      //   tag_mirror <= '{default: '0};
-      // end else begin
+      if (clear_i) begin
+        vld_mirror <= '{default: '0};
+        tag_mirror <= '{default: '0};
+      end else begin
         for (int i = 0; i < DCACHE_SET_ASSOC; i++) begin
           if (vld_req[i] & vld_we) begin
             vld_mirror[vld_addr][i] <= vld_wdata[i];
             tag_mirror[vld_addr][i] <= wr_cl_tag_i;
           end
         end
-      // end
+      end
     end
   end
 

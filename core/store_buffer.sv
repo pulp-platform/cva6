@@ -13,6 +13,7 @@
 // Description: Store queue persists store requests and pushes them to memory
 //              if they are no longer speculative
 
+`include "common_cells/registers.svh"
 
 module store_buffer
   import ariane_pkg::*;
@@ -21,6 +22,7 @@ module store_buffer
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,
     input logic flush_i,  // if we flush we need to pause the transactions on the memory
                           // otherwise we will run in a deadlock with the memory arbiter
     input logic stall_st_pending_i,  // Stall issuing non-speculative request
@@ -232,34 +234,15 @@ module store_buffer
 
 
   // registers
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_spec
-    if (~rst_ni) begin
-      speculative_queue_q         <= '{default: 0};
-      speculative_read_pointer_q  <= '0;
-      speculative_write_pointer_q <= '0;
-      speculative_status_cnt_q    <= '0;
-    end else begin
-      speculative_queue_q         <= speculative_queue_n;
-      speculative_read_pointer_q  <= speculative_read_pointer_n;
-      speculative_write_pointer_q <= speculative_write_pointer_n;
-      speculative_status_cnt_q    <= speculative_status_cnt_n;
-    end
-  end
+  `FFARNC(speculative_queue_q        , speculative_queue_n        , clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(speculative_read_pointer_q , speculative_read_pointer_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(speculative_write_pointer_q, speculative_write_pointer_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(speculative_status_cnt_q   , speculative_status_cnt_n   , clear_i, '0, clk_i, rst_ni)
 
-  // registers
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_commit
-    if (~rst_ni) begin
-      commit_queue_q         <= '{default: 0};
-      commit_read_pointer_q  <= '0;
-      commit_write_pointer_q <= '0;
-      commit_status_cnt_q    <= '0;
-    end else begin
-      commit_queue_q         <= commit_queue_n;
-      commit_read_pointer_q  <= commit_read_pointer_n;
-      commit_write_pointer_q <= commit_write_pointer_n;
-      commit_status_cnt_q    <= commit_status_cnt_n;
-    end
-  end
+  `FFARNC(commit_queue_q        , commit_queue_n        , clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(commit_read_pointer_q , commit_read_pointer_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(commit_write_pointer_q, commit_write_pointer_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(commit_status_cnt_q   , commit_status_cnt_n   , clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

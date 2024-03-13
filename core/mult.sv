@@ -1,4 +1,4 @@
-
+`include "common_cells/registers.svh"
 
 module mult
   import ariane_pkg::*;
@@ -9,6 +9,8 @@ module mult
     input  logic                             clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input  logic                             rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input  logic                             clear_i,
     // Flush - CONTROLLER
     input  logic                             flush_i,
     // FU data needed to execute instruction - ISSUE_STAGE
@@ -148,11 +150,6 @@ module mult
   // ---------------------
   // Registers
   // ---------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      word_op_q <= '0;
-    end else begin
-      word_op_q <= word_op_d;
-    end
-  end
+  `FFARNC(word_op_q, word_op_d, clear_i, '0, clk_i, rst_ni)
+
 endmodule

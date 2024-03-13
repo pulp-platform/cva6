@@ -12,6 +12,7 @@
 // Date: 06.10.2017
 // Description: Performance counters
 
+`include "common_cells/registers.svh"
 
 module perf_counters
   import ariane_pkg::*;
@@ -21,6 +22,7 @@ module perf_counters
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     input logic debug_mode_i,  // debug mode
     // SRAM like interface
     input logic [11:0] addr_i,  // read/write address (up to 6 counters possible)
@@ -232,14 +234,7 @@ module perf_counters
   end
 
   //Registers
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      generic_counter_q <= '{default: 0};
-      mhpmevent_q       <= '{default: 0};
-    end else begin
-      generic_counter_q <= generic_counter_d;
-      mhpmevent_q       <= mhpmevent_d;
-    end
-  end
+  `FFARNC(generic_counter_q, generic_counter_d, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(mhpmevent_q      , mhpmevent_d      , clear_i, '{default: 0}, clk_i, rst_ni)
 
 endmodule

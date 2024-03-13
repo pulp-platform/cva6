@@ -20,6 +20,7 @@ module fpu_wrap
 ) (
     input  logic     clk_i,
     input  logic     rst_ni,
+    input  logic     clear_i,
     input  logic     flush_i,
     input  logic     fpu_valid_i,
     output logic     fpu_ready_o,
@@ -489,20 +490,35 @@ module fpu_wrap
         fpu_vec_op_q <= '0;
         fpu_tag_q    <= '0;
       end else begin
-        state_q <= state_d;
-        // Hold register is [TRIGGERED] by FSM
-        if (hold_inputs) begin
-          operand_a_q  <= operand_a_d;
-          operand_b_q  <= operand_b_d;
-          operand_c_q  <= operand_c_d;
-          fpu_op_q     <= fpu_op_d;
-          fpu_op_mod_q <= fpu_op_mod_d;
-          fpu_srcfmt_q <= fpu_srcfmt_d;
-          fpu_dstfmt_q <= fpu_dstfmt_d;
-          fpu_ifmt_q   <= fpu_ifmt_d;
-          fpu_rm_q     <= fpu_rm_d;
-          fpu_vec_op_q <= fpu_vec_op_d;
-          fpu_tag_q    <= fpu_tag_d;
+        if (clear_i) begin
+          state_q      <= READY;
+          operand_a_q  <= '0;
+          operand_b_q  <= '0;
+          operand_c_q  <= '0;
+          fpu_op_q     <= '0;
+          fpu_op_mod_q <= '0;
+          fpu_srcfmt_q <= '0;
+          fpu_dstfmt_q <= '0;
+          fpu_ifmt_q   <= '0;
+          fpu_rm_q     <= '0;
+          fpu_vec_op_q <= '0;
+          fpu_tag_q    <= '0;
+        end else begin
+          state_q <= state_d;
+          // Hold register is [TRIGGERED] by FSM
+          if (hold_inputs) begin
+            operand_a_q  <= operand_a_d;
+            operand_b_q  <= operand_b_d;
+            operand_c_q  <= operand_c_d;
+            fpu_op_q     <= fpu_op_d;
+            fpu_op_mod_q <= fpu_op_mod_d;
+            fpu_srcfmt_q <= fpu_srcfmt_d;
+            fpu_dstfmt_q <= fpu_dstfmt_d;
+            fpu_ifmt_q   <= fpu_ifmt_d;
+            fpu_rm_q     <= fpu_rm_d;
+            fpu_vec_op_q <= fpu_vec_op_d;
+            fpu_tag_q    <= fpu_tag_d;
+          end
         end
       end
     end

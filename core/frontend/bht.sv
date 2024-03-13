@@ -26,6 +26,8 @@ module bht #(
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Fetch flush request - CONTROLLER
     input logic flush_i,
     // Debug mode state - CSR
@@ -109,7 +111,7 @@ module bht #(
         end
       end else begin
         // evict all entries
-        if (flush_i) begin
+        if (flush_i | clear_i) begin
           for (int i = 0; i < NR_ROWS; i++) begin
             for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
               bht_q[i][j].valid <= 1'b0;

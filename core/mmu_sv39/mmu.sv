@@ -14,6 +14,7 @@
 //              address translation unit. SV39 as defined in RISC-V
 //              privilege specification 1.11-WIP
 
+`include "common_cells/registers.svh"
 
 module mmu
   import ariane_pkg::*;
@@ -25,6 +26,7 @@ module mmu
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     input logic flush_i,
     input logic enable_translation_i,
     input logic en_ld_st_translation_i,  // enable virtual memory translation for load/stores
@@ -510,25 +512,12 @@ module mmu
   // ----------
   // Registers
   // ----------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      lsu_vaddr_q     <= '0;
-      lsu_req_q       <= '0;
-      misaligned_ex_q <= '0;
-      dtlb_pte_q      <= '0;
-      dtlb_hit_q      <= '0;
-      lsu_is_store_q  <= '0;
-      dtlb_is_2M_q    <= '0;
-      dtlb_is_1G_q    <= '0;
-    end else begin
-      lsu_vaddr_q     <= lsu_vaddr_n;
-      lsu_req_q       <= lsu_req_n;
-      misaligned_ex_q <= misaligned_ex_n;
-      dtlb_pte_q      <= dtlb_pte_n;
-      dtlb_hit_q      <= dtlb_hit_n;
-      lsu_is_store_q  <= lsu_is_store_n;
-      dtlb_is_2M_q    <= dtlb_is_2M_n;
-      dtlb_is_1G_q    <= dtlb_is_1G_n;
-    end
-  end
+  `FFARNC(lsu_vaddr_q    , lsu_vaddr_n    , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_req_q      , lsu_req_n      , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(misaligned_ex_q, misaligned_ex_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_pte_q     , dtlb_pte_n     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_hit_q     , dtlb_hit_n     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_is_store_q , lsu_is_store_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_2M_q   , dtlb_is_2M_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_1G_q   , dtlb_is_1G_n   , clear_i, '0, clk_i, rst_ni)
 endmodule

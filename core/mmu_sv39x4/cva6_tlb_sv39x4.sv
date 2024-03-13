@@ -28,6 +28,7 @@ module cva6_tlb_sv39x4
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,
     input logic flush_i,  // Flush normal translations signal
     input logic flush_vvma_i,  // Flush vs stage signal
     input logic flush_gvma_i,  // Flush g stage signal
@@ -358,9 +359,9 @@ module cva6_tlb_sv39x4
   end
 
   // sequential process
-  `FFARNC(tags_q     , tags_n     , 1'b0, '{default: 0}, clk_i, rst_ni)
-  `FFARNC(content_q  , content_n  , 1'b0, '{default: 0}, clk_i, rst_ni)
-  `FFARNC(plru_tree_q, plru_tree_n, 1'b0, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(tags_q     , tags_n     , clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(content_q  , content_n  , clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(plru_tree_q, plru_tree_n, clear_i, '{default: 0}, clk_i, rst_ni)
 
   //--------------
   // Sanity checks

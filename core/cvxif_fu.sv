@@ -9,6 +9,7 @@
 
 // Functional Unit for the logic of the CoreV-X-Interface
 
+`include "common_cells/registers.svh"
 
 module cvxif_fu
   import ariane_pkg::*;
@@ -19,6 +20,8 @@ module cvxif_fu
     input  logic                                       clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input  logic                                       rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input  logic                                       clear_i,
     // FU data needed to execute instruction - ISSUE_STAGE
     input  fu_data_t                                   fu_data_i,
     // Current privilege mode - CSR_REGFILE
@@ -114,16 +117,8 @@ module cvxif_fu
     end
   end
 
-  always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (~rst_ni) begin
-      illegal_q       <= 1'b0;
-      illegal_id_q    <= '0;
-      illegal_instr_q <= '0;
-    end else begin
-      illegal_q       <= illegal_n;
-      illegal_id_q    <= illegal_id_n;
-      illegal_instr_q <= illegal_instr_n;
-    end
-  end
+  `FFARNC(illegal_q      , illegal_n      , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(illegal_id_q   , illegal_id_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(illegal_instr_q, illegal_instr_n, clear_i, '0, clk_i, rst_ni)
 
 endmodule

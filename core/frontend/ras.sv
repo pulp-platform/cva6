@@ -14,6 +14,9 @@
 // Date: 09.06.2018
 
 // return address stack
+
+`include "common_cells/registers.svh"
+
 module ras #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned DEPTH = 2
@@ -22,6 +25,8 @@ module ras #(
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Fetch flush request - CONTROLLER
     input logic flush_i,
     // Push address in RAS - FRONTEND
@@ -68,11 +73,6 @@ module ras #(
     end
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      stack_q <= '0;
-    end else begin
-      stack_q <= stack_d;
-    end
-  end
+  `FFARNC(stack_q, stack_d, clear_i, '0, clk_i, rst_ni)
+
 endmodule

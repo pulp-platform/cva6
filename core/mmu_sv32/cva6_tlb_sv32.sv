@@ -35,6 +35,7 @@ module cva6_tlb_sv32
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,
     input logic flush_i,  // Flush signal
     // Update TLB
     input tlb_update_sv32_t update_i,
@@ -226,9 +227,9 @@ module cva6_tlb_sv32
   end
 
   // sequential process
-  `FFARNC(tags_q      ,tags_n     , 1'b0, '{defautl: 0}, clk_i, rst_ni)
-  `FFARNC(content_q   ,content_n  , 1'b0, '{defautl: 0}, clk_i, rst_ni)
-  `FFARNC(plru_tree_q ,plru_tree_n, 1'b0, '{defautl: 0}, clk_i, rst_ni)
+  `FFARNC(tags_q      ,tags_n     , clear_i, '{defautl: 0}, clk_i, rst_ni)
+  `FFARNC(content_q   ,content_n  , clear_i, '{defautl: 0}, clk_i, rst_ni)
+  `FFARNC(plru_tree_q ,plru_tree_n, clear_i, '{defautl: 0}, clk_i, rst_ni)
 
  //--------------
   // Sanity checks
