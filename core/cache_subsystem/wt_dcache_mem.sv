@@ -392,23 +392,11 @@ module wt_dcache_mem
   logic [ariane_pkg::DCACHE_TAG_WIDTH-1:0] tag_mirror[wt_cache_pkg::DCACHE_NUM_WORDS-1:0][ariane_pkg::DCACHE_SET_ASSOC-1:0];
   logic [ariane_pkg::DCACHE_SET_ASSOC-1:0] tag_write_duplicate_test;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_mirror
-    if (!rst_ni) begin
-      vld_mirror <= '{default: '0};
-      tag_mirror <= '{default: '0};
-    end else begin
-      if (clear_i) begin
-        vld_mirror <= '{default: '0};
-        tag_mirror <= '{default: '0};
-      end else begin
-        for (int i = 0; i < DCACHE_SET_ASSOC; i++) begin
-          if (vld_req[i] & vld_we) begin
-            vld_mirror[vld_addr][i] <= vld_wdata[i];
-            tag_mirror[vld_addr][i] <= wr_cl_tag_i;
-          end
-        end
-      end
-    end
+  logic [ariane_pkg::DCACHE_SET_ASSOC-1:0] load_enable;
+  for (genvar i = 0; i < ariane_pkg::DCACHE_SET_ASSOC; i++) begin : gen_p_mirror_registers
+    assign load_enable[i] = (vld_req[i] & vld_we) ? 1'b1 : 1'b0;
+    `FFLARNC(vld_mirror[vld_addr][i], vld_wdata[i], load_enable[i], clear_i, '{default: '0}, clk_i, rst_ni)
+    `FFLARNC(tag_mirror[vld_addr][i], wr_cl_tag_i, load_enable[i], clear_i, '{default: '0}, clk_i, rst_ni)
   end
 
   for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin : gen_tag_dubl_test

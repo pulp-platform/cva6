@@ -545,17 +545,17 @@ module cva6_icache
       vld_mirror <= '{default: '0};
       tag_mirror <= '{default: '0};
     end else begin
-      // if (clear_i) begin
-      //   vld_mirror <= '{default: '0};
-      //   tag_mirror <= '{default: '0};
-      // end else begin
+      if (clear_i) begin
+        vld_mirror <= '{default: '0};
+        tag_mirror <= '{default: '0};
+      end else begin
         for (int i = 0; i < ICACHE_SET_ASSOC; i++) begin
           if (vld_req[i] & vld_we) begin
             vld_mirror[vld_addr][i] <= vld_wdata[i];
             tag_mirror[vld_addr][i] <= cl_tag_q;
           end
         end
-      // end
+      end
     end
   end
 
