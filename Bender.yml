@@ -14,6 +14,13 @@ dependencies:
   tech_cells_generic:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
 
+vendor_package:
+  # Vendor in hpdcache RTL so we can include sources in bender manifest
+  - name: hpdcache_vendor
+    target_dir: core/cache_subsystem/hpdcache_vendor
+    upstream: { git: https://github.com/openhwgroup/cv-hpdcache, rev: 019e04f64f4b2d44ff2694d4e8bed0ab152a9885 }
+    include_from_upstream: [ rtl ]
+
 frozen: true
 
 sources:
@@ -48,6 +55,71 @@ sources:
           - core/include/cv64a6_imafdcsclic_sv39_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/mmu_sv39/tlb.sv
+          - core/mmu_sv39/mmu.sv
+          - core/mmu_sv39/ptw.sv
+          - core/cva6_accel_first_pass_decoder_stub.sv
+          - core/mmu_sv39x4/cva6_tlb_sv39x4.sv
+          - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
+          - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
+          - core/cva6_clic_controller.sv
+
+      - target: cv64a6_imafdcsclic_sv39_hpdcache
+        include_dirs:
+          - core/cache_subsystem/hpdcache_vendor/rtl/include
+        files:
+          - core/include/cv64a6_imafdcsclic_sv39_hpdcache_config_pkg.sv
+          - core/include/riscv_pkg.sv
+          - core/include/ariane_pkg.sv
+          - core/include/cva6_hpdcache_default_config_pkg.sv
+          # SRAM wrappers
+          - core/cache_subsystem/hpdcache_tc_sram.sv
+          # HPDCache sources
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_pkg.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_l15_req_arbiter.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_l15_resp_demux.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_mem_req_read_arbiter.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_mem_req_write_arbiter.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_mem_resp_demux.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_mem_to_axi_read.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_demux.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_sync_buffer.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_fifo_reg.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_fifo_reg_initialized.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_fxarb.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_rrarb.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_mux.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_prio_1hot_encoder.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_sram.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_sram_wbyteenable.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_sram_wmask.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_regbank_wbyteenable_1rw.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_regbank_wmask_1rw.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_data_downsize.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/common/hpdcache_data_upsize.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hwpf_stride/hwpf_stride_pkg.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hwpf_stride/hwpf_stride.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hwpf_stride/hwpf_stride_arb.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hwpf_stride/hwpf_stride_snooper.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hwpf_stride/hwpf_stride_wrapper.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_amo.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_cmo.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_core_arbiter.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_ctrl.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_ctrl_pe.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_memarray.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_memctrl.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_miss_handler.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_mshr.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_mshr_to_cache_set.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_plru.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_rtab.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_uncached.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_wbuf.sv
+          - core/cache_subsystem/hpdcache_vendor/rtl/src/hpdcache_wbuf_wrapper.sv
+          # CVA6 sources
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
@@ -125,6 +197,15 @@ sources:
       - core/include/wt_cache_pkg.sv
       - core/include/std_cache_pkg.sv
       - core/include/acc_pkg.sv
+
+      # For HPDCache, these depend on the cache packages
+      - target: cv64a6_imafdcsclic_sv39_hpdcache
+        include_dirs:
+          - core/cache_subsystem/hpdcache_vendor/rtl/include
+        files:
+          - core/cache_subsystem/cva6_hpdcache_if_adapter.sv
+          - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
+          - core/cache_subsystem/cva6_hpdcache_subsystem.sv
 
       # for all the below files use Flist.cva6 as baseline and also look at Makefile pd/synth
 
