@@ -397,7 +397,7 @@ import hpdcache_pkg::*;
     //  Assertions
     //  {{{
     //  pragma translate_off
-    one_command_assert: assert property (@(posedge clk_i)
+    one_command_assert: assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1)
             (ack_i -> !(alloc_i || check_i))) else
             $error("MSHR: ack with concurrent alloc or check");
     //  pragma translate_on

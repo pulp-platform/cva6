@@ -18,6 +18,7 @@ vendor_package:
   # Vendor in hpdcache RTL so we can include sources in bender manifest
   - name: hpdcache_vendor
     target_dir: core/cache_subsystem/hpdcache_vendor
+    patch_dir: core/cache_subsystem/hpdcache_patches
     upstream: { git: https://github.com/openhwgroup/cv-hpdcache, rev: 019e04f64f4b2d44ff2694d4e8bed0ab152a9885 }
     include_from_upstream: [ rtl ]
 

@@ -1,0 +1,25 @@
+From 9f477fe291c66141a3f639f08f98a717d6b2444f Mon Sep 17 00:00:00 2001
+From: Paul Scheffler <paulsc@iis.ee.ethz.ch>
+Date: Sat, 16 Mar 2024 01:12:32 +0100
+Subject: [PATCH] Fix MSHR assert reset
+
+---
+ rtl/src/hpdcache_mshr.sv | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rtl/src/hpdcache_mshr.sv b/rtl/src/hpdcache_mshr.sv
+index b025463..591f1f5 100644
+--- a/rtl/src/hpdcache_mshr.sv
++++ b/rtl/src/hpdcache_mshr.sv
+@@ -397,7 +397,7 @@ import hpdcache_pkg::*;
+     //  Assertions
+     //  {{{
+     //  pragma translate_off
+-    one_command_assert: assert property (@(posedge clk_i)
++    one_command_assert: assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1)
+             (ack_i -> !(alloc_i || check_i))) else
+             $error("MSHR: ack with concurrent alloc or check");
+     //  pragma translate_on
+-- 
+2.28.0
+
