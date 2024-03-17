@@ -223,6 +223,7 @@ tbs := $(addprefix $(root-dir), $(tbs))
 # there is a definesd test-list with selected CI tests
 riscv-test-dir            := tmp/riscv-tests/build/isa/
 riscv-benchmarks-dir      := tmp/riscv-tests/build/benchmarks/
+riscv-hyp-tests-dir       := tmp/riscv-hyp-tests/
 riscv-asm-tests-list      := ci/riscv-asm-tests.list
 riscv-amo-tests-list      := ci/riscv-amo-tests.list
 riscv-mul-tests-list      := ci/riscv-mul-tests.list
@@ -607,6 +608,9 @@ $(addsuffix -verilator,$(riscv-fp-tests)): verilate
 $(addsuffix -verilator,$(riscv-benchmarks)): verilate
 	$(ver-library)/Variane_testharness $(riscv-benchmarks-dir)/$(subst -verilator,,$@)
 
+riscv-hyp-tests-verilator: verilate
+	$(ver-library)/Variane_testharness $(riscv-hyp-tests-dir)/build/cva6/rvh_test.elf
+
 run-all-tests-verilator: $(addsuffix -verilator, $(riscv-asm-tests)) $(addsuffix -verilator, $(riscv-amo-tests)) $(addsuffix -verilator, $(run-mul-verilator)) $(addsuffix -verilator, $(riscv-fp-tests))
 
 run-asm-tests-verilator: $(addsuffix -verilator, $(riscv-asm-tests))
@@ -622,6 +626,8 @@ run-fp-d-verilator: $(addsuffix -verilator, $(filter rv64ud%, $(riscv-fp-tests))
 run-fp-f-verilator: $(addsuffix -verilator, $(filter rv64uf%, $(riscv-fp-tests)))
 
 run-benchmarks-verilator: $(addsuffix -verilator,$(riscv-benchmarks))
+
+run-hyp-tests-verilator: riscv-hyp-tests-verilator
 
 # torture-specific
 torture-gen:
