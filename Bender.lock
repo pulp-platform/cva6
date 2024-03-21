@@ -1,7 +1,14 @@
 packages:
+  ace:
+    revision: eeeb4febe72a99921ad385e8cd7469aa81424ad3
+    version: 0.0.1
+    source:
+      Git: https://github.com/planvtech/ace.git
+    dependencies:
+    - axi
   axi:
-    revision: 56533cbbdf9ea41ab1daaa164595faae3d7ace5a
-    version: 0.39.0-beta.8
+    revision: f24b1faf7bcf651f1aabdef5e8f99ce2fd817c2e
+    version: 0.39.0-beta.9
     source:
       Git: https://github.com/pulp-platform/axi.git
     dependencies:
@@ -9,8 +16,8 @@ packages:
     - common_verification
     - tech_cells_generic
   common_cells:
-    revision: 4ac82b420e46fd0005513ca2283cb3c905e7599a
-    version: 1.29.0
+    revision: 0989ff73d0315922791bf42137c0ce0cbb4a76ca
+    version: 1.30.0
     source:
       Git: https://github.com/pulp-platform/common_cells
     dependencies:
