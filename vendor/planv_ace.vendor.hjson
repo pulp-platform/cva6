@@ -1,0 +1,41 @@
+// -*- coding: utf-8 -*-
+// Copyright (C) 2023 PlanV GmbH
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.0.
+// Original Author:
+
+{
+    // Name of the project
+    name: "ace",
+
+    // Target directory: relative to the location of this script.
+    target_dir: "planv/ace",
+
+    // Upstream repository
+    upstream: {
+        // URL
+        url: "https://github.com/planvtech/ace.git",
+        // revision
+        rev: "v0.1.0",
+    }
+
+    // Patch dir for local changes
+    // patch_dir: "patches/planv/ace",
+
+    // Exclusions from upstream content
+    exclude_from_upstream: [
+        ".ci",
+        ".github",
+        ".gitlab-ci.d",
+        ".gitlab-ci.yml",
+        "ace.core",
+        "Bender.yml",
+        "doc",
+        "docs",
+        "ips_list.yml",
+        "scripts",
+        "src_files.yml",
+        "test/tb_ace_ccu_top.sv",
+        "test/tb_ace_ccu_top_sanity.sv",
+        "Makefile",
+    ]
+}
