@@ -43,6 +43,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheByteSize = 32768;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
+  localparam CVA6ConfigDcacheCoherent = 1;
 
   localparam CVA6ConfigDcacheIdWidth = 1;
   localparam CVA6ConfigMemTidWidth = 2;
@@ -76,6 +77,9 @@ package cva6_config_pkg;
   localparam CVA6ConfigMmuPresent = 1;
 
   localparam CVA6ConfigRvfiTrace = 1;
+
+  // For ariane_soc (no need to adjust in other systems
+  localparam ArianeSoCNumHarts = 2;
 
   localparam config_pkg::cva6_cfg_t cva6_cfg = '{
       NrCommitPorts: unsigned'(CVA6ConfigNrCommitPorts),
