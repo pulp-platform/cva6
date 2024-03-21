@@ -45,12 +45,20 @@ class ex_trace_item #(
             riscv::INSTR_PAGE_FAULT:      this.cause_s = "Instruction Page Fault";
             riscv::LOAD_PAGE_FAULT:       this.cause_s = "Load Page Fault";
             riscv::STORE_PAGE_FAULT:      this.cause_s = "Store Page Fault";
+            riscv::INSTR_GUEST_PAGE_FAULT this.cause_s = "Instruction Guest-Page Fault";
+            riscv::LOAD_GUEST_PAGE_FAULT  this.cause_s = "Load Guest-Page Fault";
+            riscv::VIRTUAL_INSTRUCTION    this.cause_s = "Virtual Instruction";
+            riscv::STORE_GUEST_PAGE_FAULT this.cause_s = "Store/AMO Guest-Page Fault";
             INTERRUPTS.S_SW:              this.cause_s = "Supervisor Software Interrupt";
+            INTERRUPTS.VS_SW:             this.cause_s = "Virtual Supervisor Software Interrupt";
             INTERRUPTS.M_SW:              this.cause_s = "Machine Software Interrupt";
             INTERRUPTS.S_TIMER:           this.cause_s = "Supervisor Timer Interrupt";
+            INTERRUPTS.VS_TIMER:          this.cause_s = "Virtual Supervisor Timer Interrupt";
             INTERRUPTS.M_TIMER:           this.cause_s = "Machine Timer Interrupt";
             INTERRUPTS.S_EXT:             this.cause_s = "Supervisor External Interrupt";
+            INTERRUPTS.VS_EXT:            this.cause_s = "Virtual Supervisor External Interrupt";
             INTERRUPTS.M_EXT:             this.cause_s = "Machine External Interrupt";
+            INTERRUPTS.HS_EXT:            this.cause_s = "Supervisor Guest External Interrupt";
             riscv::DEBUG_REQUEST:         this.cause_s = "Request Debug Mode";
             default: this.cause_s = "Interrupt";
         endcase
