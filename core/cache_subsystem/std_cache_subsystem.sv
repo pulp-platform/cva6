@@ -114,6 +114,7 @@ module std_cache_subsystem
 
   cva6_icache_axi_wrapper #(
       .CVA6Cfg  (CVA6Cfg),
+      .AxiAce   (DCACHE_COHERENT),
       .axi_req_t(axi_req_t),
       .axi_rsp_t(axi_rsp_t)
   ) i_cva6_icache_axi_wrapper (

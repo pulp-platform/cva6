@@ -18,6 +18,7 @@ module cva6_icache_axi_wrapper
   import wt_cache_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
+    parameter bit AxiAce = 0,
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -132,6 +133,7 @@ module cva6_icache_axi_wrapper
   axi_shim #(
       .CVA6Cfg    (CVA6Cfg),
       .AxiNumWords(AxiNumWords),
+      .AxiAce     (AxiAce),
       .axi_req_t  (axi_req_t),
       .axi_rsp_t  (axi_rsp_t)
   ) i_axi_shim (

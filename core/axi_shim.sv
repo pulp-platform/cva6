@@ -22,6 +22,7 @@
 module axi_shim #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned AxiNumWords = 4, // data width in dwords, this is also the maximum burst length, must be >=2
+    parameter bit AxiAce = 0, // Add AMBA ACE signals
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -278,6 +279,50 @@ module axi_shim #(
   assign rd_valid_o  = axi_resp_i.r_valid;
   assign rd_id_o     = axi_resp_i.r.id;
   assign rd_exokay_o = (axi_resp_i.r.resp == axi_pkg::RESP_EXOKAY);
+
+
+///////////////////////////////////////////////////////
+// AMBA ACE
+///////////////////////////////////////////////////////
+
+  if (AxiAce) begin : ACE
+    // RACK / WACK
+    logic wack_d, wack_q;
+    logic rack_d, rack_q;
+
+    always_comb begin
+      // assert WACK the cycle after the BVALID/BREADY handshake is finished
+      wack_d = axi_req_o.b_ready & axi_resp_i.b_valid;
+      // assert RACK the cycle after the RVALID/RREADY handshake is finished
+      rack_d = axi_req_o.r_ready & axi_resp_i.r_valid & axi_resp_i.r.last;
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (~rst_ni) begin
+        wack_q <= 1'b0;
+        rack_q <= 1'b0;
+      end else begin
+        wack_q <= wack_d;
+        rack_q <= rack_d;
+      end
+    end
+
+    assign axi_req_o.wack = wack_q;
+    assign axi_req_o.rack = rack_q;
+    assign axi_req_o.aw.snoop = '0;
+    assign axi_req_o.aw.bar = '0;
+    assign axi_req_o.aw.domain = '0;
+    assign axi_req_o.aw.awunique = '0;
+    assign axi_req_o.ar.snoop = '0;
+    assign axi_req_o.ar.bar = '0;
+    assign axi_req_o.ar.domain = 2'b01;
+    assign axi_req_o.ac_ready = '0;
+    assign axi_req_o.cr_valid = '0;
+    assign axi_req_o.cr_resp = '0;
+    assign axi_req_o.cd_valid = '0;
+    assign axi_req_o.cd = '0;
+  end
+
 
 
   // ----------------
