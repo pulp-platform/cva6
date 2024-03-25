@@ -89,7 +89,7 @@ ifdef spike-tandem
 endif
 
 # target takes one of the following cva6 hardware configuration:
-# cv64a6_imafdc_sv39, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv32a6_ima_sv32_fpga, cv64a6_imafdcsclic_sv39
+# cv64a6_imafdc_sv39, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv32a6_ima_sv32_fpga
 # Changing the default target to cv32a60x for Step1 verification
 target     ?= cv64a6_imafdcsclic_sv39
 ifndef TARGET_CFG
@@ -140,14 +140,14 @@ DPI_CXXFLAGS ?= $(CXXFLAGS) $(DPI_FLAGS) -D_GLIBCXX_USE_CXX11_ABI=0
 
 # this list contains the standalone components
 src :=  core/include/$(target)_config_pkg.sv                                         \
-        corev_apu/tb/ariane.sv                                                       \
-        $(wildcard corev_apu/bootrom/*.sv)                                           \
-        $(wildcard corev_apu/clint/*.sv)                                             \
-        $(wildcard corev_apu/fpga/src/axi2apb/src/*.sv)                              \
-        $(wildcard corev_apu/fpga/src/apb_timer/*.sv)                                \
-        $(wildcard corev_apu/fpga/src/axi_slice/src/*.sv)                            \
-        $(wildcard corev_apu/src/axi_riscv_atomics/src/*.sv)                         \
-        $(wildcard corev_apu/axi_mem_if/src/*.sv)                                    \
+        corev_apu/tb/ariane.sv                                                      \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/bootrom/*.sv))                   \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/clint/*.sv))                     \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/axi2apb/src/*.sv))      \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/apb_timer/*.sv))        \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/axi_slice/src/*.sv))    \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/src/axi_riscv_atomics/src/*.sv)) \
+        $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/axi_mem_if/src/*.sv))            \
         corev_apu/rv_plic/rtl/rv_plic_target.sv                                      \
         corev_apu/rv_plic/rtl/rv_plic_gateway.sv                                     \
         corev_apu/rv_plic/rtl/prim_subreg.sv                                         \
@@ -175,10 +175,17 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         corev_apu/register_interface/src/reg_err_slv.sv                              \
         corev_apu/register_interface/src/axi_lite_to_reg.sv                          \
         vendor/pulp-platform/axi/src/axi_multicut.sv                                 \
+        vendor/pulp-platform/common_cells/src/cb_filter_pkg.sv                       \
+        vendor/pulp-platform/common_cells/src/cb_filter.sv                           \
         vendor/pulp-platform/common_cells/src/rstgen_bypass.sv                       \
         vendor/pulp-platform/common_cells/src/rstgen.sv                              \
         vendor/pulp-platform/common_cells/src/addr_decode.sv                         \
-				vendor/pulp-platform/common_cells/src/stream_register.sv                     \
+        vendor/pulp-platform/common_cells/src/stream_register.sv                     \
+        vendor/pulp-platform/common_cells/src/stream_fifo.sv                         \
+        vendor/pulp-platform/common_cells/src/stream_xbar.sv                         \
+        vendor/pulp-platform/common_cells/src/onehot_to_bin.sv                       \
+        vendor/pulp-platform/common_cells/src/sub_per_hash.sv                        \
+        vendor/pulp-platform/axi/src/axi_intf.sv                                     \
         vendor/pulp-platform/axi/src/axi_cut.sv                                      \
         vendor/pulp-platform/axi/src/axi_join.sv                                     \
         vendor/pulp-platform/axi/src/axi_delayer.sv                                  \
@@ -189,6 +196,7 @@ src :=  core/include/$(target)_config_pkg.sv                                    
         vendor/pulp-platform/axi/src/axi_mux.sv                                      \
         vendor/pulp-platform/axi/src/axi_demux.sv                                    \
         vendor/pulp-platform/axi/src/axi_xbar.sv                                     \
+        vendor/pulp-platform/axi/src/axi_isolate.sv                                  \
         vendor/pulp-platform/axi/src/axi_burst_splitter.sv                           \
         vendor/pulp-platform/axi/src/axi_dw_upsizer.sv                               \
         vendor/pulp-platform/axi/src/axi_dw_downsizer.sv                             \
@@ -229,10 +237,15 @@ copro_src := core/cvxif_example/include/cvxif_instr_pkg.sv \
              $(wildcard core/cvxif_example/*.sv)
 copro_src := $(addprefix $(root-dir), $(copro_src))
 
-uart_src := $(wildcard corev_apu/fpga/src/apb_uart/src/*.vhd)
+uart_src := $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/apb_uart/src/*.vhd))
 uart_src := $(addprefix $(root-dir), $(uart_src))
 
-fpga_src :=  $(wildcard corev_apu/fpga/src/*.sv) $(wildcard corev_apu/fpga/src/bootrom/*.sv) $(wildcard corev_apu/fpga/src/ariane-ethernet/*.sv) common/local/util/tc_sram_fpga_wrapper.sv vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
+fpga_src :=  $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/*.sv))                      \
+             $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/bootrom/*.sv))              \
+             $(subst $(root-dir),,$(wildcard $(root-dir)corev_apu/fpga/src/ariane-ethernet/*.sv))      \
+             common/local/util/tc_sram_fpga_wrapper.sv                \
+             vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv \
+             vendor/pulp-platform/tech_cells_generic/src/fpga/tc_sram_xilinx.sv
 fpga_src := $(addprefix $(root-dir), $(fpga_src))
 
 # look for testbenches
@@ -242,16 +255,16 @@ tbs := $(addprefix $(root-dir), $(tbs))
 # RISCV asm tests and benchmark setup (used for CI)
 # there is a definesd test-list with selected CI tests
 riscv-litmus-test-dir     := tmp/riscv-litmus-tests/binaries/
-riscv-litmus-tests-list   := ci/riscv-litmus-tests.list
+riscv-litmus-tests-list   := $(root-dir)ci/riscv-litmus-tests.list
 riscv-test-dir            := tmp/riscv-tests/build/isa/
 riscv-benchmarks-dir      := tmp/riscv-tests/build/benchmarks/
 riscv-hyp-test            := tmp/riscv-hyp-tests/build/cva6/rvh_test.elf
-riscv-asm-tests-list      := ci/riscv-asm-tests.list
-riscv-amo-tests-list      := ci/riscv-amo-tests.list
-riscv-mul-tests-list      := ci/riscv-mul-tests.list
-riscv-fp-tests-list       := ci/riscv-fp-tests.list
-riscv-clic-tests-list     := ci/riscv-clic-tests.list
-riscv-benchmarks-list     := ci/riscv-benchmarks.list
+riscv-asm-tests-list      := $(root-dir)ci/riscv-asm-tests.list
+riscv-amo-tests-list      := $(root-dir)ci/riscv-amo-tests.list
+riscv-mul-tests-list      := $(root-dir)ci/riscv-mul-tests.list
+riscv-fp-tests-list       := $(root-dir)ci/riscv-fp-tests.list
+riscv-clic-tests-list     := $(root-dir)ci/riscv-clic-tests.list
+riscv-benchmarks-list     := $(root-dir)ci/riscv-benchmarks.list
 riscv-litmus-tests        := $(shell xargs printf '\n%s' < $(riscv-litmus-tests-list)  | cut -b 1-)
 riscv-asm-tests           := $(shell xargs printf '\n%s' < $(riscv-asm-tests-list)  | cut -b 1-)
 riscv-amo-tests           := $(shell xargs printf '\n%s' < $(riscv-amo-tests-list)  | cut -b 1-)
@@ -261,7 +274,7 @@ riscv-clic-tests          := $(shell xargs printf '\n%s' < $(riscv-clic-tests-li
 riscv-benchmarks          := $(shell xargs printf '\n%s' < $(riscv-benchmarks-list) | cut -b 1-)
 
 # Search here for include files (e.g.: non-standalone components)
-incdir := vendor/pulp-platform/common_cells/include/ vendor/pulp-platform/axi/include/ corev_apu/register_interface/include/
+incdir := vendor/pulp-platform/common_cells/include/ vendor/pulp-platform/axi/include/ corev_apu/register_interface/include/ vendor/planv/ace/include/
 
 # Compile and sim flags
 compile_flag     += +cover=bcfst+/dut -incr -64 -nologo -quiet -suppress 13262 -permissive -svinputport=compat +define+$(defines)
@@ -272,7 +285,7 @@ compile_flag_vhd += -64 -nologo -quiet -2008
 
 # Iterate over all include directories and write them with +incdir+ prefixed
 # +incdir+ works for Verilator and QuestaSim
-list_incdir := $(foreach dir, ${incdir}, +incdir+$(dir))
+list_incdir := $(foreach dir, ${incdir}, +incdir+$(root-dir)$(dir))
 
 # RISCV torture setup
 riscv-torture-dir    := tmp/riscv-torture
@@ -329,7 +342,8 @@ $(library)/.build-srcs: $(library)
 	$(VLOG) $(compile_flag) -timescale "1ns / 1ns" -work $(library) -pedanticerrors $(addprefix -f , ${flists}) $(list_incdir) -suppress 2583
 	$(VLOG) $(compile_flag) -work $(library) $(filter %.sv,$(ariane_pkg)) $(list_incdir) -suppress 2583
 	# Suppress message that always_latch may not be checked thoroughly by QuestaSim.
-	$(VCOM) $(compile_flag_vhd) -work $(library) -pedanticerrors $(filter %.vhd,$(uart_src))
+	$(VCOM) $(compile_flag_vhd) -work $(library) -pedanticerrors $(filter %.vhd,$(uart_src)) -suppress 1653
+	# Suppress message 1653 that -pedanticerrors may not be used with -2008 switch
 	$(VLOG) $(compile_flag) -timescale "1ns / 1ns" -work $(library) -pedanticerrors $(filter %.sv,$(src)) $(list_incdir) -suppress 2583
 	touch $(library)/.build-srcs
 
@@ -795,7 +809,7 @@ clean:
 	rm -rf $(riscv-torture-dir)/output/test*
 	rm -rf $(library)/ $(dpi-library)/ $(ver-library)/ $(vcs-library)/
 	rm -f tmp/*.ucdb tmp/*.log *.wlf *vstf wlft* *.ucdb
-	cd corev_apu/fpga && make clean && cd ../..
+	cd $(root-dir)corev_apu/fpga && make clean && cd ../..
 
 .PHONY:
 	build sim sim-verilate clean                                              \
