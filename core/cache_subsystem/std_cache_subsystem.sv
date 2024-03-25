@@ -117,6 +117,7 @@ module std_cache_subsystem import ariane_pkg::*; import std_cache_pkg::*; #(
         .AxiAddrWidth ( AxiAddrWidth ),
         .AxiDataWidth ( AxiDataWidth ),
         .AxiIdWidth   ( AxiIdWidth   ),
+        .AxiAce       ( DCACHE_COHERENT ),
         .axi_req_t    ( axi_req_t    ),
         .axi_rsp_t    ( axi_rsp_t    )
     ) i_cva6_icache_axi_wrapper (
