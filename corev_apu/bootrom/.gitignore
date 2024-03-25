@@ -1,3 +1,4 @@
 *.elf
 *.img
 *.dtb
+*.dts
