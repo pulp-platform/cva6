@@ -123,8 +123,11 @@ module controller import ariane_pkg::*; (
 // this is not needed in the case since we
 // have a write-through cache in this case
             if (DCACHE_TYPE == int'(cva6_config_pkg::WB)) begin
-              flush_dcache           = 1'b1;
-              fence_active_d         = 1'b1;
+                // no need to flush the cache on FENCE if there is cache coherency
+                if (DCACHE_COHERENT == 0) begin
+                    flush_dcache           = 1'b1;
+                    fence_active_d         = 1'b1;
+                end
             end
         end
 
