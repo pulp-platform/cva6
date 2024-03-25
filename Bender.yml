@@ -57,6 +57,7 @@ sources:
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
+          - core/cache_subsystem/snoop_cache_ctrl.sv
 
       - target: cv32a6_imac_sv0
         files:
@@ -96,6 +97,7 @@ sources:
 
       # Packages
       - core/include/ariane_axi_pkg.sv
+      - core/include/ariane_ace_pkg.sv
       - core/include/wt_cache_pkg.sv
       - core/include/std_cache_pkg.sv
       - core/include/axi_intf.sv
