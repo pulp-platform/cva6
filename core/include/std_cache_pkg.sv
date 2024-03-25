@@ -31,6 +31,7 @@ package std_cache_pkg;
     logic [55:0]     addr;
     logic [7:0][7:0] wdata;
     logic [7:0]      be;
+    logic            make_unique;
   } mshr_t;
 
   typedef struct packed {
@@ -41,11 +42,13 @@ package std_cache_pkg;
     logic        we;
     logic [63:0] wdata;
     logic        bypass;
+    logic        make_unique;
   } miss_req_t;
 
   typedef struct packed {
     logic                req;
     ariane_pkg::ad_req_t reqtype;
+    ace_pkg::ace_trs_t   acetype;
     ariane_pkg::amo_t    amo;
     logic [3:0]          id;
     logic [63:0]         addr;
@@ -62,8 +65,9 @@ package std_cache_pkg;
   } bypass_rsp_t;
 
   typedef struct packed {
-    logic [ariane_pkg::DCACHE_LINE_WIDTH/8-1:0] dirty;
-    logic                                       valid;
+    logic [(ariane_pkg::DCACHE_LINE_WIDTH+7)/8-1:0] dirty;
+    logic                                           valid;
+    logic                                           shared;
   } vldrty_t;
 
   typedef struct packed {
@@ -71,6 +75,7 @@ package std_cache_pkg;
     logic [ariane_pkg::DCACHE_LINE_WIDTH-1:0]       data;   // data array
     logic                                           valid;  // state array
     logic [(ariane_pkg::DCACHE_LINE_WIDTH+7)/8-1:0] dirty;  // state array
+    logic                                           shared; // state array
   } cache_line_t;
 
   // cache line byte enable
@@ -80,6 +85,11 @@ package std_cache_pkg;
     vldrty_t [ariane_pkg::DCACHE_SET_ASSOC-1:0]     vldrty;  // bit enable into state array
   } cl_be_t;
 
+  typedef struct packed {
+    logic        valid;
+    logic [63:0] addr;
+  } readshared_done_t;
+  
   // convert one hot to bin for -> needed for cache replacement
   function automatic logic [DCACHE_SET_ASSOC_WIDTH-1:0] one_hot_to_bin(
       input logic [ariane_pkg::DCACHE_SET_ASSOC-1:0] in);

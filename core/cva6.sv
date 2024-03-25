@@ -484,6 +484,7 @@ module cva6
   logic                                                  busy_cache_ctrl;
   logic                                                  stall_ctrl_cache;
   logic                                                  init_ctrl_cache_n;
+  logic                                                  ongoing_write_cache;
 
   icache_areq_t                                          icache_areq_ex_cache;
   icache_arsp_t                                          icache_areq_cache_ex;
@@ -869,7 +870,7 @@ module cva6
 
   // we have to make sure that the whole write buffer path is empty before
   // used e.g. for fence instructions.
-  assign no_st_pending_commit = no_st_pending_ex & dcache_commit_wbuffer_empty;
+  assign no_st_pending_commit = no_st_pending_ex & dcache_commit_wbuffer_empty & ~ongoing_write_cache;
 
   commit_stage #(
       .CVA6Cfg(CVA6ExtendCfg)
@@ -1167,6 +1168,13 @@ module cva6
         .inval_valid_i     (inval_valid),
         .inval_ready_o     (inval_ready)
     );
+
+    // pragma translate_off
+    `ifndef VERILATOR
+    initial a_not_coherent : assert(DCACHE_COHERENT == 0) else $error("DCACHE_COHERENT only supported with WB cache");
+    `endif
+    // pragma translate_on
+
   end else if (DCACHE_TYPE == int'(config_pkg::HPDCACHE)) begin : gen_cache_hpd
     cva6_hpdcache_subsystem #(
         .CVA6Cfg   (CVA6ExtendCfg),
@@ -1224,6 +1232,13 @@ module cva6
         .noc_resp_i(noc_resp_i)
     );
     assign inval_ready = 1'b1;
+
+    // pragma translate_off
+    `ifndef VERILATOR
+    initial a_not_coherent : assert(DCACHE_COHERENT == 0) else $error("DCACHE_COHERENT only supported with WB cache");
+    `endif
+    // pragma translate_on
+
   end else begin : gen_cache_wb
     std_cache_subsystem #(
         // note: this only works with one cacheable region
@@ -1244,6 +1259,7 @@ module cva6
         .busy_o            (busy_cache_ctrl),
         .stall_i           (stall_ctrl_cache),
         .init_ni           (init_ctrl_cache_n),
+        .ongoing_write_o   (ongoing_write_cache),
         // I$
         .icache_en_i       (icache_en_csr),
         .icache_flush_i    (icache_flush_ctrl_cache),
