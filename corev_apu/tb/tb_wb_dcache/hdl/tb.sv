@@ -14,8 +14,10 @@
 // Description: testbench for nonblocking write-back L1 dcache.
 
 `include "tb.svh"
-`include "assign.svh"
 `include "axi/typedef.svh"
+`include "axi/assign.svh"
+`include "ace/typedef.svh"
+`include "ace/assign.svh"
 
 module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()();
 
@@ -47,9 +49,16 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
     NrCachedRegionRules:   1,
     CachedRegionAddrBase:  {CachedAddrBeg},//1/8th of the memory is NC
     CachedRegionLength:    {CachedAddrEnd-CachedAddrBeg+64'b1},
+    // shared region
+    NrSharedRegionRules:   0,
+    SharedRegionAddrBase:  {64'h0},
+    SharedRegionLength:    {64'h0},
     // cache config
     AxiCompliant:          1'b1,
     SwapEndianess:         1'b0,
+    // CLIC
+    CLICNumInterruptSrc:    1'b1,
+    CLICIntCtlBits:         1,
     // debug
     DmBaseAddress:         64'h0,
     NrPMPEntries:          0
@@ -95,6 +104,13 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
                    logic [(TbAxiDataWidthFull/8)-1:0],
                    logic [    TbAxiUserWidthFull-1:0])
 
+  `ACE_TYPEDEF_ALL(ace,
+                   logic [    TbAxiAddrWidthFull-1:0],
+                   logic [      TbAxiIdWidthFull-1:0],
+                   logic [    TbAxiDataWidthFull-1:0],
+                   logic [(TbAxiDataWidthFull/8)-1:0],
+                   logic [    TbAxiUserWidthFull-1:0])
+
   logic                           enable_i;
   logic                           flush_i;
   logic                           flush_ack_o;
@@ -103,10 +119,26 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
   amo_resp_t                      amo_resp_o;
   dcache_req_i_t [2:0]            req_ports_i;
   dcache_req_o_t [2:0]            req_ports_o;
+
   axi_req_t                       axi_data_o;
   axi_resp_t                      axi_data_i;
   axi_req_t                       axi_bypass_o;
   axi_resp_t                      axi_bypass_i;
+
+  ace_req_t                       ace_data_o;
+  ace_resp_t                      ace_data_i;
+  ace_req_t                       ace_bypass_o;
+  ace_resp_t                      ace_bypass_i;
+
+  `AXI_ASSIGN_REQ_STRUCT(axi_bypass_o, ace_bypass_o)
+  `AXI_ASSIGN_REQ_STRUCT(axi_data_o, ace_data_o)
+  always_comb begin
+    ace_data_i   = '0;
+    ace_bypass_i = '0;
+    `AXI_SET_RESP_STRUCT(ace_data_i, axi_data_i)
+    `AXI_SET_RESP_STRUCT(ace_bypass_i, axi_bypass_i)
+  end
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // TB signal declarations
@@ -282,9 +314,9 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
       @(posedge(clk_i));
       #1
       //
-      if(i_dut.master_ports[2].i_cache_ctrl.state_q == 4'h5 && i_dut.master_ports[2].i_cache_ctrl.state_d == 4'h0 ) begin
-        if((|i_dut.master_ports[2].i_cache_ctrl.data_o.dirty[3:0]) || (|i_dut.master_ports[2].i_cache_ctrl.data_o.dirty[11:8])) begin
-          $fdisplay(fd_monitor_store_state,"[%0t ns]ERROR: dirty bits = %b  be = %b  index = %b",$time,i_dut.master_ports[2].i_cache_ctrl.data_o.dirty,i_dut.master_ports[2].i_cache_ctrl.mem_req_q.be[7:0],i_dut.master_ports[2].i_cache_ctrl.mem_req_q.index);
+      if(i_dut.master_ports[3].i_cache_ctrl.state_q == 4'h5 && i_dut.master_ports[3].i_cache_ctrl.state_d == 4'h0 ) begin
+        if((|i_dut.master_ports[3].i_cache_ctrl.data_o.dirty[3:0]) || (|i_dut.master_ports[3].i_cache_ctrl.data_o.dirty[11:8])) begin
+          $fdisplay(fd_monitor_store_state,"[%0t ns]ERROR: dirty bits = %b  be = %b  index = %b",$time,i_dut.master_ports[3].i_cache_ctrl.data_o.dirty,i_dut.master_ports[3].i_cache_ctrl.mem_req_q.be[7:0],i_dut.master_ports[3].i_cache_ctrl.mem_req_q.index);
         end
       end
     end
@@ -376,7 +408,7 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
           AMO_LR: begin
             // Mark a reservation for requested memory location.
             reservation.valid = 1'b1;
-            reservation.paddr = amo_req_i.operand_a;
+            reservation.paddr = amo_req_i.operand_a >> $clog2(AMO_RESERVATION_SIZE);
 
             // The memory contents remain unchanged (old contents == new contents)
             amo_result = amo_shadow;
@@ -385,7 +417,7 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
           // SC instruction
           AMO_SC: begin
             // Check whether we have a valid reservation. If so, do the store and return 0.
-            if (reservation.valid && reservation.paddr == amo_req_i.operand_a) begin
+            if (reservation.valid && reservation.paddr == (amo_req_i.operand_a >> $clog2(AMO_RESERVATION_SIZE))) begin
               amo_result     = amo_op_b;
               amo_exp_result = 64'b0;
 
@@ -400,15 +432,50 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
           end
 
           // AMOs
-          AMO_SWAP: amo_result = amo_op_b;
-          AMO_ADD:  amo_result = amo_op_a + amo_op_b;
-          AMO_AND:  amo_result = amo_op_a & amo_op_b;
-          AMO_OR:   amo_result = amo_op_a | amo_op_b;
-          AMO_XOR:  amo_result = amo_op_a ^ amo_op_b;
-          AMO_MAX:  amo_result = ($signed(amo_op_a) > $signed(amo_op_b)) ? amo_op_a : amo_op_b;
-          AMO_MIN:  amo_result = ($signed(amo_op_a) < $signed(amo_op_b)) ? amo_op_a : amo_op_b;
-          AMO_MAXU: amo_result = (amo_op_a_u > amo_op_b_u) ? amo_op_a : amo_op_b;
-          AMO_MINU: amo_result = (amo_op_a_u < amo_op_b_u) ? amo_op_a : amo_op_b;
+          AMO_SWAP: begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = amo_op_b;
+          end
+
+          AMO_ADD:  begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = amo_op_a + amo_op_b;
+          end
+
+          AMO_AND:  begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = amo_op_a & amo_op_b;
+          end
+
+          AMO_OR:   begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = amo_op_a | amo_op_b;
+          end
+
+          AMO_XOR:  begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = amo_op_a ^ amo_op_b;
+          end
+
+          AMO_MAX:  begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = ($signed(amo_op_a) > $signed(amo_op_b)) ? amo_op_a : amo_op_b;
+          end
+
+          AMO_MIN:  begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = ($signed(amo_op_a) < $signed(amo_op_b)) ? amo_op_a : amo_op_b;
+          end
+
+          AMO_MAXU: begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = (amo_op_a_u > amo_op_b_u) ? amo_op_a : amo_op_b;
+          end
+
+          AMO_MINU: begin
+            reservation.valid = 1'b0; // any store operation will invalidate reservation
+            amo_result = (amo_op_a_u < amo_op_b_u) ? amo_op_a : amo_op_b;
+          end
 
           // Default: Leave memory unchanged.
           default: amo_result = amo_shadow;
@@ -455,8 +522,8 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
     .AXI_ADDR_WIDTH ( TbAxiAddrWidthFull  ),
     .AXI_DATA_WIDTH ( TbAxiDataWidthFull  ),
     .AXI_ID_WIDTH   ( TbAxiIdWidthFull    ),
-    .axi_req_t      ( axi_req_t           ),
-    .axi_rsp_t      ( axi_resp_t          )
+    .axi_req_t      ( ace_req_t           ),
+    .axi_rsp_t      ( ace_resp_t          )
   ) i_dut (
     .clk_i           ( clk_i           ),
     .rst_ni          ( rst_ni          ),
@@ -464,14 +531,19 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #()()
     .flush_ack_o     ( flush_ack_o     ),
     .enable_i        ( enable_i        ),
     .miss_o          ( miss_o          ),
+    .busy_o          (                 ),
+    .stall_i         ( 1'b0            ),
+    .init_ni         ( 1'b1            ),
     .amo_req_i       ( amo_req_i       ),
     .amo_resp_o      ( amo_resp_o      ),
     .req_ports_i     ( req_ports_i     ),
     .req_ports_o     ( req_ports_o     ),
-    .axi_data_o      ( axi_data_o      ),
-    .axi_data_i      ( axi_data_i      ),
-    .axi_bypass_o    ( axi_bypass_o    ),
-    .axi_bypass_i    ( axi_bypass_i    )
+    .axi_data_o      ( ace_data_o      ),
+    .axi_data_i      ( ace_data_i      ),
+    .axi_bypass_o    ( ace_bypass_o    ),
+    .axi_bypass_i    ( ace_bypass_i    ),
+    .snoop_port_i    ( '0              ),
+    .snoop_port_o    (                 )
   );
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -483,6 +555,7 @@ axi_riscv_atomics_wrap #(
     .AXI_DATA_WIDTH     ( TbAxiDataWidthFull       ),
     .AXI_ID_WIDTH       ( TbAxiIdWidthFull + 32'd1 ),
     .AXI_USER_WIDTH     ( TbAxiUserWidthFull       ),
+    .AXI_ADDR_LSB       ( $clog2(AMO_RESERVATION_SIZE) ),
     .AXI_MAX_WRITE_TXNS ( 1                        ),
     .AXI_MAX_READ_TXNS  ( 1                        ),
     .RISCV_WORD_WIDTH   ( 64                       )
@@ -498,12 +571,12 @@ axi_riscv_atomics_wrap #(
 ///////////////////////////////////////////////////////////////////////////////
 
   // get actual paddr from read controllers
-  assign act_paddr[0] = (i_dut.master_ports[0].i_cache_ctrl.state_q == 4'h1) ? {i_dut.tag[1], i_dut.master_ports[0].i_cache_ctrl.mem_req_q.index} :
-                        {i_dut.master_ports[0].i_cache_ctrl.mem_req_q.tag,
-                         i_dut.master_ports[0].i_cache_ctrl.mem_req_q.index};
-  assign act_paddr[1] = (i_dut.master_ports[1].i_cache_ctrl.state_q == 4'h1) ? {i_dut.tag[2], i_dut.master_ports[1].i_cache_ctrl.mem_req_q.index} :
+  assign act_paddr[0] = (i_dut.master_ports[1].i_cache_ctrl.state_q == 4'h1) ? {i_dut.tag[2], i_dut.master_ports[1].i_cache_ctrl.mem_req_q.index} :
                         {i_dut.master_ports[1].i_cache_ctrl.mem_req_q.tag,
                          i_dut.master_ports[1].i_cache_ctrl.mem_req_q.index};
+  assign act_paddr[1] = (i_dut.master_ports[2].i_cache_ctrl.state_q == 4'h1) ? {i_dut.tag[3], i_dut.master_ports[2].i_cache_ctrl.mem_req_q.index} :
+                        {i_dut.master_ports[2].i_cache_ctrl.mem_req_q.tag,
+                         i_dut.master_ports[2].i_cache_ctrl.mem_req_q.index};
 
   // generate fifo queues for expected responses
   generate
@@ -1023,7 +1096,7 @@ axi_riscv_atomics_wrap #(
     bypass_mem_port.set_region(0, MemBytes-1);
     data_mem_port.set_region(0, 0);
 
-    runAMOs(nAMOs,1); // Last sequence flag, terminates agents
+    runAMOs(nAMOs,0); // Last sequence flag, terminates agents
     flushCache();
     tb_mem_port_t::check_mem();
 
@@ -1212,7 +1285,6 @@ axi_riscv_atomics_wrap #(
     tb_mem_port_t::check_mem();
 
     //////////////////////////////////////////////
-
     end_of_sim = 1;
     $display("TB> end test sequences");
     tb_mem_port_t::report_mem();
