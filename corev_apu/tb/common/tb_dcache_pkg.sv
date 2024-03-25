@@ -40,6 +40,8 @@ package tb_pkg;
 
   typedef enum logic [1:0] { OTHER, BYPASS, CACHED } port_type_t;
 
+  localparam AMO_RESERVATION_SIZE = ariane_pkg::DCACHE_LINE_WIDTH/8; // LR/SC reservation must be at least cache line size
+
 ///////////////////////////////////////////////////////////////////////////////
 // progress
 ///////////////////////////////////////////////////////////////////////////////
