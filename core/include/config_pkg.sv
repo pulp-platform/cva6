@@ -150,6 +150,12 @@ package config_pkg;
     logic [NrMaxRules-1:0][63:0] CachedRegionAddrBase;
     // PMA cache region rules
     logic [NrMaxRules-1:0][63:0] CachedRegionLength;
+    // Number of regions which have shared data
+    int unsigned                 NrSharedRegionRules;
+    // base which needs to match
+    logic [NrMaxRules-1:0][63:0] SharedRegionAddrBase;
+    // bit mask which bits to consider when matching the rule
+    logic [NrMaxRules-1:0][63:0] SharedRegionLength;
     // Maximum number of outstanding stores
     int unsigned                 MaxOutstandingStores;
     // Debug support
@@ -216,5 +222,14 @@ package config_pkg;
     end
     return |pass;
   endfunction : is_inside_cacheable_regions
+
+  function automatic logic is_inside_shareable_regions (cva6_cfg_t Cfg, logic[63:0] address);
+    automatic logic[NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrSharedRegionRules; k++) begin
+      pass[k] = range_check(Cfg.SharedRegionAddrBase[k], Cfg.SharedRegionLength[k], address);
+    end
+    return |pass;
+  endfunction : is_inside_shareable_regions
 
 endpackage

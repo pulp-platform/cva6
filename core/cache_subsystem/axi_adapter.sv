@@ -32,6 +32,7 @@ module axi_adapter #(
     output logic busy_o,
     input logic req_i,
     input ariane_pkg::ad_req_t type_i,
+    input  ace_pkg::ace_trs_t trans_type_i,
     input ariane_pkg::amo_t amo_i,
     output logic gnt_o,
     input logic [riscv::XLEN-1:0] addr_i,
@@ -40,6 +41,8 @@ module axi_adapter #(
     input logic [(DATA_WIDTH/CVA6Cfg.AxiDataWidth)-1:0][(CVA6Cfg.AxiDataWidth/8)-1:0] be_i,
     input logic [1:0] size_i,
     input logic [CVA6Cfg.AxiIdWidth-1:0] id_i,
+    output logic dirty_o,
+    output logic shared_o,
     // read port
     output logic valid_o,
     output logic [(DATA_WIDTH/CVA6Cfg.AxiDataWidth)-1:0][CVA6Cfg.AxiDataWidth-1:0] rdata_o,
@@ -100,6 +103,18 @@ module axi_adapter #(
   // Busy if we're not idle
   assign busy_o = state_q != IDLE;
 
+  logic       dirty, dirty_d, dirty_q;
+  logic       shared, shared_d, shared_q;
+
+  if (AXI_ACE) begin
+    assign dirty  = axi_resp_i.r.resp[2];
+    assign shared = axi_resp_i.r.resp[3];
+  end else begin
+    assign dirty  = 1'b0;
+    assign shared = 1'b0;
+  end
+
+
   always_comb begin : axi_fsm
     // Default assignments
     axi_req_o.aw_valid  = 1'b0;
@@ -152,10 +167,14 @@ module axi_adapter #(
     critical_word_o = axi_resp_i.r.data;
     critical_word_valid_o = 1'b0;
     rdata_o = cache_line_q;
+    dirty_o = dirty_q;
+    shared_o = shared_q;
 
     state_d = state_q;
     cnt_d = cnt_q;
     cache_line_d = cache_line_q;
+    dirty_d = dirty_q;
+    shared_d = shared_q;
     addr_offset_d = addr_offset_q;
     id_d = id_q;
     amo_d = amo_q;
@@ -426,6 +445,8 @@ module axi_adapter #(
           // this is the last read
           if (axi_resp_i.r.last) begin
             id_d    = axi_resp_i.r.id;
+            dirty_d = dirty;
+            shared_d = shared;
             state_d = COMPLETE_READ;
           end
 
@@ -460,6 +481,92 @@ module axi_adapter #(
     end
   end
 
+  generate
+  if (AXI_ACE) begin
+    // RACK / WACK
+    logic wack_d, wack_q;
+    logic rack_d, rack_q;
+
+    always_comb begin
+      // assert WACK the cycle after the BVALID/BREADY handshake is finished
+      wack_d = axi_req_o.b_ready & axi_resp_i.b_valid;
+      // assert RACK the cycle after the RVALID/RREADY handshake is finished
+      rack_d = axi_req_o.r_ready & axi_resp_i.r_valid;
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (~rst_ni) begin
+        wack_q <= 1'b0;
+        rack_q <= 1'b0;
+      end else begin
+        wack_q <= wack_d;
+        rack_q <= rack_d;
+      end
+    end
+
+    assign axi_req_o.wack = wack_q;
+    assign axi_req_o.rack = rack_q;
+
+    always_comb begin
+      // Default assignments
+      axi_req_o.aw.snoop  = '0;
+      axi_req_o.aw.bar   = '0;
+      axi_req_o.aw.domain   = '0;
+      axi_req_o.aw.awunique = '0;
+      axi_req_o.ar.snoop  = '0;
+      axi_req_o.ar.bar   = '0;
+      axi_req_o.ar.domain   = '0;
+
+      case (trans_type_i)
+
+        ace_pkg::READ_SHARED: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b0001;
+        end
+
+        ace_pkg::READ_ONCE: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b0000;
+        end
+
+        ace_pkg::READ_UNIQUE: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b0111;
+        end
+
+        ace_pkg::READ_NO_SNOOP: begin
+          axi_req_o.ar.domain   = 2'b00;
+          axi_req_o.ar.snoop   = 4'b0000;
+        end
+
+        ace_pkg::CLEAN_UNIQUE: begin
+          axi_req_o.ar.domain   = 2'b01;
+          axi_req_o.ar.snoop   = 4'b1011;
+        end
+
+        ace_pkg::WRITE_UNIQUE: begin
+          axi_req_o.aw.domain   = 2'b01;
+          axi_req_o.aw.snoop   = 3'b000;
+        end
+
+        ace_pkg::WRITE_NO_SNOOP: begin
+          axi_req_o.aw.domain   = 2'b00;
+          axi_req_o.aw.snoop   = 3'b000;
+        end
+
+        ace_pkg::WRITE_BACK: begin
+          axi_req_o.aw.domain   = 2'b00;
+          axi_req_o.aw.snoop   = 3'b011;
+        end
+
+      endcase // case (trans_type_i)
+
+    end
+
+  end
+  endgenerate
+
+
   // ----------------
   // Registers
   // ----------------
@@ -470,6 +577,8 @@ module axi_adapter #(
   `FFARNC(id_q, id_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(amo_q, amo_d, clear_i, ariane_pkg::AMO_NONE, clk_i, rst_ni)
   `FFARNC(size_q, size_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dirty_q, dirty_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared _q, shared_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(outstanding_aw_cnt_q, outstanding_aw_cnt_d, clear_i, '0, clk_i, rst_ni)
 
   function automatic axi_pkg::atop_t atop_from_amo(ariane_pkg::amo_t amo);

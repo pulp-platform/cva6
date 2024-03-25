@@ -30,6 +30,8 @@ module cache_ctrl
     input logic clear_i,  // Synchronous clear active high
     input logic bypass_i,  // enable cache
     output logic busy_o,
+    output logic hit_o,     // to performance counter
+    output logic unique_o,  // to performance counter
     input logic stall_i,  // stall new memory requests
     // Core request ports
     input dcache_req_i_t req_port_i,
@@ -44,10 +46,12 @@ module cache_ctrl
     input cache_line_t [DCACHE_SET_ASSOC-1:0] data_i,
     output logic we_o,
     input logic [DCACHE_SET_ASSOC-1:0] hit_way_i,
+    input  logic [DCACHE_SET_ASSOC-1:0] shared_way_i,
     // Miss handling
     output miss_req_t miss_req_o,
     // return
     input logic miss_gnt_i,
+    input  logic miss_write_done_i,
     input  logic                                 active_serving_i, // the miss unit is currently active for this unit, serving the miss
     input logic [63:0] critical_word_i,
     input logic critical_word_valid_i,
@@ -58,7 +62,12 @@ module cache_ctrl
     // check MSHR for aliasing
     output logic [55:0] mshr_addr_o,
     input logic mshr_addr_matches_i,
-    input logic mshr_index_matches_i
+    input logic mshr_index_matches_i,
+    // to/from snoop controller
+    input  logic snoop_invalidate_i,
+    input  logic [63:0] snoop_invalidate_addr_i,
+    input  readshared_done_t readshared_done_i,
+    output logic updating_cache_o
 );
 
   enum logic [3:0] {
@@ -67,12 +76,13 @@ module cache_ctrl
     WAIT_TAG_BYPASSED,  // 2
     WAIT_GNT,           // 3
     WAIT_GNT_SAVED,     // 4
-    STORE_REQ,          // 5
-    WAIT_REFILL_VALID,  // 6
-    WAIT_REFILL_GNT,    // 7
-    WAIT_TAG_SAVED,     // 8
-    WAIT_MSHR,          // 9
-    WAIT_CRITICAL_WORD  // 10
+    MAKE_UNIQUE,        // 5
+    STORE_REQ,          // 6
+    WAIT_REFILL_VALID,  // 7
+    WAIT_REFILL_GNT,    // 8
+    WAIT_TAG_SAVED,     // 9
+    WAIT_MSHR,          // 10
+    WAIT_CRITICAL_WORD  // 11
   }
       state_d, state_q;
 
@@ -89,6 +99,9 @@ module cache_ctrl
   } mem_req_t;
 
   logic [DCACHE_SET_ASSOC-1:0] hit_way_d, hit_way_q;
+  logic [DCACHE_SET_ASSOC-1:0] shared_way_d, shared_way_q;
+  logic colliding_read_d, colliding_read_q;
+  logic colliding_clean_d, colliding_clean_q;
 
   mem_req_t mem_req_d, mem_req_q;
 
@@ -116,11 +129,12 @@ module cache_ctrl
     state_d = state_q;
     mem_req_d = mem_req_q;
     hit_way_d = hit_way_q;
+    shared_way_d = shared_way_q;
     // output assignments
     req_port_o.data_gnt = 1'b0;
     req_port_o.data_rvalid = 1'b0;
     req_port_o.data_rdata = '0;
-    req_port_o.data_rid = mem_req_q.id;
+    req_port_o.data_rid = '0; // req_port_o.data_rid = mem_req_q.id;
     miss_req_o = '0;
     mshr_addr_o = '0;
     // Memory array communication
@@ -130,7 +144,15 @@ module cache_ctrl
     be_o = '0;
     we_o = '0;
 
+    hit_o  = 1'b0;
+    unique_o = 1'b0;
+
     mem_req_d.killed |= req_port_i.kill_req;
+
+    updating_cache_o = 1'b0;
+
+    colliding_read_d = colliding_read_q;
+    colliding_clean_d = colliding_clean_q;
 
     case (state_q)
 
@@ -172,6 +194,7 @@ module cache_ctrl
 
       // cache enabled and waiting for tag
       WAIT_TAG, WAIT_TAG_SAVED: begin
+        colliding_read_d = 1'b0;
         // check that the client really wants to do the request and that we have a valid tag
         if (!req_port_i.kill_req && (req_port_i.tag_valid || state_q == WAIT_TAG_SAVED || mem_req_q.we)) begin
           // save tag if we didn't already save it
@@ -186,17 +209,17 @@ module cache_ctrl
           // HIT CASE
           // ------------
           if (|hit_way_i) begin
+            hit_o = state_q == WAIT_TAG; // only count as hit when we get here the first time
             // we can request another cache-line if this was a load
-            if (req_port_i.data_req && !mem_req_q.we && !stall_i) begin
-              state_d             = WAIT_TAG;  // switch back to WAIT_TAG
-              mem_req_d.index     = req_port_i.address_index;
-              mem_req_d.id        = req_port_i.data_id;
-              mem_req_d.be        = req_port_i.data_be;
-              mem_req_d.size      = req_port_i.data_size;
-              mem_req_d.we        = req_port_i.data_we;
-              mem_req_d.wdata     = req_port_i.data_wdata;
-              mem_req_d.killed    = req_port_i.kill_req;
-              mem_req_d.bypass    = 1'b0;
+            if (req_port_i.data_req && !mem_req_q.we && !mshr_addr_matches_i && !stall_i) begin
+              state_d          = WAIT_TAG; // switch back to WAIT_TAG
+              mem_req_d.index  = req_port_i.address_index;
+              mem_req_d.be     = req_port_i.data_be;
+              mem_req_d.size   = req_port_i.data_size;
+              mem_req_d.we     = req_port_i.data_we;
+              mem_req_d.wdata  = req_port_i.data_wdata;
+              mem_req_d.killed = req_port_i.kill_req;
+              mem_req_d.bypass = 1'b0;
 
               req_port_o.data_gnt = gnt_i;
 
@@ -215,12 +238,20 @@ module cache_ctrl
               req_port_o.data_rvalid = ~mem_req_q.killed;
               // else this was a store so we need an extra step to handle it
             end else begin
-              state_d   = STORE_REQ;
               hit_way_d = hit_way_i;
+              shared_way_d = shared_way_i;
+              // shared cacheline
+              if (shared_way_i & hit_way_i)
+                state_d = MAKE_UNIQUE;
+              // unique cacheline
+              if (~shared_way_i & hit_way_i) begin
+                state_d = STORE_REQ;
+                unique_o = 1'b1;
+              end
             end
-            // ------------
-            // MISS CASE
-            // ------------
+          // ------------
+          // MISS CASE
+          // ------------
           end else begin
             // make a miss request
             state_d = WAIT_REFILL_GNT;
@@ -248,6 +279,8 @@ module cache_ctrl
           //    req_port_o.data_rvalid will be de-asserted.
           if ((mshr_index_matches_i && mem_req_q.we) || mshr_addr_matches_i) begin
             state_d = WAIT_MSHR;
+            req_port_o.data_rvalid = 1'b0;
+            req_port_o.data_gnt = 1'b0;
           end
 
           // -------------------------
@@ -291,38 +324,98 @@ module cache_ctrl
         end
       end
 
+      MAKE_UNIQUE: begin
+        // detect if snoop controller is changing our target data to Shared
+        if (readshared_done_i.valid && !colliding_read_d) begin
+          colliding_read_d = (readshared_done_i.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+        end
+        miss_req_o.valid = 1'b1;
+        miss_req_o.make_unique = 1'b1;
+        miss_req_o.bypass = '0;
+        miss_req_o.addr = {mem_req_q.tag, mem_req_q.index};
+        miss_req_o.be = mem_req_q.be;
+        miss_req_o.size = mem_req_q.size;
+        miss_req_o.we = mem_req_q.we;
+        miss_req_o.wdata = mem_req_q.wdata;
+        // if an invalidate has been processed while we are in this state, 
+        // it's the miss_handler which takes care of the write
+        if (miss_gnt_i & miss_write_done_i) begin
+          state_d = IDLE;
+          colliding_clean_d = 1'b0;
+          req_port_o.data_gnt = 1'b1;
+        end else if (miss_gnt_i) begin
+          state_d = STORE_REQ;
+        end
+      end
+
       // ~> we are here as we need a second round of memory access for a store
       STORE_REQ: begin
+        // detect if snoop controller is invalidating our target data
+        if (snoop_invalidate_i && !colliding_clean_q) begin
+          colliding_clean_d = (snoop_invalidate_addr_i[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+        end
+
+        // detect if snoop controller is changing our target data to "shared"
+        if (readshared_done_i.valid && !colliding_read_d) begin
+          colliding_read_d = (readshared_done_i.addr[DCACHE_TAG_WIDTH+DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET] == {mem_req_q.tag, mem_req_q.index[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]});
+        end
+
         // check if the MSHR still doesn't match
         mshr_addr_o = {mem_req_q.tag, mem_req_q.index};
 
-        // We need to re-check for MSHR aliasing here as the store requires at least
-        // two memory look-ups on a single-ported SRAM and therefore is non-atomic
-        if (!mshr_index_matches_i) begin
-          // store data, write dirty bit
-          req_o                      = hit_way_q;
-          addr_o                     = mem_req_q.index;
-          we_o                       = 1'b1;
-
-          // set the correct byte enable
-          be_o.data[cl_offset>>3+:8] = mem_req_q.be;
-          for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
-            if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, dirty: be_o.data};
-          end
-          data_o.data[cl_offset+:64]    = mem_req_q.wdata;
-          // ~> change the state
-          data_o.dirty[cl_offset>>3+:8] = mem_req_q.be;
-          data_o.valid                  = 1'b1;
-
-          // got a grant ~> this is finished now
-          if (gnt_i) begin
-            req_port_o.data_gnt = 1'b1;
-            state_d = IDLE;
-          end
-        end else begin
+        if (mshr_index_matches_i) begin
+          // We need to re-check for MSHR aliasing here as the store requires at least
+          // two memory look-ups on a single-ported SRAM and therefore is non-atomic
           state_d = WAIT_MSHR;
+          colliding_clean_d = 1'b0;
+          colliding_read_d = 1'b0;
+        end else begin
+          if (colliding_clean_q) begin
+            // Cache was invalidated while waiting for access. Restart request.
+            // Note: there is no need to check colliding_clean_d too since it will only be high when the
+            // snoop controller is updating the cache -> gnt_i will be low
+            req_o = '1;
+            addr_o = mem_req_q.index;
+            if (gnt_i) begin
+              state_d = WAIT_TAG_SAVED;
+              colliding_clean_d = 1'b0;
+              colliding_read_d = 1'b0;
+            end
+          end else begin
+            if (colliding_read_q) begin
+              // there has been a colliding readshared request during a makeunique+write; redo CleanUnique
+              colliding_read_d = 1'b0;
+              colliding_clean_d = 1'b0;
+              state_d = MAKE_UNIQUE;
+            end else begin
+              updating_cache_o = 1'b1;
+              // store data, write dirty bit
+              req_o      = hit_way_q;
+              addr_o     = mem_req_q.index;
+              we_o       = 1'b1;
+              // set the correct byte enable
+              be_o.data[cl_offset>>3 +: 8]  = mem_req_q.be;
+              for (int unsigned i = 0; i < DCACHE_SET_ASSOC; i++) begin
+                if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, shared: 1, dirty: be_o.data};
+              end
+              data_o.data[cl_offset  +: 64] = mem_req_q.wdata;
+              // ~> change the state
+              data_o.dirty[cl_offset>>3 +: 8] = mem_req_q.be;
+              data_o.valid = 1'b1;
+              data_o.shared = 1'b0;
+              // got a grant ~> this is finished
+              if (gnt_i) begin
+                a_colliding_clean : assert (!colliding_clean_d) else $error("Unexpected colliding_clean_d");
+                a_colliding_read : assert (!colliding_read_d) else $error("Unexpected colliding_read_d");
+                req_port_o.data_gnt = 1'b1;
+                state_d = IDLE;
+                colliding_read_d = 1'b0;
+                colliding_clean_d = 1'b0;
+              end
+            end
+          end
         end
-      end  // case: STORE_REQ
+      end // case: STORE_REQ
 
       // we've got a match on MSHR ~> miss unit is currently serving a request
       WAIT_MSHR: begin
@@ -427,7 +520,7 @@ module cache_ctrl
         // got a valid answer
         if (bypass_valid_i) begin
           req_port_o.data_rdata = bypass_data_i;
-          req_port_o.data_rvalid = ~mem_req_q.killed;
+          if (!mem_req_q.we) req_port_o.data_rvalid = ~mem_req_q.killed;
           state_d = IDLE;
         end
       end
@@ -435,7 +528,7 @@ module cache_ctrl
 
     if (req_port_i.kill_req) begin
       req_port_o.data_rvalid = 1'b1;
-      if (!(state_q inside {WAIT_REFILL_GNT, WAIT_CRITICAL_WORD})) begin
+      if (!(state_q inside {MAKE_UNIQUE, WAIT_REFILL_GNT, WAIT_CRITICAL_WORD})) begin
         state_d = IDLE;
       end
     end
@@ -447,6 +540,9 @@ module cache_ctrl
   `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
   `FFARNC(mem_req_q, mem_req_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(hit_way_q, hit_way_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_way_q, shared_way_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(colliding_read_q, colliding_read_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(colliding_clean_q, colliding_clean_d, clear_i, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR
