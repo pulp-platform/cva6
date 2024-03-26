@@ -21,6 +21,7 @@ module axi_adapter #(
     parameter int unsigned DATA_WIDTH = 256,
     parameter logic        CRITICAL_WORD_FIRST   = 0, // the AXI subsystem needs to support wrapping reads for this feature
     parameter int unsigned CACHELINE_BYTE_OFFSET = 8,
+    parameter logic        AXI_ACE               = 0, // Support AMBA ACE
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -592,6 +593,7 @@ module axi_adapter #(
       dirty_q              <= dirty_d;
       shared_q             <= shared_d;
       outstanding_aw_cnt_q <= outstanding_aw_cnt_d;
+    end
   end
 
   function automatic axi_pkg::atop_t atop_from_amo(ariane_pkg::amo_t amo);
