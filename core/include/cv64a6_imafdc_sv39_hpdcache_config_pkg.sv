@@ -50,6 +50,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheByteSize = 32768;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
+  localparam CVA6ConfigDcacheCoherent = 0;
 
   localparam CVA6ConfigDcacheIdWidth = 3;
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
@@ -158,6 +159,12 @@ package cva6_config_pkg;
       ),
       CachedRegionAddrBase: 1024'({64'h8000_0000}),
       CachedRegionLength: 1024'({64'h40000000}),
+      NrSharedRegionRules:
+      unsigned'(
+      1
+      ),
+      SharedRegionAddrBase: 1024'({64'h8000_0000}),
+      SharedRegionLength: 1024'({64'h40000000}),
       MaxOutstandingStores: unsigned'(7),
       DebugEn: bit'(1),
       NonIdemPotenceEn: bit'(0),
