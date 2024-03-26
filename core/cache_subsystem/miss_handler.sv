@@ -575,7 +575,7 @@ module miss_handler
       AMO_REQ: begin
         serve_amo_d = 1'b0;
         amo_bypass_req.req     = 1'b1;
-        amo_bypass_req.reqtype = ariane_axi::SINGLE_REQ;
+        amo_bypass_req.reqtype = ariane_pkg::SINGLE_REQ;
         amo_bypass_req.amo     = amo_req_i.amo_op;
         // address is in operand a
         amo_bypass_req.addr = amo_req_i.operand_a;
