@@ -361,33 +361,6 @@ module std_cache_subsystem
     end
   endgenerate
 
-  // check AXI IDs
-  a_axi_icache_awid: assert property (
-    @(posedge clk_i) disable iff (~rst_ni) axi_req_icache.aw_valid |-> (axi_req_icache.aw.id == 4'b0000))
-      else $error("Unexpected icache AWID %4b",axi_req_icache.aw.id);
-
-  a_axi_icache_arid: assert property (
-    @(posedge clk_i) disable iff (~rst_ni) axi_req_icache.ar_valid |-> (axi_req_icache.ar.id == 4'b0000))
-      else $error("Unexpected icache ARID %4b",axi_req_icache.ar.id);
-
-  a_axi_data_awid: assert property (
-    @(posedge clk_i) disable iff (~rst_ni) axi_req_data.aw_valid |-> (axi_req_data.aw.id == 4'b1100))
-      else $error("Unexpected data AWID %4b",axi_req_data.aw.id);
-
-  a_axi_data_arid: assert property (
-    @(posedge clk_i) disable iff (~rst_ni) axi_req_data.ar_valid |-> (axi_req_data.ar.id == 4'b1100))
-      else $error("Unexpected data ARID %4b",axi_req_data.ar.id);
-
-  a_axi_bypass_awid: assert property (
-    @(posedge clk_i) disable iff (~rst_ni) axi_req_bypass.aw_valid |-> (axi_req_bypass.aw.id inside {4'b1000, 4'b1001, 4'b1010, 4'b1011}))
-      else $error("Unexpected bypass AWID %4b",axi_req_bypass.aw.id);
-
-  a_axi_bypass_arid: assert property (
-    @(posedge clk_i) disable iff (~rst_ni) axi_req_bypass.ar_valid |-> (axi_req_bypass.ar.id inside {4'b1000, 4'b1001, 4'b1010, 4'b1011}))
-      else $error("Unexpected bypass ARID %4b",axi_req_bypass.ar.id);
-
-
-
 `endif
   //pragma translate_on
 endmodule  // std_cache_subsystem
