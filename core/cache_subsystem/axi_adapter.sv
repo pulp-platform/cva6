@@ -23,6 +23,7 @@ module axi_adapter #(
     parameter int unsigned DATA_WIDTH = 256,
     parameter logic        CRITICAL_WORD_FIRST   = 0, // the AXI subsystem needs to support wrapping reads for this feature
     parameter int unsigned CACHELINE_BYTE_OFFSET = 8,
+    parameter logic        AXI_ACE               = 0, // Support AMBA ACE
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (

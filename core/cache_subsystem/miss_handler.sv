@@ -771,6 +771,7 @@ module miss_handler
       .CVA6Cfg              (CVA6Cfg),
       .DATA_WIDTH           (64),
       .CACHELINE_BYTE_OFFSET(DCACHE_BYTE_OFFSET),
+      .AXI_ACE              (DCACHE_COHERENT),
       .axi_req_t            (axi_req_t),
       .axi_rsp_t            (axi_rsp_t)
   ) i_bypass_axi_adapter (
@@ -811,6 +812,7 @@ module miss_handler
       .CVA6Cfg              (CVA6Cfg),
       .DATA_WIDTH           (DCACHE_LINE_WIDTH),
       .CACHELINE_BYTE_OFFSET(DCACHE_BYTE_OFFSET),
+      .AXI_ACE              (DCACHE_COHERENT),
       .axi_req_t            (axi_req_t),
       .axi_rsp_t            (axi_rsp_t)
   ) i_miss_axi_adapter (
