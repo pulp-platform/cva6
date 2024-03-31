@@ -149,14 +149,19 @@ package ariane_pkg;
                                                     | riscv::HSTATUS_SPV
                                                     | riscv::HSTATUS_SPVP
                                                     | riscv::HSTATUS_HU
+                                                    | riscv::HSTATUS_VGEIN
                                                     | riscv::HSTATUS_VTVM
                                                     | riscv::HSTATUS_VTW
                                                     | riscv::HSTATUS_VTSR;
 
   // hypervisor delegable interrupts
-  localparam logic [riscv::XLEN-1:0] HS_DELEG_INTERRUPTS = riscv::MIP_VSSIP
+  localparam logic [riscv::XLEN-1:0] HS_DELEG_INTERRUPTS = riscv::MIP_VSSIP;
+
+  localparam logic [63:0] HIE_MASK                = riscv::MIP_VSSIP
                                                     | riscv::MIP_VSTIP
-                                                    | riscv::MIP_VSEIP;
+                                                    | riscv::MIP_VSEIP
+                                                    | riscv::MIP_SGEIP;
+
   // virtual supervisor delegable interrupts
   localparam logic [riscv::XLEN-1:0] VS_DELEG_INTERRUPTS = riscv::MIP_VSSIP
                                                     | riscv::MIP_VSTIP

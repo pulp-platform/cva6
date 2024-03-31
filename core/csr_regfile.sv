@@ -432,7 +432,7 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_SIP:
         if (CVA6Cfg.RVS)
-          csr_rdata = clic_mode_o ? '0 : ((CVA6Cfg.RVH) ? mip_q & mideleg_q & ~HS_DELEG_INTERRUPTS : mip_q & mideleg_q);
+          csr_rdata = clic_mode_o ? '0 : ((CVA6Cfg.RVH) ? mip_q & mideleg_q & ~HIE_MASK : mip_q & mideleg_q);
         else read_access_exception = 1'b1;
         riscv::CSR_STVEC:
         if (CVA6Cfg.RVS)
@@ -513,10 +513,10 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = hideleg_q;
         else read_access_exception = 1'b1;
         riscv::CSR_HIE:
-        if (CVA6Cfg.RVH) csr_rdata = mie_q & HS_DELEG_INTERRUPTS;
+        if (CVA6Cfg.RVH) csr_rdata = mie_q & HIE_MASK;
         else read_access_exception = 1'b1;
         riscv::CSR_HIP:
-        if (CVA6Cfg.RVH) csr_rdata = mip_q & HS_DELEG_INTERRUPTS;
+        if (CVA6Cfg.RVH) csr_rdata = mip_q & HIE_MASK;
         else read_access_exception = 1'b1;
         riscv::CSR_HVIP:
         if (CVA6Cfg.RVH) csr_rdata = mip_q & VS_DELEG_INTERRUPTS;
@@ -531,7 +531,7 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = htinst_q;
         else read_access_exception = 1'b1;
         riscv::CSR_HGEIE:
-        if (CVA6Cfg.RVH) csr_rdata = '0;
+        if (CVA6Cfg.RVH) csr_rdata = {hgeie_q[riscv::XLEN-1:1], 1'b0};
         else read_access_exception = 1'b1;
         riscv::CSR_HGEIP:
         if (CVA6Cfg.RVH) csr_rdata = '0;
@@ -1260,7 +1260,7 @@ module csr_regfile
         end
         riscv::CSR_HIE: begin
           if (CVA6Cfg.RVH) begin
-            mask  = HS_DELEG_INTERRUPTS;
+            mask  = HIE_MASK;
             mie_d = (mie_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;
@@ -1268,7 +1268,7 @@ module csr_regfile
         end
         riscv::CSR_HIP: begin
           if (CVA6Cfg.RVH) begin
-            mask  = riscv::MIP_VSSIP;
+            mask  = HIE_MASK;
             mip_d = (mip_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;
@@ -1307,6 +1307,8 @@ module csr_regfile
         riscv::CSR_HGEIE: begin
           if (!CVA6Cfg.RVH) begin
             update_access_exception = 1'b1;
+          end else begin
+            hgeie_d = {csr_wdata[riscv::XLEN-1:1], 1'b0};
           end
         end
         riscv::CSR_HGATP: begin
@@ -1762,7 +1764,7 @@ module csr_regfile
           // this can either be user or supervisor mode
           vsstatus_d.spp = priv_lvl_q[0];
           // set cause
-          vscause_d = ex_i.cause[riscv::XLEN-1] ? {ex_i.cause[riscv::XLEN-1:2], 2'b01} : ex_i.cause;
+          vscause_d = (~clic_mode_o & ex_i.cause[riscv::XLEN-1]) ? {ex_i.cause[riscv::XLEN-1:2], 2'b01} : ex_i.cause;
           // set epc
           vsepc_d = {{riscv::XLEN - riscv::VLEN{pc_i[riscv::VLEN-1]}}, pc_i};
           // set vstval
@@ -2306,12 +2308,12 @@ module csr_regfile
     // trap_vector_base instead.
     if (ex_i.cause[riscv::XLEN-1] &&
                 ((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && mtvec_q[0]) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && mtvec_q[0]))
-               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0])
+               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0] && !clic_mode_o)
                || (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i))) begin
       trap_vector_base_o[7:2] = ex_i.cause[5:0];
     end
     if (ex_i.cause[riscv::XLEN-1] &&
-                (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0])) begin
+                (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0] && !clic_mode_o)) begin
       trap_vector_base_o[7:2] = {ex_i.cause[5:2], 2'b01};
     end
 
