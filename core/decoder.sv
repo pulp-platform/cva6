@@ -49,6 +49,10 @@ module decoder
     // TO_BE_COMPLETED - CLIC_CTRL
     input logic clic_irq_req_i,
     // TO_BE_COMPLETED - CLIC_CTRL
+    input riscv::priv_lvl_t clic_irq_priv_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic clic_irq_v_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
     input riscv::xlen_t clic_irq_cause_i,
     // Current privilege level - CSR_REGFILE
     input riscv::priv_lvl_t priv_lvl_i,
@@ -1628,6 +1632,8 @@ module decoder
         end else begin
           instruction_o.ex.valid = 1'b1;
           instruction_o.ex.cause = interrupt_cause;
+          instruction_o.ex.priv_lvl = clic_irq_priv_i;
+          instruction_o.ex.trap_to_v = clic_irq_v_i;
         end
       end
     end
