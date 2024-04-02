@@ -257,6 +257,8 @@ module std_cache_subsystem
       .oup_ready_i(axi_resp_i.w_ready)
   );
 
+  assign axi_req_o.wack = {axi_req_icache.wack, axi_req_bypass.wack, axi_req_data.wack}[w_select_arbiter];
+
   // Route responses based on ID
   // 0000 -> I$
   // 0111 -> D$
@@ -287,6 +289,8 @@ module std_cache_subsystem
       .oup_valid_o({axi_resp_icache.r_valid, axi_resp_bypass.r_valid, axi_resp_data.r_valid}),
       .oup_ready_i({axi_req_icache.r_ready, axi_req_bypass.r_ready, axi_req_data.r_ready})
   );
+
+  assign axi_req_o.rack = {axi_req_icache.rack, axi_req_bypass.rack, axi_req_data.rack}[r_select];
 
   // B Channel
   logic [1:0] b_select;
