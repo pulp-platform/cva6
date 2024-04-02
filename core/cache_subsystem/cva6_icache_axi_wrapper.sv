@@ -102,6 +102,7 @@ module cva6_icache_axi_wrapper
   assign icache_mem_rtrn.tid   = req_data_q.tid;
   assign icache_mem_rtrn.rtype = wt_cache_pkg::ICACHE_IFILL_ACK;
   assign icache_mem_rtrn.inv   = '0;
+  assign icache_mem_rtrn.user  = '0;
 
   // -------
   // I-Cache
