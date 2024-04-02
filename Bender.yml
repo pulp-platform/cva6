@@ -125,11 +125,7 @@ sources:
       # - vendor/pulp-platform/axi/src/axi_pkg.sv
 
       # Packages
-<<<<<<< HEAD
-=======
-      - core/include/ariane_axi_pkg.sv
       - core/include/ariane_ace_pkg.sv
->>>>>>> 9337d547 (Adapt Bender file and file list)
       - core/include/wt_cache_pkg.sv
       - core/include/std_cache_pkg.sv
       - core/include/acc_pkg.sv
