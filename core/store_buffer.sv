@@ -135,6 +135,7 @@ module store_buffer
   assign req_port_o.kill_req = 1'b0;
   assign req_port_o.data_we = 1'b1;  // we will always write in the store queue
   assign req_port_o.tag_valid = 1'b0;
+  assign req_port_o.data_wuser  = '0; // not used
 
   // we do not require an acknowledgement for writes, thus we do not need to identify uniquely the responses
   assign req_port_o.data_id = '0;
