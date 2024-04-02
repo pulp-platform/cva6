@@ -56,26 +56,27 @@ module std_nbdcache
   // Controller <-> Arbiter
   // -------------------------------
   // 1. Miss handler
-  // 2. PTW
-  // 3. Load Unit
-  // 4. Accelerator
-  // 5. Store unit
-  logic        [            NumPorts:0][  DCACHE_SET_ASSOC-1:0] req;
-  logic        [            NumPorts:0][DCACHE_INDEX_WIDTH-1:0] addr;
-  logic        [            NumPorts:0]                         gnt;
+  // 2. Snoop
+  // 3. PTW
+  // 4. Load Unit
+  // 5. Accelerator
+  // 6. Store unit
+  logic        [          NumPorts+1:0][  DCACHE_SET_ASSOC-1:0] req;
+  logic        [          NumPorts+1:0][DCACHE_INDEX_WIDTH-1:0] addr;
+  logic        [          NumPorts+1:0]                         gnt;
   cache_line_t [  DCACHE_SET_ASSOC-1:0]                         rdata;
-  logic        [            NumPorts:0][  DCACHE_TAG_WIDTH-1:0] tag;
+  logic        [          NumPorts+1:0][  DCACHE_TAG_WIDTH-1:0] tag;
 
-  cache_line_t [            NumPorts:0]                         wdata;
-  logic        [            NumPorts:0]                         we;
-  cl_be_t      [            NumPorts:0]                         be;
+  cache_line_t [          NumPorts+1:0]                         wdata;
+  logic        [          NumPorts+1:0]                         we;
+  cl_be_t      [          NumPorts+1:0]                         be;
   logic        [  DCACHE_SET_ASSOC-1:0]                         hit_way;
   logic        [  DCACHE_SET_ASSOC-1:0]                         dirty_way;
   logic        [  DCACHE_SET_ASSOC-1:0]                         shared_way;
   // -------------------------------
   // Controller <-> Miss unit
   // -------------------------------
-  logic        [          NumPorts-1:0]                         busy;
+  logic        [            NumPorts:0]                         busy; // one per port + snoop
   logic        [          NumPorts-1:0][                  55:0] mshr_addr;
   logic        [          NumPorts-1:0]                         mshr_addr_matches;
   logic        [          NumPorts-1:0]                         mshr_index_matches;
@@ -153,7 +154,7 @@ module std_nbdcache
           .CVA6Cfg(CVA6Cfg)
       ) i_cache_ctrl (
           .bypass_i  (~enable_i),
-          .busy_o    (busy[i]),
+          .busy_o    (busy[i+1]),
           .hit_o     (),
           .unique_o  (),
           .stall_i   (stall_i | flush_i),
@@ -161,14 +162,14 @@ module std_nbdcache
           .req_port_i(req_ports_i[i]),
           .req_port_o(req_ports_o[i]),
           // to SRAM array
-          .req_o     (req[i+1]),
-          .addr_o    (addr[i+1]),
-          .gnt_i     (gnt[i+1]),
+          .req_o     (req[i+2]),
+          .addr_o    (addr[i+2]),
+          .gnt_i     (gnt[i+2]),
           .data_i    (rdata),
-          .tag_o     (tag[i+1]),
-          .data_o    (wdata[i+1]),
-          .we_o      (we[i+1]),
-          .be_o      (be[i+1]),
+          .tag_o     (tag[i+2]),
+          .data_o    (wdata[i+2]),
+          .we_o      (we[i+2]),
+          .be_o      (be[i+2]),
           .hit_way_i (hit_way),
           .shared_way_i(shared_way),
 
@@ -320,7 +321,7 @@ module std_nbdcache
   // ------------------------------------------------
   tag_cmp #(
       .CVA6Cfg         (CVA6Cfg),
-      .NR_PORTS        (NumPorts + 1),
+      .NR_PORTS        (NumPorts + 2),
       .ADDR_WIDTH      (DCACHE_INDEX_WIDTH),
       .DCACHE_SET_ASSOC(DCACHE_SET_ASSOC)
   ) i_tag_cmp (
