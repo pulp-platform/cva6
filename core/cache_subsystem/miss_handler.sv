@@ -21,6 +21,7 @@
 module miss_handler
   import ariane_pkg::*;
   import std_cache_pkg::*;
+  import config_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg   = config_pkg::cva6_cfg_empty,
     parameter int unsigned           NR_PORTS  = 4,
@@ -354,7 +355,7 @@ module miss_handler
           // start a ReadUnique request, the requested adress was cleared by snoop
           req_fsm_miss_type = ace_pkg::READ_UNIQUE;
         end else begin
-          case ({mshr_q.we, is_inside_shareable_regions(ArianeCfg, mshr_q.addr)})
+          case ({mshr_q.we, is_inside_shareable_regions(CVA6Cfg, mshr_q.addr)})
             2'b00: req_fsm_miss_type = ace_pkg::READ_NO_SNOOP;
             2'b01: req_fsm_miss_type = ace_pkg::READ_SHARED;
             2'b10: req_fsm_miss_type = ace_pkg::READ_NO_SNOOP;
@@ -703,13 +704,13 @@ module miss_handler
       bypass_ports_req[id].size    = miss_req_size[id];
 
       if (miss_req_we[id]) begin
-        if (is_inside_shareable_regions(ArianeCfg, miss_req_addr[id])) begin
+        if (is_inside_shareable_regions(CVA6Cfg, miss_req_addr[id])) begin
           bypass_ports_req[id].acetype = ace_pkg::WRITE_UNIQUE;
         end else begin
           bypass_ports_req[id].acetype = ace_pkg::WRITE_NO_SNOOP;
         end
       end else begin
-        if (is_inside_shareable_regions(ArianeCfg, miss_req_addr[id])) begin
+        if (is_inside_shareable_regions(CVA6Cfg, miss_req_addr[id])) begin
           bypass_ports_req[id].acetype = ace_pkg::READ_ONCE;
         end else begin
           bypass_ports_req[id].acetype = ace_pkg::READ_NO_SNOOP;
@@ -725,13 +726,13 @@ module miss_handler
     bypass_ports_req[id] = amo_bypass_req;
     bypass_ports_req[id].id = 4'b1000 + id;
     if (amo_bypass_req.we) begin
-      if (is_inside_shareable_regions(ArianeCfg, amo_bypass_req.addr)) begin
+      if (is_inside_shareable_regions(CVA6Cfg, amo_bypass_req.addr)) begin
         bypass_ports_req[id].acetype = ace_pkg::WRITE_UNIQUE;
       end else begin
         bypass_ports_req[id].acetype = ace_pkg::WRITE_NO_SNOOP;
       end
     end else begin
-      if (is_inside_shareable_regions(ArianeCfg, amo_bypass_req.addr)) begin
+      if (is_inside_shareable_regions(CVA6Cfg, amo_bypass_req.addr)) begin
         bypass_ports_req[id].acetype = ace_pkg::READ_ONCE;
       end else begin
         bypass_ports_req[id].acetype = ace_pkg::READ_NO_SNOOP;
