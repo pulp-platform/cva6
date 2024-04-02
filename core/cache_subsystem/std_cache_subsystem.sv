@@ -157,8 +157,8 @@ module std_cache_subsystem
       .init_ni     (init_ni),
       .axi_bypass_o(ace_req_bypass),
       .axi_bypass_i(ace_resp_bypass),
-      .axi_data_o  (ace_resp_bypass),
-      .axi_data_i  (ace_resp_bypass),
+      .axi_data_o  (ace_req_data),
+      .axi_data_i  (ace_resp_data),
       .req_ports_i (dcache_req_ports_i),
       .req_ports_o (dcache_req_ports_o),
       .*
