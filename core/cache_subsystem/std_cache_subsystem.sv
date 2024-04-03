@@ -209,9 +209,9 @@ module std_cache_subsystem
   // to forward the correct write data.
   always_comb begin
     w_select = 0;
-    unique casez (axi_req_o.aw.id[3:2])
-      2'b11: w_select = 2;  // dcache
-      2'b10: w_select = 1;  // bypass
+    unique casez (axi_req_o.aw.id)
+      4'b0111: w_select = 2;  // dcache
+      4'b1???: w_select = 1;  // bypass
       default: w_select = 0;  // icache
     endcase
   end
@@ -272,13 +272,13 @@ module std_cache_subsystem
   assign axi_resp_data.r   = axi_resp_i.r;
 
   logic [1:0] r_select;
-  
+
   always_comb begin
     r_select = 0;
-    unique case (axi_resp_i.r.id[3:2])
-      2'b11:   r_select = 0; // dcache
-      2'b10:   r_select = 1; // bypass
-      2'b00:   r_select = 2; // icache
+    unique casez (axi_resp_i.r.id)
+      4'b0111: r_select = 0;  // dcache
+      4'b1???: r_select = 1;  // bypass
+      4'b0000: r_select = 2;  // icache
       default: r_select = 0;
     endcase
   end
@@ -304,10 +304,10 @@ module std_cache_subsystem
 
   always_comb begin
     b_select = 0;
-    unique case (axi_resp_i.b.id[3:2])
-      2'b11:   b_select = 0; // dcache
-      2'b10:   b_select = 1; // bypass
-      2'b00:   b_select = 2; // icache
+    unique casez (axi_resp_i.b.id)
+      4'b0111: b_select = 0;  // dcache
+      4'b1???: b_select = 1;  // bypass
+      4'b0000: b_select = 2;  // icache
       default: b_select = 0;
     endcase
   end

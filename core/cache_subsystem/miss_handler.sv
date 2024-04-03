@@ -186,7 +186,7 @@ module miss_handler
   assign ongoing_write_o = mshr_q.we & mshr_q.valid;
 
   // ID for regular (non-bypass) AXI bus
-  assign req_fsm_miss_id = {{CVA6Cfg.AxiIdWidth-4{1'b0}}, 4'b1100};
+  assign req_fsm_miss_id = {{CVA6Cfg.AxiIdWidth-4{1'b0}}, 4'b0111};
 
   // ------------------------------
   // Cache Management
