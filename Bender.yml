@@ -26,6 +26,8 @@ sources:
           - core/include/cv64a6_imafdcv_sv39_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
@@ -36,6 +38,8 @@ sources:
           - core/include/cv64a6_imafdc_sv39_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
@@ -49,6 +53,8 @@ sources:
           - core/include/cv64a6_imafdcsclic_sv39_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
@@ -63,6 +69,8 @@ sources:
           - core/include/cv64a6_imafdc_sv39_wb_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv39/tlb.sv
           - core/mmu_sv39/mmu.sv
           - core/mmu_sv39/ptw.sv
@@ -74,6 +82,8 @@ sources:
           - core/include/cv64a6_imafdch_sv39_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv39x4/cva6_tlb_sv39x4.sv
           - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
           - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
@@ -84,6 +94,8 @@ sources:
           - core/include/cv64a6_imafdch_sv39_wb_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv39x4/cva6_tlb_sv39x4.sv
           - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
           - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
@@ -95,6 +107,8 @@ sources:
           - core/include/cv32a6_imac_sv0_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv32/cva6_tlb_sv32.sv
           - core/mmu_sv32/cva6_mmu_sv32.sv
           - core/mmu_sv32/cva6_ptw_sv32.sv
@@ -105,6 +119,8 @@ sources:
           - core/include/cv32a6_imac_sv32_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv32/cva6_tlb_sv32.sv
           - core/mmu_sv32/cva6_mmu_sv32.sv
           - core/mmu_sv32/cva6_ptw_sv32.sv
@@ -115,6 +131,8 @@ sources:
           - core/include/cv32a6_imafc_sv32_config_pkg.sv
           - core/include/riscv_pkg.sv
           - core/include/ariane_pkg.sv
+          - core/include/ariane_ace_pkg.sv
+          - core/include/std_cache_pkg.sv
           - core/mmu_sv32/cva6_tlb_sv32.sv
           - core/mmu_sv32/cva6_mmu_sv32.sv
           - core/mmu_sv32/cva6_ptw_sv32.sv
@@ -125,9 +143,7 @@ sources:
       # - vendor/pulp-platform/axi/src/axi_pkg.sv
 
       # Packages
-      - core/include/ariane_ace_pkg.sv
       - core/include/wt_cache_pkg.sv
-      - core/include/std_cache_pkg.sv
       - core/include/acc_pkg.sv
 
       # for all the below files use Flist.cva6 as baseline and also look at Makefile pd/synth
