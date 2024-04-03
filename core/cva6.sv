@@ -18,6 +18,7 @@ module cva6
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
     parameter bit EnableEcc = 0,
+    parameter bit ExternalSrams = 0,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
     // RVFI
     parameter type rvfi_probes_t = struct packed {
@@ -148,6 +149,13 @@ module cva6
     output cvxif_req_t cvxif_req_o,
     // CVXIF response - SUBSYSTEM
     input cvxif_resp_t cvxif_resp_i,
+    // External SRAMs connections
+    output logic [ariane_pkg::DCACHE_SET_ASSOC-1:0] dcache_req_o,
+    output logic [ariane_pkg::DCACHE_INDEX_WIDTH-1:0] dcache_addr_o,
+    output logic dcache_we_o,
+    output std_cache_pkg::cache_line_t dcache_wdata_o,
+    output std_cache_pkg::cl_be_t dcache_be_o,
+    input std_cache_pkg::cache_line_t [ariane_pkg::DCACHE_SET_ASSOC-1:0] dcache_rdata_i,
     // noc request, can be AXI or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
@@ -1169,6 +1177,11 @@ module cva6
         .inval_valid_i     (inval_valid),
         .inval_ready_o     (inval_ready)
     );
+    assign dcache_req_o = '0;
+    assign dcache_addr_o = '0;
+    assign dcache_we_o = '0;
+    assign dcache_wdata_o = '0;
+    assign dcache_be_o = '0;
   end else if (DCACHE_TYPE == int'(config_pkg::HPDCACHE)) begin : gen_cache_hpd
     cva6_hpdcache_subsystem #(
         .CVA6Cfg   (CVA6ExtendCfg),
@@ -1226,12 +1239,18 @@ module cva6
         .noc_resp_i(noc_resp_i)
     );
     assign inval_ready = 1'b1;
+    assign dcache_req_o = '0;
+    assign dcache_addr_o = '0;
+    assign dcache_we_o = '0;
+    assign dcache_wdata_o = '0;
+    assign dcache_be_o = '0;
   end else begin : gen_cache_wb
     std_cache_subsystem #(
         // note: this only works with one cacheable region
         // not as important since this cache subsystem is about to be
         // deprecated
         .CVA6Cfg      (CVA6ExtendCfg),
+        .ExternalSrams(ExternalSrams),
         .EnableEcc    (EnableEcc),
         .NumPorts     (NumPorts),
         .axi_ar_chan_t(axi_ar_chan_t),
@@ -1268,6 +1287,13 @@ module cva6
         // from PTW, Load Unit  and Store Unit
         .dcache_req_ports_i(dcache_req_to_cache),
         .dcache_req_ports_o(dcache_req_from_cache),
+        // External SRAMs connections
+        .dcache_req_o (dcache_req_o),
+        .dcache_addr_o (dcache_addr_o),
+        .dcache_we_o(dcache_we_o),
+        .dcache_wdata_o(dcache_wdata_o),
+        .dcache_be_o(dcache_be_o),
+        .dcache_rdata_i(dcache_rdata_i),
         // memory side
         .axi_req_o         (noc_req_o),
         .axi_resp_i        (noc_resp_i)

@@ -21,6 +21,7 @@ module std_cache_subsystem
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter bit EnableEcc = 0,
+    parameter bit ExternalSrams = 0,
     parameter int unsigned NumPorts = 4,
     parameter type axi_ar_chan_t = logic,
     parameter type axi_aw_chan_t = logic,
@@ -57,6 +58,13 @@ module std_cache_subsystem
     // Request ports
     input dcache_req_i_t [NumPorts-1:0] dcache_req_ports_i,  // to/from LSU
     output dcache_req_o_t [NumPorts-1:0] dcache_req_ports_o,  // to/from LSU
+    // External SRAMS
+    output logic [DCACHE_SET_ASSOC-1:0] dcache_req_o,
+    output logic [DCACHE_INDEX_WIDTH-1:0] dcache_addr_o,
+    output logic dcache_we_o,
+    output cache_line_t dcache_wdata_o,
+    output cl_be_t dcache_be_o,
+    input cache_line_t [DCACHE_SET_ASSOC-1:0] dcache_rdata_i,
     // memory side
     output axi_req_t axi_req_o,
     input axi_rsp_t axi_resp_i
@@ -108,6 +116,7 @@ module std_cache_subsystem
       .CVA6Cfg  (CVA6Cfg),
       .NumPorts (NumPorts),
       .EnableEcc(EnableEcc),
+      .ExternalSrams(ExternalSrams),
       .axi_req_t(axi_req_t),
       .axi_rsp_t(axi_rsp_t)
   ) i_nbdcache (
@@ -126,6 +135,13 @@ module std_cache_subsystem
       .axi_data_i  (axi_resp_data),
       .req_ports_i (dcache_req_ports_i),
       .req_ports_o (dcache_req_ports_o),
+      // External SRAMs
+      .dcache_req_o,
+      .dcache_addr_o,
+      .dcache_we_o,
+      .dcache_wdata_o,
+      .dcache_be_o,
+      .dcache_rdata_i,
       .amo_req_i,
       .amo_resp_o
   );

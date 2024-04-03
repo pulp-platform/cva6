@@ -20,6 +20,7 @@ module std_nbdcache
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned NumPorts = 4,
     parameter bit EnableEcc = 0,
+    parameter bit ExternalSrams = 0,
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -33,6 +34,13 @@ module std_nbdcache
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
     input logic init_ni,
+    // External SRAMS
+    output logic [DCACHE_SET_ASSOC-1:0] dcache_req_o,
+    output logic [DCACHE_INDEX_WIDTH-1:0] dcache_addr_o,
+    output logic dcache_we_o,
+    output cache_line_t dcache_wdata_o,
+    output cl_be_t dcache_be_o,
+    input cache_line_t [DCACHE_SET_ASSOC-1:0] dcache_rdata_i,
     // AMOs
     input amo_req_t amo_req_i,
     output amo_resp_t amo_resp_o,
@@ -184,83 +192,99 @@ module std_nbdcache
   // --------------
   // Memory Arrays
   // --------------
-  for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin : sram_block
+  if (ExternalSrams) begin : gen_external_srams_connections
+    assign dcache_addr_o = addr_ram;
+    assign dcache_we_o = we_ram;
+    assign dcache_wdata_o = wdata_ram;
+    assign dcache_be_o = be_ram;
+    for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
+      assign dcache_req_o[i] = req_ram[i];
+      assign rdata_ram[i] = dcache_rdata_i[i];
+    end
+  end else begin : gen_internal_srams_connections
+    assign dcache_req_o = '0;
+    assign dcache_addr_o = '0;
+    assign dcache_we_o = '0;
+    assign dcache_wdata_o = '0;
+    assign dcache_be_o = '0;
+    for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin : sram_block
+      sram #(
+          .DATA_WIDTH(DCACHE_LINE_WIDTH),
+          .NUM_WORDS (DCACHE_NUM_WORDS),
+          .ENABLE_ECC(EnableEcc),
+          .ECC_GRANULARITY(32)
+      ) data_sram (
+          .req_i  (req_ram[i]),
+          .rst_ni (rst_ni),
+          .we_i   (we_ram),
+          .addr_i (addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]),
+          .wuser_i('0),
+          .wdata_i(wdata_ram.data),
+          .be_i   (be_ram.data),
+          .ruser_o(),
+          .rdata_o(rdata_ram[i].data),
+          .error_o(/* TODO: Connect */),
+          .user_error_o(/* TODO: Connect */),
+          .*
+      );
+
+      sram #(
+          .DATA_WIDTH(DCACHE_TAG_WIDTH),
+          .NUM_WORDS (DCACHE_NUM_WORDS),
+          .ENABLE_ECC(EnableEcc)
+      ) tag_sram (
+          .req_i  (req_ram[i]),
+          .rst_ni (rst_ni),
+          .we_i   (we_ram),
+          .addr_i (addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]),
+          .wuser_i('0),
+          .wdata_i(wdata_ram.tag),
+          .be_i   (be_ram.tag),
+          .ruser_o(),
+          .rdata_o(rdata_ram[i].tag),
+          .error_o(/* TODO: Connect */),
+          .user_error_o(/* TODO: Connect */),
+          .*
+      );
+
+    end
+
+    // ----------------
+    // Valid/Dirty Regs
+    // ----------------
+
+    vldrty_t [DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
+
+    for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
+      assign dirty_wdata[i]              = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid};
+      assign rdata_ram[i].dirty          = dirty_rdata[i].dirty;
+      assign rdata_ram[i].valid          = dirty_rdata[i].valid;
+      assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
+      assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
+    end
+
     sram #(
-        .DATA_WIDTH(DCACHE_LINE_WIDTH),
+        .USER_WIDTH(1),
+        .DATA_WIDTH(DCACHE_SET_ASSOC * $bits(vldrty_t)),
+        .BYTE_WIDTH(1),
         .NUM_WORDS (DCACHE_NUM_WORDS),
         .ENABLE_ECC(EnableEcc),
-        .ECC_GRANULARITY(32)
-    ) data_sram (
-        .req_i  (req_ram[i]),
+        .ECC_GRANULARITY(8) // TODO: fix to use 32
+    ) valid_dirty_sram (
+        .clk_i  (clk_i),
         .rst_ni (rst_ni),
+        .req_i  (|req_ram),
         .we_i   (we_ram),
         .addr_i (addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]),
         .wuser_i('0),
-        .wdata_i(wdata_ram.data),
-        .be_i   (be_ram.data),
+        .wdata_i(dirty_wdata),
+        .be_i   (be_valid_dirty_ram),
         .ruser_o(),
-        .rdata_o(rdata_ram[i].data),
+        .rdata_o(dirty_rdata),
         .error_o(/* TODO: Connect */),
-        .user_error_o(/* TODO: Connect */),
-        .*
+        .user_error_o(/* TODO: Connect */)
     );
-
-    sram #(
-        .DATA_WIDTH(DCACHE_TAG_WIDTH),
-        .NUM_WORDS (DCACHE_NUM_WORDS),
-        .ENABLE_ECC(EnableEcc)
-    ) tag_sram (
-        .req_i  (req_ram[i]),
-        .rst_ni (rst_ni),
-        .we_i   (we_ram),
-        .addr_i (addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]),
-        .wuser_i('0),
-        .wdata_i(wdata_ram.tag),
-        .be_i   (be_ram.tag),
-        .ruser_o(),
-        .rdata_o(rdata_ram[i].tag),
-        .error_o(/* TODO: Connect */),
-        .user_error_o(/* TODO: Connect */),
-        .*
-    );
-
   end
-
-  // ----------------
-  // Valid/Dirty Regs
-  // ----------------
-
-  vldrty_t [DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
-
-  for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin
-    assign dirty_wdata[i]              = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid};
-    assign rdata_ram[i].dirty          = dirty_rdata[i].dirty;
-    assign rdata_ram[i].valid          = dirty_rdata[i].valid;
-    assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
-    assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
-  end
-
-  sram #(
-      .USER_WIDTH(1),
-      .DATA_WIDTH(DCACHE_SET_ASSOC * $bits(vldrty_t)),
-      .BYTE_WIDTH(1),
-      .NUM_WORDS (DCACHE_NUM_WORDS),
-      .ENABLE_ECC(EnableEcc),
-      .ECC_GRANULARITY(8) // TODO: fix to use 32
-  ) valid_dirty_sram (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .req_i  (|req_ram),
-      .we_i   (we_ram),
-      .addr_i (addr_ram[DCACHE_INDEX_WIDTH-1:DCACHE_BYTE_OFFSET]),
-      .wuser_i('0),
-      .wdata_i(dirty_wdata),
-      .be_i   (be_valid_dirty_ram),
-      .ruser_o(),
-      .rdata_o(dirty_rdata),
-      .error_o(/* TODO: Connect */),
-      .user_error_o(/* TODO: Connect */)
-  );
 
   // ------------------------------------------------
   // Tag Comparison and memory arbitration

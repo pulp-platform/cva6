@@ -244,6 +244,7 @@ sources:
       - core/cache_subsystem/std_nbdcache.sv
       - core/cache_subsystem/cva6_icache_axi_wrapper.sv
       - core/cache_subsystem/std_cache_subsystem.sv
+      - core/cache_subsystem/cache_wrap.sv
 
       # Physical Memory Protection
       # NOTE: pmp.sv modified for DSIM (unchanged for other simulators)
