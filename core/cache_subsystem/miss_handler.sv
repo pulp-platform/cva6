@@ -172,11 +172,6 @@ module miss_handler
   logic                                                       bypass_axi_busy, miss_axi_busy;
   assign busy_o = bypass_axi_busy | miss_axi_busy | (state_q != IDLE);
 
-  struct packed {
-    logic [63:3] address;
-    logic        valid;
-  } reservation_d, reservation_q;
-
   assign serving_amo_o = serve_amo_q;
   assign serving_amo_addr_o = amo_req_i.operand_a;
 
