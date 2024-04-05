@@ -31,6 +31,7 @@ module cva6_icache
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter bit EnableEcc = 0,
+    parameter bit ExternalSrams = 0,
     /// ID to be used for read transactions
     parameter logic [MEM_TID_WIDTH-1:0] RdTxId = 0
 ) (
@@ -57,8 +58,21 @@ module cva6_icache
     input  icache_rtrn_t mem_rtrn_i,
     output logic         mem_data_req_o,
     input  logic         mem_data_ack_i,
-    output icache_req_t  mem_data_o
-);
+    output icache_req_t  mem_data_o,
+    // External cache connection
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_req_o,
+    output logic icache_tag_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_tag_addr_o,
+    output logic [ICACHE_TAG_WIDTH-1:0] icache_tag_wdata_o,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_wdata_valid_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_TAG_WIDTH:0] icache_tag_rdata_i,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_data_req_o,
+    output logic icache_data_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_data_addr_o,
+    output icache_rtrn_t icache_data_wdata_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_USER_LINE_WIDTH-1:0] icache_data_ruser_i,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_LINE_WIDTH-1:0] icache_data_rdata_i
+  );
 
   // functions
   function automatic logic [ariane_pkg::ICACHE_SET_ASSOC-1:0] icache_way_bin2oh(
@@ -422,7 +436,8 @@ module cva6_icache
   for (genvar i = 0; i < ICACHE_SET_ASSOC; i++) begin : gen_tag_cmpsel
     assign cl_hit[i]  = (cl_tag_rdata[i] == cl_tag_d) & vld_rdata[i];
     assign cl_sel[i]  = cl_rdata[i][{cl_offset_q, 3'b0}+:FETCH_WIDTH];
-    assign cl_user[i] = cl_ruser[i][{cl_offset_q, 3'b0}+:FETCH_USER_WIDTH];
+    // assign cl_user[i] = cl_ruser[i][{cl_offset_q, 3'b0}+:FETCH_USER_WIDTH];
+    assign cl_user[i] = '0;
   end
 
 
@@ -435,12 +450,13 @@ module cva6_icache
   );
 
   always_comb begin
+    dreq_o.user = '0;
     if (cmp_en_q) begin
       dreq_o.data = cl_sel[hit_idx];
-      dreq_o.user = cl_user[hit_idx];
+      // dreq_o.user = cl_user[hit_idx];
     end else begin
       dreq_o.data = mem_rtrn_i.data[{cl_offset_q, 3'b0}+:FETCH_WIDTH];
-      dreq_o.user = mem_rtrn_i.user[{cl_offset_q, 3'b0}+:FETCH_USER_WIDTH];
+      // dreq_o.user = mem_rtrn_i.user[{cl_offset_q, 3'b0}+:FETCH_USER_WIDTH];
     end
   end
 
@@ -451,55 +467,93 @@ module cva6_icache
 
   logic [ICACHE_TAG_WIDTH:0] cl_tag_valid_rdata[ICACHE_SET_ASSOC-1:0];
 
-  for (genvar i = 0; i < ICACHE_SET_ASSOC; i++) begin : gen_sram
-    // Tag RAM
-    sram #(
-        // tag + valid bit
-        .DATA_WIDTH(ICACHE_TAG_WIDTH + 1),
-        .NUM_WORDS (ICACHE_NUM_WORDS),
-        .ENABLE_ECC (EnableEcc)
-    ) tag_sram (
-        .clk_i  (clk_i),
-        .rst_ni (rst_ni),
-        .req_i  (vld_req[i]),
-        .we_i   (vld_we),
-        .addr_i (vld_addr),
-        // we can always use the saved tag here since it takes a
-        // couple of cycle until we write to the cache upon a miss
-        .wuser_i('0),
-        .wdata_i({vld_wdata[i], cl_tag_q}),
-        .be_i   ('1),
-        .ruser_o(),
-        .rdata_o(cl_tag_valid_rdata[i]),
-        .error_o      (/* TODO: Connect */),
-        .user_error_o (/* TODO: Connect */)
-    );
+  if (ExternalSrams) begin : gen_external_srams_connections
 
-    assign cl_tag_rdata[i] = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH-1:0];
-    assign vld_rdata[i]    = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH];
+    for (genvar i = 0; i < ICACHE_SET_ASSOC; i++) begin
+      // Tag SRAM
+      assign icache_tag_req_o[i] = vld_req[i];
+      // assign icache_tag_wdata_o[i] = {vld_wdata[i], cl_tag_q};
+      assign cl_tag_valid_rdata[i] = icache_tag_rdata_i[i];
+      assign cl_tag_rdata[i] = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH-1:0];
+      assign vld_rdata[i]    = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH];
+      // Data SRAM
+      assign icache_data_req_o[i] = cl_req[i];
+      assign cl_ruser[i] = icache_data_ruser_i[i];
+      assign cl_rdata[i] = icache_data_rdata_i[i];
+    end
+    // Tag SRAM
+    assign icache_tag_wdata_valid_o = vld_wdata;
+    assign icache_tag_wdata_o = cl_tag_q;
+    assign icache_tag_we_o = vld_we;
+    assign icache_tag_addr_o = vld_addr;
+    // Data SRAM
+    assign icache_data_we_o = cl_we;
+    assign icache_data_addr_o = cl_index;
+    assign icache_data_wdata_o = mem_rtrn_i;
 
-    // Data RAM
-    sram #(
-        .USER_WIDTH(ICACHE_USER_LINE_WIDTH),
-        .DATA_WIDTH(ICACHE_LINE_WIDTH),
-        .USER_EN   (ariane_pkg::FETCH_USER_EN),
-        .NUM_WORDS (ICACHE_NUM_WORDS),
-        .ENABLE_ECC(EnableEcc),
-        .ECC_GRANULARITY(32)
-    ) data_sram (
-        .clk_i  (clk_i),
-        .rst_ni (rst_ni),
-        .req_i  (cl_req[i]),
-        .we_i   (cl_we),
-        .addr_i (cl_index),
-        .wuser_i(mem_rtrn_i.user),
-        .wdata_i(mem_rtrn_i.data),
-        .be_i   ('1),
-        .ruser_o(cl_ruser[i]),
-        .rdata_o(cl_rdata[i]),
-        .error_o(/* TODO: Connect */),
-        .user_error_o(/* TODO: Connect */)
-    );
+  end else begin : gen_internal_srams_connections
+    // Tag SRAM
+    assign icache_tag_req_o = '0;
+    assign icache_tag_wdata_o = '0;
+    assign icache_tag_wdata_valid_o = '0;
+    assign icache_tag_we_o = '0;
+    assign icache_tag_addr_o = '0;
+    // Data SRAM
+    assign icache_data_req_o = '0;
+    assign icache_data_we_o = '0;
+    assign icache_data_addr_o = '0;
+    assign icache_data_wdata_o = '0;
+
+    for (genvar i = 0; i < ICACHE_SET_ASSOC; i++) begin : gen_sram
+      // Tag RAM
+      sram #(
+          // tag + valid bit
+          .DATA_WIDTH(ICACHE_TAG_WIDTH + 1),
+          .NUM_WORDS (ICACHE_NUM_WORDS),
+          .ENABLE_ECC (EnableEcc)
+      ) tag_sram (
+          .clk_i  (clk_i),
+          .rst_ni (rst_ni),
+          .req_i  (vld_req[i]),
+          .we_i   (vld_we),
+          .addr_i (vld_addr),
+          // we can always use the saved tag here since it takes a
+          // couple of cycle until we write to the cache upon a miss
+          .wuser_i('0),
+          .wdata_i({vld_wdata[i], cl_tag_q}),
+          .be_i   ('1),
+          .ruser_o(),
+          .rdata_o(cl_tag_valid_rdata[i]),
+          .error_o      (/* TODO: Connect */),
+          .user_error_o (/* TODO: Connect */)
+      );
+
+      assign cl_tag_rdata[i] = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH-1:0];
+      assign vld_rdata[i]    = cl_tag_valid_rdata[i][ICACHE_TAG_WIDTH];
+
+      // Data RAM
+      sram #(
+          .USER_WIDTH(ICACHE_USER_LINE_WIDTH),
+          .DATA_WIDTH(ICACHE_LINE_WIDTH),
+          .USER_EN   (ariane_pkg::FETCH_USER_EN),
+          .NUM_WORDS (ICACHE_NUM_WORDS),
+          .ENABLE_ECC(EnableEcc),
+          .ECC_GRANULARITY(32)
+      ) data_sram (
+          .clk_i  (clk_i),
+          .rst_ni (rst_ni),
+          .req_i  (cl_req[i]),
+          .we_i   (cl_we),
+          .addr_i (cl_index),
+          .wuser_i(mem_rtrn_i.user),
+          .wdata_i(mem_rtrn_i.data),
+          .be_i   ('1),
+          .ruser_o(cl_ruser[i]),
+          .rdata_o(cl_rdata[i]),
+          .error_o(/* TODO: Connect */),
+          .user_error_o(/* TODO: Connect */)
+      );
+    end
   end
 
 

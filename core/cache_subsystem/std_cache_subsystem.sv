@@ -18,6 +18,7 @@
 module std_cache_subsystem
   import ariane_pkg::*;
   import std_cache_pkg::*;
+  import wt_cache_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter bit EnableEcc = 0,
@@ -65,6 +66,18 @@ module std_cache_subsystem
     output cache_line_t dcache_wdata_o,
     output cl_be_t dcache_be_o,
     input cache_line_t [DCACHE_SET_ASSOC-1:0] dcache_rdata_i,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_req_o,
+    output logic icache_tag_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_tag_addr_o,
+    output logic [ICACHE_TAG_WIDTH-1:0] icache_tag_wdata_o,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_wdata_valid_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_TAG_WIDTH:0] icache_tag_rdata_i,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_data_req_o,
+    output logic icache_data_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_data_addr_o,
+    output icache_rtrn_t icache_data_wdata_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_USER_LINE_WIDTH-1:0] icache_data_ruser_i,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_LINE_WIDTH-1:0] icache_data_rdata_i,
     // memory side
     output axi_req_t axi_req_o,
     input axi_rsp_t axi_resp_i
@@ -87,6 +100,7 @@ module std_cache_subsystem
   cva6_icache_axi_wrapper #(
       .CVA6Cfg  (CVA6Cfg),
       .EnableEcc(EnableEcc),
+      .ExternalSrams(ExternalSrams),
       .axi_req_t(axi_req_t),
       .axi_rsp_t(axi_rsp_t)
   ) i_cva6_icache_axi_wrapper (
@@ -103,6 +117,18 @@ module std_cache_subsystem
       .areq_o    (icache_areq_o),
       .dreq_i    (icache_dreq_i),
       .dreq_o    (icache_dreq_o),
+      .icache_tag_req_o,
+      .icache_tag_we_o,
+      .icache_tag_addr_o,
+      .icache_tag_wdata_o,
+      .icache_tag_wdata_valid_o,
+      .icache_tag_rdata_i,
+      .icache_data_req_o,
+      .icache_data_we_o,
+      .icache_data_addr_o,
+      .icache_data_wdata_o,
+      .icache_data_ruser_i,
+      .icache_data_rdata_i,
       .axi_req_o (axi_req_icache),
       .axi_resp_i(axi_resp_icache)
   );

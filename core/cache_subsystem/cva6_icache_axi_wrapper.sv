@@ -19,6 +19,7 @@ module cva6_icache_axi_wrapper
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter bit EnableEcc = 0,
+    parameter bit ExternalSrams = 0,
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -38,6 +39,19 @@ module cva6_icache_axi_wrapper
     // data requests
     input icache_dreq_t dreq_i,
     output icache_drsp_t dreq_o,
+    // External cache connection
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_req_o,
+    output logic icache_tag_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_tag_addr_o,
+    output logic [ICACHE_TAG_WIDTH-1:0] icache_tag_wdata_o,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_wdata_valid_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_TAG_WIDTH:0] icache_tag_rdata_i,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_data_req_o,
+    output logic icache_data_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_data_addr_o,
+    output icache_rtrn_t icache_data_wdata_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_USER_LINE_WIDTH-1:0] icache_data_ruser_i,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_LINE_WIDTH-1:0] icache_data_rdata_i,
     // AXI refill port
     output axi_req_t axi_req_o,
     input axi_rsp_t axi_resp_i
@@ -99,6 +113,7 @@ module cva6_icache_axi_wrapper
   assign icache_mem_rtrn.tid   = req_data_q.tid;
   assign icache_mem_rtrn.rtype = wt_cache_pkg::ICACHE_IFILL_ACK;
   assign icache_mem_rtrn.inv   = '0;
+  assign icache_mem_rtrn.user  = '0;
 
   // -------
   // I-Cache
@@ -107,6 +122,7 @@ module cva6_icache_axi_wrapper
       // use ID 0 for icache reads
       .CVA6Cfg(CVA6Cfg),
       .EnableEcc(EnableEcc),
+      .ExternalSrams(ExternalSrams),
       .RdTxId (0)
   ) i_cva6_icache (
       .clk_i         (clk_i),
@@ -125,7 +141,19 @@ module cva6_icache_axi_wrapper
       .mem_rtrn_i    (icache_mem_rtrn),
       .mem_data_req_o(icache_mem_data_req),
       .mem_data_ack_i(icache_mem_data_ack),
-      .mem_data_o    (icache_mem_data)
+      .mem_data_o    (icache_mem_data),
+      .icache_tag_req_o,
+      .icache_tag_we_o,
+      .icache_tag_addr_o,
+      .icache_tag_wdata_o,
+      .icache_tag_wdata_valid_o,
+      .icache_tag_rdata_i,
+      .icache_data_req_o,
+      .icache_data_we_o,
+      .icache_data_addr_o,
+      .icache_data_wdata_o,
+      .icache_data_ruser_i,
+      .icache_data_rdata_i
   );
 
   // --------

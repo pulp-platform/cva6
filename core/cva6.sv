@@ -14,6 +14,7 @@
 
 module cva6
   import ariane_pkg::*;
+  import wt_cache_pkg::*;
 #(
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
@@ -156,6 +157,18 @@ module cva6
     output std_cache_pkg::cache_line_t dcache_wdata_o,
     output std_cache_pkg::cl_be_t dcache_be_o,
     input std_cache_pkg::cache_line_t [ariane_pkg::DCACHE_SET_ASSOC-1:0] dcache_rdata_i,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_req_o,
+    output logic icache_tag_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_tag_addr_o,
+    output logic [ICACHE_TAG_WIDTH-1:0] icache_tag_wdata_o,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_tag_wdata_valid_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_TAG_WIDTH:0] icache_tag_rdata_i,
+    output logic [ICACHE_SET_ASSOC-1:0] icache_data_req_o,
+    output logic icache_data_we_o,
+    output logic [ICACHE_CL_IDX_WIDTH-1:0] icache_data_addr_o,
+    output icache_rtrn_t icache_data_wdata_o,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_USER_LINE_WIDTH-1:0] icache_data_ruser_i,
+    input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_LINE_WIDTH-1:0] icache_data_rdata_i,
     // noc request, can be AXI or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
@@ -1182,6 +1195,15 @@ module cva6
     assign dcache_we_o = '0;
     assign dcache_wdata_o = '0;
     assign dcache_be_o = '0;
+    assign icache_tag_req_o = '0;
+    assign icache_tag_we_o = '0;
+    assign icache_tag_addr_o = '0;
+    assign icache_tag_wdata_o = '0;
+    assign icache_tag_wdata_valid_o = '0;
+    assign icache_data_req_o = '0;
+    assign icache_data_we_o = '0;
+    assign icache_data_addr_o = '0;
+    assign icache_data_wdata_o = '0;
   end else if (DCACHE_TYPE == int'(config_pkg::HPDCACHE)) begin : gen_cache_hpd
     cva6_hpdcache_subsystem #(
         .CVA6Cfg   (CVA6ExtendCfg),
@@ -1244,6 +1266,15 @@ module cva6
     assign dcache_we_o = '0;
     assign dcache_wdata_o = '0;
     assign dcache_be_o = '0;
+    assign icache_tag_req_o = '0;
+    assign icache_tag_we_o = '0;
+    assign icache_tag_addr_o = '0;
+    assign icache_tag_wdata_o = '0;
+    assign icache_tag_wdata_valid_o = '0;
+    assign icache_data_req_o = '0;
+    assign icache_data_we_o = '0;
+    assign icache_data_addr_o = '0;
+    assign icache_data_wdata_o = '0;
   end else begin : gen_cache_wb
     std_cache_subsystem #(
         // note: this only works with one cacheable region
@@ -1294,6 +1325,18 @@ module cva6
         .dcache_wdata_o(dcache_wdata_o),
         .dcache_be_o(dcache_be_o),
         .dcache_rdata_i(dcache_rdata_i),
+        .icache_tag_req_o(icache_tag_req_o),
+        .icache_tag_we_o(icache_tag_we_o),
+        .icache_tag_addr_o(icache_tag_addr_o),
+        .icache_tag_wdata_o(icache_tag_wdata_o),
+        .icache_tag_wdata_valid_o(icache_tag_wdata_valid_o),
+        .icache_tag_rdata_i(icache_tag_rdata_i),
+        .icache_data_req_o(icache_data_req_o),
+        .icache_data_we_o(icache_data_we_o),
+        .icache_data_addr_o(icache_data_addr_o),
+        .icache_data_wdata_o(icache_data_wdata_o),
+        .icache_data_ruser_i(icache_data_ruser_i),
+        .icache_data_rdata_i(icache_data_rdata_i),
         // memory side
         .axi_req_o         (noc_req_o),
         .axi_resp_i        (noc_resp_i)
