@@ -32,6 +32,8 @@ module commit_stage
     output logic dirty_fp_state_o,
     // TO_BE_COMPLETED - CSR_REGFILE
     input logic single_step_i,
+    // Explicit request to resume the core from the debug mode
+    input logic debug_resume_i,
     // The instruction we want to commit - ISSUE_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_i,
     // Acknowledge that we are indeed committing - ISSUE_STAGE
@@ -199,6 +201,7 @@ module commit_stage
           we_gpr_o[0] = 1'b0;
         end
       end
+      if (debug_resume_i) csr_op_o = DRET;
       // ------------------
       // FENCE.T Logic
       // ------------------

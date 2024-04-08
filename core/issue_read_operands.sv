@@ -18,7 +18,9 @@ module issue_read_operands
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter type rs3_len_t = logic
+    parameter type rs3_len_t = logic,
+    parameter type regfile_write_t = logic,
+    parameter type regfile_read_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -109,7 +111,16 @@ module issue_read_operands
     input logic [CVA6Cfg.NrCommitPorts-1:0] we_gpr_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input logic [CVA6Cfg.NrCommitPorts-1:0] we_fpr_i,
-
+    // Backup/Recovery ports
+    input logic recovery_i,
+    // Integer Register File
+    output regfile_read_t [CVA6Cfg.NrRgprPorts-1:0] int_regfile_check_o,
+    output regfile_write_t [CVA6Cfg.NrCommitPorts-1:0] int_regfile_backup_o,
+    input logic [31:0][riscv::XLEN-1:0] int_regfile_recovery_i,
+    // Floatting Point Register File
+    output regfile_read_t [CVA6Cfg.NrFpRdPorts-1:0] fp_regfile_check_o,
+    output regfile_write_t [CVA6Cfg.NrCommitPorts-1:0] fp_regfile_backup_o,
+    input logic [31:0][riscv::XLEN-1:0] fp_regfile_recovery_i,
     // Stall signal, we do not want to fetch any more entries - TO_BE_COMPLETED
     output logic stall_issue_o
 );
@@ -510,6 +521,8 @@ module issue_read_operands
     ) i_ariane_regfile (
         .clear_i  (~rst_uarch_ni),
         .test_en_i(1'b0),
+        .recovery_i (recovery_i),
+        .regfile_mem_i (int_regfile_recovery_i),
         .raddr_i  (raddr_pack),
         .rdata_o  (rdata),
         .waddr_i  (waddr_pack),
@@ -522,10 +535,10 @@ module issue_read_operands
   // -----------------------------
   // Floating-Point Register File
   // -----------------------------
-  logic [2:0][CVA6Cfg.FLen-1:0] fprdata;
+  logic [CVA6Cfg.NrFpRdPorts-1:0][CVA6Cfg.FLen-1:0] fprdata;
 
   // pack signals
-  logic [2:0][4:0] fp_raddr_pack;
+  logic [CVA6Cfg.NrFpRdPorts-1:0][4:0] fp_raddr_pack;
   logic [CVA6Cfg.NrCommitPorts-1:0][riscv::XLEN-1:0] fp_wdata_pack;
 
   generate
@@ -540,7 +553,7 @@ module issue_read_operands
         ariane_regfile_fpga #(
             .CVA6Cfg      (CVA6Cfg),
             .DATA_WIDTH   (CVA6Cfg.FLen),
-            .NR_READ_PORTS(3),
+            .NR_READ_PORTS(CVA6Cfg.NrFpRdPorts),
             .ZERO_REG_ZERO(0)
         ) i_ariane_fp_regfile_fpga (
             .test_en_i(1'b0),
@@ -555,11 +568,13 @@ module issue_read_operands
         ariane_regfile #(
             .CVA6Cfg      (CVA6Cfg),
             .DATA_WIDTH   (CVA6Cfg.FLen),
-            .NR_READ_PORTS(3),
+            .NR_READ_PORTS(CVA6Cfg.NrFpRdPorts),
             .ZERO_REG_ZERO(0)
         ) i_ariane_fp_regfile (
             .clear_i  (~rst_uarch_ni),
             .test_en_i(1'b0),
+            .recovery_i (recovery_i),
+            .regfile_mem_i (fp_regfile_recovery_i),
             .raddr_i  (fp_raddr_pack),
             .rdata_o  (fprdata),
             .waddr_i  (waddr_pack),
@@ -590,6 +605,36 @@ module issue_read_operands
       issue_instr_i.op
   )) ? operand_c_fpr : operand_c_gpr) : operand_c_fpr;
 
+  // Binding the Register File buses to the backup output ports
+  if (CVA6Cfg.RapidRecovery) begin : gen_backup_bus_connection
+    for (genvar i = 0; i < CVA6Cfg.NrRgprPorts; i++) begin
+    // Integer Register File
+      assign int_regfile_check_o[i].rdata = rdata[i];
+      assign int_regfile_check_o[i].raddr = raddr_pack[i];
+    end
+    // Floating-Point Register File
+    for (genvar i = 0; i < CVA6Cfg.NrFpRdPorts; i++) begin
+      assign fp_regfile_check_o[i].raddr = fp_raddr_pack[i];
+      assign fp_regfile_check_o[i].rdata = fprdata[i];
+    end
+    for (genvar i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
+      // Integer Register File
+      assign int_regfile_backup_o[i].waddr = waddr_pack[i];
+      assign int_regfile_backup_o[i].wdata = wdata_pack[i];
+      assign int_regfile_backup_o[i].we = we_pack[i];
+      // Floating-Point Register File
+      assign fp_regfile_backup_o[i].waddr = waddr_pack[i];
+      assign fp_regfile_backup_o[i].wdata = fp_wdata_pack[i];
+      assign fp_regfile_backup_o[i].we = we_fpr_i[i];
+    end
+  end else begin : gen_no_backup_bus_connection
+    // Integer Register File
+    assign int_regfile_check_o = '0;
+    assign int_regfile_backup_o = '0;
+    // Floating-Point Register File
+    assign fp_regfile_check_o = '0;
+    assign fp_regfile_backup_o = '0;
+  end
 
   // ----------------------
   // Registers (ID <-> EX)

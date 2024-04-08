@@ -12,6 +12,8 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigXlen = 64;
 
+  localparam RapidRecovery = 1;
+
   localparam CVA6ConfigFpuEn = 1;
   localparam CVA6ConfigF16En = 0;
   localparam CVA6ConfigF16AltEn = 0;
@@ -84,6 +86,7 @@ package cva6_config_pkg;
       AxiIdWidth: unsigned'(CVA6ConfigAxiIdWidth),
       AxiUserWidth: unsigned'(CVA6ConfigDataUserWidth),
       NrLoadBufEntries: unsigned'(CVA6ConfigNrLoadBufEntries),
+      RapidRecovery: bit'(RapidRecovery),
       FpuEn: bit'(CVA6ConfigFpuEn),
       XF16: bit'(CVA6ConfigF16En),
       XF16ALT: bit'(CVA6ConfigF16AltEn),
@@ -113,6 +116,7 @@ package cva6_config_pkg;
       XF16ALTVec: bit'(0),
       XF8Vec: bit'(0),
       NrRgprPorts: unsigned'(0),
+      NrFpRdPorts: unsigned'(0),
       NrWbPorts: unsigned'(0),
       EnableAccelerator: bit'(0),
       RVS: bit'(1),

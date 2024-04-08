@@ -17,7 +17,9 @@
 module issue_stage
   import ariane_pkg::*;
 #(
-    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
+    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
+    parameter type regfile_write_t = logic,
+    parameter type regfile_read_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -120,7 +122,17 @@ module issue_stage
     // Information dedicated to RVFI - RVFI
     output logic [TRANS_ID_BITS-1:0] rvfi_issue_pointer_o,
     // Information dedicated to RVFI - RVFI
-    output logic [CVA6Cfg.NrCommitPorts-1:0][TRANS_ID_BITS-1:0] rvfi_commit_pointer_o
+    output logic [CVA6Cfg.NrCommitPorts-1:0][TRANS_ID_BITS-1:0] rvfi_commit_pointer_o,
+    // Backup/Recovery ports
+    input logic recovery_i,
+    // Integer Register File
+    output regfile_read_t [CVA6Cfg.NrRgprPorts-1:0] int_regfile_check_o,
+    output regfile_write_t [CVA6Cfg.NrCommitPorts-1:0] int_regfile_backup_o,
+    input logic [31:0][riscv::XLEN-1:0] int_regfile_recovery_i,
+    // Floatting Point Register File
+    output regfile_read_t [CVA6Cfg.NrFpRdPorts-1:0] fp_regfile_check_o,
+    output regfile_write_t [CVA6Cfg.NrCommitPorts-1:0] fp_regfile_backup_o,
+    input logic [31:0][riscv::XLEN-1:0] fp_regfile_recovery_i
 );
   // ---------------------------------------------------
   // Scoreboard (SB) <-> Issue and Read Operands (IRO)
@@ -200,7 +212,9 @@ module issue_stage
   // ---------------------------------------------------------
   issue_read_operands #(
       .CVA6Cfg  (CVA6Cfg),
-      .rs3_len_t(rs3_len_t)
+      .rs3_len_t(rs3_len_t),
+      .regfile_write_t (regfile_write_t),
+      .regfile_read_t (regfile_read_t)
   ) i_issue_read_operands (
       .flush_i            (flush_unissued_instr_i),
       .issue_instr_i      (issue_instr_sb_iro),

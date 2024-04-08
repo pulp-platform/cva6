@@ -20,6 +20,9 @@ module cva6
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
     parameter bit EnableEcc = 0,
     parameter bit ExternalSrams = 0,
+    parameter int unsigned NumRfCommitPorts = 1,
+    parameter int unsigned NumIntRfRdPorts = 2,
+    parameter int unsigned NumFpRfRdPorts = 3,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
     // RVFI
     parameter type rvfi_probes_t = struct packed {
@@ -115,7 +118,9 @@ module cva6
     parameter type acc_cfg_t = logic,
     parameter acc_cfg_t AccCfg = '0,
     parameter type cvxif_req_t = cvxif_pkg::cvxif_req_t,
-    parameter type cvxif_resp_t = cvxif_pkg::cvxif_resp_t
+    parameter type cvxif_resp_t = cvxif_pkg::cvxif_resp_t,
+    parameter type regfile_write_t = logic,
+    parameter type regfile_read_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -135,6 +140,8 @@ module cva6
     input logic time_irq_i,
     // Debug (async) request - SUBSYSTEM
     input logic debug_req_i,
+    input logic debug_resume_i,
+    output logic debug_mode_o,
     // CLIC interface
     input logic clic_irq_valid_i,  // CLIC interrupt request
     input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,  // interrupt source ID
@@ -169,6 +176,16 @@ module cva6
     output icache_rtrn_t icache_data_wdata_o,
     input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_USER_LINE_WIDTH-1:0] icache_data_ruser_i,
     input  logic [ICACHE_SET_ASSOC-1:0][ICACHE_LINE_WIDTH-1:0] icache_data_rdata_i,
+    // Rapid Recovery connections
+    input logic recovery_i,
+    // Integer Register File
+    output regfile_read_t [NumIntRfRdPorts-1:0] int_regfile_check_o,
+    output regfile_write_t [NumRfCommitPorts-1:0] int_regfile_backup_o,
+    input logic [31:0][riscv::XLEN-1:0] int_regfile_recovery_i,
+    // Floatting Point Register File
+    output regfile_read_t [NumFpRfRdPorts-1:0] fp_regfile_check_o,
+    output regfile_write_t [NumRfCommitPorts-1:0] fp_regfile_backup_o,
+    input logic [31:0][riscv::XLEN-1:0] fp_regfile_recovery_i,
     // noc request, can be AXI or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
@@ -199,17 +216,20 @@ module cva6
   localparam bit EnableAccelerator = CVA6Cfg.RVV;  // Currently only used by V extension (Ara)
   localparam int unsigned NrWbPorts = (CVA6Cfg.CvxifEn || EnableAccelerator) ? 5 : 4;
 
-  localparam NrRgprPorts = 2;
+  //localparam NrRgprPorts = 2;
+  localparam NrRgprPorts = NumIntRfRdPorts;
 
   localparam bit NonIdemPotenceEn = CVA6Cfg.NrNonIdempotentRules && CVA6Cfg.NonIdempotentLength;  // Currently only used by V extension (Ara)
 
   localparam config_pkg::cva6_cfg_t CVA6ExtendCfg = {
-    CVA6Cfg.NrCommitPorts,
+    //CVA6Cfg.NrCommitPorts,
+    unsigned'(NumRfCommitPorts),
     CVA6Cfg.AxiAddrWidth,
     CVA6Cfg.AxiDataWidth,
     CVA6Cfg.AxiIdWidth,
     CVA6Cfg.AxiUserWidth,
     CVA6Cfg.NrLoadBufEntries,
+    CVA6Cfg.RapidRecovery,
     CVA6Cfg.FpuEn,
     CVA6Cfg.XF16,
     CVA6Cfg.XF16ALT,
@@ -236,6 +256,7 @@ module cva6
     bit'(XF16ALTVec),
     bit'(XF8Vec),
     unsigned'(NrRgprPorts),
+    unsigned'(NumFpRfRdPorts),
     unsigned'(NrWbPorts),
     bit'(EnableAccelerator),
     CVA6Cfg.RVS,
@@ -691,7 +712,9 @@ module cva6
   // Issue
   // ---------
   issue_stage #(
-      .CVA6Cfg(CVA6ExtendCfg)
+      .CVA6Cfg(CVA6ExtendCfg),
+      .regfile_write_t (regfile_write_t),
+      .regfile_read_t (regfile_read_t)
   ) issue_stage_i (
       .clk_i,
       .rst_ni,
@@ -700,6 +723,16 @@ module cva6
       .flush_unissued_instr_i(flush_unissued_instr_ctrl_id),
       .flush_i               (flush_ctrl_id),
       .stall_i               (stall_acc_id),
+      // Rapid Recovery
+      .recovery_i,
+      // Integer Register File
+      .int_regfile_check_o,
+      .int_regfile_backup_o,
+      .int_regfile_recovery_i,
+      // Floatting Point Register File
+      .fp_regfile_check_o,
+      .fp_regfile_backup_o,
+      .fp_regfile_recovery_i,
       // ID Stage
       .decoded_instr_i       (issue_entry_id_issue),
       .orig_instr_i          (orig_instr_id_issue),
@@ -904,6 +937,7 @@ module cva6
       .exception_o       (ex_commit),
       .dirty_fp_state_o  (dirty_fp_state),
       .single_step_i     (single_step_csr_commit),
+      .debug_resume_i    (debug_resume_i),
       .commit_instr_i    (commit_instr_id_commit),
       .commit_ack_o      (commit_ack),
       .no_st_pending_i   (no_st_pending_commit),
@@ -1022,6 +1056,7 @@ module cva6
       .time_irq_i,
       .*
   );
+  assign debug_mode_o = debug_mode;
 
   // ------------------------
   // Performance Counters

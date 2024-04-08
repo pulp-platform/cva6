@@ -25,13 +25,17 @@
 module ariane_regfile #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg       = config_pkg::cva6_cfg_empty,
     parameter int unsigned           DATA_WIDTH    = 32,
+    parameter int unsigned           ADDR_WIDTH = 5,
     parameter int unsigned           NR_READ_PORTS = 2,
-    parameter bit                    ZERO_REG_ZERO = 0
+    parameter bit                    ZERO_REG_ZERO = 0,
+    localparam int unsigned          NUM_WORDS = 2 ** ADDR_WIDTH
 ) (
     // clock and reset
     input  logic                                             clk_i,
     input  logic                                             rst_ni,
     input  logic                                             clear_i,
+    input  logic                                             recovery_i,
+    input  logic [NUM_WORDS-1:0][DATA_WIDTH-1:0]             regfile_mem_i,
     // disable clock gates for testing
     input  logic                                             test_en_i,
     // read port
@@ -42,9 +46,6 @@ module ariane_regfile #(
     input  logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i,
     input  logic [CVA6Cfg.NrCommitPorts-1:0]                 we_i
 );
-
-  localparam ADDR_WIDTH = 5;
-  localparam NUM_WORDS = 2 ** ADDR_WIDTH;
 
   logic [            NUM_WORDS-1:0][DATA_WIDTH-1:0] mem;
   logic [CVA6Cfg.NrCommitPorts-1:0][ NUM_WORDS-1:0] we_dec;
@@ -66,6 +67,8 @@ module ariane_regfile #(
     end else begin
       if (clear_i) begin
         mem <= '{default: '0};
+      end else if (recovery_i) begin
+        mem <= regfile_mem_i;
       end else begin
         for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin
           for (int unsigned i = 0; i < NUM_WORDS; i++) begin

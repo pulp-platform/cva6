@@ -48,6 +48,8 @@ package config_pkg;
     int unsigned                 AxiUserWidth;
     // Load buffer entry buffer
     int unsigned                 NrLoadBufEntries;
+    // Rapid Recovery feature
+    bit                          RapidRecovery;
     // Floating Point
     bit                          FpuEn;
     // Non standard 16bits Floating Point
@@ -98,6 +100,8 @@ package config_pkg;
     bit                          XF8Vec;
     // TO_BE_COMPLETED
     int unsigned                 NrRgprPorts;
+    // Read ports of the FP Register File
+    int unsigned                 NrFpRdPorts;
     // Function Unit write back port number
     int unsigned                 NrWbPorts;
     // Accelerate Port coprocessor interface
