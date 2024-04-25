@@ -76,6 +76,10 @@ package config_pkg;
     bit                          CvxifEn;
     // Zicond RISC-V extension
     bit                          ZiCondExtEn;
+    // Control-Flow Integrity - Zicfiss extension
+    bit                          ZiCfiSSEn;
+    // Control-Flow Integrity - Zicfilp extension
+    bit                          ZiCfiLPEn;
     // CLIC extension
     bit                          RVSCLIC;
     // Single precision FP RISC-V extension
@@ -108,7 +112,7 @@ package config_pkg;
     bit                          RVU;
     // Address to jump when halt request
     logic [63:0]                 HaltAddress;
-    // Address to jump when exception 
+    // Address to jump when exception
     logic [63:0]                 ExceptionAddress;
     // Return address stack depth
     int unsigned                 RASDepth;

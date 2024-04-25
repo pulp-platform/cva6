@@ -238,7 +238,12 @@ module csr_regfile
   riscv::xlen_t mtval_q, mtval_d;
   riscv::xlen_t mtinst_q, mtinst_d;
   riscv::xlen_t mtval2_q, mtval2_d;
-  logic fiom_d, fiom_q;
+
+  riscv::envcfg_rv_t menvcfg_d, menvcfg_q;
+  riscv::envcfg_rv_t henvcfg_d, henvcfg_q;
+  riscv::envcfg_rv_t senvcfg_d, senvcfg_q;
+
+  riscv::seccfg_rv_t mseccfg_d, mseccfg_q;
 
   riscv::xlen_t stvec_q, stvec_d;
   riscv::intthresh_rv_t sintthresh_q, sintthresh_d;
@@ -502,7 +507,7 @@ module csr_regfile
           end
         end
         riscv::CSR_SENVCFG:
-        if (CVA6Cfg.RVS) csr_rdata = '0 | fiom_q;
+        if (CVA6Cfg.RVS) csr_rdata = senvcfg_q;
         else read_access_exception = 1'b1;
         // hypervisor mode registers
         riscv::CSR_HSTATUS:
@@ -539,7 +544,7 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = '0;
         else read_access_exception = 1'b1;
         riscv::CSR_HENVCFG:
-        if (CVA6Cfg.RVH) csr_rdata = '0 | fiom_q;
+        if (CVA6Cfg.RVH) csr_rdata = henvcfg_q[riscv::XLEN-1:0];
         else read_access_exception = 1'b1;
         riscv::CSR_HGATP: begin
           if (CVA6Cfg.RVH) begin
@@ -605,11 +610,16 @@ module csr_regfile
           end
         end
         riscv::CSR_MENVCFG: begin
-          if (CVA6Cfg.RVU) csr_rdata = '0 | fiom_q;
+          if (CVA6Cfg.RVU) csr_rdata = menvcfg_q;
           else read_access_exception = 1'b1;
         end
         riscv::CSR_MENVCFGH: begin
           if (CVA6Cfg.RVU && riscv::XLEN == 32) csr_rdata = '0;
+          else read_access_exception = 1'b1;
+        end
+        riscv::CSR_MSECCFG: csr_rdata = mseccfg_q[riscv::XLEN-1:0];
+        riscv::CSR_MSECCFGH: begin
+          if (riscv::XLEN == 32) csr_rdata = '0;
           else read_access_exception = 1'b1;
         end
         riscv::CSR_MVENDORID: csr_rdata = OPENHWGROUP_MVENDORID;
@@ -933,7 +943,9 @@ module csr_regfile
     mtval_d = mtval_q;
     mtinst_d = mtinst_q;
     mtval2_d = mtval2_q;
-    fiom_d = fiom_q;
+    menvcfg_d = menvcfg_q;
+    henvcfg_d = henvcfg_q;
+    senvcfg_d = senvcfg_q;
     dcache_d = dcache_q;
     icache_d = icache_q;
     acc_cons_d = acc_cons_q;
@@ -1220,9 +1232,14 @@ module csr_regfile
             update_access_exception = 1'b1;
           end
         end
-        riscv::CSR_SENVCFG:
-        if (CVA6Cfg.RVU) fiom_d = csr_wdata[0];
-        else update_access_exception = 1'b1;
+        riscv::CSR_SENVCFG: begin
+          if (CVA6Cfg.RVU) begin
+            mask = riscv::ENVCFG_SSE | riscv::ENVCFG_LPE | riscv::ENVCFG_FIOM;
+            senvcfg_d = csr_wdata & mask;
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
         //hypervisor mode registers
         riscv::CSR_HSTATUS: begin
           if (CVA6Cfg.RVH) begin
@@ -1334,9 +1351,14 @@ module csr_regfile
             update_access_exception = 1'b1;
           end
         end
-        riscv::CSR_HENVCFG:
-        if (CVA6Cfg.RVH) fiom_d = csr_wdata[0];
-        else update_access_exception = 1'b1;
+        riscv::CSR_HENVCFG: begin
+          if (CVA6Cfg.RVU) begin
+            mask = riscv::ENVCFG_SSE | riscv::ENVCFG_LPE | riscv::ENVCFG_FIOM;
+            henvcfg_d = csr_wdata & mask;
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
         riscv::CSR_MSTATUS: begin
           mstatus_d    = {{64 - riscv::XLEN{1'b0}}, csr_wdata};
           mstatus_d.xs = riscv::Off;
@@ -1346,7 +1368,7 @@ module csr_regfile
           if (!CVA6Cfg.RVV) begin
             mstatus_d.vs = riscv::Off;
           end
-          mstatus_d.wpri3 = 9'b0;
+          mstatus_d.wpri3 = 8'b0;
           mstatus_d.wpri1 = 1'b0;
           mstatus_d.wpri2 = 1'b0;
           mstatus_d.wpri0 = 1'b0;
@@ -1458,9 +1480,23 @@ module csr_regfile
             mip_d = (mip_q & ~mask) | (csr_wdata & mask);
           end
         end
-        riscv::CSR_MENVCFG: if (CVA6Cfg.RVU) fiom_d = csr_wdata[0];
+        riscv::CSR_MENVCFG: begin
+          if (CVA6Cfg.RVU) begin
+            mask = riscv::ENVCFG_SSE | riscv::ENVCFG_LPE | riscv::ENVCFG_FIOM;
+            menvcfg_d = csr_wdata & mask;
+          end
+        end
         riscv::CSR_MENVCFGH: begin
           if (!CVA6Cfg.RVU || riscv::XLEN != 32) update_access_exception = 1'b1;
+        end
+        riscv::CSR_MSECCFG: begin
+          mask = riscv::SECCFG_MLPE;
+          mseccfg_d = csr_wdata & mask;
+        end
+        riscv::CSR_MSECCFGH: begin
+          if (riscv::XLEN != 32) begin
+            update_access_exception = 1'b1;
+          end
         end
         riscv::CSR_MCOUNTINHIBIT:
         if (PERF_COUNTER_EN) mcountinhibit_d = {csr_wdata[MHPMCounterNum+2:2], 1'b0, csr_wdata[0]};
@@ -2439,7 +2475,9 @@ module csr_regfile
       mtvt_q           <= {riscv::XLEN{1'b0}};
       mscratch_q       <= {riscv::XLEN{1'b0}};
       mtval_q          <= {riscv::XLEN{1'b0}};
-      fiom_q           <= '0;
+      menvcfg_q        <= 'b0;
+      henvcfg_q        <= 'b0;
+      senvcfg_q        <= 'b0;
       dcache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
       icache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q  <= '0;
@@ -2528,7 +2566,9 @@ module csr_regfile
         mtvt_q           <= {riscv::XLEN{1'b0}};
         mscratch_q       <= {riscv::XLEN{1'b0}};
         mtval_q          <= {riscv::XLEN{1'b0}};
-        fiom_q           <= '0;
+        menvcfg_q        <= 'b0;
+        henvcfg_q        <= 'b0;
+        senvcfg_q        <= 'b0;
         dcache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
         icache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
         mcountinhibit_q  <= '0;
@@ -2612,7 +2652,9 @@ module csr_regfile
         mtvt_q           <= mtvt_d;
         mscratch_q       <= mscratch_d;
         if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
-        fiom_q          <= fiom_d;
+        menvcfg_q        <= menvcfg_d;
+        henvcfg_q        <= henvcfg_d;
+        senvcfg_q        <= senvcfg_d;
         dcache_q        <= dcache_d;
         icache_q        <= icache_d;
         mcountinhibit_q <= mcountinhibit_d;

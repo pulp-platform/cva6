@@ -132,6 +132,7 @@ package ariane_pkg;
                                                    | riscv::SSTATUS_XS
                                                    | riscv::SSTATUS_SUM
                                                    | riscv::SSTATUS_MXR
+                                                   | riscv::SSTATUS_SPELP
                                                    | riscv::SSTATUS_UPIE
                                                    | riscv::SSTATUS_SPIE
                                                    | riscv::SSTATUS_UXL
@@ -139,6 +140,7 @@ package ariane_pkg;
 
   localparam logic [63:0] SMODE_STATUS_WRITE_MASK = riscv::SSTATUS_SIE
                                                     | riscv::SSTATUS_SPIE
+                                                    | riscv::SSTATUS_SPELP
                                                     | riscv::SSTATUS_SPP
                                                     | riscv::SSTATUS_FS
                                                     | riscv::SSTATUS_SUM
@@ -1067,7 +1069,7 @@ package ariane_pkg;
   function automatic logic is_trans_2M(input logic s_st_enbl, input logic g_st_enbl,
                                        input logic is_s_1G, input logic is_s_2M,
                                        input logic is_g_1G, input logic is_g_2M);
-    return  (s_st_enbl && g_st_enbl) ? 
+    return  (s_st_enbl && g_st_enbl) ?
                 ((is_s_2M && (is_g_1G || is_g_2M)) || (is_g_2M && (is_s_1G || is_s_2M))) :
                 ((is_s_2M && s_st_enbl) || (is_g_2M && g_st_enbl));
   endfunction : is_trans_2M

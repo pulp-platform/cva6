@@ -203,6 +203,8 @@ module cva6
     CVA6Cfg.XFVec,
     CVA6Cfg.CvxifEn,
     CVA6Cfg.ZiCondExtEn,
+    CVA6Cfg.ZiCfiSSEn,
+    CVA6Cfg.ZiCfiLPEn,
     CVA6Cfg.RVSCLIC,
     // Extended
     bit'(RVF),
