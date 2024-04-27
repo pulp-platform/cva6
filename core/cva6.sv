@@ -505,7 +505,7 @@ module cva6 import ariane_pkg::*; #(
     .load_trans_id_o        ( load_trans_id_ex_id         ),
     .load_valid_o           ( load_valid_ex_id            ),
     
-.load_exception_o       ( load_exception_ex_id        ),
+    .load_exception_o       ( load_exception_ex_id        ),
     .store_result_o         ( store_result_ex_id          ),
     .store_trans_id_o       ( store_trans_id_ex_id        ),
     .store_valid_o          ( store_valid_ex_id           ),
@@ -910,7 +910,15 @@ module cva6 import ariane_pkg::*; #(
       core_v_xif_req_o.issue_req           = core_v_xif_issue_req;
       core_v_xif_req_o.issue_valid         = core_v_xif_issue_valid;
       core_v_xif_req_o.acc_req.inval_ready = inval_ready;
+      core_v_xif_req_o.acc_req.flush       = flush_ctrl_ex;
+      // core_v_xif_req_o.acc_req.flush       = '0;
     end
+
+    // .flush_unissued_instr_o ( flush_unissued_instr_ctrl_id  ),
+    // .flush_if_o             ( flush_ctrl_if                 ),
+    // .flush_id_o             ( flush_ctrl_id                 ),
+    // .flush_ex_o             ( flush_ctrl_ex                 ),
+    // .flush_bp_o             ( flush_ctrl_bp                 ),
 
     // Tie off cvxif
     assign core_v_xif_resp.issue_ready    = '0;
