@@ -64,6 +64,74 @@ module id_stage #(
     logic                [31:0] instruction;
     logic                is_compressed;
 
+    logic new_instruction;
+
+    // ---------------------
+    // Decoder input buffer
+    // ---------------------
+    typedef struct packed {
+        logic holding_entry;
+        ariane_pkg::fetch_entry_t entry;
+    } buffer_entry_t;
+
+    buffer_entry_t buffer_entry_d, buffer_entry_q;
+    ariane_pkg::fetch_entry_t push_entry;
+
+    logic pushing_entry;
+
+    always_comb begin
+        
+        // Default values
+        buffer_entry_d = buffer_entry_q;
+        push_entry = '0;
+        core_v_xif_issue_valid_o = 1'b0;
+
+        // If a new instruction is fetched it either gets stored or offloaded
+        if (new_instruction) begin
+            core_v_xif_issue_valid_o = 1'b1;
+            push_entry = fetch_entry_i;
+
+            // Offload an instruction immediately if possible
+            if (core_v_xif_issue_ready_i) begin
+                push_entry = fetch_entry_i;
+
+                // Otherwise store the entry in the buffer
+            end else begin
+                buffer_entry_d.holding_entry = 1'b1;
+                buffer_entry_d.entry = fetch_entry_i;
+            end
+
+            // If no new instruction is fetched try to offload a stored instruction
+        end else begin
+            if (buffer_entry_q.holding_entry) begin
+                core_v_xif_issue_valid_o = 1'b1;
+
+                // If possible offloade the stored instruction 
+                if (core_v_xif_issue_ready_i) begin
+                    push_entry = buffer_entry_q.entry;
+                    buffer_entry_d.holding_entry = 1'b0;
+                end
+            end
+        end
+
+        // If the id stage gets flushed we invalidate this buffer
+        if (flush_i) begin
+            core_v_xif_issue_valid_o = 1'b0;
+            buffer_entry_d.holding_entry = 1'b0;
+        end
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if(~rst_ni) begin
+            buffer_entry_q <= '0;
+        end else begin
+            buffer_entry_q <= buffer_entry_d;
+        end
+    end
+
+    // --------
+    // Decoder
+    // --------
     if (ariane_pkg::RVC) begin
       // ---------------------------------------------------------
       // 1. Check if they are compressed and expand in case they are
@@ -109,54 +177,12 @@ module id_stage #(
         .tsr_i,
         .instruction_o           ( decoded_instruction          ),
         .is_control_flow_instr_o ( is_control_flow_instr        ),
-        .core_v_xif_issue_valid_o ( core_v_xif_issue_valid_o    ),
         .core_v_xif_issue_req_o  ( core_v_xif_issue_req_o       ),
-        .core_v_xif_issue_ready_i ( core_v_xif_issue_ready_i    ),
         .core_v_xif_issue_resp_i ( core_v_xif_issue_resp_i      )
     );
 
 
-    // ---------------------------------------------
-    // Registser to hold the ouput from the decoder
-    // ---------------------------------------------
-    logic       decoded_instruction_valid;      // Value in decoded_instruction_d is valid
-    logic       holding_decoded_instruction_d, holding_decoded_instruction_q;    // Register is holding a decoded instruction
-
-    ariane_pkg::scoreboard_entry_t      decoded_instruction_d, decoded_instruction_q;
-
-    assign decoded_instruction_valid = core_v_xif_issue_ready_i || holding_decoded_instruction_d;
-
-    always_comb begin
-
-        // default values
-        holding_decoded_instruction_d = holding_decoded_instruction_q;
-        decoded_instruction_d = decoded_instruction_q;
-
-        // If the decoder has an instruction ready we want to store it in the register
-        if (core_v_xif_issue_ready_i && core_v_xif_issue_valid_o) begin
-            holding_decoded_instruction_d   = 1'b1;
-            decoded_instruction_d           = decoded_instruction;
-        end
-
-        // If the instruction has been acknowledged by the Issue stage or the pipeline
-        // is being flushed we need to update the holding instruction flag
-        if (issue_instr_ack_i || flush_i)
-            holding_decoded_instruction_d = 1'b0;
-    end
-    // ---------------------------------
-    // Register (Decoder <-> Pipeleine)
-    // ---------------------------------
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if(~rst_ni) begin
-            decoded_instruction_q           <= '0;
-            holding_decoded_instruction_q   <= '0;
-        end else begin
-            decoded_instruction_q           <= decoded_instruction_d;
-            holding_decoded_instruction_q   <= holding_decoded_instruction_d;
-        end
-    end
-
-
+    assign new_instruction = fetch_entry_ready_o && fetch_entry_valid_i;
 
     // ------------------
     // Pipeline Register
@@ -173,13 +199,19 @@ module id_stage #(
         if (issue_instr_ack_i)
             issue_n.valid = 1'b0;
 
+
         // if we have a space in the register and the fetch is valid, go get it
         // or the issue stage is currently acknowledging an instruction, which means that we will have space
         // for a new instruction
-        if ((!issue_q.valid || issue_instr_ack_i) && fetch_entry_valid_i && decoded_instruction_valid) begin
+        if ((!issue_q.valid || issue_instr_ack_i) && fetch_entry_valid_i && !buffer_entry_q.holding_entry) begin
             fetch_entry_ready_o = 1'b1;
-            issue_n = '{1'b1, decoded_instruction_d, is_control_flow_instr};
+            issue_n = '{1'b1, decoded_instruction, is_control_flow_instr};
         end
+
+        // // If a new instruction gets decoded we push it to the register
+        // if (core_v_xif_issue_ready_i && core_v_xif_issue_valid_o) begin
+        //     issue_n = '{1'b1, decoded_instruction, is_control_flow_instr};
+        // end
 
         // invalidate the pipeline register on a flush
         if (flush_i)

@@ -89,7 +89,6 @@ module issue_read_operands import ariane_pkg::*; #(
     riscv::xlen_t operand_a_n, operand_a_q,
                  operand_b_n, operand_b_q,
                  imm_n, imm_q;
-
     logic          alu_valid_q;
     logic         mult_valid_q;
     logic          fpu_valid_q;

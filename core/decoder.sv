@@ -46,9 +46,7 @@ module decoder import ariane_pkg::*; #(
     output scoreboard_entry_t  instruction_o,           // scoreboard entry to scoreboard
     output logic               is_control_flow_instr_o,  // this instruction will change the control flow
     // XIF issue interface
-    output logic               core_v_xif_issue_valid_o, // XIF issue handshake valid
     output x_issue_req_t       core_v_xif_issue_req_o,  // XIF issue interface request to coprocessor
-    input  logic               core_v_xif_issue_ready_i, // XIF issue handshake ready
     input  x_issue_resp_t      core_v_xif_issue_resp_i  // XIF issue interface response from coprocessor
 );
     logic illegal_instr;
@@ -84,7 +82,6 @@ module decoder import ariane_pkg::*; #(
     logic              acc_illegal_instr;
     logic              acc_is_control_flow_instr;
 
-    logic              core_v_xif_issue_ready;
 
     // logic              is_accel_test;
     // scoreboard_entry_t acc_instruction_test;
@@ -104,9 +101,7 @@ module decoder import ariane_pkg::*; #(
         //     .illegal_instr_o(acc_illegal_instr),
         //     .is_control_flow_instr_o(acc_is_control_flow_instr)
         // );
-        assign core_v_xif_issue_ready = core_v_xif_issue_ready_i;
         assign core_v_xif_issue_req_o.instr = instruction_i;
-        assign core_v_xif_issue_valid_o = 1'b1;
 
         // TODO: add hartid and instruction id and
 
@@ -175,8 +170,6 @@ module decoder import ariane_pkg::*; #(
         assign acc_instruction           = '0;
         assign acc_illegal_instr         = 1'b1; // this should never propagate
         assign acc_is_control_flow_instr = 1'b0;
-        assign core_v_xif_issue_ready    = 1'b1;
-        assign core_v_xif_issue_valid_o  = 1'b1;
     end
 
     always_comb begin : decoder
