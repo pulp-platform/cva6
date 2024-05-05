@@ -46,6 +46,8 @@ module csr_regfile
     input exception_t ex_i,
     // Operation to perform on the CSR file - COMMIT_STAGE
     input fu_op csr_op_i,
+    // CSR write enable
+    output logic csr_we_o,
     // Address of the register to read/write - EX_STAGE
     input logic [11:0] csr_addr_i,
     // Write data in - COMMIT_STAGE
@@ -2100,6 +2102,7 @@ module csr_regfile
   // ---------------------------
   // CSR OP Select Logic
   // ---------------------------
+  assign csr_we_o = csr_we;
   always_comb begin : csr_op_logic
     csr_wdata = csr_wdata_i;
     csr_we    = 1'b1;

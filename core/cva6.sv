@@ -23,6 +23,8 @@ module cva6
     parameter int unsigned NumRfCommitPorts = 1,
     parameter int unsigned NumIntRfRdPorts = 2,
     parameter int unsigned NumFpRfRdPorts = 3,
+    parameter int unsigned NumCsrWrPorts = 1,
+    parameter int unsigned NumCsrRdPorts = 1,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
     // RVFI
     parameter type rvfi_probes_t = struct packed {
@@ -114,6 +116,11 @@ module cva6
       logic    r_valid;
       r_chan_t r;
     },
+    parameter type csr_intf_t = struct packed {
+      logic [riscv::XLEN-1:0] data;
+      logic [riscv::CsrAddrWidth-1:0] addr;
+      logic write;
+    },
     //
     parameter type acc_cfg_t = logic,
     parameter acc_cfg_t AccCfg = '0,
@@ -186,6 +193,9 @@ module cva6
     output regfile_read_t [NumFpRfRdPorts-1:0] fp_regfile_check_o,
     output regfile_write_t [NumRfCommitPorts-1:0] fp_regfile_backup_o,
     input logic [31:0][riscv::XLEN-1:0] fp_regfile_recovery_i,
+    // CSR interface
+    output csr_intf_t [NumCsrWrPorts-1:0] backup_csr_o,
+    input  csr_intf_t [NumCsrRdPorts-1:0] recovery_csr_i,
     // noc request, can be AXI or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
@@ -296,9 +306,9 @@ module cva6
   // ------------------------------------------
   riscv::priv_lvl_t                                   priv_lvl;
   logic                                               v;
-  exception_t                                         ex_commit;  // exception from commit stage
+  exception_t                                         ex_commit, commit_stage_ex;  // exception from commit stage
   bp_resolve_t                                        resolved_branch;
-  logic             [                riscv::VLEN-1:0] pc_commit;
+  logic             [                riscv::VLEN-1:0] commit_stage_pc, pc_commit;
   logic                                               eret;
   logic             [CVA6ExtendCfg.NrCommitPorts-1:0] commit_ack;
   logic                                               rst_uarch_n;
@@ -306,6 +316,8 @@ module cva6
   localparam NumPorts = 4;
   cvxif_pkg::cvxif_req_t cvxif_req;
   cvxif_pkg::cvxif_resp_t cvxif_resp;
+
+  csr_intf_t [NumCsrRdPorts-1:0] csr_access;
 
   // --------------
   // PCGEN <-> CSR
@@ -418,7 +430,7 @@ module cva6
   // --------------
   // ID <-> COMMIT
   // --------------
-  scoreboard_entry_t [CVA6ExtendCfg.NrCommitPorts-1:0] commit_instr_id_commit;
+  scoreboard_entry_t [CVA6ExtendCfg.NrCommitPorts-1:0] commit_instr_id_commit, commit_instr;
   // --------------
   // RVFI
   // --------------
@@ -456,8 +468,9 @@ module cva6
   logic [ASID_WIDTH-1:0] vs_asid_csr_ex;
   logic [riscv::PPNW-1:0] hgatp_ppn_csr_ex;
   logic [VMID_WIDTH-1:0] vmid_csr_ex;
+  logic csr_we;
   logic [11:0] csr_addr_ex_csr;
-  fu_op csr_op_commit_csr;
+  fu_op csr_op_commit_csr, csr_op_recovery;
   riscv::xlen_t csr_wdata_commit_csr;
   riscv::xlen_t csr_rdata_csr_commit;
   exception_t csr_exception_csr_commit;
@@ -785,7 +798,7 @@ module cva6
       .wdata_i              (wdata_commit_id),
       .we_gpr_i             (we_gpr_commit_id),
       .we_fpr_i             (we_fpr_commit_id),
-      .commit_instr_o       (commit_instr_id_commit),
+      .commit_instr_o       (commit_instr),
       .commit_ack_i         (commit_ack),
       // Performance Counters
       .stall_issue_o        (stall_issue),
@@ -934,7 +947,7 @@ module cva6
       .rst_ni            (rst_uarch_n),
       .halt_i            (halt_ctrl),
       .flush_dcache_i    (dcache_flush_ctrl_cache),
-      .exception_o       (ex_commit),
+      .exception_o       (commit_stage_ex),
       .dirty_fp_state_o  (dirty_fp_state),
       .single_step_i     (single_step_csr_commit),
       .debug_resume_i    (debug_resume_i),
@@ -951,7 +964,7 @@ module cva6
       .amo_valid_commit_o(amo_valid_commit),
       .amo_resp_i        (amo_resp),
       .commit_csr_o      (csr_commit_commit_ex),
-      .pc_o              (pc_commit),
+      .pc_o              (commit_stage_pc),
       .csr_op_o          (csr_op_commit_csr),
       .csr_wdata_o       (csr_wdata_commit_csr),
       .csr_rdata_i       (csr_rdata_csr_commit),
@@ -970,6 +983,35 @@ module cva6
   // ---------
   // CSR
   // ---------
+  for (genvar i = 0; i < NumCsrWrPorts; i++) begin
+    assign backup_csr_o[i].addr = csr_addr_ex_csr;
+    assign backup_csr_o[i].data = csr_wdata_commit_csr;
+    assign backup_csr_o[i].write = csr_we;
+    assign backup_csr_o[i].scoreboard_entry = commit_instr_id_commit;
+    if (i == 0) begin
+      assign backup_csr_o[i].program_counter = pc_commit;
+      assign backup_csr_o[i].exception = ex_commit;
+    end else begin
+      assign backup_csr_o[i].program_counter = '0;
+      assign backup_csr_o[i].exception = '0;
+    end
+  end
+
+  always_comb begin
+    pc_commit = (recovery_i) ? recovery_csr_i[0].program_counter : commit_stage_pc;
+    ex_commit = (recovery_i) ? recovery_csr_i[0].exception : commit_stage_ex;
+    for (int i = 0; i < NumCsrRdPorts; i++) begin
+      csr_access[i] = (recovery_i) ? recovery_csr_i[i] : '0;
+      if (i == 0) begin
+        csr_access[i].addr = (recovery_i) ? recovery_csr_i[i].addr : csr_addr_ex_csr;
+        csr_access[i].data = (recovery_i) ? recovery_csr_i[i].data : csr_wdata_commit_csr;
+        commit_instr_id_commit[i] = (recovery_i) ? recovery_csr_i[i].scoreboard_entry : commit_instr;
+      end
+    end
+  end
+
+  assign csr_op_recovery = (recovery_i) ? CSR_WRITE : csr_op_commit_csr;
+
   csr_regfile #(
       .CVA6Cfg       (CVA6ExtendCfg),
       .AsidWidth     (ASID_WIDTH),
@@ -987,6 +1029,7 @@ module cva6
       .csr_write_fflags_i      (csr_write_fflags_commit_cs),
       .dirty_fp_state_i        (dirty_fp_state),
       .dirty_v_state_i         (dirty_v_state),
+      .csr_we_o                (csr_we),
       .csr_addr_i              (csr_addr_ex_csr),
       .csr_wdata_i             (csr_wdata_commit_csr),
       .csr_rdata_o             (csr_rdata_csr_commit),
