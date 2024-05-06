@@ -910,7 +910,7 @@ module cva6 import ariane_pkg::*; #(
       core_v_xif_req_o.issue_req           = core_v_xif_issue_req;
       core_v_xif_req_o.issue_valid         = core_v_xif_issue_valid;
       core_v_xif_req_o.acc_req.inval_ready = inval_ready;
-      core_v_xif_req_o.acc_req.flush       = flush_ctrl_ex;
+      core_v_xif_req_o.acc_req.flush       = flush_ctrl_if;
       // core_v_xif_req_o.acc_req.flush       = '0;
     end
 
