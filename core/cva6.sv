@@ -350,6 +350,7 @@ module cva6 import ariane_pkg::*; #(
     .tvm_i                      ( tvm_csr_id                 ),
     .tw_i                       ( tw_csr_id                  ),
     .tsr_i                      ( tsr_csr_id                 ),
+    .flush_unissued_instr       (flush_unissued_instr_ctrl_id),
     .core_v_xif_issue_valid_o   ( core_v_xif_issue_valid     ),
     .core_v_xif_issue_req_o     ( core_v_xif_issue_req       ),
     .core_v_xif_issue_ready_i   ( core_v_xif_resp_i.issue_ready ),
@@ -904,13 +905,14 @@ module cva6 import ariane_pkg::*; #(
     assign acc_resp_fflags_valid = core_v_xif_resp_i.acc_resp.fflags_valid;
 
     always_comb begin : pack_inval
-      inval_valid                          = core_v_xif_resp_i.acc_resp.inval_valid;
-      inval_addr                           = core_v_xif_resp_i.acc_resp.inval_addr;
-      core_v_xif_req_o                     = core_v_xif_req_unpacked;
-      core_v_xif_req_o.issue_req           = core_v_xif_issue_req;
-      core_v_xif_req_o.issue_valid         = core_v_xif_issue_valid;
-      core_v_xif_req_o.acc_req.inval_ready = inval_ready;
-      core_v_xif_req_o.acc_req.flush       = flush_ctrl_if;
+      inval_valid                               = core_v_xif_resp_i.acc_resp.inval_valid;
+      inval_addr                                = core_v_xif_resp_i.acc_resp.inval_addr;
+      core_v_xif_req_o                          = core_v_xif_req_unpacked;
+      core_v_xif_req_o.issue_req                = core_v_xif_issue_req;
+      core_v_xif_req_o.issue_valid              = core_v_xif_issue_valid;
+      core_v_xif_req_o.acc_req.inval_ready      = inval_ready;
+      core_v_xif_req_o.acc_req.flush            = flush_ctrl_ex;
+      core_v_xif_req_o.acc_req.flush_unissued   = flush_unissued_instr_ctrl_id;      
       // core_v_xif_req_o.acc_req.flush       = '0;
     end
 

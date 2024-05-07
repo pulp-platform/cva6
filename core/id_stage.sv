@@ -44,6 +44,7 @@ module id_stage #(
     input  logic                          tw_i,
     input  logic                          tsr_i,
     // XIF issue interface
+    input  logic               flush_unissued_instr,
     output logic               core_v_xif_issue_valid_o, // XIF issue handshake valid
     output x_issue_req_t       core_v_xif_issue_req_o,  // XIF issue interface request to coprocessor
     input  logic               core_v_xif_issue_ready_i, // XIF issue handshake ready
@@ -65,7 +66,7 @@ module id_stage #(
     logic                is_compressed;
 
 
-    assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i);
+    assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i) && !flush_unissued_instr && !flush_i;
     // assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid);
 
     // --------
