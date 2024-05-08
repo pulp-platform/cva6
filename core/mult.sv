@@ -61,6 +61,7 @@ module mult
   ) i_multiplier (
       .clk_i,
       .rst_ni,
+      .clear_i,
       .trans_id_i     (fu_data_i.trans_id),
       .operation_i    (fu_data_i.operation),
       .operand_a_i    (fu_data_i.operand_a),

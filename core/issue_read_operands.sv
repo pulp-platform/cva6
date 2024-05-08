@@ -25,6 +25,8 @@ module issue_read_operands
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
     input logic rst_uarch_ni,
+    // Synchronous clear active high
+    input logic clear_i,
     // Flush - CONTROLLER
     input logic flush_i,
     // Stall inserted by Acc dispatcher - ACC_DISPATCHER
@@ -333,56 +335,67 @@ module issue_read_operands
       csr_valid_q    <= 1'b0;
       branch_valid_q <= 1'b0;
     end else begin
-      alu_valid_q    <= 1'b0;
-      lsu_valid_q    <= 1'b0;
-      mult_valid_q   <= 1'b0;
-      fpu_valid_q    <= 1'b0;
-      fpu_fmt_q      <= 2'b0;
-      fpu_rm_q       <= 3'b0;
-      csr_valid_q    <= 1'b0;
-      branch_valid_q <= 1'b0;
-      // Exception pass through:
-      // If an exception has occurred simply pass it through
-      // we do not want to issue this instruction
-      if (!issue_instr_i.ex.valid && issue_instr_valid_i && issue_ack_o) begin
-        case (issue_instr_i.fu)
-          ALU: begin
-            alu_valid_q <= 1'b1;
-          end
-          CTRL_FLOW: begin
-            branch_valid_q <= 1'b1;
-          end
-          MULT: begin
-            mult_valid_q <= 1'b1;
-          end
-          LOAD, STORE: begin
-            lsu_valid_q <= 1'b1;
-          end
-          CSR: begin
-            csr_valid_q <= 1'b1;
-          end
-          default: begin
-            if (issue_instr_i.fu == FPU && CVA6Cfg.FpPresent) begin
-              fpu_valid_q <= 1'b1;
-              fpu_fmt_q   <= orig_instr.rftype.fmt;  // fmt bits from instruction
-              fpu_rm_q    <= orig_instr.rftype.rm;  // rm bits from instruction
-            end else if (issue_instr_i.fu == FPU_VEC && CVA6Cfg.FpPresent) begin
-              fpu_valid_q <= 1'b1;
-              fpu_fmt_q   <= orig_instr.rvftype.vfmt;  // vfmt bits from instruction
-              fpu_rm_q    <= {2'b0, orig_instr.rvftype.repl};  // repl bit from instruction
-            end
-          end
-        endcase
-      end
-      // if we got a flush request, de-assert the valid flag, otherwise we will start this
-      // functional unit with the wrong inputs
-      if (flush_i) begin
+      if (clear_i) begin
+        alu_valid_q    <= '0;
+        lsu_valid_q    <= '0;
+        mult_valid_q   <= '0;
+        fpu_valid_q    <= '0;
+        fpu_fmt_q      <= '0;
+        fpu_rm_q       <= '0;
+        csr_valid_q    <= '0;
+        branch_valid_q <= '0;
+      end else begin
         alu_valid_q    <= 1'b0;
         lsu_valid_q    <= 1'b0;
         mult_valid_q   <= 1'b0;
         fpu_valid_q    <= 1'b0;
+        fpu_fmt_q      <= 2'b0;
+        fpu_rm_q       <= 3'b0;
         csr_valid_q    <= 1'b0;
         branch_valid_q <= 1'b0;
+        // Exception pass through:
+        // If an exception has occurred simply pass it through
+        // we do not want to issue this instruction
+        if (!issue_instr_i.ex.valid && issue_instr_valid_i && issue_ack_o) begin
+          case (issue_instr_i.fu)
+            ALU: begin
+              alu_valid_q <= 1'b1;
+            end
+            CTRL_FLOW: begin
+              branch_valid_q <= 1'b1;
+            end
+            MULT: begin
+              mult_valid_q <= 1'b1;
+            end
+            LOAD, STORE: begin
+              lsu_valid_q <= 1'b1;
+            end
+            CSR: begin
+              csr_valid_q <= 1'b1;
+            end
+            default: begin
+              if (issue_instr_i.fu == FPU && CVA6Cfg.FpPresent) begin
+                fpu_valid_q <= 1'b1;
+                fpu_fmt_q   <= orig_instr.rftype.fmt;  // fmt bits from instruction
+                fpu_rm_q    <= orig_instr.rftype.rm;  // rm bits from instruction
+              end else if (issue_instr_i.fu == FPU_VEC && CVA6Cfg.FpPresent) begin
+                fpu_valid_q <= 1'b1;
+                fpu_fmt_q   <= orig_instr.rvftype.vfmt;  // vfmt bits from instruction
+                fpu_rm_q    <= {2'b0, orig_instr.rvftype.repl};  // repl bit from instruction
+              end
+            end
+          endcase
+        end
+        // if we got a flush request, de-assert the valid flag, otherwise we will start this
+        // functional unit with the wrong inputs
+        if (flush_i) begin
+          alu_valid_q    <= 1'b0;
+          lsu_valid_q    <= 1'b0;
+          mult_valid_q   <= 1'b0;
+          fpu_valid_q    <= 1'b0;
+          csr_valid_q    <= 1'b0;
+          branch_valid_q <= 1'b0;
+        end
       end
     end
   end
@@ -393,20 +406,25 @@ module issue_read_operands
         cvxif_valid_q <= 1'b0;
         cvxif_off_instr_q <= 32'b0;
       end else begin
-        cvxif_valid_q <= 1'b0;
-        cvxif_off_instr_q <= 32'b0;
-        if (!issue_instr_i.ex.valid && issue_instr_valid_i && issue_ack_o) begin
-          case (issue_instr_i.fu)
-            CVXIF: begin
-              cvxif_valid_q     <= 1'b1;
-              cvxif_off_instr_q <= orig_instr;
-            end
-            default: ;
-          endcase
-        end
-        if (flush_i) begin
+        if (clear_i) begin
           cvxif_valid_q <= 1'b0;
           cvxif_off_instr_q <= 32'b0;
+        end else begin
+          cvxif_valid_q <= 1'b0;
+          cvxif_off_instr_q <= 32'b0;
+          if (!issue_instr_i.ex.valid && issue_instr_valid_i && issue_ack_o) begin
+            case (issue_instr_i.fu)
+              CVXIF: begin
+                cvxif_valid_q     <= 1'b1;
+                cvxif_off_instr_q <= orig_instr;
+              end
+              default: ;
+            endcase
+          end
+          if (flush_i) begin
+            cvxif_valid_q <= 1'b0;
+            cvxif_off_instr_q <= 32'b0;
+          end
         end
       end
     end
@@ -609,18 +627,33 @@ module issue_read_operands
       is_compressed_instr_o <= 1'b0;
       branch_predict_o      <= {cf_t'(0), {riscv::VLEN{1'b0}}};
     end else begin
-      operand_a_q <= operand_a_n;
-      operand_b_q <= operand_b_n;
-      imm_q       <= imm_n;
-      fu_q        <= fu_n;
-      operator_q  <= operator_n;
-      trans_id_q  <= trans_id_n;
-      if (CVA6Cfg.RVH) begin
-        tinst_q <= tinst_n;
+      if (clear_i) begin
+        operand_a_q <= '{default: 0};
+        operand_b_q <= '{default: 0};
+        imm_q       <= '0;
+        fu_q        <= NONE;
+        operator_q  <= ADD;
+        trans_id_q  <= '0;
+        if (CVA6Cfg.RVH) begin
+          tinst_q <= '0;
+        end
+        pc_o                  <= '0;
+        is_compressed_instr_o <= 1'b0;
+        branch_predict_o      <= {cf_t'(0), {riscv::VLEN{1'b0}}};
+      end else begin
+        operand_a_q <= operand_a_n;
+        operand_b_q <= operand_b_n;
+        imm_q       <= imm_n;
+        fu_q        <= fu_n;
+        operator_q  <= operator_n;
+        trans_id_q  <= trans_id_n;
+        if (CVA6Cfg.RVH) begin
+          tinst_q <= tinst_n;
+        end
+        pc_o                  <= issue_instr_i.pc;
+        is_compressed_instr_o <= issue_instr_i.is_compressed;
+        branch_predict_o      <= issue_instr_i.bp;
       end
-      pc_o                  <= issue_instr_i.pc;
-      is_compressed_instr_o <= issue_instr_i.is_compressed;
-      branch_predict_o      <= issue_instr_i.bp;
     end
   end
 

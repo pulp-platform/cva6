@@ -112,7 +112,7 @@ module load_unit
 
   logic [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_valid_q, ldbuf_valid_d;
   logic [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_flushed_q, ldbuf_flushed_d;
-  ldbuf_t [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_q;
+  ldbuf_t [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_q, ldbuf_en;
   logic ldbuf_empty, ldbuf_full;
   ldbuf_id_t ldbuf_free_index;
   logic      ldbuf_w;
@@ -146,6 +146,9 @@ module load_unit
 
   assign ldbuf_windex = (LDBUF_FALLTHROUGH && ldbuf_r) ? ldbuf_rindex : ldbuf_free_index;
 
+  for (genvar i = 0; i < CVA6Cfg.NrLoadBufEntries; i++)
+    assign ldbuf_en[i] = ((i == ldbuf_windex) & ldbuf_w) ? 1'b1 : 1'b0;
+
   always_comb begin : ldbuf_comb
     ldbuf_flushed_d = ldbuf_flushed_q;
     ldbuf_valid_d   = ldbuf_valid_q;
@@ -166,28 +169,11 @@ module load_unit
     end
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : ldbuf_ff
-    if (!rst_ni) begin
-      ldbuf_flushed_q <= '0;
-      ldbuf_valid_q   <= '0;
-      ldbuf_last_id_q <= '0;
-      ldbuf_q         <= '0;
-    end else begin
-      if (clear_i) begin
-        ldbuf_flushed_q <= '0;
-        ldbuf_valid_q   <= '0;
-        ldbuf_last_id_q <= '0;
-        ldbuf_q         <= '0;
-      end else begin
-        ldbuf_flushed_q <= ldbuf_flushed_d;
-        ldbuf_valid_q   <= ldbuf_valid_d;
-        if (ldbuf_w) begin
-          ldbuf_last_id_q       <= ldbuf_windex;
-          ldbuf_q[ldbuf_windex] <= ldbuf_wdata;
-        end
-      end
-    end
-  end
+  `FFARNC(ldbuf_flushed_q, ldbuf_flushed_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(ldbuf_valid_q, ldbuf_valid_d, clear_i, '0, clk_i, rst_ni)
+  `FFLARNC(ldbuf_last_id_q, ldbuf_windex, ldbuf_w, clear_i, '0, clk_i, rst_ni)
+  for (genvar i = 0; i < CVA6Cfg.NrLoadBufEntries; i++)
+    `FFLARNC(ldbuf_q[i], ldbuf_wdata, ldbuf_en[i], clear_i, '0, clk_i, rst_ni)
 
   // page offset is defined as the lower 12 bits, feed through for address checker
   assign page_offset_o = lsu_ctrl_i.vaddr[11:0];

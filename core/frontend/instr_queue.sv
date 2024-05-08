@@ -490,10 +490,15 @@ ariane_pkg::FETCH_FIFO_DEPTH
         pc_q            <= '0;
         reset_address_q <= 1'b1;
       end else begin
-        pc_q            <= pc_d;
-        reset_address_q <= reset_address_d;
-        if (flush_i) begin
+        if (clear_i) begin
+          pc_q            <= '0;
           reset_address_q <= 1'b1;
+        end else begin
+          pc_q            <= pc_d;
+          reset_address_q <= reset_address_d;
+          if (flush_i) begin
+            reset_address_q <= 1'b1;
+          end
         end
       end
     end

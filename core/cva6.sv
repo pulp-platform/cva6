@@ -12,6 +12,7 @@
 // Date: 19.03.2017
 // Description: CVA6 Top-level module
 
+`include "common_cells/registers.svh"
 
 module cva6
   import ariane_pkg::*;
@@ -518,13 +519,7 @@ module cva6
   logic                                                  inval_valid;
   logic                                                  inval_ready;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      rst_uarch_n <= 1'b0;
-    end else begin
-      rst_uarch_n <= rst_uarch_controller_n & ~clear_i;
-    end
-  end
+  `FFARN(rst_uarch_n, rst_uarch_controller_n, 1'b0, clk_i, rst_ni)
 
   // ----------------------
   // CLIC Controller <-> ID
@@ -1367,6 +1362,7 @@ module cva6
     ) i_clic_controller (
         .clk_i           (clk_i),
         .rst_ni          (rst_ni),
+        .clear_i         (clear_i),
         // from CSR file
         .priv_lvl_i      (priv_lvl),
         .irq_ctrl_i      (irq_ctrl_csr_id),

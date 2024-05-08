@@ -4,11 +4,14 @@
 //
 // Author: Nils Wistoff <nwistoff@iis.ee.ethz.ch>
 
+`include "common_cells/registers.svh"
+
 module cva6_clic_controller #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     // from CSR file
     input riscv::priv_lvl_t priv_lvl_i,  // current privilege level
     input ariane_pkg::irq_ctrl_t irq_ctrl_i,
@@ -88,11 +91,5 @@ module cva6_clic_controller #(
   // Acknowledge kill if no irq is inflight and irq is not accepted this cycle
   assign clic_kill_ack_o = clic_kill_req_i & ~irq_inflight_q & ~clic_irq_req_o;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      irq_inflight_q <= 1'b0;
-    end else begin
-      irq_inflight_q <= irq_inflight_d;
-    end
-  end
+  `FFARNC(mult_result_q, irq_inflight_d, clear_i, '0, clk_i, rst_ni)
 endmodule
