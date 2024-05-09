@@ -122,6 +122,7 @@ module cva6_mmu_sv32
   ) i_itlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .clear_i (clear_i),
       .flush_i(flush_tlb_i),
 
       .update_i(update_itlb),
@@ -144,6 +145,7 @@ module cva6_mmu_sv32
   ) i_dtlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .clear_i(clear_i),
       .flush_i(flush_tlb_i),
 
       .update_i(update_dtlb),
@@ -167,6 +169,7 @@ module cva6_mmu_sv32
   ) i_shared_tlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .clear_i(clear_i),
       .flush_i(flush_tlb_i),
 
       .enable_translation_i  (enable_translation_i),
@@ -206,6 +209,7 @@ module cva6_mmu_sv32
   ) i_ptw (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .clear_i(clear_i),
       .flush_i(flush_i),
 
       .ptw_active_o          (ptw_active),

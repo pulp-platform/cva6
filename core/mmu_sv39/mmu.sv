@@ -106,6 +106,7 @@ module mmu
   ) i_itlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .clear_i (clear_i),
       .flush_i(flush_tlb_i),
 
       .update_i(update_ptw_itlb),
@@ -129,6 +130,7 @@ module mmu
   ) i_dtlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .clear_i (clear_i)
       .flush_i(flush_tlb_i),
 
       .update_i(update_ptw_dtlb),
@@ -152,6 +154,7 @@ module mmu
   ) i_ptw (
       .clk_i                 (clk_i),
       .rst_ni                (rst_ni),
+      .clear_i               (clear_i),
       .ptw_active_o          (ptw_active),
       .walking_instr_o       (walking_instr),
       .ptw_error_o           (ptw_error),

@@ -109,6 +109,7 @@ module cva6_hpdcache_subsystem
   ) i_cva6_icache (
       .clk_i         (clk_i),
       .rst_ni        (rst_ni),
+      .clear_i       (1'b0),
       .flush_i       (icache_flush_i),
       .en_i          (icache_en_i),
       .miss_o        (icache_miss_o),
