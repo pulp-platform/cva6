@@ -178,6 +178,7 @@ module wt_cache_subsystem
   ) i_adapter (
       .clk_i            (clk_i),
       .rst_ni           (rst_ni),
+      .clear_i          (clear_i),
       .icache_data_req_i(icache_adapter_data_req),
       .icache_data_ack_o(adapter_icache_data_ack),
       .icache_data_i    (icache_adapter),
