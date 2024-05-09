@@ -130,7 +130,7 @@ module mmu
   ) i_dtlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .clear_i (clear_i)
+      .clear_i(clear_i),
       .flush_i(flush_tlb_i),
 
       .update_i(update_ptw_dtlb),
