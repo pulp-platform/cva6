@@ -91,5 +91,5 @@ module cva6_clic_controller #(
   // Acknowledge kill if no irq is inflight and irq is not accepted this cycle
   assign clic_kill_ack_o = clic_kill_req_i & ~irq_inflight_q & ~clic_irq_req_o;
 
-  `FFARNC(mult_result_q, irq_inflight_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(irq_inflight_q, irq_inflight_d, clear_i, '0, clk_i, rst_ni)
 endmodule
