@@ -156,6 +156,7 @@ module cache_ctrl
     case (state_q)
 
       IDLE: begin
+	colliding_read_d = 1'b0;
         // a new request arrived
         if (req_port_i.data_req && !stall_i) begin
           // request the cache line - we can do this speculatively
