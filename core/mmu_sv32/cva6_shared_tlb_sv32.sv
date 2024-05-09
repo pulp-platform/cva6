@@ -232,17 +232,17 @@ module cva6_shared_tlb_sv32
   end  //tag_comparison
 
   // sequential process
-  `FFARNC(itlb_vpn_q          , itlb_vaddr_i[riscv::SV-1:12]   , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(dtlb_vpn_q          , dtlb_vaddr_i[riscv::SV-1:12]   , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(tlb_update_asid_q   , tlb_update_asid_d              , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(shared_tlb_access_q , shared_tlb_access_d            , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(shared_tlb_vaddr_q  , shared_tlb_vaddr_d             , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(shared_tag_valid_q  , shared_tag_valid_d             , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(vpn0_q              , vpn0_d                         , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(vpn1_q              , vpn1_d                         , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(itlb_req_q          , itlb_req_d                     , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(dtlb_req_q          , dtlb_req_d                     , clear_i, '0, clk_i, rstn_i)
-  `FFARNC(shared_tag_valid    , shared_tag_valid_q[tag_rd_addr], clear_i, '0, clk_i, rstn_i)
+  `FFARNC(itlb_vpn_q          , itlb_vaddr_i[riscv::SV-1:12]   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_vpn_q          , dtlb_vaddr_i[riscv::SV-1:12]   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(tlb_update_asid_q   , tlb_update_asid_d              , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tlb_access_q , shared_tlb_access_d            , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tlb_vaddr_q  , shared_tlb_vaddr_d             , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tag_valid_q  , shared_tag_valid_d             , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vpn0_q              , vpn0_d                         , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vpn1_q              , vpn1_d                         , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(itlb_req_q          , itlb_req_d                     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_req_q          , dtlb_req_d                     , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tag_valid    , shared_tag_valid_q[tag_rd_addr], clear_i, '0, clk_i, rst_ni)
 
   // ------------------
   // Update and Flush
