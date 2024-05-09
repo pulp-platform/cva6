@@ -203,6 +203,7 @@ module cva6_hpdcache_if_adapter
               (~cva6_amo_resp_o.ack & amo_pending_q);
 
       `FFARNC(amo_pending_q, amo_pending_n, 1'b0, 1'b0, clk_i, rst_ni)
+    end
 
     //  }}}
   endgenerate
