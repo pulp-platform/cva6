@@ -61,6 +61,7 @@ module wt_axi_adapter
   localparam MaxNumWords = $clog2(CVA6Cfg.AxiDataWidth / 8);
   localparam AxiRdBlenIcache = ariane_pkg::ICACHE_LINE_WIDTH / CVA6Cfg.AxiDataWidth - 1;
   localparam AxiRdBlenDcache = ariane_pkg::DCACHE_LINE_WIDTH / CVA6Cfg.AxiDataWidth - 1;
+  localparam DcacheReturnTypeRstVal = wt_cache_pkg::DCACHE_LOAD_ACK;
 
   ///////////////////////////////////////////////////////
   // request path
@@ -621,20 +622,20 @@ module wt_axi_adapter
   // assign dcache_rtrn_o.inv.vld  = '0;
   // assign dcache_rtrn_o.inv.all  = '0;
 
-  `FFARNC(icache_first_q         , icache_first_d        , clear_i, 1'b1                         , clk_i, rst_ni)
-  `FFARNC(dcache_first_q         , dcache_first_d        , clear_i, 1'b1                         , clk_i, rst_ni)
-  `FFARNC(icache_rd_shift_q      , icache_rd_shift_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(icache_rd_shift_user_q , icache_rd_shift_user_d, clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(dcache_rd_shift_q      , dcache_rd_shift_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(dcache_rd_shift_user_q , dcache_rd_shift_user_d, clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(icache_rtrn_vld_q      , icache_rtrn_vld_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(dcache_rtrn_vld_q      , dcache_rtrn_vld_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(icache_rtrn_tid_q      , icache_rtrn_tid_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(dcache_rtrn_tid_q      , dcache_rtrn_tid_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(dcache_rtrn_type_q     , dcache_rtrn_type_d    , clear_i, wt_cache_pkg::DCACHE_LOAD_ACK, clk_i, rst_ni)
-  `FFARNC(dcache_rtrn_inv_q      , dcache_rtrn_inv_d     , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(amo_off_q              , amo_off_d             , clear_i, '0                           , clk_i, rst_ni)
-  `FFARNC(amo_gen_r_q            , amo_gen_r_d           , clear_i, '0                           , clk_i, rst_ni)
+  `FFARNC(icache_first_q, icache_first_d, clear_i, 1'b1, clk_i, rst_ni)
+  `FFARNC(dcache_first_q, dcache_first_d, clear_i, 1'b1, clk_i, rst_ni)
+  `FFARNC(icache_rd_shift_q, icache_rd_shift_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(icache_rd_shift_user_q, icache_rd_shift_user_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dcache_rd_shift_q, dcache_rd_shift_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dcache_rd_shift_user_q, dcache_rd_shift_user_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(icache_rtrn_vld_q, icache_rtrn_vld_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_vld_q, dcache_rtrn_vld_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(icache_rtrn_tid_q, icache_rtrn_tid_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_tid_q, dcache_rtrn_tid_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_type_q, dcache_rtrn_type_d, clear_i, DcacheReturnTypeRstVal, clk_i, rst_ni)
+  `FFARNC(dcache_rtrn_inv_q, dcache_rtrn_inv_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(amo_off_q, amo_off_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(amo_gen_r_q, amo_gen_r_d, clear_i, '0, clk_i, rst_ni)
 
 
   ///////////////////////////////////////////////////////

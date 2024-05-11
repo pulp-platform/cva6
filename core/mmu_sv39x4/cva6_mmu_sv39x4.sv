@@ -687,16 +687,16 @@ module cva6_mmu_sv39x4
   // ----------
   // Registers
   // ----------
-  `FFARNC(lsu_vaddr_q     ,lsu_vaddr_n    , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(lsu_gpaddr_q    ,lsu_gpaddr_n   , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(lsu_tinst_q     ,lsu_tinst_n    , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(hs_ld_st_inst_q ,hs_ld_st_inst_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(lsu_req_q       ,lsu_req_n      , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(misaligned_ex_q ,misaligned_ex_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_pte_q      ,dtlb_pte_n     , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_gpte_q     ,dtlb_gpte_n    , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_hit_q      ,dtlb_hit_n     , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(lsu_is_store_q  ,lsu_is_store_n , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_is_2M_q    ,dtlb_is_2M_n   , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_is_1G_q    ,dtlb_is_1G_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_vaddr_q, lsu_vaddr_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_gpaddr_q, lsu_gpaddr_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_tinst_q, lsu_tinst_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(hs_ld_st_inst_q, hs_ld_st_inst_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_req_q, lsu_req_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(misaligned_ex_q, misaligned_ex_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_pte_q, dtlb_pte_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_gpte_q, dtlb_gpte_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_hit_q, dtlb_hit_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_is_store_q, lsu_is_store_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_2M_q, dtlb_is_2M_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_1G_q, dtlb_is_1G_n, clear_i, '0, clk_i, rst_ni)
 endmodule

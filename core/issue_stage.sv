@@ -166,7 +166,6 @@ module issue_stage
       .CVA6Cfg  (CVA6Cfg),
       .rs3_len_t(rs3_len_t)
   ) i_scoreboard (
-      .clear_i(clear_i),
       .rst_ni(rst_uarch_ni),
 
       .sb_full_o          (sb_full_o),

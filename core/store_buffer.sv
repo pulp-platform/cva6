@@ -234,15 +234,15 @@ module store_buffer
 
 
   // registers
-  `FFARNC(speculative_queue_q        , speculative_queue_n        , clear_i, '{default: 0}, clk_i, rst_ni)
-  `FFARNC(speculative_read_pointer_q , speculative_read_pointer_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(speculative_queue_q, speculative_queue_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(speculative_read_pointer_q, speculative_read_pointer_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(speculative_write_pointer_q, speculative_write_pointer_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(speculative_status_cnt_q   , speculative_status_cnt_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(speculative_status_cnt_q, speculative_status_cnt_n, clear_i, '0, clk_i, rst_ni)
 
-  `FFARNC(commit_queue_q        , commit_queue_n        , clear_i, '{default: 0}, clk_i, rst_ni)
-  `FFARNC(commit_read_pointer_q , commit_read_pointer_n , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(commit_queue_q, commit_queue_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(commit_read_pointer_q, commit_read_pointer_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(commit_write_pointer_q, commit_write_pointer_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(commit_status_cnt_q   , commit_status_cnt_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(commit_status_cnt_q, commit_status_cnt_n, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

@@ -117,9 +117,9 @@ module lsu_bypass
   end
 
   // registers
-  `FFARNC(mem_q           , mem_n          , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(status_cnt_q    , status_cnt_n   , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(write_pointer_q , write_pointer_n, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(read_pointer_q  , read_pointer_n , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(mem_q, mem_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(status_cnt_q, status_cnt_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(write_pointer_q, write_pointer_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(read_pointer_q, read_pointer_n, 1'b0, '0, clk_i, rst_ni)
 endmodule
 

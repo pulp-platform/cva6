@@ -259,6 +259,11 @@ module ex_stage
   logic [TRANS_ID_BITS-1:0] mult_trans_id;
   logic mult_valid;
 
+  // for reset values in flip flops
+  logic [ASID_WIDTH-1:0] asid_rs2_forwarding;
+  logic [VMID_WIDTH-1:0] vmid_rs2_forwarding;
+  logic [riscv::GPLEN-1:0] gpaddr_flush;
+
   // 1. ALU (combinatorial)
   // data silence operation
   fu_data_t alu_data;
@@ -348,7 +353,7 @@ module ex_stage
   ) i_mult (
       .clk_i,
       .rst_ni,
-      .clear_i(clear_i),
+      .clear_i,
       .flush_i,
       .mult_valid_i,
       .fu_data_i      (mult_data),
@@ -510,26 +515,30 @@ module ex_stage
 
   if (CVA6Cfg.RVS) begin
     if (CVA6Cfg.RVH) begin
-      `FFLARNC(current_instruction_is_sfence_vma , 1'b1, load_enable[0], clear_i, 1'b0, clk_i, rst_ni)
-      `FFLARNC(current_instruction_is_hfence_vvma, 1'b1, load_enable[1], clear_i, 1'b0, clk_i, rst_ni)
-      `FFLARNC(current_instruction_is_hfence_gvma, 1'b1, load_enable[2], clear_i, 1'b0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_sfence_vma, '1, load_enable[0], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_hfence_vvma, '1, load_enable[1], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_hfence_gvma, '1, load_enable[2], clear_i, '0, clk_i, rst_ni)
     end else begin
       assign current_instruction_is_hfence_vvma = 1'b0;
       assign current_instruction_is_hfence_gvma = 1'b0;
-      `FFLARNC(current_instruction_is_sfence_vma, 1'b1, load_enable[3], clear_i, 1'b0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_sfence_vma, '1, load_enable[3], clear_i, '0, clk_i, rst_ni)
     end
     if (CVA6Cfg.RVH) begin
+      assign asid_rs2_forwarding = rs2_forwarding_i[ASID_WIDTH-1:0];
+      assign vmid_rs2_forwarding = rs2_forwarding_i[VMID_WIDTH-1:0];
+      assign gpaddr_flush = rs1_forwarding_i >> 2;
       // This process stores the rs1 and rs2 parameters of a SFENCE_VMA instruction.
-      `FFLARNC(vaddr_to_be_flushed , rs1_forwarding_i                , load_enable[4], clear_i, '0, clk_i, rst_ni)
-      `FFLARNC(gpaddr_to_be_flushed, rs1_forwarding_i >> 2           , load_enable[4], clear_i, '0, clk_i, rst_ni)
-      `FFLARNC(asid_to_be_flushed  , rs2_forwarding_i[ASID_WIDTH-1:0], load_enable[4], clear_i, '0, clk_i, rst_ni)
-      `FFLARNC(vmid_to_be_flushed  , rs2_forwarding_i[VMID_WIDTH-1:0], load_enable[4], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(vaddr_to_be_flushed, rs1_forwarding_i, load_enable[4], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(gpaddr_to_be_flushed, gpaddr_flush, load_enable[4], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(asid_to_be_flushed, asid_rs2_forwarding, load_enable[4], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(vmid_to_be_flushed, vmid_rs2_forwarding, load_enable[4], clear_i, '0, clk_i, rst_ni)
     end else begin
       assign vmid_to_be_flushed   = '0;
       assign gpaddr_to_be_flushed = '0;
+      assign asid_rs2_forwarding  = rs2_forwarding_i[ASID_WIDTH-1:0];
       // This process stores the rs1 and rs2 parameters of a SFENCE_VMA instruction.
-      `FFLARNC(vaddr_to_be_flushed, rs1_forwarding_i                , load_enable[5], clear_i, '0, clk_i, rst_ni)
-      `FFLARNC(asid_to_be_flushed , rs2_forwarding_i[ASID_WIDTH-1:0], load_enable[5], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(vaddr_to_be_flushed, rs1_forwarding_i, load_enable[5], clear_i, '0, clk_i, rst_ni)
+      `FFLARNC(asid_to_be_flushed, asid_rs2_forwarding, load_enable[5], clear_i, '0, clk_i, rst_ni)
     end
   end else begin
     assign current_instruction_is_sfence_vma  = 1'b0;

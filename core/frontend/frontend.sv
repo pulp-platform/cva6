@@ -461,7 +461,7 @@ module frontend
     ) i_ras (
         .clk_i,
         .rst_ni,
-        .clear_i (clear_i),
+        .clear_i,
         .flush_i(flush_bp_i),
         .push_i (ras_push),
         .pop_i  (ras_pop),

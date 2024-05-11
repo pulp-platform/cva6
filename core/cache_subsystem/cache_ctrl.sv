@@ -444,9 +444,9 @@ module cache_ctrl
   // --------------
   // Registers
   // --------------
-  `FFARNC(state_q   , state_d  , clear_i, IDLE, clk_i, rst_ni)
-  `FFARNC(mem_req_q , mem_req_d, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(hit_way_q , hit_way_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(mem_req_q, mem_req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(hit_way_q, hit_way_d, clear_i, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR

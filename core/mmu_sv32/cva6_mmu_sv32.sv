@@ -122,7 +122,7 @@ module cva6_mmu_sv32
   ) i_itlb (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .clear_i (clear_i),
+      .clear_i(clear_i),
       .flush_i(flush_tlb_i),
 
       .update_i(update_itlb),
@@ -571,11 +571,11 @@ module cva6_mmu_sv32
   // ----------
   // Registers
   // ----------
-  `FFARNC(lsu_vaddr_q     ,lsu_vaddr_n    , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(lsu_req_q       ,lsu_req_n      , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(misaligned_ex_q ,misaligned_ex_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_pte_q      ,dtlb_pte_n     , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_hit_q      ,dtlb_hit_n     , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(lsu_is_store_q  ,lsu_is_store_n , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(dtlb_is_4M_q    ,dtlb_is_4M_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_vaddr_q, lsu_vaddr_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_req_q, lsu_req_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(misaligned_ex_q, misaligned_ex_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_pte_q, dtlb_pte_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_hit_q, dtlb_hit_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(lsu_is_store_q, lsu_is_store_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_is_4M_q, dtlb_is_4M_n, clear_i, '0, clk_i, rst_ni)
 endmodule

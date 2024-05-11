@@ -342,10 +342,10 @@ module wt_dcache_mem
     );
   end
 
-  `FFARNC(bank_idx_q , bank_idx_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(bank_off_q , bank_off_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(vld_sel_q  , vld_sel_d , 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(cmp_en_q   , cmp_en_d  , 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(bank_idx_q, bank_idx_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(bank_off_q, bank_off_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(vld_sel_q, vld_sel_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(cmp_en_q, cmp_en_d, 1'b0, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions
@@ -395,8 +395,8 @@ module wt_dcache_mem
   logic [ariane_pkg::DCACHE_SET_ASSOC-1:0] load_enable;
   for (genvar i = 0; i < ariane_pkg::DCACHE_SET_ASSOC; i++) begin : gen_p_mirror_registers
     assign load_enable[i] = (vld_req[i] & vld_we) ? 1'b1 : 1'b0;
-    `FFLARNC(vld_mirror[vld_addr][i], vld_wdata[i], load_enable[i], clear_i, '{default: '0}, clk_i, rst_ni)
-    `FFLARNC(tag_mirror[vld_addr][i], wr_cl_tag_i, load_enable[i], clear_i, '{default: '0}, clk_i, rst_ni)
+    `FFLARNC(vld_mirror[vld_addr][i], vld_wdata[i], load_enable[i], clear_i, '0, clk_i, rst_ni)
+    `FFLARNC(tag_mirror[vld_addr][i], wr_cl_tag_i, load_enable[i], clear_i, '0, clk_i, rst_ni)
   end
 
   for (genvar i = 0; i < DCACHE_SET_ASSOC; i++) begin : gen_tag_dubl_test

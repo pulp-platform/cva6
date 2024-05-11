@@ -286,7 +286,7 @@ module axi_shim #(
   // Registers
   // ----------------
   `FFARNC(wr_state_q, wr_state_d, clear_i, IDLE, clk_i, rst_ni)
-  `FFARNC(wr_cnt_q  , wr_cnt_d  , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(wr_cnt_q, wr_cnt_d, clear_i, '0, clk_i, rst_ni)
 
   // ----------------
   // Assertions

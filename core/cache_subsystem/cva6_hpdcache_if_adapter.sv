@@ -111,7 +111,7 @@ module cva6_hpdcache_if_adapter
       logic             [ 7:0] amo_data_be;
       hpdcache_req_op_t        amo_op;
       logic             [31:0] amo_resp_word;
-      logic                    amo_pending_q, amo_pending_n;
+      logic amo_pending_q, amo_pending_n;
 
       //  AMO logic
       //  {{{

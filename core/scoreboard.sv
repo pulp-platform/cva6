@@ -433,9 +433,9 @@ module scoreboard #(
 
 
   // sequential process
-  `FFARNC(issue_cnt_q     , issue_cnt_n     , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(issue_pointer_q , issue_pointer_n , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(mem_q           , mem_n           , clear_i, '{default: sb_mem_t'(0)}, clk_i, rst_ni)
+  `FFARNC(issue_cnt_q, issue_cnt_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(issue_pointer_q, issue_pointer_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(mem_q, mem_n, clear_i, '{default: sb_mem_t'(0)}, clk_i, rst_ni)
   `FFARNC(commit_pointer_q, commit_pointer_n, clear_i, '0, clk_i, rst_ni)
 
   //RVFI

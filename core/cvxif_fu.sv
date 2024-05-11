@@ -117,8 +117,8 @@ module cvxif_fu
     end
   end
 
-  `FFARNC(illegal_q      , illegal_n      , clear_i, '0, clk_i, rst_ni)
-  `FFARNC(illegal_id_q   , illegal_id_n   , clear_i, '0, clk_i, rst_ni)
+  `FFARNC(illegal_q, illegal_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(illegal_id_q, illegal_id_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(illegal_instr_q, illegal_instr_n, clear_i, '0, clk_i, rst_ni)
 
 endmodule

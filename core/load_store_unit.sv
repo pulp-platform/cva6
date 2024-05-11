@@ -331,9 +331,9 @@ module load_store_unit
     assign dtlb_ppn                            = mmu_vaddr_plen[riscv::PLEN-1:12];
     assign dtlb_hit                            = 1'b1;
 
-    `FFARNC(mmu_paddr        , mmu_vaddr_plen      , clear_i, '0, clk_i, rst_ni)
-    `FFARNC(translation_valid, translation_req     , clear_i, '0, clk_i, rst_ni)
-    `FFARNC(mmu_exception    , misaligned_exception, clear_i, '0, clk_i, rst_ni)
+    `FFARNC(mmu_paddr, mmu_vaddr_plen, clear_i, '0, clk_i, rst_ni)
+    `FFARNC(translation_valid, translation_req, clear_i, '0, clk_i, rst_ni)
+    `FFARNC(mmu_exception, misaligned_exception, clear_i, '0, clk_i, rst_ni)
   end
 
 

@@ -507,12 +507,12 @@ module miss_handler
   // --------------------
   // Sequential Process
   // --------------------
-  `FFARNC(mshr_q      , mshr_d     , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(state_q     , state_d    , 1'b0, INIT, clk_i, rst_ni)
-  `FFARNC(cnt_q       , cnt_d      , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(evict_way_q , evict_way_d, 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(evict_cl_q  , evict_cl_d , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(serve_amo_q , serve_amo_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(mshr_q, mshr_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(state_q, state_d, 1'b0, INIT, clk_i, rst_ni)
+  `FFARNC(cnt_q, cnt_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(evict_way_q, evict_way_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(evict_cl_q, evict_cl_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(serve_amo_q, serve_amo_d, 1'b0, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR
@@ -789,10 +789,10 @@ module axi_adapter_arbiter #(
     endcase
   end
 
-  `FFARNC(state_q           , state_d          , 1'b0, IDLE, clk_i, rst_ni)
-  `FFARNC(sel_q             , sel_d            , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(req_q             , req_d            , 1'b0, '0  , clk_i, rst_ni)
-  `FFARNC(outstanding_cnt_q , outstanding_cnt_d, 1'b0, '0  , clk_i, rst_ni)
+  `FFARNC(state_q, state_d, 1'b0, IDLE, clk_i, rst_ni)
+  `FFARNC(sel_q, sel_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(req_q, req_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(outstanding_cnt_q, outstanding_cnt_d, 1'b0, '0, clk_i, rst_ni)
 
   // ------------
   // Assertions

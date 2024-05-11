@@ -463,14 +463,14 @@ module axi_adapter #(
   // ----------------
   // Registers
   // ----------------
-  `FFARNC(state_q              , state_d             , 1'b0, IDLE                , clk_i, rst_ni)
-  `FFARNC(cnt_q                , cnt_d               , 1'b0, '0                  , clk_i, rst_ni)
-  `FFARNC(cache_line_q         , cache_line_d        , 1'b0, '0                  , clk_i, rst_ni)
-  `FFARNC(addr_offset_q        , addr_offset_d       , 1'b0, '0                  , clk_i, rst_ni)
-  `FFARNC(id_q                 , id_d                , 1'b0, '0                  , clk_i, rst_ni)
-  `FFARNC(amo_q                , amo_d               , 1'b0, ariane_pkg::AMO_NONE, clk_i, rst_ni)
-  `FFARNC(size_q               , size_d              , 1'b0, '0                  , clk_i, rst_ni)
-  `FFARNC(outstanding_aw_cnt_q , outstanding_aw_cnt_d, 1'b0, '0                  , clk_i, rst_ni)
+  `FFARNC(state_q, state_d, 1'b0, IDLE, clk_i, rst_ni)
+  `FFARNC(cnt_q, cnt_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(cache_line_q, cache_line_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(addr_offset_q, addr_offset_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(id_q, id_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(amo_q, amo_d, 1'b0, ariane_pkg::AMO_NONE, clk_i, rst_ni)
+  `FFARNC(size_q, size_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(outstanding_aw_cnt_q, outstanding_aw_cnt_d, 1'b0, '0, clk_i, rst_ni)
 
   function automatic axi_pkg::atop_t atop_from_amo(ariane_pkg::amo_t amo);
     axi_pkg::atop_t result = 6'b000000;

@@ -57,9 +57,8 @@ module wt_dcache_wbuffer
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 ) (
     input logic clk_i,  // Clock
-    input logic rst_ni, // Asynchronous reset active low
-    input logic clear_i, // Synchronous clear active high
-
+    input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     input logic cache_en_i,  // writes are treated as NC if disabled
     output logic empty_o,  // asserted if no data is present in write buffer
     output logic not_ni_o,  // asserted if no ni data is present in write buffer

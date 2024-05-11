@@ -235,6 +235,6 @@ module perf_counters
 
   //Registers
   `FFARNC(generic_counter_q, generic_counter_d, clear_i, '{default: 0}, clk_i, rst_ni)
-  `FFARNC(mhpmevent_q      , mhpmevent_d      , clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(mhpmevent_q, mhpmevent_d, clear_i, '{default: 0}, clk_i, rst_ni)
 
 endmodule
