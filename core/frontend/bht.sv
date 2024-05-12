@@ -111,7 +111,11 @@ module bht #(
         end
       end else begin
         if (clear_i) begin
-          bht_q <= '0;
+          for (int unsigned i = 0; i < NR_ROWS; i++) begin
+            for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
+              bht_q[i][j] <= '0;
+            end
+          end
         end else begin
           // evict all entries
           if (flush_i) begin

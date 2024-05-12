@@ -178,7 +178,7 @@ module btb #(
         for (int i = 0; i < NR_ROWS; i++) btb_q[i] <= '{default: 0};
       end else begin
         if (clear_i) begin
-          btb_q <= '{default: 0};
+          for (int i = 0; i < NR_ROWS; i++) btb_q[i] <= '{default: 0};
         end else begin
           // evict all entries
           if (flush_i | clear_i) begin
