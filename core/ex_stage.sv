@@ -241,6 +241,8 @@ module ex_stage
   //                        instructions.
 
 
+  logic clear;
+  logic [5:0] load_enable;
   logic current_instruction_is_sfence_vma;
   logic current_instruction_is_hfence_vvma;
   logic current_instruction_is_hfence_gvma;
@@ -505,7 +507,7 @@ module ex_stage
     assign x_valid_o     = '0;
   end
 
-  logic [5:0] load_enable;
+  assign clear = flush_i | clear_i;
   assign load_enable[0] = ((fu_data_i.operation == SFENCE_VMA && !v_i) && csr_valid_i) ? 1'b1 : 1'b0;
   assign load_enable[1] = (((fu_data_i.operation == SFENCE_VMA && v_i) || fu_data_i.operation == HFENCE_VVMA) && csr_valid_i) ? 1'b1 : 1'b0;
   assign load_enable[2] = ((fu_data_i.operation == HFENCE_GVMA) && csr_valid_i) ? 1'b1 : 1'b0;
@@ -515,13 +517,13 @@ module ex_stage
 
   if (CVA6Cfg.RVS) begin
     if (CVA6Cfg.RVH) begin
-      `FFLARNC(current_instruction_is_sfence_vma, '1, load_enable[0], (flush_i | clear_i), '0, clk_i, rst_ni)
-      `FFLARNC(current_instruction_is_hfence_vvma, '1, load_enable[1], (flush_i | clear_i), '0, clk_i, rst_ni)
-      `FFLARNC(current_instruction_is_hfence_gvma, '1, load_enable[2], (flush_i | clear_i), '0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_sfence_vma, '1, load_enable[0], clear, '0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_hfence_vvma, '1, load_enable[1], clear, '0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_hfence_gvma, '1, load_enable[2], clear, '0, clk_i, rst_ni)
     end else begin
       assign current_instruction_is_hfence_vvma = 1'b0;
       assign current_instruction_is_hfence_gvma = 1'b0;
-      `FFLARNC(current_instruction_is_sfence_vma, '1, load_enable[3], (flush_i | clear_i), '0, clk_i, rst_ni)
+      `FFLARNC(current_instruction_is_sfence_vma, '1, load_enable[3], clear, '0, clk_i, rst_ni)
     end
     if (CVA6Cfg.RVH) begin
       assign asid_rs2_forwarding = rs2_forwarding_i[ASID_WIDTH-1:0];

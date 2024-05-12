@@ -560,7 +560,7 @@ module miss_handler
       .req_t              (bypass_req_t),
       .rsp_t              (bypass_rsp_t)
   ) i_bypass_arbiter (
-      .clk_i (clk_i),
+      .clk_i(clk_i),
       .rst_ni(rst_ni),
       .clear_i(clear_i),
       // Master Side
@@ -689,7 +689,7 @@ module axi_adapter_arbiter #(
     parameter type req_t = std_cache_pkg::bypass_req_t,
     parameter type rsp_t = std_cache_pkg::bypass_rsp_t
 ) (
-    input  logic                clk_i,   // Clock
+    input  logic                clk_i,  // Clock
     input  logic                rst_ni,  // Asynchronous reset active low
     input  logic                clear_i,
     // Master ports

@@ -27,8 +27,8 @@ module cva6_shared_tlb_sv32
     parameter int SHARED_TLB_WAYS = 2,
     parameter int ASID_WIDTH = 1
 ) (
-    input logic clk_i,  // Clock
-    input logic rst_ni,  // Asynchronous reset active low
+    input logic clk_i,
+    input logic rst_ni,
     input logic flush_i,
     input logic clear_i,
 

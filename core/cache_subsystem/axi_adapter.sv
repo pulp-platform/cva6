@@ -26,10 +26,9 @@ module axi_adapter #(
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
-    input logic clk_i,  // Clock
-    input logic rst_ni, // Asynchronous reset active low
+    input logic clk_i,
+    input logic rst_ni,
     input logic clear_i,
-
     output logic busy_o,
     input logic req_i,
     input ariane_pkg::ad_req_t type_i,
