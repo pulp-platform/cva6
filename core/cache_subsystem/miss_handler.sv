@@ -508,7 +508,7 @@ module miss_handler
   // --------------------
   // Sequential Process
   // --------------------
-  `FFARNC(mshr_q, mshr_d, clear_i '0, clk_i, rst_ni)
+  `FFARNC(mshr_q, mshr_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(state_q, state_d, clear_i, INIT, clk_i, rst_ni)
   `FFARNC(cnt_q, cnt_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(evict_way_q, evict_way_d, clear_i, '0, clk_i, rst_ni)
