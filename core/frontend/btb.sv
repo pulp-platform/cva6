@@ -177,15 +177,19 @@ module btb #(
         // Bias the branches to be taken upon first arrival
         for (int i = 0; i < NR_ROWS; i++) btb_q[i] <= '{default: 0};
       end else begin
-        // evict all entries
-        if (flush_i | clear_i) begin
-          for (int i = 0; i < NR_ROWS; i++) begin
-            for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
-              btb_q[i][j].valid <= 1'b0;
-            end
-          end
+        if (clear_i) begin
+          btb_q <= '{default: 0};
         end else begin
-          btb_q <= btb_d;
+          // evict all entries
+          if (flush_i | clear_i) begin
+            for (int i = 0; i < NR_ROWS; i++) begin
+              for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
+                btb_q[i][j].valid <= 1'b0;
+              end
+            end
+          end else begin
+            btb_q <= btb_d;
+          end
         end
       end
     end

@@ -28,6 +28,7 @@ module tag_cmp #(
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
 
     input logic [NR_PORTS-1:0][DCACHE_SET_ASSOC-1:0] req_i,
     output logic [NR_PORTS-1:0] gnt_o,
@@ -98,6 +99,6 @@ module tag_cmp #(
 `endif
   end
 
-  `FFARNC(id_q, id_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(id_q, id_d, clear_i, '0, clk_i, rst_ni)
 
 endmodule

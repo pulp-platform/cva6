@@ -227,6 +227,7 @@ module cva6_hpdcache_subsystem
       ) i_cva6_hpdcache_load_if_adapter (
           .clk_i,
           .rst_ni,
+          .clear_i('0),
 
           .hpdcache_req_sid_i(hpdcache_pkg::hpdcache_req_sid_t'(r)),
 
@@ -253,6 +254,7 @@ module cva6_hpdcache_subsystem
     ) i_cva6_hpdcache_store_if_adapter (
         .clk_i,
         .rst_ni,
+        .clear_i('0),
 
         .hpdcache_req_sid_i(hpdcache_pkg::hpdcache_req_sid_t'(NumPorts - 1)),
 
@@ -279,6 +281,7 @@ module cva6_hpdcache_subsystem
     ) i_cva6_hpdcache_cmo_if_adapter (
         .clk_i,
         .rst_ni,
+        .clear_i('0),
 
         .dcache_req_sid_i(hpdcache_pkg::hpdcache_req_sid_t'(NumPorts)),
 

@@ -35,6 +35,8 @@ module lsu_bypass
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input logic flush_i,
 
@@ -117,9 +119,9 @@ module lsu_bypass
   end
 
   // registers
-  `FFARNC(mem_q, mem_n, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(status_cnt_q, status_cnt_n, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(write_pointer_q, write_pointer_n, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(read_pointer_q, read_pointer_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(mem_q, mem_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(status_cnt_q, status_cnt_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(write_pointer_q, write_pointer_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(read_pointer_q, read_pointer_n, clear_i, '0, clk_i, rst_ni)
 endmodule
 

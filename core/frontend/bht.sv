@@ -110,16 +110,20 @@ module bht #(
           end
         end
       end else begin
-        // evict all entries
-        if (flush_i | clear_i) begin
-          for (int i = 0; i < NR_ROWS; i++) begin
-            for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
-              bht_q[i][j].valid <= 1'b0;
-              bht_q[i][j].saturation_counter <= 2'b10;
-            end
-          end
+        if (clear_i) begin
+          bht_q <= '0;
         end else begin
-          bht_q <= bht_d;
+          // evict all entries
+          if (flush_i) begin
+            for (int i = 0; i < NR_ROWS; i++) begin
+              for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
+                bht_q[i][j].valid <= 1'b0;
+                bht_q[i][j].saturation_counter <= 2'b10;
+              end
+            end
+          end else begin
+            bht_q <= bht_d;
+          end
         end
       end
     end

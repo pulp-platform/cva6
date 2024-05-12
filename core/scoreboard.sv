@@ -287,7 +287,7 @@ module scoreboard #(
     ) i_sel_gpr_clobbers (
         .clk_i  (clk_i),
         .rst_ni (rst_ni),
-        .flush_i(1'b0),
+        .flush_i(clear_i),
         .rr_i   ('0),
         .req_i  (gpr_clobber_vld[k]),
         .gnt_o  (),
@@ -306,7 +306,7 @@ module scoreboard #(
       ) i_sel_fpr_clobbers (
           .clk_i  (clk_i),
           .rst_ni (rst_ni),
-          .flush_i(1'b0),
+          .flush_i(clear_i),
           .rr_i   ('0),
           .req_i  (fpr_clobber_vld[k]),
           .gnt_o  (),
@@ -374,7 +374,7 @@ module scoreboard #(
   ) i_sel_rs1 (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .flush_i(1'b0),
+      .flush_i(clear_i),
       .rr_i   ('0),
       .req_i  (rs1_fwd_req),
       .gnt_o  (),
@@ -393,7 +393,7 @@ module scoreboard #(
   ) i_sel_rs2 (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .flush_i(1'b0),
+      .flush_i(clear_i),
       .rr_i   ('0),
       .req_i  (rs2_fwd_req),
       .gnt_o  (),
@@ -414,7 +414,7 @@ module scoreboard #(
   ) i_sel_rs3 (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .flush_i(1'b0),
+      .flush_i(clear_i),
       .rr_i   ('0),
       .req_i  (rs3_fwd_req),
       .gnt_o  (),

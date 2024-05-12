@@ -29,6 +29,7 @@ module miss_handler
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     output logic busy_o,  // miss handler or axi is busy
     input logic flush_i,  // flush request
     output logic flush_ack_o,  // acknowledge successful flush
@@ -507,12 +508,12 @@ module miss_handler
   // --------------------
   // Sequential Process
   // --------------------
-  `FFARNC(mshr_q, mshr_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(state_q, state_d, 1'b0, INIT, clk_i, rst_ni)
-  `FFARNC(cnt_q, cnt_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(evict_way_q, evict_way_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(evict_cl_q, evict_cl_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(serve_amo_q, serve_amo_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(mshr_q, mshr_d, clear_i '0, clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, INIT, clk_i, rst_ni)
+  `FFARNC(cnt_q, cnt_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(evict_way_q, evict_way_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(evict_cl_q, evict_cl_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(serve_amo_q, serve_amo_d, clear_i, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR
@@ -561,6 +562,7 @@ module miss_handler
   ) i_bypass_arbiter (
       .clk_i (clk_i),
       .rst_ni(rst_ni),
+      .clear_i(clear_i),
       // Master Side
       .req_i (bypass_ports_req),
       .rsp_o (bypass_ports_rsp),
@@ -585,6 +587,7 @@ module miss_handler
   ) i_bypass_axi_adapter (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
+      .clear_i(clear_i),
       .busy_o(bypass_axi_busy),
       .req_i(bypass_adapter_req.req),
       .type_i(bypass_adapter_req.reqtype),
@@ -621,6 +624,7 @@ module miss_handler
   ) i_miss_axi_adapter (
       .clk_i,
       .rst_ni,
+      .clear_i,
       .busy_o               (miss_axi_busy),
       .req_i                (req_fsm_miss_valid),
       .type_i               (req_fsm_miss_req),
@@ -687,6 +691,7 @@ module axi_adapter_arbiter #(
 ) (
     input  logic                clk_i,   // Clock
     input  logic                rst_ni,  // Asynchronous reset active low
+    input  logic                clear_i,
     // Master ports
     input  req_t [NR_PORTS-1:0] req_i,
     output rsp_t [NR_PORTS-1:0] rsp_o,
@@ -789,10 +794,10 @@ module axi_adapter_arbiter #(
     endcase
   end
 
-  `FFARNC(state_q, state_d, 1'b0, IDLE, clk_i, rst_ni)
-  `FFARNC(sel_q, sel_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(req_q, req_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(outstanding_cnt_q, outstanding_cnt_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(sel_q, sel_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(req_q, req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(outstanding_cnt_q, outstanding_cnt_d, clear_i, '0, clk_i, rst_ni)
 
   // ------------
   // Assertions

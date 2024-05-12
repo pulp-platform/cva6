@@ -103,7 +103,7 @@ module cvxif_example_coprocessor
   assign req_i.req = x_issue_req_i;
   assign req_i.resp = x_issue_resp_o;
 
-  `FFARNC(x_issue_ready_o, x_issue_ready_q, 1'b0, 1'b1, clk_i, rst_ni)
+  `FFARNC(x_issue_ready_o, x_issue_ready_q, clear_i, 1'b1, clk_i, rst_ni)
 
   fifo_v3 #(
       .FALL_THROUGH(1),         //data_o ready and pop in the same cycle

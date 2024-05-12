@@ -601,20 +601,20 @@ module cva6_ptw_sv39x4
   // sequential process
   `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
   `FFARNC(ptw_stage_q, ptw_stage_d, clear_i, S_STAGE, clk_i, rst_ni)
-  `FFARNC(is_instr_ptw_q, is_instr_ptw_n, clear_i, 1'b0, clk_i, rst_ni)
+  `FFARNC(is_instr_ptw_q, is_instr_ptw_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(ptw_lvl_q, ptw_lvl_n, clear_i, LVL1, clk_i, rst_ni)
   `FFARNC(gptw_lvl_q, gptw_lvl_n, clear_i, LVL1, clk_i, rst_ni)
-  `FFARNC(tag_valid_q, tag_valid_n, clear_i, 1'b0, clk_i, rst_ni)
+  `FFARNC(tag_valid_q, tag_valid_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(tlb_update_asid_q, tlb_update_asid_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(tlb_update_vmid_q, tlb_update_vmid_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(vaddr_q, vaddr_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(gpaddr_q, gpaddr_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(ptw_pptr_q, ptw_pptr_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(gptw_pptr_q, gptw_pptr_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(global_mapping_q, global_mapping_n, clear_i, 1'b0, clk_i, rst_ni)
+  `FFARNC(global_mapping_q, global_mapping_n, clear_i, '0, clk_i, rst_ni)
   `FFARNC(data_rdata_q, req_port_i.data_rdata, clear_i, '0, clk_i, rst_ni)
   `FFARNC(gpte_q, gpte_d, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(data_rvalid_q, req_port_i.data_rvalid, clear_i, 1'b0, clk_i, rst_ni)
+  `FFARNC(data_rvalid_q, req_port_i.data_rvalid, clear_i, '0, clk_i, rst_ni)
 
 endmodule
 /* verilator lint_on WIDTH */

@@ -227,9 +227,9 @@ module cva6_tlb_sv32
   end
 
   // sequential process
-  `FFARNC(tags_q, tags_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(content_q, content_n, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(plru_tree_q, plru_tree_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(tags_q, tags_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(content_q, content_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(plru_tree_q, plru_tree_n, clear_i, '{default: 0}, clk_i, rst_ni)
 
   //--------------
   // Sanity checks

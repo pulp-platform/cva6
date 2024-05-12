@@ -170,7 +170,7 @@ module wt_dcache_mem
   ) i_rr_arb_tree (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .flush_i('0),
+      .flush_i(clear_i),
       .rr_i   ('0),
       .req_i  (rd_req_masked),
       .gnt_o  (rd_ack_o),
@@ -342,10 +342,10 @@ module wt_dcache_mem
     );
   end
 
-  `FFARNC(bank_idx_q, bank_idx_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(bank_off_q, bank_off_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(vld_sel_q, vld_sel_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(cmp_en_q, cmp_en_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(bank_idx_q, bank_idx_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(bank_off_q, bank_off_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vld_sel_q, vld_sel_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(cmp_en_q, cmp_en_d, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

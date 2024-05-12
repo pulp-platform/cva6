@@ -564,6 +564,7 @@ module cva6
   ) id_stage_i (
       .clk_i,
       .rst_ni (rst_uarch_n),
+      .clear_i,
       .flush_i(flush_ctrl_if),
       .debug_req_i,
 

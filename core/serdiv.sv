@@ -27,6 +27,8 @@ module serdiv
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Serdiv translation ID - Mult
     input logic [TRANS_ID_BITS-1:0] id_i,
     // A operand - Mult
@@ -247,17 +249,17 @@ module serdiv
   assign op_b_d = (b_reg_en) ? b_mux : op_b_q;
   assign res_d = (load_en) ? '0 : (res_reg_en) ? {res_q[$high(res_q)-1:0], ab_comp} : res_q;
 
-  `FFARNC(state_q, state_d, 1'b0, IDLE, clk_i, rst_ni)
-  `FFARNC(op_a_q, op_a_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(op_b_q, op_b_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(res_q, res_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(cnt_q, cnt_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(id_q, id_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(rem_sel_q, rem_sel_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(comp_inv_q, comp_inv_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(res_inv_q, res_inv_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(op_b_zero_q, op_b_zero_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(op_b_neg_one_q, op_b_neg_one_d, 1'b0, '0, clk_i, rst_ni)
-  `FFARNC(div_res_zero_q, div_res_zero_d, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(op_a_q, op_a_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(op_b_q, op_b_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(res_q, res_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(cnt_q, cnt_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(id_q, id_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rem_sel_q, rem_sel_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(comp_inv_q, comp_inv_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(res_inv_q, res_inv_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(op_b_zero_q, op_b_zero_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(op_b_neg_one_q, op_b_neg_one_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(div_res_zero_q, div_res_zero_d, clear_i, '0, clk_i, rst_ni)
 
 endmodule

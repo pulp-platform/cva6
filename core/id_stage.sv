@@ -22,6 +22,8 @@ module id_stage #(
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Fetch flush request - CONTROLLER
     input logic flush_i,
     // Debug (async) request - SUBSYSTEM
@@ -180,5 +182,5 @@ module id_stage #(
   // -------------------------
   // Registers (ID <-> Issue)
   // -------------------------
-  `FFARNC(issue_q, issue_n, 1'b0, '0, clk_i, rst_ni)
+  `FFARNC(issue_q, issue_n, clear_i, '0, clk_i, rst_ni)
 endmodule

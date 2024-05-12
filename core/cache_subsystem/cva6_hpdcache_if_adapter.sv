@@ -29,6 +29,7 @@ module cva6_hpdcache_if_adapter
     //  Clock and active-low reset pins
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
 
     //  Port ID
     input hpdcache_pkg::hpdcache_req_sid_t hpdcache_req_sid_i,
@@ -202,7 +203,7 @@ module cva6_hpdcache_if_adapter
               ( cva6_amo_req_i.req  & hpdcache_req_ready_i & ~amo_pending_q) |
               (~cva6_amo_resp_o.ack & amo_pending_q);
 
-      `FFARNC(amo_pending_q, amo_pending_n, 1'b0, 1'b0, clk_i, rst_ni)
+      `FFARNC(amo_pending_q, amo_pending_n, clear_i, 1'b0, clk_i, rst_ni)
     end
 
     //  }}}
