@@ -131,6 +131,7 @@ module mult
   ) i_div (
       .clk_i    (clk_i),
       .rst_ni   (rst_ni),
+      .clear_i  (clear_i),
       .id_i     (fu_data_i.trans_id),
       .op_a_i   (operand_a),
       .op_b_i   (operand_b),
