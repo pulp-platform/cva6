@@ -198,7 +198,7 @@ module cva6_icache_axi_wrapper
   // Registers
   `FFARNC(req_valid_q, req_valid_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(req_data_q, req_data_d, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(first_q, first_d, clear_i, 1'b0, clk_i, rst_ni)
+  `FFARNC(first_q, first_d, clear_i, 1'b1, clk_i, rst_ni)
   `FFARNC(rd_shift_q, rd_shift_d, clear_i, '0, clk_i, rst_ni)
 
 endmodule  // cva6_icache_axi_wrapper
