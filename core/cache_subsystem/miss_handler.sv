@@ -560,15 +560,15 @@ module miss_handler
       .req_t              (bypass_req_t),
       .rsp_t              (bypass_rsp_t)
   ) i_bypass_arbiter (
-      .clk_i(clk_i),
-      .rst_ni(rst_ni),
+      .clk_i  (clk_i),
+      .rst_ni (rst_ni),
       .clear_i(clear_i),
       // Master Side
-      .req_i (bypass_ports_req),
-      .rsp_o (bypass_ports_rsp),
+      .req_i  (bypass_ports_req),
+      .rsp_o  (bypass_ports_rsp),
       // Slave Side
-      .req_o (bypass_adapter_req),
-      .rsp_i (bypass_adapter_rsp)
+      .req_o  (bypass_adapter_req),
+      .rsp_i  (bypass_adapter_rsp)
   );
 
   // ----------------------
