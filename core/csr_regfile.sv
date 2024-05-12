@@ -859,6 +859,7 @@ module csr_regfile
     automatic riscv::hgatp_t hgatp;
     automatic logic [63:0] instret;
 
+    mask            = '0;
 
     satp            = satp_q;
     hgatp           = hgatp_q;
