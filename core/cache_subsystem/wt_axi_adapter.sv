@@ -61,7 +61,7 @@ module wt_axi_adapter
   localparam MaxNumWords = $clog2(CVA6Cfg.AxiDataWidth / 8);
   localparam AxiRdBlenIcache = ariane_pkg::ICACHE_LINE_WIDTH / CVA6Cfg.AxiDataWidth - 1;
   localparam AxiRdBlenDcache = ariane_pkg::DCACHE_LINE_WIDTH / CVA6Cfg.AxiDataWidth - 1;
-  localparam DcacheReturnTypeRstVal = wt_cache_pkg::DCACHE_LOAD_ACK;
+  localparam dcache_in_t DcacheReturnTypeRstVal = wt_cache_pkg::DCACHE_LOAD_ACK;
 
   ///////////////////////////////////////////////////////
   // request path
