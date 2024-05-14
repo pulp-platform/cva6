@@ -97,6 +97,7 @@ module cva6 import ariane_pkg::*; #(
   logic                     issue_entry_valid_id_issue;
   logic                     is_ctrl_fow_id_issue;
   logic                     issue_instr_issue_id;
+  logic [$clog2(NR_SB_ENTRIES)-1:0] instr_pointer;
 
   // --------------
   // ISSUE <-> EX
@@ -323,8 +324,9 @@ module cva6 import ariane_pkg::*; #(
   x_issue_req_t   core_v_xif_issue_req;
   id_stage #(
     .cva6_cfg   ( cva6_cfg   ),
-    .x_issue_req_t (x_issue_req_t),
-    .x_issue_resp_t (x_issue_resp_t)
+    .NR_ENTRIES ( NR_SB_ENTRIES ),
+    .x_issue_req_t ( x_issue_req_t ),
+    .x_issue_resp_t ( x_issue_resp_t )
   ) id_stage_i (
     .clk_i,
     .rst_ni,
@@ -339,6 +341,7 @@ module cva6 import ariane_pkg::*; #(
     .issue_entry_valid_o        ( issue_entry_valid_id_issue ),
     .is_ctrl_flow_o             ( is_ctrl_fow_id_issue       ),
     .issue_instr_ack_i          ( issue_instr_issue_id       ),
+    .instr_pointer_i            ( instr_pointer              ),
 
     .priv_lvl_i                 ( priv_lvl                   ),
     .fs_i                       ( fs                         ),
@@ -350,7 +353,7 @@ module cva6 import ariane_pkg::*; #(
     .tvm_i                      ( tvm_csr_id                 ),
     .tw_i                       ( tw_csr_id                  ),
     .tsr_i                      ( tsr_csr_id                 ),
-    .flush_unissued_instr       (flush_unissued_instr_ctrl_id),
+    .flush_unissued_instr_i     (flush_unissued_instr_ctrl_id),
     .core_v_xif_issue_valid_o   ( core_v_xif_issue_valid     ),
     .core_v_xif_issue_req_o     ( core_v_xif_issue_req       ),
     .core_v_xif_issue_ready_i   ( core_v_xif_resp_i.issue_ready ),
@@ -402,6 +405,7 @@ module cva6 import ariane_pkg::*; #(
     .decoded_instr_i            ( issue_entry_id_issue         ),
     .decoded_instr_valid_i      ( issue_entry_valid_id_issue   ),
     .is_ctrl_flow_i             ( is_ctrl_fow_id_issue         ),
+    .instr_pointer_o            ( instr_pointer                ),
     .decoded_instr_ack_o        ( issue_instr_issue_id         ),
     // Functional Units
     .rs1_forwarding_o           ( rs1_forwarding_id_ex         ),

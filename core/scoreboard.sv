@@ -49,6 +49,7 @@ module scoreboard #(
   // we can always put this instruction to the top unless we signal with asserted full_o
   input  ariane_pkg::scoreboard_entry_t                         decoded_instr_i,
   input  logic                                                  decoded_instr_valid_i,
+  output logic [$clog2(NR_ENTRIES)-1:0]                         decoded_instr_pointer_o,
   output logic                                                  decoded_instr_ack_o,
 
   // instruction to issue logic, if issue_instr_valid and issue_ready is asserted, advance the issue pointer
@@ -218,6 +219,7 @@ module scoreboard #(
   assign issue_cnt_n         = (flush_i) ? '0 : issue_cnt_q         - num_commit + issue_en;
   assign commit_pointer_n[0] = (flush_i) ? '0 : commit_pointer_q[0] + num_commit;
   assign issue_pointer_n     = (flush_i) ? '0 : issue_pointer_q     + issue_en;
+  assign decoded_instr_pointer_o = issue_pointer_n; // propagate next id to id stage
 
   // precompute offsets for commit slots
   for (genvar k=1; k < NR_COMMIT_PORTS; k++) begin : gen_cnt_incr

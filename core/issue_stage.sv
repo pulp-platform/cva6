@@ -31,6 +31,7 @@ module issue_stage import ariane_pkg::*; #(
     input  scoreboard_entry_t                        decoded_instr_i,
     input  logic                                     decoded_instr_valid_i,
     input  logic                                     is_ctrl_flow_i,
+    output logic [$clog2(NR_ENTRIES)-1:0]            instr_pointer_o,
     output logic                                     decoded_instr_ack_o,
     // to EX
     output [riscv::VLEN-1:0]                         rs1_forwarding_o,  // unregistered version of fu_data_o.operanda
@@ -171,6 +172,7 @@ module issue_stage import ariane_pkg::*; #(
 
         .decoded_instr_i       ( issue_instr_rename_sb                     ),
         .decoded_instr_valid_i ( issue_instr_valid_rename_sb               ),
+        .decoded_instr_pointer_o ( instr_pointer_o                         ),
         .decoded_instr_ack_o   ( issue_ack_sb_rename                       ),
         .issue_instr_o         ( issue_instr_sb_iro                        ),
         .issue_instr_valid_o   ( issue_instr_valid_sb_iro                  ),

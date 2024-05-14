@@ -15,6 +15,7 @@
 
 module id_stage #(
     parameter ariane_pkg::cva6_cfg_t cva6_cfg = ariane_pkg::cva6_cfg_empty,
+    parameter int unsigned NR_ENTRIES      = 8, // must be a power of 2
     parameter type x_issue_req_t = core_v_xif_pkg::x_issue_req_t,
     parameter type x_issue_resp_t = core_v_xif_pkg::x_issue_resp_t
 ) (
@@ -31,6 +32,7 @@ module id_stage #(
     output ariane_pkg::scoreboard_entry_t issue_entry_o,       // a decoded instruction
     output logic                          issue_entry_valid_o, // issue entry is valid
     output logic                          is_ctrl_flow_o,      // the instruction we issue is a ctrl flow instructions
+    input  logic [$clog2(NR_ENTRIES)-1:0] instr_pointer_i,     // instruction id
     input  logic                          issue_instr_ack_i,   // issue stage acknowledged sampling of instructions
     // from CSR file
     input  riscv::priv_lvl_t              priv_lvl_i,          // current privilege level
@@ -44,12 +46,14 @@ module id_stage #(
     input  logic                          tw_i,
     input  logic                          tsr_i,
     // XIF issue interface
-    input  logic               flush_unissued_instr,
+    input  logic               flush_unissued_instr_i,
     output logic               core_v_xif_issue_valid_o, // XIF issue handshake valid
     output x_issue_req_t       core_v_xif_issue_req_o,  // XIF issue interface request to coprocessor
     input  logic               core_v_xif_issue_ready_i, // XIF issue handshake ready
     input  x_issue_resp_t      core_v_xif_issue_resp_i  // XIF issue interface response from coprocessor
 );
+    localparam int unsigned BITS_ENTRIES = $clog2(NR_ENTRIES);
+
     // ID/ISSUE register stage
     typedef struct packed {
         logic                          valid;
@@ -66,8 +70,7 @@ module id_stage #(
     logic                is_compressed;
 
 
-    assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i) && !flush_unissued_instr && !flush_i;
-    // assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid);
+    assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i) && !flush_unissued_instr_i && !flush_i;
 
     // --------
     // Decoder
@@ -94,6 +97,7 @@ module id_stage #(
     // ---------------------------------------------------------
     decoder #(
         .cva6_cfg   ( cva6_cfg   ),
+        .NR_ENTRIES (NR_ENTRIES),
         .x_issue_req_t (x_issue_req_t),
         .x_issue_resp_t (x_issue_resp_t)
     ) decoder_i (
@@ -109,6 +113,7 @@ module id_stage #(
         .ex_i                    ( fetch_entry_i.ex                ),
         .priv_lvl_i              ( priv_lvl_i                      ),
         .debug_mode_i            ( debug_mode_i                    ),
+        .id_i                    ( instr_pointer_i                 ),
         .fs_i,
         .frm_i,
         .vs_i,

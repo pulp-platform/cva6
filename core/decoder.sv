@@ -21,6 +21,7 @@
 
 module decoder import ariane_pkg::*; #(
     parameter ariane_pkg::cva6_cfg_t cva6_cfg = ariane_pkg::cva6_cfg_empty,
+    parameter int unsigned NR_ENTRIES      = 8, // must be a power of 2
     parameter type x_issue_req_t = core_v_xif_pkg::x_issue_req_t,
     parameter type x_issue_resp_t = core_v_xif_pkg::x_issue_resp_t
 ) (
@@ -34,6 +35,7 @@ module decoder import ariane_pkg::*; #(
     input  exception_t         ex_i,                    // if an exception occured in if
     input  logic [1:0]         irq_i,                   // external interrupt
     input  irq_ctrl_t          irq_ctrl_i,              // interrupt control and status information from CSRs
+    input  logic [$clog2(NR_ENTRIES)-1:0] id_i,
     // From CSR
     input  riscv::priv_lvl_t   priv_lvl_i,              // current privilege level
     input  logic               debug_mode_i,            // we are in debug mode
@@ -101,7 +103,9 @@ module decoder import ariane_pkg::*; #(
         //     .illegal_instr_o(acc_illegal_instr),
         //     .is_control_flow_instr_o(acc_is_control_flow_instr)
         // );
-        assign core_v_xif_issue_req_o.instr = instruction_i;
+        assign core_v_xif_issue_req_o.instr  = instruction_i;
+        assign core_v_xif_issue_req_o.id     = id_i;
+        assign core_v_xif_issue_req_o.hartid = '0;
 
         // TODO: add hartid and instruction id and
 
