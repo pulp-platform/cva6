@@ -85,13 +85,15 @@ module ariane import ariane_pkg::*; #(
     .l15_req_o            ( l15_req_o                 ),
     .l15_rtrn_i           ( l15_rtrn_i                ),
     .axi_req_o            (                           ),
-    .axi_resp_i           ( '0                        )
+    .axi_resp_i           ( '0                        ),
 `else
     .l15_req_o            (                           ),
     .l15_rtrn_i           ( '0                        ),
     .axi_req_o            ( axi_req_o                 ),
-    .axi_resp_i           ( axi_resp_i                )
+    .axi_resp_i           ( axi_resp_i                ),
 `endif
+    .core_v_xif_req_o     (                           ),
+    .core_v_xif_resp_i    ( '0                        )
   );
 
   if (ariane_pkg::CVXIF_PRESENT) begin : gen_example_coprocessor
