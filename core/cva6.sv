@@ -519,7 +519,7 @@ module cva6
   logic                                                  inval_valid;
   logic                                                  inval_ready;
 
-  `FFARN(rst_uarch_n, rst_uarch_controller_n, 1'b0, clk_i, rst_ni)
+  `FFARNC(rst_uarch_n, rst_uarch_controller_n, clear_i, '0, clk_i, rst_ni)
 
   // ----------------------
   // CLIC Controller <-> ID
