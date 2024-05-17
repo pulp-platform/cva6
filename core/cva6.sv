@@ -15,8 +15,6 @@
 
 module cva6 import ariane_pkg::*; #(
   parameter ariane_pkg::ariane_cfg_t ArianeCfg     = ariane_pkg::ArianeDefaultConfig,
-  parameter type cvxif_req_t  = cvxif_pkg::cvxif_req_t,
-  parameter type cvxif_resp_t = cvxif_pkg::cvxif_resp_t,
   parameter int unsigned AxiAddrWidth = ariane_axi::AddrWidth,
   parameter int unsigned AxiDataWidth = ariane_axi::DataWidth,
   parameter int unsigned AxiIdWidth   = ariane_axi::IdWidth,
