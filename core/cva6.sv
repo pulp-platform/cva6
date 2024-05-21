@@ -26,7 +26,8 @@ module cva6 import ariane_pkg::*; #(
   parameter type x_req_t = core_v_xif_pkg::x_req_t,
   parameter type x_resp_t = core_v_xif_pkg::x_resp_t,
   parameter type x_issue_req_t = core_v_xif_pkg::x_issue_req_t,
-  parameter type x_issue_resp_t = core_v_xif_pkg::x_issue_resp_t
+  parameter type x_issue_resp_t = core_v_xif_pkg::x_issue_resp_t,
+  parameter type x_commit_t = core_v_xif_pkg::x_commit_t
 ) (
   input  logic                         clk_i,
   input  logic                         rst_ni,
@@ -53,11 +54,6 @@ module cva6 import ariane_pkg::*; #(
   output x_req_t                       core_v_xif_req_o,
   input  x_resp_t                      core_v_xif_resp_i
 );
-
-  // x_issue_req_t test;
-  // assign test.test = 1'b1;
-
-
 
   localparam ariane_pkg::cva6_cfg_t cva6_cfg = ariane_pkg::cva6_cfg_empty;
 
@@ -154,6 +150,7 @@ module cva6 import ariane_pkg::*; #(
   logic                     halt_acc_ctrl;
   logic [4:0]               acc_resp_fflags;
   logic                     acc_resp_fflags_valid;
+  logic [TRANS_ID_BITS-1:0] issue_trans_id_acc;
   // CSR
   logic                     csr_valid_id_ex;
   // CVXIF
@@ -438,6 +435,7 @@ module cva6 import ariane_pkg::*; #(
     // Accelerator
     .issue_instr_o              ( issue_instr_id_acc           ),
     .issue_instr_hs_o           ( issue_instr_hs_id_acc        ),
+    .issue_trans_id_o           ( issue_trans_id_acc           ),
     // Commit
     .resolved_branch_i          ( resolved_branch              ),
     .trans_id_i                 ( trans_id_ex_id               ),
@@ -875,7 +873,10 @@ module cva6 import ariane_pkg::*; #(
 
     acc_dispatcher #(
       .x_req_t (x_req_t),
-      .x_resp_t (x_resp_t)
+      .x_resp_t (x_resp_t),
+      .x_issue_req_t (x_issue_req_t),
+      .x_issue_resp_t(x_issue_resp_t),
+      .x_commit_t (x_commit_t)
     ) i_acc_dispatcher (
       .clk_i                  ( clk_i                        ),
       .rst_ni                 ( rst_ni                       ),
@@ -898,9 +899,11 @@ module cva6 import ariane_pkg::*; #(
       .commit_ack_i           ( commit_ack                   ),
       .acc_no_st_pending_i    ( no_st_pending_commit         ),
       .ctrl_halt_o            ( halt_acc_ctrl                ),
+      .issue_if_valid_i       ( core_v_xif_issue_valid       ),
+      .issue_if_i             ( core_v_xif_issue_req         ),
       .core_v_xif_req_o       ( core_v_xif_req_unpacked      ),
       .core_v_xif_resp_i      ( core_v_xif_resp_i            )
-    );
+    ) ;
 
     // Add floating point flags
     assign acc_resp_fflags       = core_v_xif_resp_i.acc_resp.fflags;
@@ -910,19 +913,8 @@ module cva6 import ariane_pkg::*; #(
       inval_valid                               = core_v_xif_resp_i.acc_resp.inval_valid;
       inval_addr                                = core_v_xif_resp_i.acc_resp.inval_addr;
       core_v_xif_req_o                          = core_v_xif_req_unpacked;
-      core_v_xif_req_o.issue_req                = core_v_xif_issue_req;
-      core_v_xif_req_o.issue_valid              = core_v_xif_issue_valid;
       core_v_xif_req_o.acc_req.inval_ready      = inval_ready;
-      core_v_xif_req_o.acc_req.flush            = flush_ctrl_ex;
-      core_v_xif_req_o.acc_req.flush_unissued   = flush_unissued_instr_ctrl_id;      
-      // core_v_xif_req_o.acc_req.flush       = '0;
     end
-
-    // .flush_unissued_instr_o ( flush_unissued_instr_ctrl_id  ),
-    // .flush_if_o             ( flush_ctrl_if                 ),
-    // .flush_id_o             ( flush_ctrl_id                 ),
-    // .flush_ex_o             ( flush_ctrl_ex                 ),
-    // .flush_bp_o             ( flush_ctrl_bp                 ),
 
     // Tie off cvxif
     assign core_v_xif_resp.issue_ready    = '0;

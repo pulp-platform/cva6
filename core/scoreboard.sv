@@ -56,6 +56,7 @@ module scoreboard #(
   output ariane_pkg::scoreboard_entry_t                         issue_instr_o,
   output logic                                                  issue_instr_valid_o,
   input  logic                                                  issue_ack_i,
+  output logic [ariane_pkg::TRANS_ID_BITS-1:0]                  issue_trans_id_o,
 
   // write-back port
   input ariane_pkg::bp_resolve_t                                resolved_branch_i,
@@ -220,6 +221,7 @@ module scoreboard #(
   assign commit_pointer_n[0] = (flush_i) ? '0 : commit_pointer_q[0] + num_commit;
   assign issue_pointer_n     = (flush_i) ? '0 : issue_pointer_q     + issue_en;
   assign decoded_instr_pointer_o = issue_pointer_n; // propagate next id to id stage
+  assign issue_trans_id_o = issue_pointer_q;
 
   // precompute offsets for commit slots
   for (genvar k=1; k < NR_COMMIT_PORTS; k++) begin : gen_cnt_incr

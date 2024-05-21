@@ -68,6 +68,7 @@ module issue_stage import ariane_pkg::*; #(
     // to accelerator dispatcher
     output scoreboard_entry_t                        issue_instr_o,
     output logic                                     issue_instr_hs_o,
+    output logic [TRANS_ID_BITS-1:0]                 issue_trans_id_o,
 
     // write back port
     input logic [NR_WB_PORTS-1:0][TRANS_ID_BITS-1:0] trans_id_i,
@@ -177,6 +178,7 @@ module issue_stage import ariane_pkg::*; #(
         .issue_instr_o         ( issue_instr_sb_iro                        ),
         .issue_instr_valid_o   ( issue_instr_valid_sb_iro                  ),
         .issue_ack_i           ( issue_ack_iro_sb                          ),
+        .issue_trans_id_o      ( issue_trans_id_o                          ),
 
         .resolved_branch_i     ( resolved_branch_i                         ),
         .trans_id_i            ( trans_id_i                                ),
