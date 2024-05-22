@@ -228,8 +228,12 @@
      - PMA cache region rules
      - {64'h40000000}
 
-   * - MaxOutstandingStores
-     - Maximum number of outstanding stores
+   * - MaxOutstandingCachedStores
+     - Maximum number of outstanding stores towards cached regions
+     - 0
+
+   * - MaxOutstandingUncachedStores
+     - Maximum number of outstanding stores towards uncached regions
      - 7
 
    * - DebugEn

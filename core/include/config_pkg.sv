@@ -156,8 +156,15 @@ package config_pkg;
     logic [NrMaxRules-1:0][63:0] SharedRegionAddrBase;
     // bit mask which bits to consider when matching the rule
     logic [NrMaxRules-1:0][63:0] SharedRegionLength;
-    // Maximum number of outstanding stores
-    int unsigned                 MaxOutstandingStores;
+    // Maximum number of outstanding stores towards **cached** addresses
+    // NOTE: This parameters allows to have multiple inflight write transactions (if set > 0)
+    //       Setting this parameter to **0** allows only one inflight write transaction towards memory.
+    // IMPORTANT: This parameter currently **must be fixed to 0** for cache-coherent configurations (CVA6ConfigDcacheCoherent == 1)
+    int unsigned                 MaxOutstandingCachedStores;
+    // Maximum number of outstanding stores towards **uncached** addresses
+    // NOTE: This parameters allows to have multiple inflight write transactions (if set > 0)
+    //       Setting this parameter to **0** allows only one inflight write transaction towards memory.
+    int unsigned                 MaxOutstandingUncachedStores;
     // Debug support
     bit                          DebugEn;
     // Non idem potency

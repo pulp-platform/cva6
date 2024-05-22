@@ -114,7 +114,8 @@ module cva6_rvfi
     CVA6Cfg.NrCachedRegionRules,
     CVA6Cfg.CachedRegionAddrBase,
     CVA6Cfg.CachedRegionLength,
-    CVA6Cfg.MaxOutstandingStores,
+    CVA6Cfg.MaxOutstandingCachedStores,
+    CVA6Cfg.MaxOutstandingUncachedStores,
     CVA6Cfg.DebugEn,
     NonIdemPotenceEn,
     CVA6Cfg.AxiBurstWriteEn

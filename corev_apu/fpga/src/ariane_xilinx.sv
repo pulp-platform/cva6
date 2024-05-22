@@ -214,7 +214,8 @@ localparam config_pkg::cva6_cfg_t CVA6Cfg = '{
   NrCachedRegionRules:   unsigned'(1),
   CachedRegionAddrBase:  1024'({ariane_soc::DRAMBase}),
   CachedRegionLength:    1024'({ariane_soc::DRAMLength}),
-  MaxOutstandingStores:  unsigned'(7),
+  MaxOutstandingCachedStores:  unsigned'(0),
+  MaxOutstandingUncachedStores:  unsigned'(7),
   DebugEn: bit'(1),
   NonIdemPotenceEn: bit'(0),
   AxiBurstWriteEn: bit'(0)
