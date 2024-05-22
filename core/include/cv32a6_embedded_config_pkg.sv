@@ -157,7 +157,8 @@ package cva6_config_pkg;
       ),
       SharedRegionAddrBase: 1024'({64'h8000_0000}),
       SharedRegionLength: 1024'({64'h40000000}),
-      MaxOutstandingStores: unsigned'(7),
+      MaxOutstandingCachedStores: unsigned'(0),
+      MaxOutstandingUncachedStores: unsigned'(7),
       DebugEn: bit'(0),
       NonIdemPotenceEn: bit'(0),
       AxiBurstWriteEn: bit'(0)

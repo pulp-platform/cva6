@@ -242,7 +242,8 @@ module cva6
     CVA6Cfg.NrSharedRegionRules,
     CVA6Cfg.SharedRegionAddrBase,
     CVA6Cfg.SharedRegionLength,
-    CVA6Cfg.MaxOutstandingStores,
+    CVA6Cfg.MaxOutstandingCachedStores,
+    CVA6Cfg.MaxOutstandingUncachedStores,
     CVA6Cfg.DebugEn,
     NonIdemPotenceEn,
     CVA6Cfg.AxiBurstWriteEn
