@@ -483,17 +483,12 @@ module cache_ctrl
 
       // ~> wait for critical word to arrive
       WAIT_CRITICAL_WORD: begin
-        // speculatively request another word
-        if (req_port_i.data_req) begin
-          // request the cache line
-          req_o = '1;
-        end
-
         if (critical_word_valid_i) begin
           req_port_o.data_rvalid = ~mem_req_q.killed;
           req_port_o.data_rdata  = critical_word_i;
           // we can make another request
           if (req_port_i.data_req && !stall_i) begin
+            req_o = '1;
             // save index, be and we
             mem_req_d.index = req_port_i.address_index;
             mem_req_d.id    = req_port_i.data_id;
@@ -505,11 +500,23 @@ module cache_ctrl
 
             state_d = IDLE;
 
-            // Wait until we have access on the memory array
-            if (gnt_i) begin
-              state_d = WAIT_TAG;
-              mem_req_d.bypass = 1'b0;
-              req_port_o.data_gnt = 1'b1;
+            // Bypass mode, check for uncacheable address here as well
+            if (bypass_i) begin
+              state_d = WAIT_TAG_BYPASSED;
+              // grant this access only if it was a load
+              req_port_o.data_gnt = (req_port_i.data_we) ? 1'b0 : 1'b1;
+              mem_req_d.bypass = 1'b1;
+              // ------------------
+              // Cache is enabled
+              // ------------------
+            end else begin
+              // Wait until we have access on the memory array
+              if (gnt_i) begin
+                state_d = WAIT_TAG;
+                mem_req_d.bypass = 1'b0;
+                // only for a read
+                if (!req_port_i.data_we) req_port_o.data_gnt = 1'b1;
+              end
             end
           end else begin
             state_d = IDLE;
