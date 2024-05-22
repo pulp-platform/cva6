@@ -395,7 +395,7 @@ module cva6_hpdcache_subsystem_axi_arbiter
       mem_req_write_data_valid[1] = dcache_uc_write_data_valid_i,
       mem_req_write_data[1] = dcache_uc_write_data_i;
 
-  hpdcache_mem_req_write_arbiter #(
+  hpdcache_mem_req_write_arbiter_smart #(
       .N                   (2),
       .hpdcache_mem_req_t  (hpdcache_mem_req_t),
       .hpdcache_mem_req_w_t(hpdcache_mem_req_w_t)
