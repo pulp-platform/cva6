@@ -670,7 +670,7 @@ module miss_handler
   `FFARNC(evict_way_q, evict_way_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(evict_cl_q, evict_cl_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(serve_amo_q, serve_amo_d, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(colliging_clean_q, colliding_clean_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(colliding_clean_q, colliding_clean_d, clear_i, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR

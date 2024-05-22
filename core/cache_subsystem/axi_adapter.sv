@@ -579,7 +579,7 @@ module axi_adapter #(
   `FFARNC(amo_q, amo_d, clear_i, ariane_pkg::AMO_NONE, clk_i, rst_ni)
   `FFARNC(size_q, size_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(dirty_q, dirty_d, clear_i, '0, clk_i, rst_ni)
-  `FFARNC(shared _q, shared_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_q, shared_d, clear_i, '0, clk_i, rst_ni)
   `FFARNC(outstanding_aw_cnt_q, outstanding_aw_cnt_d, clear_i, '0, clk_i, rst_ni)
 
   function automatic axi_pkg::atop_t atop_from_amo(ariane_pkg::amo_t amo);
