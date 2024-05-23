@@ -233,7 +233,8 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       };
       // Wait until the instruction is no longer speculative.
       acc_req_valid      = insn_ready_q[acc_insn_queue_o.trans_id] ||
-                           (acc_commit && insn_pending_q[acc_commit_trans_id]);
+                           (acc_commit && insn_pending_q[acc_commit_trans_id]) &&
+                           !flush_ex_i && !flush_unissued_instr_i;
       acc_insn_queue_pop = acc_req_valid && acc_req_ready;
     end
   end
@@ -404,50 +405,12 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
    logic commit_valid;
    x_commit_t commit_if;
 
-   // logic new_top_instruction_d, new_top_instruction_q;
-
-   // always_comb begin
-   //  // Default values
-   //  commit_valid = '0;
-   //  commit_if.hartid = '0;
-   //  commit_if.id = '0;
-   //  commit_if.commit_kill = '0;
-
-
-   //  if (flush_unissued_instr_i && new_top_instruction_q) begin
-   //    commit_valid = 1'b1;
-   //    commit_if.commit_kill = 1'b1;
-   //    commit_if.id = id_trans_id_i;
-   //  end
-
-
-   //  if (flush_ex_i) begin
-   //    commit_valid = 1'b1;
-   //    commit_if.commit_kill = 1'b1;
-   //    commit_if.id = issue_trans_id_i;
-   //  end
-   // end
-
-   // // We need to keep track if we offloaded an instruction in the last cycle
-   // assign new_top_instruction_d = (core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready) ? 1'b1 : 1'b0;
-
-   // always_ff @(posedge clk_i or negedge rst_ni) begin
-   //   if(~rst_ni) begin
-   //     new_top_instruction_q <= '0;
-   //   end else begin
-   //     new_top_instruction_q <= new_top_instruction_d;
-   //   end
-   // end
-
    logic [TRANS_ID_BITS-1:0]  commit_id;
 
    logic  new_instruction;
    logic  load_next_instruction;
-   logic  push_to_buffer;
-   logic  buffer_full;
 
    logic [TRANS_ID_BITS-1:0]  trans_id_d, trans_id_q;
-   logic                      pre_buffer_full_d, pre_buffer_full_q;
    logic                      last_cycle_d, last_cycle_q;
 
    assign new_instruction       = core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && core_v_xif_resp_i.issue_resp.accept;
@@ -455,28 +418,13 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
 
    always_comb begin
      // Default values
-     push_to_buffer     = 1'b0;
      last_cycle_d       = 1'b0;
      trans_id_d         = trans_id_q;
-     pre_buffer_full_d  = pre_buffer_full_q;
-
-     // If we have space in the fifo and an isntrucion in the pre buffer then we push it to the fifo
-     if (!buffer_full && pre_buffer_full_q) begin
-       push_to_buffer     = 1'b1;
-       pre_buffer_full_d  = 1'b0;
-     end
 
      // If we have space in the fifo then we can load a new instruction
-     if (!buffer_full && new_instruction) begin
+     if (new_instruction) begin
        trans_id_d         = core_v_xif_req_o.issue_req.id;
-       pre_buffer_full_d  = 1'b1;
        last_cycle_d       = 1'b1;
-     end
-
-     // If we are flushing the unissued instructions then we also need to flush the pre buffer
-     if (flush_unissued_instr_i && last_cycle_q) begin
-       push_to_buffer     = 1'b0;
-       pre_buffer_full_d  = 1'b0;
      end
    end
 
@@ -484,32 +432,12 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
    always_ff @(posedge clk_i or negedge rst_ni) begin
      if(~rst_ni) begin
        trans_id_q         <= '0;
-       pre_buffer_full_q  <= '0;
        last_cycle_q       <= '0;
      end else begin
        trans_id_q         <= trans_id_d;
-       pre_buffer_full_q  <= pre_buffer_full_d;
        last_cycle_q       <= last_cycle_d;
      end
    end
-
-   // fifo to hold the issued instruction ids
-   fifo_v3 #(
-      .DEPTH(4),
-      .dtype(logic [TRANS_ID_BITS-1:0])
-    ) i_trans_id_buffer (
-      .clk_i(clk_i),
-      .rst_ni(rst_ni),
-      .flush_i(),
-      .testmode_i('0),
-      .full_o(buffer_full),
-      .empty_o(),
-      .usage_o(),
-      .data_i(trans_id_q),
-      .push_i(push_to_buffer),
-      .data_o(commit_id),
-      .pop_i(load_next_instruction)
-    );
 
     // Construct commit information
     always_comb begin
@@ -518,6 +446,13 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       commit_if.hartid      = '0;
       commit_if.id          = '0;
       commit_if.commit_kill = '0;
+
+      // Check for commited instructions
+      if (acc_req_valid && acc_req_ready) begin
+        commit_valid          = 1'b1;
+        commit_if.id          = acc_insn_queue_o.trans_id;
+        commit_if.commit_kill = 1'b0;
+      end
 
       // Check for flushing of the top instruction
       if (flush_unissued_instr_i && last_cycle_q) begin
@@ -529,7 +464,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       // Check for flushing of the entire buffer
       if (flush_ex_i) begin
         commit_valid          = 1'b1;
-        commit_if.id          = commit_id;
+        commit_if.id          = acc_insn_queue_o.trans_id;
         commit_if.commit_kill = 1'b1;
       end
     end
