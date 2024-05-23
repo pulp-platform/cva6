@@ -538,7 +538,7 @@ module cache_ctrl
 
     if (req_port_i.kill_req) begin
       req_port_o.data_rvalid = 1'b1;
-      if (!(state_q inside {MAKE_UNIQUE, WAIT_REFILL_GNT, WAIT_CRITICAL_WORD})) begin
+      if (!(state_q inside {MAKE_UNIQUE, WAIT_REFILL_GNT, WAIT_REFILL_VALID, WAIT_CRITICAL_WORD})) begin
         state_d = IDLE;
       end
     end
