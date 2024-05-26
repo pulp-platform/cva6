@@ -43,17 +43,17 @@ module cvxif_fu import ariane_pkg::*; #(
       x_ready_o = core_v_xif_resp_i.issue_ready;
       if (x_valid_i) begin
         core_v_xif_req_o.issue_valid          = x_valid_i;
-        core_v_xif_req_o.issue_req.instr      = x_off_instr_i;
-        core_v_xif_req_o.issue_req.id         = fu_data_i.trans_id;
-        core_v_xif_req_o.issue_req.rs[0]      = fu_data_i.operand_a;
-        core_v_xif_req_o.issue_req.rs[1]      = fu_data_i.operand_b;
+        core_v_xif_req_o.issue_req_instr      = x_off_instr_i;
+        core_v_xif_req_o.issue_req_id         = fu_data_i.trans_id;
+        core_v_xif_req_o.issue_req_rs[0]      = fu_data_i.operand_a;
+        core_v_xif_req_o.issue_req_rs[1]      = fu_data_i.operand_b;
         if (core_v_xif_pkg::X_NUM_RS == 3) begin
-          core_v_xif_req_o.issue_req.rs[2]    = fu_data_i.imm;
+          core_v_xif_req_o.issue_req_rs[2]    = fu_data_i.imm;
         end
         core_v_xif_req_o.issue_req.rs_valid   = core_v_xif_pkg::X_NUM_RS == 3 ? 3'b111 : 2'b11;
         core_v_xif_req_o.commit_valid         = x_valid_i;
-        core_v_xif_req_o.commit.id            = fu_data_i.trans_id;
-        core_v_xif_req_o.commit.x_commit_kill = 1'b0;
+        core_v_xif_req_o.commit_id            = fu_data_i.trans_id;
+        core_v_xif_req_o.commit_x_commit_kill = 1'b0;
       end
     end
 
@@ -61,18 +61,18 @@ module cvxif_fu import ariane_pkg::*; #(
       illegal_n       = illegal_q;
       illegal_id_n    = illegal_id_q;
       illegal_instr_n = illegal_instr_q;
-      if (~core_v_xif_resp_i.issue_resp.accept && core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && ~illegal_n) begin
+      if (~core_v_xif_resp_i.issue_resp_accept && core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && ~illegal_n) begin
           illegal_n       = 1'b1;
-          illegal_id_n    = core_v_xif_req_o.issue_req.id;
-          illegal_instr_n = core_v_xif_req_o.issue_req.instr;
+          illegal_id_n    = core_v_xif_req_o.issue_req_id;
+          illegal_instr_n = core_v_xif_req_o.issue_req_instr;
       end
       x_valid_o             = core_v_xif_resp_i.result_valid; //Read result only when CVXIF is enabled
-      x_trans_id_o          = x_valid_o ? core_v_xif_resp_i.result.id : '0;
-      x_result_o            = x_valid_o ? core_v_xif_resp_i.result.data : '0;
-      x_exception_o.cause   = x_valid_o ? core_v_xif_resp_i.result.exccode : '0;
-      x_exception_o.valid   = x_valid_o ? core_v_xif_resp_i.result.exc : '0;
+      x_trans_id_o          = x_valid_o ? core_v_xif_resp_i.result_id : '0;
+      x_result_o            = x_valid_o ? core_v_xif_resp_i.result_data : '0;
+      x_exception_o.cause   = x_valid_o ? core_v_xif_resp_i.result_exccode : '0;
+      x_exception_o.valid   = x_valid_o ? core_v_xif_resp_i.result_exc : '0;
       x_exception_o.tval    = '0;
-      x_we_o                = x_valid_o ? core_v_xif_resp_i.result.we : '0;
+      x_we_o                = x_valid_o ? core_v_xif_resp_i.result_we : '0;
       if (illegal_n) begin
         if (~x_valid_o) begin
           x_trans_id_o          = illegal_id_n;

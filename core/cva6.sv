@@ -317,6 +317,11 @@ module cva6 import ariane_pkg::*; #(
   // ---------
   logic           core_v_xif_issue_valid;
   x_issue_req_t   core_v_xif_issue_req;
+  x_issue_resp_t  core_v_xif_issue_resp;
+  assign core_v_xif_issue_resp.accept         = core_v_xif_resp_i.issue_resp_accept;
+  assign core_v_xif_issue_resp.writeback      = core_v_xif_resp_i.issue_resp_writeback;
+  assign core_v_xif_issue_resp.register_read  = core_v_xif_resp_i.issue_resp_register_read;
+  assign core_v_xif_issue_resp.is_vfp         = core_v_xif_resp_i.issue_resp_is_vfp;
   id_stage #(
     .cva6_cfg   ( cva6_cfg   ),
     .NR_ENTRIES ( NR_SB_ENTRIES ),
@@ -352,7 +357,7 @@ module cva6 import ariane_pkg::*; #(
     .core_v_xif_issue_valid_o   ( core_v_xif_issue_valid     ),
     .core_v_xif_issue_req_o     ( core_v_xif_issue_req       ),
     .core_v_xif_issue_ready_i   ( core_v_xif_resp_i.issue_ready ),
-    .core_v_xif_issue_resp_i    ( core_v_xif_resp_i.issue_resp)
+    .core_v_xif_issue_resp_i    ( core_v_xif_issue_resp      )
   );
 
   logic [NR_WB_PORTS-1:0][TRANS_ID_BITS-1:0] trans_id_ex_id;
@@ -906,23 +911,29 @@ module cva6 import ariane_pkg::*; #(
     ) ;
 
     // Add floating point flags
-    assign acc_resp_fflags       = core_v_xif_resp_i.acc_resp.fflags;
-    assign acc_resp_fflags_valid = core_v_xif_resp_i.acc_resp.fflags_valid;
+    assign acc_resp_fflags       = core_v_xif_resp_i.fflags;
+    assign acc_resp_fflags_valid = core_v_xif_resp_i.fflags_valid;
 
     always_comb begin : pack_inval
-      inval_valid                               = core_v_xif_resp_i.acc_resp.inval_valid;
-      inval_addr                                = core_v_xif_resp_i.acc_resp.inval_addr;
-      core_v_xif_req_o                          = core_v_xif_req_unpacked;
-      core_v_xif_req_o.acc_req.inval_ready      = inval_ready;
+      inval_valid                       = core_v_xif_resp_i.inval_valid;
+      inval_addr                        = core_v_xif_resp_i.inval_addr;
+      core_v_xif_req_o                  = core_v_xif_req_unpacked;
+      core_v_xif_req_o.inval_ready      = inval_ready;
     end
 
     // Tie off cvxif
-    assign core_v_xif_resp.issue_ready    = '0;
-    assign core_v_xif_resp.issue_resp     = '0;
-    assign core_v_xif_resp.register_ready = '0;
-    assign core_v_xif_resp.result_valid   = '0;
-    assign core_v_xif_resp.result         = '0;
-    assign core_v_xif_resp.acc_resp       = '0;
+    assign core_v_xif_resp.issue_ready                = '0;
+    assign core_v_xif_resp.issue_resp_accept          = '0;
+    assign core_v_xif_resp.issue_resp_writeback       = '0;
+    assign core_v_xif_resp.issue_resp_register_read   = '0;
+    assign core_v_xif_resp.issue_resp_is_vfp          = '0;
+    assign core_v_xif_resp.register_ready             = '0;
+    assign core_v_xif_resp.result_valid               = '0;
+    assign core_v_xif_resp.result_hartid              = '0;
+    assign core_v_xif_resp.result_id                  = '0;
+    assign core_v_xif_resp.result_data                = '0;
+    assign core_v_xif_resp.result_rd                  = '0;
+    assign core_v_xif_resp.result_we                  = '0;
 
   end : gen_accelerator else begin: gen_no_accelerator
     assign acc_trans_id_ex_id    = '0;

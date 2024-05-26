@@ -171,7 +171,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
 
     // An accelerator instruction was issued.
     if (core_v_xif_req_o.register_valid)
-      insn_ready_d[core_v_xif_req_o.register.id] = 1'b0;
+      insn_ready_d[core_v_xif_req_o.register_id] = 1'b0;
   end: p_non_speculative_ff
 
   /*************************
@@ -198,15 +198,15 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
     .ready_i   (core_v_xif_resp_i.register_ready)
   );
 
-  assign core_v_xif_req_o.acc_req.instr          = acc_req_int.insn;
-  assign core_v_xif_req_o.register.rs[0]           = acc_req_int.rs1;
-  assign core_v_xif_req_o.register.rs[1]           = acc_req_int.rs2;
-  assign core_v_xif_req_o.acc_req.frm              = acc_req_int.frm;
-  assign core_v_xif_req_o.register.id              = acc_req_int.trans_id;
-  assign core_v_xif_req_o.acc_req.store_pending    = !acc_no_st_pending_i && acc_cons_en_i;
-  assign core_v_xif_req_o.acc_req.acc_cons_en      = acc_cons_en_i;
+  assign core_v_xif_req_o.instr           = acc_req_int.insn;
+  assign core_v_xif_req_o.register_rs[0]  = acc_req_int.rs1;
+  assign core_v_xif_req_o.register_rs[1]  = acc_req_int.rs2;
+  assign core_v_xif_req_o.frm             = acc_req_int.frm;
+  assign core_v_xif_req_o.register_id     = acc_req_int.trans_id;
+  assign core_v_xif_req_o.store_pending   = !acc_no_st_pending_i && acc_cons_en_i;
+  assign core_v_xif_req_o.acc_cons_en     = acc_cons_en_i;
   // Will be overwritten by dcache
-  assign core_v_xif_req_o.acc_req.inval_ready      = '0;
+  assign core_v_xif_req_o.inval_ready     = '0;
 
   always_comb begin: accelerator_req_dispatcher
     // Do not fetch from the instruction queue
@@ -247,13 +247,13 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
   logic acc_st_disp;
 
   // Unpack the accelerator response
-  assign acc_trans_id_o  = core_v_xif_resp_i.result.id;
-  assign acc_result_o    = core_v_xif_resp_i.result.data;
+  assign acc_trans_id_o  = core_v_xif_resp_i.result_id;
+  assign acc_result_o    = core_v_xif_resp_i.result_data;
   assign acc_valid_o     = core_v_xif_resp_i.result_valid;
   assign acc_exception_o = '{
       cause: riscv::ILLEGAL_INSTR,
       tval : '0,
-      valid: core_v_xif_resp_i.acc_resp.error
+      valid: core_v_xif_resp_i.error
     };
   // Always ready to receive responses
   assign core_v_xif_req_o.result_ready = 1'b1;
@@ -300,7 +300,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
   `FF(wait_acc_store_q, wait_acc_store_d, '0)
 
   // Set on store barrier. Clear when no store is pending.
-  assign wait_acc_store_d = (wait_acc_store_q | commit_st_barrier_i) & core_v_xif_resp_i.acc_resp.store_pending;
+  assign wait_acc_store_d = (wait_acc_store_q | commit_st_barrier_i) & core_v_xif_resp_i.store_pending;
   assign ctrl_halt_o      = wait_acc_store_q;
 
   /**************************
@@ -339,9 +339,9 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       .clk_i           (clk_i                   ),
       .rst_ni          (rst_ni                  ),
       .clear_i         (1'b0                    ),
-      .en_i            (acc_ld_disp ^ core_v_xif_resp_i.acc_resp.load_complete),
+      .en_i            (acc_ld_disp ^ core_v_xif_resp_i.load_complete),
       .load_i          (1'b0                    ),
-      .down_i          (core_v_xif_resp_i.acc_resp.load_complete),
+      .down_i          (core_v_xif_resp_i.load_complete),
       .d_i             ('0                      ),
       .q_o             (acc_disp_loads_pending  ),
       .overflow_o      (acc_disp_loads_overflow )
@@ -383,9 +383,9 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       .clk_i           (clk_i                    ),
       .rst_ni          (rst_ni                   ),
       .clear_i         (1'b0                     ),
-      .en_i            (acc_st_disp ^ core_v_xif_resp_i.acc_resp.store_complete),
+      .en_i            (acc_st_disp ^ core_v_xif_resp_i.store_complete),
       .load_i          (1'b0                     ),
-      .down_i          (core_v_xif_resp_i.acc_resp.store_complete),
+      .down_i          (core_v_xif_resp_i.store_complete),
       .d_i             ('0                       ),
       .q_o             (acc_disp_stores_pending  ),
       .overflow_o      (acc_disp_stores_overflow )
@@ -395,8 +395,11 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
    *  ISSUE INTERFACE   *
    **********************/
 
-   assign core_v_xif_req_o.issue_valid  = issue_if_valid_i;
-   assign core_v_xif_req_o.issue_req    = issue_if_i;
+   assign core_v_xif_req_o.issue_valid      = issue_if_valid_i;
+   assign core_v_xif_req_o.issue_req_instr  = issue_if_i.instr;
+   assign core_v_xif_req_o.issue_req_hartid = issue_if_i.hartid;
+   assign core_v_xif_req_o.issue_req_id     = issue_if_i.id;
+
 
   /***********************
    *  COMMIT INTERFACE   *
@@ -413,7 +416,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
    logic [TRANS_ID_BITS-1:0]  trans_id_d, trans_id_q;
    logic                      last_cycle_d, last_cycle_q;
 
-   assign new_instruction       = core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && core_v_xif_resp_i.issue_resp.accept;
+   assign new_instruction       = core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && core_v_xif_resp_i.issue_resp_accept;
    assign load_next_instruction = core_v_xif_req_o.register_valid && core_v_xif_resp_i.register_ready;
 
    always_comb begin
@@ -423,7 +426,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
 
      // If we have space in the fifo then we can load a new instruction
      if (new_instruction) begin
-       trans_id_d         = core_v_xif_req_o.issue_req.id;
+       trans_id_d         = core_v_xif_req_o.issue_req_id;
        last_cycle_d       = 1'b1;
      end
    end
@@ -470,8 +473,10 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
     end
 
    // Assign output
-   assign core_v_xif_req_o.commit_valid = commit_valid;
-   assign core_v_xif_req_o.commit = commit_if;
+   assign core_v_xif_req_o.commit_valid       = commit_valid;
+   assign core_v_xif_req_o.commit_hartid      = commit_if.hartid;
+   assign core_v_xif_req_o.commit_id          = commit_if.id;
+   assign core_v_xif_req_o.commit_commit_kill = commit_if.commit_kill;
 
   acc_dispatcher_no_store_overflow: assert property (
       @(posedge clk_i) disable iff (~rst_ni) (acc_spec_stores_overflow == 1'b0) && (acc_disp_stores_overflow == 1'b0) )

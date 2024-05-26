@@ -377,17 +377,27 @@ module ex_stage import ariane_pkg::*; #(
         );
     end else begin : gen_no_cvxif
         assign core_v_xif_req_o.issue_valid = '0;
-        assign core_v_xif_req_o.issue_req = '0;
+        assign core_v_xif_req_o.issue_req_instr = '0;
+        assign core_v_xif_req_o.issue_req_hartid = '0;
+        assign core_v_xif_req_o.issue_req_id = '0;
         assign core_v_xif_req_o.register_valid = '0;
-        assign core_v_xif_req_o.register.hartid = '0;
-        assign core_v_xif_req_o.register.id = '0;
-        assign core_v_xif_req_o.register.rs[0] = '0;
-        assign core_v_xif_req_o.register.rs[1] = '0;
-        assign core_v_xif_req_o.register.rs_valid = '0;
+        assign core_v_xif_req_o.register_hartid = '0;
+        assign core_v_xif_req_o.register_id = '0;
+        assign core_v_xif_req_o.register_rs[0] = '0;
+        assign core_v_xif_req_o.register_rs[1] = '0;
+        assign core_v_xif_req_o.register_rs_valid = '0;
         assign core_v_xif_req_o.commit_valid = '0;
-        assign core_v_xif_req_o.commit = '0;
+        assign core_v_xif_req_o.commit_id = '0;
+        assign core_v_xif_req_o.commit_hartid = '0;
+        assign core_v_xif_req_o.commit_commit_kill = '0;
         assign core_v_xif_req_o.result_ready = '0;
-        assign core_v_xif_req_o.acc_req = '0;
+        // assign core_v_xif_req_o.frm = '0;
+        assign core_v_xif_req_o.store_pending = '0;
+        assign core_v_xif_req_o.acc_cons_en = '0;
+        assign core_v_xif_req_o.inval_ready = '0;
+        assign core_v_xif_req_o.flush = '0;
+        assign core_v_xif_req_o.flush_unissued = '0;
+
 
         assign x_trans_id_o  = '0;
         assign x_exception_o = '0;
