@@ -198,7 +198,6 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
     .ready_i   (core_v_xif_resp_i.register_ready)
   );
 
-  assign core_v_xif_req_o.instr           = acc_req_int.insn;
   assign core_v_xif_req_o.register_rs[0]  = acc_req_int.rs1;
   assign core_v_xif_req_o.register_rs[1]  = acc_req_int.rs2;
   assign core_v_xif_req_o.frm             = acc_req_int.frm;

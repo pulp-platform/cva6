@@ -395,8 +395,6 @@ module ex_stage import ariane_pkg::*; #(
         assign core_v_xif_req_o.store_pending = '0;
         assign core_v_xif_req_o.acc_cons_en = '0;
         assign core_v_xif_req_o.inval_ready = '0;
-        assign core_v_xif_req_o.flush = '0;
-        assign core_v_xif_req_o.flush_unissued = '0;
 
 
         assign x_trans_id_o  = '0;
