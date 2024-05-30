@@ -145,6 +145,8 @@ module std_nbdcache
     .flushing_i           ( flushing              ),
     .amo_valid_i          ( serving_amo           ),
     .amo_addr_i           ( serving_amo_addr      ),
+    .clean_invalid_hit_o  (                       ), // Not connected
+    .clean_invalid_miss_o (                       ), // Not connected
     .*
   );
 
