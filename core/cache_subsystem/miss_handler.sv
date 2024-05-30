@@ -95,15 +95,14 @@ module miss_handler
     MISS_REPL,           // 9
     SAVE_CACHELINE,      // A
     INIT,                // B
-    AMO_WB_REQ,          // C
     AMO_WB,              // D
-    AMO_REQ,             // E
-    WB_CACHELINE_AMO,    // F
-    AMO_WAIT_RESP,       // 10
-    REQ_BEFORE_CLEAN,    // 11
-    CHECK_BEFORE_CLEAN,  // 12
-    SEND_CLEAN,          // 13
-    REQ_CACHELINE_UNIQUE // 14
+    AMO_REQ,             // D
+    WB_CACHELINE_AMO,    // E
+    AMO_WAIT_RESP,       // F
+    REQ_BEFORE_CLEAN,    // 10
+    CHECK_BEFORE_CLEAN,  // 11
+    SEND_CLEAN,          // 12
+    REQ_CACHELINE_UNIQUE // 13
   } 
       state_d, state_q;
 
@@ -257,9 +256,11 @@ module miss_handler
       IDLE: begin
         // lowest priority are AMOs, wait until everything else is served before going for the AMOs
         if (amo_req_i.req && !busy_i) begin
-          state_d = AMO_WB_REQ;
+          state_d = AMO_WB;
           serve_amo_d = 1'b1;
           cnt_d = '0;
+          req_o = 1'b1;
+          addr_o = amo_req_i.operand_a;
         end
         // check if we want to flush and can flush e.g.: we are not busy anymore
         // TODO: Check that the busy flag is indeed needed
@@ -539,11 +540,6 @@ module miss_handler
       // ----------------------
       // AMOs
       // ----------------------
-      AMO_WB_REQ: begin
-        req_o   = '1;
-        addr_o  = amo_req_i.operand_a;
-        state_d = AMO_WB;
-      end
 
       AMO_WB: begin
         state_d = AMO_REQ;
