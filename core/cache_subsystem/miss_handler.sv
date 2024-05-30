@@ -90,18 +90,17 @@ module miss_handler
     FLUSH_REQ_STATUS,    // 4
     WB_CACHELINE_MISS,   // 5
     WAIT_GNT_SRAM,       // 6
-    MISS,                // 7
-    REQ_CACHELINE,       // 8
-    MISS_REPL,           // 9
-    SAVE_CACHELINE,      // A
-    INIT,                // B
-    AMO_WB,              // D
-    AMO_REQ,             // D
-    WB_CACHELINE_AMO,    // E
-    AMO_WAIT_RESP,       // F
-    CHECK_BEFORE_CLEAN,  // 10
-    SEND_CLEAN,          // 11
-    REQ_CACHELINE_UNIQUE // 12
+    REQ_CACHELINE,       // 7
+    MISS_REPL,           // 8
+    SAVE_CACHELINE,      // 9
+    INIT,                // A
+    AMO_WB,              // B
+    AMO_REQ,             // C
+    WB_CACHELINE_AMO,    // D
+    AMO_WAIT_RESP,       // E
+    CHECK_BEFORE_CLEAN,  // F
+    SEND_CLEAN,          // 10
+    REQ_CACHELINE_UNIQUE // 11
   } 
       state_d, state_q;
 
@@ -290,7 +289,7 @@ module miss_handler
           end
           // here comes the refill portion of code
           if (miss_req_valid[i] && !miss_req_bypass[i] && !miss_req_make_unique[i]) begin
-            state_d      = MISS;
+            state_d      = MISS_REPL;
             // we are taking another request so don't take the AMO
             serve_amo_d  = 1'b0;
             // save to MSHR
@@ -301,6 +300,9 @@ module miss_handler
             mshr_d.wdata = miss_req_wdata[i];
             mshr_d.be    = miss_req_be[i];
             mshr_d.make_unique    = 1'b0;
+            req_o   = '1;
+            addr_o  = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+            miss_o  = 1'b1;
             break;
           end
         end
@@ -308,16 +310,6 @@ module miss_handler
       end
 
       //  ~> we missed on the cache
-      MISS: begin
-        // 1. Check if there is an empty cache-line
-        // 2. If not -> evict one
-        req_o   = '1;
-        addr_o  = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
-        state_d = MISS_REPL;
-        miss_o  = 1'b1;
-      end
-
-      // ~> second miss cycle
       MISS_REPL: begin
         // if all are valid we need to evict one, pseudo random from LFSR
         if (&valid_way) begin
@@ -401,8 +393,11 @@ module miss_handler
           end
           // go back to idle if there's been no collision
           if (colliding_clean_q) begin
-            state_d = MISS;
+            state_d = MISS_REPL;
             colliding_clean_d = 1'b0;
+            req_o   = '1;
+            addr_o  = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+            miss_o  = 1'b1;
           end
           else begin
             state_d = IDLE;
@@ -516,7 +511,12 @@ module miss_handler
           req_fsm_miss_type   = ace_pkg::CLEAN_UNIQUE;
           state_d             = SEND_CLEAN;
         end
-        else state_d = MISS;
+        else begin
+          state_d = MISS_REPL;
+          req_o   = '1;
+          addr_o  = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+          miss_o  = 1'b1;
+        end
       end
 
       SEND_CLEAN: begin
@@ -527,7 +527,10 @@ module miss_handler
         if (valid_miss_fsm) begin
           // if the cacheline has just been invalidated, request it again
           if (colliding_clean_q) begin
-            state_d = MISS;
+            state_d = MISS_REPL;
+            req_o   = '1;
+            addr_o  = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+            miss_o  = 1'b1;
           end
           else begin
             state_d = IDLE;
