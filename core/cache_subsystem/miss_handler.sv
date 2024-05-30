@@ -513,9 +513,12 @@ module miss_handler
       // ----------------------
 
       CHECK_BEFORE_CLEAN: begin
-        req_o  = '0;
-        //addr_o = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
-        if (matching_way) state_d = SEND_CLEAN;
+        if (matching_way) begin
+          req_fsm_miss_valid  = 1'b1;
+          req_fsm_miss_addr   = mshr_q.addr;
+          req_fsm_miss_type   = ace_pkg::CLEAN_UNIQUE;
+          state_d             = SEND_CLEAN;
+        end
         else state_d = MISS;
       end
 
