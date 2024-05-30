@@ -102,10 +102,9 @@ module miss_handler
     AMO_REQ,             // D
     WB_CACHELINE_AMO,    // E
     AMO_WAIT_RESP,       // F
-    REQ_BEFORE_CLEAN,    // 10
-    CHECK_BEFORE_CLEAN,  // 11
-    SEND_CLEAN,          // 12
-    REQ_CACHELINE_UNIQUE // 13
+    CHECK_BEFORE_CLEAN,  // 10
+    SEND_CLEAN,          // 11
+    REQ_CACHELINE_UNIQUE // 12
   } 
       state_d, state_q;
 
@@ -276,7 +275,7 @@ module miss_handler
         for (int unsigned i = 0; i < NR_PORTS; i++) begin
           // check if we have to generate a CleanUnique transaction
           if (miss_req_valid[i] && miss_req_make_unique[i]) begin
-            state_d = REQ_BEFORE_CLEAN;
+            state_d = CHECK_BEFORE_CLEAN;
             // we are taking another request so don't take the AMO
             serve_amo_d  = 1'b0;
             // save to MSHR
@@ -287,6 +286,9 @@ module miss_handler
             mshr_d.wdata = miss_req_wdata[i];
             mshr_d.be    = miss_req_be[i];
             mshr_d.make_unique    = 1'b1;
+            // send request
+            req_o  = '1;
+            addr_o = mshr_d.addr[DCACHE_INDEX_WIDTH-1:0];
             break;
           end
           // here comes the refill portion of code
@@ -509,11 +511,6 @@ module miss_handler
       // ----------------------
       // Send CleanUnique
       // ----------------------
-      REQ_BEFORE_CLEAN: begin
-        req_o  = '1;
-        addr_o = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
-        state_d = CHECK_BEFORE_CLEAN;
-      end
 
       CHECK_BEFORE_CLEAN: begin
         req_o  = '0;
