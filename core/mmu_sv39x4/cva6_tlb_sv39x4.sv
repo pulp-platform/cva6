@@ -72,15 +72,18 @@ module cva6_tlb_sv39x4
     logic                  valid;
   } tags_t;
 
-  localparam int unsigned PteCorrSize = EccEnable ? $clog2($bits(riscv::pte_t)) + 2 : 0;
-  localparam int unsigned PteSize = $bits(riscv::pte_t) + PteCorrSize;
+  localparam int unsigned PteBits = $bits(riscv::pte_t);
+  localparam int unsigned TagBits = $bits(tags_t);
 
-  localparam int unsigned TagsCorrSize = EccEnable ? $clog2($bits(tags_t)) + 2 : 0;
-  localparam int unsigned TagsSize = $bits(tags_t) + TagsCorrSize;
+  localparam int unsigned PteCorrBits = EccEnable ? $clog2(PteBits) + 2 : 0;
+  localparam int unsigned PteSize = PteBits + PteCorrBits;
+
+  localparam int unsigned TagsCorrBits = EccEnable ? $clog2(TagBits) + 2 : 0;
+  localparam int unsigned TagsSize = TagBits + TagsCorrBits;
 
   tags_t [TLB_ENTRIES-1:0] tags_enc_n, tags_dec_q;
 
-  logic [TLB_ENTRIES-1:0][$bits(tags_t)-1:0] tags_dec_n;
+  logic [TLB_ENTRIES-1:0][TagBits-1:0] tags_dec_n;
 
   logic [TLB_ENTRIES-1:0][TagsSize-1:0] tags_q, tags_n;
 
@@ -96,8 +99,8 @@ module cva6_tlb_sv39x4
       content_q, content_n;
 
   struct packed {
-    logic [$bits(riscv::pte_t)-1:0] pte;
-    logic [$bits(riscv::pte_t)-1:0] gpte;
+    logic [PteBits-1:0] pte;
+    logic [PteBits-1:0] gpte;
   } [TLB_ENTRIES-1:0]
       tlb_content_dec;
 
@@ -120,16 +123,16 @@ module cva6_tlb_sv39x4
 
   if (EccEnable) begin: gen_tlb_ecc
     hsiao_ecc_enc #(
-      .DataWidth ( $bits(riscv::pte_t) ),
-      .ProtWidth ( PteCorrSize )
+      .DataWidth ( PteBits ),
+      .ProtWidth ( PteCorrBits )
     ) i_ecc_pte_enc (
       .in  ( update_i.content ),
       .out ( tlb_content_n.pte)
     );
 
     hsiao_ecc_enc #(
-      .DataWidth ( $bits(riscv::pte_t) ),
-      .ProtWidth ( PteCorrSize )
+      .DataWidth ( PteBits ),
+      .ProtWidth ( PteCorrBits )
     ) i_ecc_gpte_enc (
       .in  ( update_i.g_content ),
       .out ( tlb_content_n.gpte)
@@ -137,8 +140,8 @@ module cva6_tlb_sv39x4
 
     for (genvar i = 0; i < TLB_ENTRIES; i++) begin
       hsiao_ecc_dec #(
-        .DataWidth ( $bits(riscv::pte_t) ),
-        .ProtWidth ( PteCorrSize )
+        .DataWidth ( PteBits ),
+        .ProtWidth ( PteCorrBits )
       ) i_ecc_pte_dec (
         .in  (content_q[i].pte),
         .out (tlb_content_dec[i].pte),
@@ -147,8 +150,8 @@ module cva6_tlb_sv39x4
       );
 
       hsiao_ecc_dec #(
-        .DataWidth ( $bits(riscv::pte_t) ),
-        .ProtWidth ( PteCorrSize )
+        .DataWidth ( PteBits ),
+        .ProtWidth ( PteCorrBits )
       ) i_ecc_gpte_dec (
         .in  (content_q[i].gpte),
         .out (tlb_content_dec[i].gpte),
@@ -157,16 +160,16 @@ module cva6_tlb_sv39x4
       );
 
       hsiao_ecc_enc #(
-        .DataWidth ( $bits(tags_t) ),
-        .ProtWidth ( TagsCorrSize  )
+        .DataWidth ( TagBits ),
+        .ProtWidth ( TagsCorrBits  )
       ) i_ecc_tag_enc (
         .in  ( tags_enc_n[i] ),
         .out ( tags_n[i]     )
       );
 
       hsiao_ecc_dec #(
-        .DataWidth ( $bits(tags_t) ),
-        .ProtWidth ( TagsCorrSize )
+        .DataWidth ( TagBits ),
+        .ProtWidth ( TagsCorrBits )
       ) i_ecc_tag_dec (
         .in  ( tags_q[i] ),
         .out ( tags_dec_n[i] ),
