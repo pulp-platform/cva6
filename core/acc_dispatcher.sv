@@ -181,6 +181,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
   acc_pkg::accelerator_req_t acc_req;
   logic                      acc_req_valid;
   logic                      acc_req_ready;
+  logic                      issue_last_cycle;
 
   acc_pkg::accelerator_req_t acc_req_int;
   fall_through_register #(
@@ -233,7 +234,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       // Wait until the instruction is no longer speculative.
       acc_req_valid      = insn_ready_q[acc_insn_queue_o.trans_id] ||
                            (acc_commit && insn_pending_q[acc_commit_trans_id]) &&
-                           !flush_ex_i && !(flush_unissued_instr_i && last_cycle_q);
+                           !flush_ex_i && !(flush_unissued_instr_i && issue_last_cycle);
       acc_insn_queue_pop = acc_req_valid && acc_req_ready;
     end
   end
@@ -417,6 +418,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
 
    assign new_instruction       = core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && core_v_xif_resp_i.issue_resp_accept;
    assign load_next_instruction = core_v_xif_req_o.register_valid && core_v_xif_resp_i.register_ready;
+   assign issue_last_cycle      = last_cycle_q;
 
    always_comb begin
      // Default values
