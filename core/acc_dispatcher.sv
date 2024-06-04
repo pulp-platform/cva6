@@ -233,7 +233,7 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
       // Wait until the instruction is no longer speculative.
       acc_req_valid      = insn_ready_q[acc_insn_queue_o.trans_id] ||
                            (acc_commit && insn_pending_q[acc_commit_trans_id]) &&
-                           !flush_ex_i && !flush_unissued_instr_i;
+                           !flush_ex_i && !(flush_unissued_instr_i && last_cycle_q);
       acc_insn_queue_pop = acc_req_valid && acc_req_ready;
     end
   end
