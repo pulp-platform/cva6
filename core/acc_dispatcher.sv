@@ -408,8 +408,6 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
    logic commit_valid;
    x_commit_t commit_if;
 
-   logic [TRANS_ID_BITS-1:0]  commit_id;
-
    logic  new_instruction;
    logic  load_next_instruction;
 

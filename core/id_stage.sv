@@ -68,9 +68,10 @@ module id_stage #(
     logic                is_illegal;
     logic                [31:0] instruction;
     logic                is_compressed;
+    logic                cpu_illegal_instr;
 
 
-    assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i) && !flush_unissued_instr_i && !flush_i;
+    assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i) && !flush_unissued_instr_i && !flush_i && cpu_illegal_instr;
 
     // --------
     // Decoder
@@ -121,6 +122,7 @@ module id_stage #(
         .tw_i,
         .tsr_i,
         .instruction_o           ( decoded_instruction          ),
+        .cpu_illegal_instr_o     ( cpu_illegal_instr            ),
         .is_control_flow_instr_o ( is_control_flow_instr        ),
         .core_v_xif_issue_req_o  ( core_v_xif_issue_req_o       ),
         .core_v_xif_issue_resp_i ( core_v_xif_issue_resp_i      )

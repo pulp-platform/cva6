@@ -47,6 +47,7 @@ module decoder import ariane_pkg::*; #(
     input  logic               tsr_i,                   // trap sret
     output scoreboard_entry_t  instruction_o,           // scoreboard entry to scoreboard
     output logic               is_control_flow_instr_o,  // this instruction will change the control flow
+    output logic               cpu_illegal_instr_o,
     // XIF issue interface
     output x_issue_req_t       core_v_xif_issue_req_o,  // XIF issue interface request to coprocessor
     input  x_issue_resp_t      core_v_xif_issue_resp_i  // XIF issue interface response from coprocessor
@@ -1262,6 +1263,8 @@ module decoder import ariane_pkg::*; #(
                 imm_select          = RS3;
             end
         end
+
+        cpu_illegal_instr_o = illegal_instr;
 
         // Accelerator instructions.
         // These can overwrite the previous decoding entirely.
