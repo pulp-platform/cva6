@@ -53,6 +53,7 @@ module decoder import ariane_pkg::*; #(
     input  x_issue_resp_t      core_v_xif_issue_resp_i  // XIF issue interface response from coprocessor
 );
     logic illegal_instr;
+    logic illegal_instr_cpu;
     logic illegal_instr_bm;
     logic illegal_instr_non_bm;
     // this instruction is an environment call (ecall), it is handled like an exception
@@ -181,7 +182,7 @@ module decoder import ariane_pkg::*; #(
 
         imm_select                  = NOIMM;
         is_control_flow_instr_o     = 1'b0;
-        illegal_instr               = 1'b0;
+        illegal_instr_cpu               = 1'b0;
         illegal_instr_non_bm        = 1'b0;
         illegal_instr_bm            = 1'b0;
         instruction_o.pc            = pc_i;
@@ -212,7 +213,7 @@ module decoder import ariane_pkg::*; #(
                         3'b000: begin
                             // check if the RD and and RS1 fields are zero, this may be reset for the SENCE.VMA instruction
                             if (instr.itype.rs1 != '0 || instr.itype.rd != '0)
-                                illegal_instr = 1'b1;
+                                illegal_instr_cpu = 1'b1;
                             // decode the immiediate field
                             case (instr.itype.imm)
                                 // ECALL -> inject exception
@@ -225,13 +226,13 @@ module decoder import ariane_pkg::*; #(
                                     // check privilege level, SRET can only be executed in S and M mode
                                     // we'll just decode an illegal instruction if we are in the wrong privilege level
                                     if (priv_lvl_i == riscv::PRIV_LVL_U) begin
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                         //  do not change privilege level if this is an illegal instruction
                                         instruction_o.op = ariane_pkg::ADD;
                                     end
                                     // if we are in S-Mode and Trap SRET (tsr) is set -> trap on illegal instruction
                                     if (priv_lvl_i == riscv::PRIV_LVL_S && tsr_i) begin
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                         //  do not change privilege level if this is an illegal instruction
                                         instruction_o.op = ariane_pkg::ADD;
                                     end
@@ -242,13 +243,13 @@ module decoder import ariane_pkg::*; #(
                                     // check privilege level, MRET can only be executed in M mode
                                     // otherwise we decode an illegal instruction
                                     if (priv_lvl_i inside {riscv::PRIV_LVL_U, riscv::PRIV_LVL_S})
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end
                                 // DRET
                                 12'b111_1011_0010: begin
                                     instruction_o.op = ariane_pkg::DRET;
                                     // check that we are in debug mode when executing this instruction
-                                    illegal_instr = (!debug_mode_i) ? 1'b1 : illegal_instr;
+                                    illegal_instr_cpu = (!debug_mode_i) ? 1'b1 : illegal_instr_cpu;
                                 end
                                 // WFI
                                 12'b1_0000_0101: begin
@@ -256,12 +257,12 @@ module decoder import ariane_pkg::*; #(
                                     // if timeout wait is set, trap on an illegal instruction in S Mode
                                     // (after 0 cycles timeout)
                                     if (priv_lvl_i == riscv::PRIV_LVL_S && tw_i) begin
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                         instruction_o.op = ariane_pkg::ADD;
                                     end
                                     // we don't support U mode interrupts so WFI is illegal in this context
                                     if (priv_lvl_i == riscv::PRIV_LVL_U) begin
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                         instruction_o.op = ariane_pkg::ADD;
                                     end
                                 end
@@ -270,13 +271,13 @@ module decoder import ariane_pkg::*; #(
                                     if (instr.instr[31:25] == 7'b1001) begin
                                         // check privilege level, SFENCE.VMA can only be executed in M/S mode
                                         // otherwise decode an illegal instruction
-                                        illegal_instr    = ((priv_lvl_i inside {riscv::PRIV_LVL_M, riscv::PRIV_LVL_S}) && instr.itype.rd == '0) ? 1'b0 : 1'b1;
+                                        illegal_instr_cpu    = ((priv_lvl_i inside {riscv::PRIV_LVL_M, riscv::PRIV_LVL_S}) && instr.itype.rd == '0) ? 1'b0 : 1'b1;
                                         instruction_o.op = ariane_pkg::SFENCE_VMA;
                                         // check TVM flag and intercept SFENCE.VMA call if necessary
                                         if (priv_lvl_i == riscv::PRIV_LVL_S && tvm_i)
-                                            illegal_instr = 1'b1;
+                                            illegal_instr_cpu = 1'b1;
                                     end else begin
-                                       illegal_instr = 1'b1;
+                                       illegal_instr_cpu = 1'b1;
                                     end
                                 end
                             endcase
@@ -331,7 +332,7 @@ module decoder import ariane_pkg::*; #(
                             else
                                 instruction_o.op = ariane_pkg::CSR_CLEAR;
                         end
-                        default: illegal_instr = 1'b1;
+                        default: illegal_instr_cpu = 1'b1;
                     endcase
                 end
                 // Memory ordering instructions
@@ -348,7 +349,7 @@ module decoder import ariane_pkg::*; #(
                         // FENCE.I
                         3'b001: instruction_o.op  = ariane_pkg::FENCE_I;
 
-                        default: illegal_instr = 1'b1;
+                        default: illegal_instr_cpu = 1'b1;
                     endcase
                 end
 
@@ -397,7 +398,7 @@ module decoder import ariane_pkg::*; #(
                                 5'b00111 : begin
                                     instruction_o.op  = ariane_pkg::FSQRT; // vfsqrt.vfmt - Vectorial FP Square Root
                                     allow_replication = 1'b0;  // only one operand
-                                    if (instr.rvftype.rs2 != 5'b00000) illegal_instr = 1'b1; // rs2 must be 0
+                                    if (instr.rvftype.rs2 != 5'b00000) illegal_instr_cpu = 1'b1; // rs2 must be 0
                                 end
                                 5'b01000 : begin
                                     instruction_o.op = ariane_pkg::FMADD; // vfmac.vfmt - Vectorial FP Multiply-Accumulate
@@ -432,14 +433,14 @@ module decoder import ariane_pkg::*; #(
                                             // determine source format
                                             unique case (instr.rvftype.rs2[21:20])
                                                 // Only process instruction if corresponding extension is active (static)
-                                                2'b00: if (~RVFVEC)     illegal_instr = 1'b1;
-                                                2'b01: if (~XF16ALTVEC) illegal_instr = 1'b1;
-                                                2'b10: if (~XF16VEC)    illegal_instr = 1'b1;
-                                                2'b11: if (~XF8VEC)     illegal_instr = 1'b1;
-                                                default : illegal_instr = 1'b1;
+                                                2'b00: if (~RVFVEC)     illegal_instr_cpu = 1'b1;
+                                                2'b01: if (~XF16ALTVEC) illegal_instr_cpu = 1'b1;
+                                                2'b10: if (~XF16VEC)    illegal_instr_cpu = 1'b1;
+                                                2'b11: if (~XF8VEC)     illegal_instr_cpu = 1'b1;
+                                                default : illegal_instr_cpu = 1'b1;
                                             endcase
                                         end
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
                                 5'b01101 : begin
@@ -481,107 +482,107 @@ module decoder import ariane_pkg::*; #(
                                 5'b11000 : begin
                                     instruction_o.op  = ariane_pkg::VFCPKAB_S; // vfcpka/b.vfmt.s - Vectorial FP Cast-and-Pack from 2x FP32, lowest 4 entries
                                     imm_select        = SIMM;      // rd into result field (upper bits don't matter)
-                                    if (~RVF) illegal_instr = 1'b1; // if we don't support RVF, we can't cast from FP32
+                                    if (~RVF) illegal_instr_cpu = 1'b1; // if we don't support RVF, we can't cast from FP32
                                     // check destination format
                                     unique case (instr.rvftype.vfmt)
                                         // Only process instruction if corresponding extension is active and FLEN suffices (static)
                                         2'b00: begin
-                                            if (~RVFVEC)            illegal_instr = 1'b1; // destination vector not supported
-                                            if (instr.rvftype.repl) illegal_instr = 1'b1; // no entries 2/3 in vector of 2 fp32
+                                            if (~RVFVEC)            illegal_instr_cpu = 1'b1; // destination vector not supported
+                                            if (instr.rvftype.repl) illegal_instr_cpu = 1'b1; // no entries 2/3 in vector of 2 fp32
                                         end
                                         2'b01: begin
-                                            if (~XF16ALTVEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF16ALTVEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
                                         2'b10: begin
-                                            if (~XF16VEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF16VEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
                                         2'b11: begin
-                                            if (~XF8VEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF8VEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
                                 5'b11001 : begin
                                     instruction_o.op  = ariane_pkg::VFCPKCD_S; // vfcpkc/d.vfmt.s - Vectorial FP Cast-and-Pack from 2x FP32, second 4 entries
                                     imm_select        = SIMM;      // rd into result field (upper bits don't matter)
-                                    if (~RVF) illegal_instr = 1'b1; // if we don't support RVF, we can't cast from FP32
+                                    if (~RVF) illegal_instr_cpu = 1'b1; // if we don't support RVF, we can't cast from FP32
                                     // check destination format
                                     unique case (instr.rvftype.vfmt)
                                         // Only process instruction if corresponding extension is active and FLEN suffices (static)
-                                        2'b00: illegal_instr = 1'b1; // no entries 4-7 in vector of 2 FP32
-                                        2'b01: illegal_instr = 1'b1; // no entries 4-7 in vector of 4 FP16ALT
-                                        2'b10: illegal_instr = 1'b1; // no entries 4-7 in vector of 4 FP16
+                                        2'b00: illegal_instr_cpu = 1'b1; // no entries 4-7 in vector of 2 FP32
+                                        2'b01: illegal_instr_cpu = 1'b1; // no entries 4-7 in vector of 4 FP16ALT
+                                        2'b10: illegal_instr_cpu = 1'b1; // no entries 4-7 in vector of 4 FP16
                                         2'b11: begin
-                                            if (~XF8VEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF8VEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
                                 5'b11010 : begin
                                     instruction_o.op  = ariane_pkg::VFCPKAB_D; // vfcpka/b.vfmt.d - Vectorial FP Cast-and-Pack from 2x FP64, lowest 4 entries
                                     imm_select        = SIMM;      // rd into result field (upper bits don't matter)
-                                    if (~RVD) illegal_instr = 1'b1; // if we don't support RVD, we can't cast from FP64
+                                    if (~RVD) illegal_instr_cpu = 1'b1; // if we don't support RVD, we can't cast from FP64
                                     // check destination format
                                     unique case (instr.rvftype.vfmt)
                                         // Only process instruction if corresponding extension is active and FLEN suffices (static)
                                         2'b00: begin
-                                            if (~RVFVEC)            illegal_instr = 1'b1; // destination vector not supported
-                                            if (instr.rvftype.repl) illegal_instr = 1'b1; // no entries 2/3 in vector of 2 fp32
+                                            if (~RVFVEC)            illegal_instr_cpu = 1'b1; // destination vector not supported
+                                            if (instr.rvftype.repl) illegal_instr_cpu = 1'b1; // no entries 2/3 in vector of 2 fp32
                                         end
                                         2'b01: begin
-                                            if (~XF16ALTVEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF16ALTVEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
                                         2'b10: begin
-                                            if (~XF16VEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF16VEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
                                         2'b11: begin
-                                            if (~XF8VEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF8VEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
                                 5'b11011 : begin
                                     instruction_o.op  = ariane_pkg::VFCPKCD_D; // vfcpka/b.vfmt.d - Vectorial FP Cast-and-Pack from 2x FP64, second 4 entries
                                     imm_select        = SIMM;      // rd into result field (upper bits don't matter)
-                                    if (~RVD) illegal_instr = 1'b1; // if we don't support RVD, we can't cast from FP64
+                                    if (~RVD) illegal_instr_cpu = 1'b1; // if we don't support RVD, we can't cast from FP64
                                     // check destination format
                                     unique case (instr.rvftype.vfmt)
                                         // Only process instruction if corresponding extension is active and FLEN suffices (static)
-                                        2'b00: illegal_instr = 1'b1; // no entries 4-7 in vector of 2 FP32
-                                        2'b01: illegal_instr = 1'b1; // no entries 4-7 in vector of 4 FP16ALT
-                                        2'b10: illegal_instr = 1'b1; // no entries 4-7 in vector of 4 FP16
+                                        2'b00: illegal_instr_cpu = 1'b1; // no entries 4-7 in vector of 2 FP32
+                                        2'b01: illegal_instr_cpu = 1'b1; // no entries 4-7 in vector of 4 FP16ALT
+                                        2'b10: illegal_instr_cpu = 1'b1; // no entries 4-7 in vector of 4 FP16
                                         2'b11: begin
-                                            if (~XF8VEC) illegal_instr = 1'b1; // destination vector not supported
+                                            if (~XF8VEC) illegal_instr_cpu = 1'b1; // destination vector not supported
                                         end
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
-                                default : illegal_instr = 1'b1;
+                                default : illegal_instr_cpu = 1'b1;
                             endcase
 
                             // check format
                             unique case (instr.rvftype.vfmt)
                                 // Only process instruction if corresponding extension is active (static)
-                                2'b00: if (~RVFVEC)     illegal_instr = 1'b1;
-                                2'b01: if (~XF16ALTVEC) illegal_instr = 1'b1;
-                                2'b10: if (~XF16VEC)    illegal_instr = 1'b1;
-                                2'b11: if (~XF8VEC)     illegal_instr = 1'b1;
-                                default: illegal_instr = 1'b1;
+                                2'b00: if (~RVFVEC)     illegal_instr_cpu = 1'b1;
+                                2'b01: if (~XF16ALTVEC) illegal_instr_cpu = 1'b1;
+                                2'b10: if (~XF16VEC)    illegal_instr_cpu = 1'b1;
+                                2'b11: if (~XF8VEC)     illegal_instr_cpu = 1'b1;
+                                default: illegal_instr_cpu = 1'b1;
                             endcase
 
                             // check disallowed replication
-                            if (~allow_replication & instr.rvftype.repl) illegal_instr = 1'b1;
+                            if (~allow_replication & instr.rvftype.repl) illegal_instr_cpu = 1'b1;
 
                             // check rounding mode
                             if (check_fprm) begin
                                 unique case (frm_i) inside // actual rounding mode from frm csr
                                     [3'b000:3'b100]: ; //legal rounding modes
-                                    default : illegal_instr = 1'b1;
+                                    default : illegal_instr_cpu = 1'b1;
                                 endcase
                             end
 
                         end else begin // No vectorial FP enabled (static)
-                            illegal_instr = 1'b1;
+                            illegal_instr_cpu = 1'b1;
                         end
 
                     // ---------------------------
@@ -657,10 +658,10 @@ module decoder import ariane_pkg::*; #(
                                     illegal_instr_bm = 1'b1;
                                 end
                             endcase
-                            illegal_instr = illegal_instr_non_bm & illegal_instr_bm;
+                            illegal_instr_cpu = illegal_instr_non_bm & illegal_instr_bm;
                         //VCS coverage on
                         end else begin
-                          illegal_instr = illegal_instr_non_bm;
+                          illegal_instr_cpu = illegal_instr_non_bm;
                         end
                     end
                 end
@@ -704,12 +705,12 @@ module decoder import ariane_pkg::*; #(
                                 {7'b011_0000, 3'b101}: instruction_o.op = ariane_pkg::RORW;     // rorw
                                 default: illegal_instr_bm = 1'b1;
                             endcase
-                            illegal_instr = illegal_instr_non_bm & illegal_instr_bm;
+                            illegal_instr_cpu = illegal_instr_non_bm & illegal_instr_bm;
                         //VCS coverage on
                         end else begin
-                          illegal_instr = illegal_instr_non_bm;
+                          illegal_instr_cpu = illegal_instr_non_bm;
                         end
-                      end else illegal_instr = 1'b1;
+                      end else illegal_instr_cpu = 1'b1;
                 end
                 // --------------------------------
                 // Reg-Immediate Operations
@@ -783,10 +784,10 @@ module decoder import ariane_pkg::*; #(
                             end
                             default: illegal_instr_bm = 1'b1;
                         endcase
-                        illegal_instr = illegal_instr_non_bm & illegal_instr_bm;
+                        illegal_instr_cpu = illegal_instr_non_bm & illegal_instr_bm;
                     //VCS coverage on
                     end else begin
-                      illegal_instr = illegal_instr_non_bm;
+                      illegal_instr_cpu = illegal_instr_non_bm;
                     end
                 end
 
@@ -840,13 +841,13 @@ module decoder import ariane_pkg::*; #(
                                 end
                                 default: illegal_instr_bm = 1'b1;
                             endcase
-                            illegal_instr = illegal_instr_non_bm & illegal_instr_bm;
+                            illegal_instr_cpu = illegal_instr_non_bm & illegal_instr_bm;
                         //VCS coverage on
                         end else begin
-                          illegal_instr = illegal_instr_non_bm;
+                          illegal_instr_cpu = illegal_instr_non_bm;
                         end
 
-                    end else illegal_instr = 1'b1;
+                    end else illegal_instr_cpu = 1'b1;
                 end
                 // --------------------------------
                 // LSU
@@ -862,8 +863,8 @@ module decoder import ariane_pkg::*; #(
                         3'b001: instruction_o.op  = ariane_pkg::SH;
                         3'b010: instruction_o.op  = ariane_pkg::SW;
                         3'b011: if (riscv::XLEN==64) instruction_o.op  = ariane_pkg::SD;
-                                else illegal_instr = 1'b1;
-                        default: illegal_instr = 1'b1;
+                                else illegal_instr_cpu = 1'b1;
+                        default: illegal_instr_cpu = 1'b1;
                     endcase
                 end
 
@@ -881,8 +882,8 @@ module decoder import ariane_pkg::*; #(
                         3'b101: instruction_o.op  = ariane_pkg::LHU;
                         3'b110: instruction_o.op  = ariane_pkg::LWU;
                         3'b011: if (riscv::XLEN==64) instruction_o.op  = ariane_pkg::LD;
-                                else illegal_instr = 1'b1;
-                        default: illegal_instr = 1'b1;
+                                else illegal_instr_cpu = 1'b1;
+                        default: illegal_instr_cpu = 1'b1;
                     endcase
                 end
 
@@ -899,17 +900,17 @@ module decoder import ariane_pkg::*; #(
                         unique case (instr.stype.funct3)
                             // Only process instruction if corresponding extension is active (static)
                             3'b000: if (XF8) instruction_o.op = ariane_pkg::FSB;
-                                    else illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
                             3'b001: if (XF16 | XF16ALT) instruction_o.op = ariane_pkg::FSH;
-                                    else illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
                             3'b010: if (RVF) instruction_o.op = ariane_pkg::FSW;
-                                    else illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
                             3'b011: if (RVD) instruction_o.op = ariane_pkg::FSD;
-                                    else illegal_instr = 1'b1;
-                            default: illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
+                            default: illegal_instr_cpu = 1'b1;
                         endcase
                     end else
-                        illegal_instr = 1'b1;
+                        illegal_instr_cpu = 1'b1;
                 end
 
                 riscv::OpcodeLoadFp: begin
@@ -922,17 +923,17 @@ module decoder import ariane_pkg::*; #(
                         unique case (instr.itype.funct3)
                             // Only process instruction if corresponding extension is active (static)
                             3'b000: if (XF8) instruction_o.op = ariane_pkg::FLB;
-                                    else illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
                             3'b001: if (XF16 | XF16ALT) instruction_o.op = ariane_pkg::FLH;
-                                    else illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
                             3'b010: if (RVF) instruction_o.op  = ariane_pkg::FLW;
-                                    else illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
                             3'b011: if (RVD) instruction_o.op  = ariane_pkg::FLD;
-                                    else illegal_instr = 1'b1;
-                            default: illegal_instr = 1'b1;
+                                    else illegal_instr_cpu = 1'b1;
+                            default: illegal_instr_cpu = 1'b1;
                         endcase
                     end else
-                        illegal_instr = 1'b1;
+                        illegal_instr_cpu = 1'b1;
                 end
 
                 // ----------------------------------
@@ -960,11 +961,11 @@ module decoder import ariane_pkg::*; #(
                         // determine fp format
                         unique case (instr.r4type.funct2)
                             // Only process instruction if corresponding extension is active (static)
-                            2'b00: if (~RVF)             illegal_instr = 1'b1;
-                            2'b01: if (~RVD)             illegal_instr = 1'b1;
-                            2'b10: if (~XF16 & ~XF16ALT) illegal_instr = 1'b1;
-                            2'b11: if (~XF8)             illegal_instr = 1'b1;
-                            default: illegal_instr = 1'b1;
+                            2'b00: if (~RVF)             illegal_instr_cpu = 1'b1;
+                            2'b01: if (~RVD)             illegal_instr_cpu = 1'b1;
+                            2'b10: if (~XF16 & ~XF16ALT) illegal_instr_cpu = 1'b1;
+                            2'b11: if (~XF8)             illegal_instr_cpu = 1'b1;
+                            default: illegal_instr_cpu = 1'b1;
                         endcase
 
                         // check rounding mode
@@ -973,24 +974,24 @@ module decoder import ariane_pkg::*; #(
                                 [3'b000:3'b100]: ; //legal rounding modes
                                 3'b101: begin      // Alternative Half-Precsision encded as fmt=10 and rm=101
                                     if (~XF16ALT || instr.rftype.fmt != 2'b10)
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                     unique case (frm_i) inside // actual rounding mode from frm csr
                                         [3'b000:3'b100]: ; //legal rounding modes
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
                                 3'b111: begin
                                     // rounding mode from frm csr
                                     unique case (frm_i) inside
                                         [3'b000:3'b100]: ; //legal rounding modes
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
-                                default : illegal_instr = 1'b1;
+                                default : illegal_instr_cpu = 1'b1;
                             endcase
                         end
                     end else begin
-                        illegal_instr = 1'b1;
+                        illegal_instr_cpu = 1'b1;
                     end
                 end
 
@@ -1020,17 +1021,17 @@ module decoder import ariane_pkg::*; #(
                             5'b01011: begin
                                 instruction_o.op = ariane_pkg::FSQRT; // fsqrt.fmt - FP Square Root
                                 // rs2 must be zero
-                                if (instr.rftype.rs2 != 5'b00000) illegal_instr = 1'b1;
+                                if (instr.rftype.rs2 != 5'b00000) illegal_instr_cpu = 1'b1;
                             end
                             5'b00100: begin
                                 instruction_o.op = ariane_pkg::FSGNJ; // fsgn{j[n]/jx}.fmt - FP Sign Injection
                                 check_fprm       = 1'b0;  // instruction encoded in rm, do the check here
                                 if (XF16ALT) begin        // FP16ALT instructions encoded in rm separately (static)
                                     if (!(instr.rftype.rm inside {[3'b000:3'b010], [3'b100:3'b110]}))
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end else begin
                                     if (!(instr.rftype.rm inside {[3'b000:3'b010]}))
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end
                             end
                             5'b00101: begin
@@ -1038,26 +1039,26 @@ module decoder import ariane_pkg::*; #(
                                 check_fprm       = 1'b0;     // instruction encoded in rm, do the check here
                                 if (XF16ALT) begin           // FP16ALT instructions encoded in rm separately (static)
                                     if (!(instr.rftype.rm inside {[3'b000:3'b001], [3'b100:3'b101]}))
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end else begin
                                     if (!(instr.rftype.rm inside {[3'b000:3'b001]}))
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end
                             end
                             5'b01000: begin
                                 instruction_o.op  = ariane_pkg::FCVT_F2F; // fcvt.fmt.fmt - FP to FP Conversion
                                 instruction_o.rs2 = instr.rvftype.rs1; // tie rs2 to rs1 to be safe (vectors use rs2)
                                 imm_select        = IIMM;     // rs2 holds part of the intruction
-                                if (|instr.rftype.rs2[24:23]) illegal_instr = 1'b1; // bits [22:20] used, other bits must be 0
+                                if (|instr.rftype.rs2[24:23]) illegal_instr_cpu = 1'b1; // bits [22:20] used, other bits must be 0
                                 // check source format
                                 unique case (instr.rftype.rs2[22:20])
                                     // Only process instruction if corresponding extension is active (static)
-                                    3'b000: if (~RVF)     illegal_instr = 1'b1;
-                                    3'b001: if (~RVD)     illegal_instr = 1'b1;
-                                    3'b010: if (~XF16)    illegal_instr = 1'b1;
-                                    3'b110: if (~XF16ALT) illegal_instr = 1'b1;
-                                    3'b011: if (~XF8)     illegal_instr = 1'b1;
-                                    default: illegal_instr = 1'b1;
+                                    3'b000: if (~RVF)     illegal_instr_cpu = 1'b1;
+                                    3'b001: if (~RVD)     illegal_instr_cpu = 1'b1;
+                                    3'b010: if (~XF16)    illegal_instr_cpu = 1'b1;
+                                    3'b110: if (~XF16ALT) illegal_instr_cpu = 1'b1;
+                                    3'b011: if (~XF8)     illegal_instr_cpu = 1'b1;
+                                    default: illegal_instr_cpu = 1'b1;
                                 endcase
                             end
                             5'b10100: begin
@@ -1065,21 +1066,21 @@ module decoder import ariane_pkg::*; #(
                                 check_fprm       = 1'b0; // instruction encoded in rm, do the check here
                                 if (XF16ALT) begin       // FP16ALT instructions encoded in rm separately (static)
                                     if (!(instr.rftype.rm inside {[3'b000:3'b010], [3'b100:3'b110]}))
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end else begin
                                     if (!(instr.rftype.rm inside {[3'b000:3'b010]}))
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                 end
                             end
                             5'b11000: begin
                                 instruction_o.op = ariane_pkg::FCVT_F2I; // fcvt.ifmt.fmt - FP to Int Conversion
                                 imm_select       = IIMM;     // rs2 holds part of the instruction
-                                if (|instr.rftype.rs2[24:22]) illegal_instr = 1'b1; // bits [21:20] used, other bits must be 0
+                                if (|instr.rftype.rs2[24:22]) illegal_instr_cpu = 1'b1; // bits [21:20] used, other bits must be 0
                             end
                             5'b11010: begin
                                 instruction_o.op = ariane_pkg::FCVT_I2F;  // fcvt.fmt.ifmt - Int to FP Conversion
                                 imm_select       = IIMM;     // rs2 holds part of the instruction
-                                if (|instr.rftype.rs2[24:22]) illegal_instr = 1'b1; // bits [21:20] used, other bits must be 0
+                                if (|instr.rftype.rs2[24:22]) illegal_instr_cpu = 1'b1; // bits [21:20] used, other bits must be 0
                             end
                             5'b11100: begin
                                 instruction_o.rs2 = instr.rftype.rs1; // set rs2 = rs1 so we can map FMV to SGNJ in the unit
@@ -1088,30 +1089,30 @@ module decoder import ariane_pkg::*; #(
                                     instruction_o.op = ariane_pkg::FMV_F2X;       // fmv.ifmt.fmt - FPR to GPR Move
                                 else if (instr.rftype.rm == 3'b001 || (XF16ALT && instr.rftype.rm == 3'b101)) // FP16ALT has separate encoding
                                     instruction_o.op = ariane_pkg::FCLASS; // fclass.fmt - FP Classify
-                                else illegal_instr = 1'b1;
+                                else illegal_instr_cpu = 1'b1;
                                 // rs2 must be zero
-                                if (instr.rftype.rs2 != 5'b00000) illegal_instr = 1'b1;
+                                if (instr.rftype.rs2 != 5'b00000) illegal_instr_cpu = 1'b1;
                             end
                             5'b11110: begin
                                 instruction_o.op = ariane_pkg::FMV_X2F;   // fmv.fmt.ifmt - GPR to FPR Move
                                 instruction_o.rs2 = instr.rftype.rs1; // set rs2 = rs1 so we can map FMV to SGNJ in the unit
                                 check_fprm       = 1'b0; // instruction encoded in rm, do the check here
                                 if (!(instr.rftype.rm == 3'b000 || (XF16ALT && instr.rftype.rm == 3'b100)))
-                                    illegal_instr = 1'b1;
+                                    illegal_instr_cpu = 1'b1;
                                 // rs2 must be zero
-                                if (instr.rftype.rs2 != 5'b00000) illegal_instr = 1'b1;
+                                if (instr.rftype.rs2 != 5'b00000) illegal_instr_cpu = 1'b1;
                             end
-                            default : illegal_instr = 1'b1;
+                            default : illegal_instr_cpu = 1'b1;
                         endcase
 
                         // check format
                         unique case (instr.rftype.fmt)
                             // Only process instruction if corresponding extension is active (static)
-                            2'b00: if (~RVF)             illegal_instr = 1'b1;
-                            2'b01: if (~RVD)             illegal_instr = 1'b1;
-                            2'b10: if (~XF16 & ~XF16ALT) illegal_instr = 1'b1;
-                            2'b11: if (~XF8)             illegal_instr = 1'b1;
-                            default: illegal_instr = 1'b1;
+                            2'b00: if (~RVF)             illegal_instr_cpu = 1'b1;
+                            2'b01: if (~RVD)             illegal_instr_cpu = 1'b1;
+                            2'b10: if (~XF16 & ~XF16ALT) illegal_instr_cpu = 1'b1;
+                            2'b11: if (~XF8)             illegal_instr_cpu = 1'b1;
+                            default: illegal_instr_cpu = 1'b1;
                         endcase
 
                         // check rounding mode
@@ -1120,24 +1121,24 @@ module decoder import ariane_pkg::*; #(
                                 [3'b000:3'b100]: ; //legal rounding modes
                                 3'b101: begin      // Alternative Half-Precsision encded as fmt=10 and rm=101
                                     if (~XF16ALT || instr.rftype.fmt != 2'b10)
-                                        illegal_instr = 1'b1;
+                                        illegal_instr_cpu = 1'b1;
                                     unique case (frm_i) inside // actual rounding mode from frm csr
                                         [3'b000:3'b100]: ; //legal rounding modes
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
                                 3'b111: begin
                                     // rounding mode from frm csr
                                     unique case (frm_i) inside
                                         [3'b000:3'b100]: ; //legal rounding modes
-                                        default : illegal_instr = 1'b1;
+                                        default : illegal_instr_cpu = 1'b1;
                                     endcase
                                 end
-                                default : illegal_instr = 1'b1;
+                                default : illegal_instr_cpu = 1'b1;
                             endcase
                         end
                     end else begin
-                        illegal_instr = 1'b1;
+                        illegal_instr_cpu = 1'b1;
                     end
                 end
 
@@ -1158,7 +1159,7 @@ module decoder import ariane_pkg::*; #(
                             5'h1:  instruction_o.op = ariane_pkg::AMO_SWAPW;
                             5'h2: begin
                                 instruction_o.op = ariane_pkg::AMO_LRW;
-                                if (instr.atype.rs2 != 0) illegal_instr = 1'b1;
+                                if (instr.atype.rs2 != 0) illegal_instr_cpu = 1'b1;
                             end
                             5'h3:  instruction_o.op = ariane_pkg::AMO_SCW;
                             5'h4:  instruction_o.op = ariane_pkg::AMO_XORW;
@@ -1168,7 +1169,7 @@ module decoder import ariane_pkg::*; #(
                             5'h14: instruction_o.op = ariane_pkg::AMO_MAXW;
                             5'h18: instruction_o.op = ariane_pkg::AMO_MINWU;
                             5'h1C: instruction_o.op = ariane_pkg::AMO_MAXWU;
-                            default: illegal_instr = 1'b1;
+                            default: illegal_instr_cpu = 1'b1;
                         endcase
                     // double words
                     end else if (RVA && instr.stype.funct3 == 3'h3) begin
@@ -1177,7 +1178,7 @@ module decoder import ariane_pkg::*; #(
                             5'h1:  instruction_o.op = ariane_pkg::AMO_SWAPD;
                             5'h2: begin
                                 instruction_o.op = ariane_pkg::AMO_LRD;
-                                if (instr.atype.rs2 != 0) illegal_instr = 1'b1;
+                                if (instr.atype.rs2 != 0) illegal_instr_cpu = 1'b1;
                             end
                             5'h3:  instruction_o.op = ariane_pkg::AMO_SCD;
                             5'h4:  instruction_o.op = ariane_pkg::AMO_XORD;
@@ -1187,10 +1188,10 @@ module decoder import ariane_pkg::*; #(
                             5'h14: instruction_o.op = ariane_pkg::AMO_MAXD;
                             5'h18: instruction_o.op = ariane_pkg::AMO_MINDU;
                             5'h1C: instruction_o.op = ariane_pkg::AMO_MAXDU;
-                            default: illegal_instr = 1'b1;
+                            default: illegal_instr_cpu = 1'b1;
                         endcase
                     end else begin
-                        illegal_instr = 1'b1;
+                        illegal_instr_cpu = 1'b1;
                     end
                 end
 
@@ -1214,7 +1215,7 @@ module decoder import ariane_pkg::*; #(
                         3'b111: instruction_o.op = ariane_pkg::GEU;
                         default: begin
                             is_control_flow_instr_o = 1'b0;
-                            illegal_instr           = 1'b1;
+                            illegal_instr_cpu           = 1'b1;
                         end
                     endcase
                 end
@@ -1227,7 +1228,7 @@ module decoder import ariane_pkg::*; #(
                     instruction_o.rd[4:0]   = instr.itype.rd;
                     is_control_flow_instr_o = 1'b1;
                     // invalid jump and link register -> reserved for vector encoding
-                    if (instr.itype.funct3 != 3'b0) illegal_instr = 1'b1;
+                    if (instr.itype.funct3 != 3'b0) illegal_instr_cpu = 1'b1;
                 end
                 // Jump and link
                 riscv::OpcodeJal: begin
@@ -1250,11 +1251,11 @@ module decoder import ariane_pkg::*; #(
                     instruction_o.rd[4:0] = instr.utype.rd;
                 end
 
-                default: illegal_instr = 1'b1;
+                default: illegal_instr_cpu = 1'b1;
             endcase
         end
         if (CVXIF_PRESENT) begin
-            if (is_illegal_i || illegal_instr) begin
+            if (is_illegal_i || illegal_instr_cpu) begin
                 instruction_o.fu    = CVXIF;
                 instruction_o.rs1   = instr.r4type.rs1;
                 instruction_o.rs2   = instr.r4type.rs2;
@@ -1264,7 +1265,9 @@ module decoder import ariane_pkg::*; #(
             end
         end
 
-        cpu_illegal_instr_o = illegal_instr;
+        cpu_illegal_instr_o = illegal_instr_cpu;
+        // cpu_illegal_instr_o = 1'b1;
+        illegal_instr = illegal_instr_cpu;
 
         // Accelerator instructions.
         // These can overwrite the previous decoding entirely.
