@@ -291,6 +291,7 @@ module csr_regfile
   | ((riscv::XLEN == 64 ? 2 : 1) << riscv::XLEN - 2);  // MXL
 
   csrind_isel_t miselect_d, miselect_q;
+  csrind_isel_t siselect_d, siselect_q;
 
   assign pmpcfg_o  = pmpcfg_q[15:0];
   assign pmpaddr_o = pmpaddr_q;
@@ -489,6 +490,63 @@ module csr_regfile
         riscv::CSR_STVAL:
         if (CVA6Cfg.RVS) csr_rdata = stval_q;
         else read_access_exception = 1'b1;
+        riscv::CSR_SISELECT:
+        if (CVA6Cfg.RVS) csr_rdata = siselect_q;
+        else read_access_exception = 1'b1;
+        riscv::CSR_SIREG: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : read_access_exception = 1'b1;
+            endcase
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG2: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : read_access_exception = 1'b1;
+            endcase
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG3: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : read_access_exception = 1'b1;
+            endcase
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG4: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : read_access_exception = 1'b1;
+            endcase
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG5: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : read_access_exception = 1'b1;
+            endcase
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG6: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : read_access_exception = 1'b1;
+            endcase
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
         riscv::CSR_SATP: begin
           if (CVA6Cfg.RVS) begin
             // intercept reads to SATP if in S-Mode and TVM is enabled
@@ -993,6 +1051,7 @@ module csr_regfile
     stvt_d = stvt_q;
     sscratch_d = sscratch_q;
     stval_d = stval_q;
+    siselect_d = siselect_q;
     satp_d = satp_q;
     hedeleg_d = hedeleg_q;
     hideleg_d = hideleg_q;
@@ -1233,6 +1292,62 @@ module csr_regfile
         riscv::CSR_STVAL:
         if (CVA6Cfg.RVS && CVA6Cfg.TvalEn) stval_d = csr_wdata;
         else update_access_exception = 1'b1;
+        riscv::CSR_SISELECT:
+        if (~CVA6Cfg.RVS) update_access_exception = 1'b1;
+        riscv::CSR_SIREG: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : update_access_exception = 1'b1;
+            endcase
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG2: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : update_access_exception = 1'b1;
+            endcase
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG3: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : update_access_exception = 1'b1;
+            endcase
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG4: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : update_access_exception = 1'b1;
+            endcase
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG5: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : update_access_exception = 1'b1;
+            endcase
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG6: begin
+          if (CVA6Cfg.RVS) begin
+            unique case (siselect_q)
+              default : update_access_exception = 1'b1;
+            endcase
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
         // supervisor address translation and protection
         riscv::CSR_SATP: begin
           if (CVA6Cfg.RVS) begin
@@ -2522,6 +2637,7 @@ module csr_regfile
         scounteren_q <= {riscv::XLEN{1'b0}};
         sscratch_q   <= {riscv::XLEN{1'b0}};
         stval_q      <= {riscv::XLEN{1'b0}};
+        siselect_q   <= csrind_isel_t'('b0);
         satp_q       <= {riscv::XLEN{1'b0}};
       end
 
@@ -2608,6 +2724,7 @@ module csr_regfile
         scounteren_q <= scounteren_d;
         sscratch_q   <= sscratch_d;
         if (CVA6Cfg.TvalEn) stval_q <= stval_d;
+        siselect_q   <= siselect_d;
         satp_q <= satp_d;
       end
       if (CVA6Cfg.RVH) begin
