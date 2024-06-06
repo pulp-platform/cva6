@@ -260,7 +260,7 @@ module miss_handler
           state_d = AMO_WB;
           serve_amo_d = 1'b1;
           cnt_d = '0;
-          req_o = 1'b1;
+          req_o = '1;
           addr_o = amo_req_i.operand_a;
         end
         // check if we want to flush and can flush e.g.: we are not busy anymore
@@ -304,7 +304,7 @@ module miss_handler
             mshr_d.be    = miss_req_be[i];
             mshr_d.make_unique    = 1'b0;
             req_o   = '1;
-            addr_o  = mshr_q.addr[DCACHE_INDEX_WIDTH-1:0];
+            addr_o  = mshr_d.addr[DCACHE_INDEX_WIDTH-1:0];
             miss_o  = 1'b1;
             break;
           end
