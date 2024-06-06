@@ -49,6 +49,8 @@ module decoder import ariane_pkg::*; #(
     output logic               is_control_flow_instr_o,  // this instruction will change the control flow
     output logic               cpu_illegal_instr_o,
     // XIF issue interface
+    input logic                issue_valid_i,
+    input logic                issue_ready_i,
     output x_issue_req_t       core_v_xif_issue_req_o,  // XIF issue interface request to coprocessor
     input  x_issue_resp_t      core_v_xif_issue_resp_i  // XIF issue interface response from coprocessor
 );
@@ -168,7 +170,7 @@ module decoder import ariane_pkg::*; #(
             end
         end
 
-        assign is_accel = core_v_xif_issue_resp_i.accept;
+        assign is_accel = core_v_xif_issue_resp_i.accept && issue_ready_i && issue_valid_i; //&& issue_ready_i && issue_valid_i
 
 
     end: gen_accel_decoder else begin

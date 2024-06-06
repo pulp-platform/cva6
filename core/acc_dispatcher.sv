@@ -199,14 +199,15 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
     .ready_i   (core_v_xif_resp_i.register_ready)
   );
 
-  assign core_v_xif_req_o.register_rs[0]  = acc_req_int.rs1;
-  assign core_v_xif_req_o.register_rs[1]  = acc_req_int.rs2;
-  assign core_v_xif_req_o.frm             = acc_req_int.frm;
-  assign core_v_xif_req_o.register_id     = acc_req_int.trans_id;
-  assign core_v_xif_req_o.store_pending   = !acc_no_st_pending_i && acc_cons_en_i;
-  assign core_v_xif_req_o.acc_cons_en     = acc_cons_en_i;
+  assign core_v_xif_req_o.register_rs[0]    = acc_req_int.rs1;
+  assign core_v_xif_req_o.register_rs[1]    = acc_req_int.rs2;
+  assign core_v_xif_req_o.frm               = acc_req_int.frm;
+  assign core_v_xif_req_o.register_id       = acc_req_int.trans_id;
+  assign core_v_xif_req_o.register_rs_valid = '{1'b1, 1'b1};
+  assign core_v_xif_req_o.store_pending     = !acc_no_st_pending_i && acc_cons_en_i;
+  assign core_v_xif_req_o.acc_cons_en       = acc_cons_en_i;
   // Will be overwritten by dcache
-  assign core_v_xif_req_o.inval_ready     = '0;
+  assign core_v_xif_req_o.inval_ready       = '0;
 
   always_comb begin: accelerator_req_dispatcher
     // Do not fetch from the instruction queue

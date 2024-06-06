@@ -126,6 +126,8 @@ module id_stage #(
         .instruction_o           ( decoded_instruction          ),
         .cpu_illegal_instr_o     ( cpu_illegal_instr            ),
         .is_control_flow_instr_o ( is_control_flow_instr        ),
+        .issue_valid_i           ( core_v_xif_issue_valid_o     ),
+        .issue_ready_i           ( core_v_xif_issue_ready_i     ),
         .core_v_xif_issue_req_o  ( core_v_xif_issue_req_o       ),
         .core_v_xif_issue_resp_i ( core_v_xif_issue_resp_i      )
     );
