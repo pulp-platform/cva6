@@ -410,13 +410,11 @@ module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
    x_commit_t commit_if;
 
    logic  new_instruction;
-   logic  load_next_instruction;
 
    logic [TRANS_ID_BITS-1:0]  trans_id_d, trans_id_q;
    logic                      last_cycle_d, last_cycle_q;
 
    assign new_instruction       = core_v_xif_req_o.issue_valid && core_v_xif_resp_i.issue_ready && core_v_xif_resp_i.issue_resp_accept;
-   assign load_next_instruction = core_v_xif_req_o.register_valid && core_v_xif_resp_i.register_ready;
    assign issue_last_cycle      = last_cycle_q;
 
    always_comb begin
