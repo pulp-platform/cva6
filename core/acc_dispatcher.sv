@@ -11,7 +11,7 @@
 // Authors: Matheus Cavalcante, ETH Zurich
 //          Nils Wistoff, ETH Zurich
 //          Frederic zur Bonsen, ETH Zurich
-// Date: 20.11.2020
+// Date: 16.06.2024
 // Description: Functional unit that dispatches CVA6 instructions to accelerators.
 
 module acc_dispatcher import ariane_pkg::*; import riscv::*; #(
