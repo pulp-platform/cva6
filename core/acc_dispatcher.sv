@@ -36,6 +36,7 @@ module acc_dispatcher
     input logic [15:0][PLEN-3:0] pmpaddr_i,
     input logic [2:0] fcsr_frm_i,
     output logic dirty_v_state_o,
+    input logic acc_mmu_en_i,
     // Interface with the issue stage
     input scoreboard_entry_t issue_instr_i,
     input logic issue_instr_hs_i,
@@ -55,6 +56,9 @@ module acc_dispatcher
     output logic acc_stall_st_pending_o,
     input logic acc_no_st_pending_i,
     input dcache_req_i_t [2:0] dcache_req_ports_i,
+    // Interface with the MMU
+    output acc_pkg::acc_mmu_req_t acc_mmu_req_o,
+    input acc_pkg::acc_mmu_resp_t acc_mmu_resp_i,
     // Interface with the controller
     output logic ctrl_halt_o,
     input logic flush_unissued_instr_i,
@@ -219,6 +223,10 @@ module acc_dispatcher
   assign acc_req_o.acc_cons_en   = acc_cons_en_i;
   assign acc_req_o.inval_ready   = inval_ready_i;
 
+  // MMU interface
+  assign acc_req_o.acc_mmu_resp = acc_mmu_resp_i;
+  assign acc_req_o.acc_mmu_en   = acc_mmu_en_i;
+
   always_comb begin : accelerator_req_dispatcher
     // Do not fetch from the instruction queue
     acc_insn_queue_pop = 1'b0;
@@ -268,6 +276,9 @@ module acc_dispatcher
   assign acc_exception_o    = acc_resp_i.exception;
   assign acc_fflags_valid_o = acc_resp_i.fflags_valid;
   assign acc_fflags_o       = acc_resp_i.fflags;
+
+  // MMU interface
+  assign acc_mmu_req_o = acc_resp_i.acc_mmu_req;
 
   // Always ready to receive responses
   assign acc_req_o.resp_ready = 1'b1;

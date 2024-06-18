@@ -10,7 +10,27 @@
 package acc_pkg;
 
   // ----------------------
-  // Accelerator Interface
+  // Accelerator MMU Interface
+  // ----------------------
+
+  // Accelerator MMU interface
+  typedef struct packed {
+    logic                   acc_mmu_misaligned_ex;
+    logic                   acc_mmu_req;
+    logic [riscv::VLEN-1:0] acc_mmu_vaddr;
+    logic                   acc_mmu_is_store;
+  } acc_mmu_req_t;
+
+  typedef struct packed {
+    logic                   acc_mmu_dtlb_hit;
+    logic [riscv::PPNW-1:0] acc_mmu_dtlb_ppn;
+    logic                   acc_mmu_valid;
+    logic [riscv::PLEN-1:0] acc_mmu_paddr;
+    ariane_pkg::exception_t acc_mmu_exception;
+  } acc_mmu_resp_t;
+
+  // ----------------------
+  // Accelerator instruction/memory
   // ----------------------
 
   typedef struct packed {
@@ -44,5 +64,24 @@ package acc_pkg;
     logic                                 inval_valid;
     logic [63:0]                          inval_addr;
   } accelerator_resp_t;
+
+  // ----------------------
+  // Accelerator Interface
+  // ----------------------
+
+  typedef struct packed {
+    // Insn/mem
+    accelerator_req_t                     acc_req;
+    // MMU
+    logic                                 acc_mmu_en;
+    acc_mmu_resp_t                        acc_mmu_resp;
+  } cva6_to_acc_t;
+
+  typedef struct packed {
+    // Insn/mem
+    accelerator_resp_t                    acc_resp;
+    // MMU
+    acc_mmu_req_t                         acc_mmu_req;
+  } acc_to_cva6_t;
 
 endpackage
