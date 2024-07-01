@@ -74,6 +74,10 @@ module std_cache_subsystem
   axi_req_t axi_req_data;
   axi_rsp_t axi_resp_data;
 
+  // Intermediate bus for sorting arbiter selection
+  axi_req_t [2:0] axi_sort_req;
+  axi_rsp_t [2:0] axi_sort_resp;
+
   ariane_ace::req_nosnoop_t  ace_req_bypass;
   ariane_ace::resp_nosnoop_t ace_resp_bypass;
   ariane_ace::req_nosnoop_t  ace_req_data;
@@ -260,7 +264,8 @@ module std_cache_subsystem
       .oup_ready_i(axi_resp_i.w_ready)
   );
 
-  assign axi_req_o.wack = {axi_req_icache.wack, axi_req_bypass.wack, axi_req_data.wack}[w_select_arbiter];
+  assign axi_sort_req = {axi_req_icache, axi_req_bypass, axi_req_data};
+  assign axi_req_o.wack = axi_sort_req[w_select_arbiter].wack;
 
   // Route responses based on ID
   // 0000 -> I$
@@ -293,7 +298,7 @@ module std_cache_subsystem
       .oup_ready_i({axi_req_icache.r_ready, axi_req_bypass.r_ready, axi_req_data.r_ready})
   );
 
-  assign axi_req_o.rack = {axi_req_icache.rack, axi_req_bypass.rack, axi_req_data.rack}[r_select];
+  assign axi_req_o.rack = axi_sort_req[r_select].rack;
 
   // B Channel
   logic [1:0] b_select;
