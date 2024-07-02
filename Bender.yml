@@ -76,6 +76,7 @@ sources:
           - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
           - core/cache_subsystem/snoop_cache_ctrl.sv
           - core/cva6_accel_first_pass_decoder_stub.sv
+          - core/cva6_clic_controller.sv
 
       - target: cv64a6_imafdch_sv39
         files:
@@ -88,6 +89,7 @@ sources:
           - core/mmu_sv39x4/cva6_mmu_sv39x4.sv
           - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
           - core/cva6_accel_first_pass_decoder_stub.sv
+          - core/cva6_clic_controller.sv
 
       - target: cv64a6_imafdch_sv39_wb
         files:
@@ -101,6 +103,7 @@ sources:
           - core/mmu_sv39x4/cva6_ptw_sv39x4.sv
           - core/cva6_accel_first_pass_decoder_stub.sv
           - core/cache_subsystem/snoop_cache_ctrl.sv
+          - core/cva6_clic_controller.sv
 
       - target: cv32a6_imac_sv0
         files:
