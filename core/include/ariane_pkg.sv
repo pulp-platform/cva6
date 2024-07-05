@@ -290,8 +290,8 @@ package ariane_pkg;
     riscv::xlen_t mip;
     riscv::xlen_t mideleg;
     riscv::xlen_t hideleg;
-    riscv::xlen_t hgeie; // Hypervisor Guest External Interrupt Enable (HGEIE) register
-    logic [5:0]   vgein; // Virtual Guest external interrupt number (HSTATUS register)
+    riscv::xlen_t hgeie;          // Hypervisor Guest External Interrupt Enable (HGEIE) register
+    logic [5:0]   vgein;          // Virtual Guest external interrupt number (HSTATUS register)
     logic         sie;
     logic         global_enable;
   } irq_ctrl_t;

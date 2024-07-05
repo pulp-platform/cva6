@@ -67,26 +67,26 @@ module cva6_clic_controller #(
           clic_irq_req_o = clic_irq_valid_i;
           // Take S-mode interrupts with higher level
         end else if (clic_irq_priv_i == riscv::PRIV_LVL_S) begin
-          if (CVA6Cfg.RVH && v_i) begin // Hart currently in VS-mode
-            if (CVA6Cfg.RVVCLIC && clic_irq_v_i) begin // Virtual supervisor interrrupt
+          if (CVA6Cfg.RVH && v_i) begin  // Hart currently in VS-mode
+            if (CVA6Cfg.RVVCLIC && clic_irq_v_i) begin  // Virtual supervisor interrrupt
               if (clic_irq_vsid_i == irq_ctrl_i.vgein) begin // VS-mode interrupt is for currently running VS
                 clic_irq_req_o = (clic_irq_level_i > max_vsthresh) && (clic_irq_valid_i) && irq_ctrl_i.sie;
                 clic_irq_v = 1'b1;
-              end else begin // Received interrupt is delegated to a differet VS
+              end else begin  // Received interrupt is delegated to a differet VS
                 // Trap to HS-mode iff HIE.sgeie is set and HGEIE[vsid] is set
                 clic_irq_req_o = (clic_irq_valid_i) && sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i];
               end
-            end else begin // Hypervisor interrupt
+            end else begin  // Hypervisor interrupt
               clic_irq_req_o = (clic_irq_level_i > max_sthresh) && (clic_irq_valid_i); // HS-mode sie is implicitly enabled in VS-mode
             end
-          end else begin // Hart currently in (H)S-mode
-            if (CVA6Cfg.RVVCLIC && clic_irq_v_i) begin // Virtual supervisor interrrupt
+          end else begin  // Hart currently in (H)S-mode
+            if (CVA6Cfg.RVVCLIC && clic_irq_v_i) begin  // Virtual supervisor interrrupt
               // The current custom vCLIC implementation does not provide a way to the hypervisor to set interrupt levels 
               // to interrupts delegated to VS-mode. The incoming interrupt level is therefore ignored if the hart is running
               // in HS-mode and a VS-mode interrupt is taken iff both HIE.sgeie and HGEIE[vsid] bits are set (and interrupts 
               // are globally enabled at supervisor level (i.e. MSTATUS.sie bit is set)
               clic_irq_req_o = (clic_irq_valid_i) && sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i] && irq_ctrl_i.sie;
-            end else begin // (Host) Supervisor interrupt
+            end else begin  // (Host) Supervisor interrupt
               clic_irq_req_o = (clic_irq_level_i > max_sthresh) && (clic_irq_valid_i) && irq_ctrl_i.sie;
             end
           end
@@ -102,17 +102,17 @@ module cva6_clic_controller #(
               if (clic_irq_vsid_i == irq_ctrl_i.vgein) begin // VS-mode interrupt is for currently running VS
                 clic_irq_req_o = clic_irq_valid_i;
                 clic_irq_v = 1'b1;
-              end else begin // Received interrupt is delegated to a differet VS
+              end else begin  // Received interrupt is delegated to a differet VS
                 // Trap to HS-mode iff HIE.sgeie is set and HGEIE[vsid] is set
                 clic_irq_req_o = (clic_irq_valid_i) && sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i];
               end
-            end else begin // Hypervisor interrupt
+            end else begin  // Hypervisor interrupt
               clic_irq_req_o = clic_irq_valid_i;  // MSTATUS.sie is implicitly enabled in VU-mode
             end
           end else begin  // Hart currently in U-mode
-            if (CVA6Cfg.RVVCLIC && clic_irq_v_i) begin // Virtual supervisor interrrupt
+            if (CVA6Cfg.RVVCLIC && clic_irq_v_i) begin  // Virtual supervisor interrrupt
               clic_irq_req_o = (clic_irq_valid_i) && sgeie && irq_ctrl_i.hgeie[clic_irq_vsid_i]; // MSTATUS.sie is implicitly enabled in U-mode
-            end else begin // (Host) Supervisor interrupt
+            end else begin  // (Host) Supervisor interrupt
               clic_irq_req_o = clic_irq_valid_i;  // HS-mode sie is implicitly enabled in U-mode
             end
           end

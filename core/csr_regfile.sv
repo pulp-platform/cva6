@@ -403,10 +403,12 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = vsstatus_extended;
         else read_access_exception = 1'b1;
         riscv::CSR_VSIE:
-        if (CVA6Cfg.RVH) csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 : ((mie_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1);
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 : ((mie_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1);
         else read_access_exception = 1'b1;
         riscv::CSR_VSIP:
-        if (CVA6Cfg.RVH) csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 :((mip_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1);
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 :((mip_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1);
         else read_access_exception = 1'b1;
         riscv::CSR_VSTVEC:
         if (CVA6Cfg.RVH) csr_rdata = vstvec_q;
@@ -541,13 +543,16 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = hideleg_q;
         else read_access_exception = 1'b1;
         riscv::CSR_HIE:
-        if (CVA6Cfg.RVH) csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? mie_q & riscv::MIP_SGEIP : mie_q & HS_DELEG_INTERRUPTS;
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? mie_q & riscv::MIP_SGEIP : mie_q & HS_DELEG_INTERRUPTS;
         else read_access_exception = 1'b1;
         riscv::CSR_HIP:
-        if (CVA6Cfg.RVH) csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 : mip_q & HS_DELEG_INTERRUPTS;
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 : mip_q & HS_DELEG_INTERRUPTS;
         else read_access_exception = 1'b1;
         riscv::CSR_HVIP:
-        if (CVA6Cfg.RVH) csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 : mip_q & VS_DELEG_INTERRUPTS;
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVVCLIC && clic_mode_o) ? '0 : mip_q & VS_DELEG_INTERRUPTS;
         else read_access_exception = 1'b1;
         riscv::CSR_HCOUNTEREN:
         if (CVA6Cfg.RVH) csr_rdata = hcounteren_q;
@@ -1321,9 +1326,9 @@ module csr_regfile
           if (CVA6Cfg.RVH) begin
             // In CLIC mode only SGEIE bit is writable
             if (CVA6Cfg.RVVCLIC && clic_mode_o) begin
-              mask  = riscv::MIP_SGEIP;
+              mask = riscv::MIP_SGEIP;
             end else begin
-              mask  = HS_DELEG_INTERRUPTS;
+              mask = HS_DELEG_INTERRUPTS;
             end
             mie_d = (mie_q & ~mask) | (csr_wdata & mask);
           end else begin
@@ -2566,7 +2571,7 @@ module csr_regfile
         vsepc_q                  <= {riscv::XLEN{1'b0}};
         vscause_q                <= {riscv::XLEN{1'b0}};
         vstvec_q                 <= {riscv::XLEN{1'b0}};
-        vstvt_q                  <= {(riscv::XLEN-9){1'b0}};
+        vstvt_q                  <= {(riscv::XLEN - 9) {1'b0}};
         vsscratch_q              <= {riscv::XLEN{1'b0}};
         vstval_q                 <= {riscv::XLEN{1'b0}};
         vsatp_q                  <= {riscv::XLEN{1'b0}};
@@ -2633,7 +2638,7 @@ module csr_regfile
         scounteren_q <= scounteren_d;
         sscratch_q   <= sscratch_d;
         if (CVA6Cfg.TvalEn) stval_q <= stval_d;
-        satp_q <= satp_d;
+        satp_q       <= satp_d;
         stvt_q       <= stvt_d;
         sintthresh_q <= sintthresh_d;
       end
