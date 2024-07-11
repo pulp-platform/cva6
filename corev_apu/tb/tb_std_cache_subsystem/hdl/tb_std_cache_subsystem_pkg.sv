@@ -1,6 +1,7 @@
 // Description: test utilities for the standard Ariane cache subsystem.
 // main package definition
 package tb_std_cache_subsystem_pkg;
+    import config_pkg::*;
     import ariane_pkg::*;
     import snoop_test::*;
     import std_cache_pkg::*;
@@ -107,7 +108,7 @@ package tb_std_cache_subsystem_pkg;
     endfunction
 
 
-    function automatic logic [63:0] get_rand_addr_from_cfg(ariane_cfg_t cfg);
+    function automatic logic [63:0] get_rand_addr_from_cfg(cva6_cfg_t cfg);
         logic [63:0] start_addr, end_addr, range;
         logic [31:0] addr_msb, addr_lsb;
         int region;
@@ -179,9 +180,9 @@ package tb_std_cache_subsystem_pkg;
         virtual amo_intf vif;
         string name;
         int verbosity;
-        ariane_cfg_t cfg;
+        cva6_cfg_t cfg;
 
-        function new (virtual amo_intf vif, ariane_cfg_t cfg, string name="amo_driver");
+        function new (virtual amo_intf vif, cva6_cfg_t cfg, string name="amo_driver");
             this.vif = vif;
             vif.req = '0;
             this.name=name;
@@ -459,13 +460,13 @@ package tb_std_cache_subsystem_pkg;
     class dcache_driver;
 
         virtual dcache_intf vif;
-        ariane_cfg_t cfg;
+        cva6_cfg_t cfg;
         string name;
         int verbosity;
         logic kill_req;
         logic kill_armed;
 
-        function new (virtual dcache_intf vif, ariane_cfg_t cfg, string name="dcache_driver");
+        function new (virtual dcache_intf vif, cva6_cfg_t cfg, string name="dcache_driver");
             this.vif              = vif;
             vif.req               = '0;
             vif.req.address_tag   = $urandom;
@@ -927,13 +928,13 @@ package tb_std_cache_subsystem_pkg;
     class icache_driver;
 
         virtual icache_intf vif;
-        ariane_cfg_t cfg;
+        cva6_cfg_t cfg;
         string name;
         int verbosity;
         logic en_random_req;
         logic random_req_running;
 
-        function new (virtual icache_intf vif, ariane_cfg_t cfg, string name="icache_driver");
+        function new (virtual icache_intf vif, cva6_cfg_t cfg, string name="icache_driver");
             this.vif      = vif;
             this.cfg      = cfg;
             vif.req       = '0;
@@ -1190,7 +1191,7 @@ package tb_std_cache_subsystem_pkg;
         virtual dcache_gnt_if  gnt_vif;
 
         string       name;
-        ariane_cfg_t ArianeCfg;
+        cva6_cfg_t ArianeCfg;
 
         // Cache model
         cache_line_t [DCACHE_NUM_WORDS-1:0][DCACHE_SET_ASSOC-1:0] cache_status;
@@ -1208,7 +1209,7 @@ package tb_std_cache_subsystem_pkg;
         function new (
             virtual dcache_sram_if sram_vif,
             virtual dcache_gnt_if  gnt_vif,
-            ariane_cfg_t               cfg,
+            cva6_cfg_t               cfg,
             string                     name="std_cache_scoreboard"
         );
             this.sram_vif             = sram_vif;
@@ -3040,7 +3041,7 @@ package tb_std_cache_subsystem_pkg;
         int verbosity;
 
         string       name;
-        ariane_cfg_t ArianeCfg;
+        cva6_cfg_t ArianeCfg;
         bit          enable_mem_check = 1;
 
         mailbox #(amo_req)  amo_req_mbox  [NB_CORES];
@@ -3052,7 +3053,7 @@ package tb_std_cache_subsystem_pkg;
         function new (
             virtual sram_intf #(DCACHE_SET_ASSOC, SRAM_DATA_WIDTH, SRAM_NUM_WORDS) sram_vif    [NB_CORES],
             virtual dcache_sram_if                                                 dc_sram_vif [NB_CORES],
-            ariane_cfg_t                                                           cfg,
+            cva6_cfg_t                                                           cfg,
             string                                                                 name="std_dcache_checker"
         );
             this.name      = name;

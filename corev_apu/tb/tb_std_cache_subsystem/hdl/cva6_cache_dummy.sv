@@ -15,15 +15,39 @@
 module cva6
   import ariane_pkg::*;
 #(
-  parameter ariane_pkg::ariane_cfg_t ArianeCfg  = ariane_pkg::ArianeDefaultConfig,
-  parameter int unsigned AxiAddrWidth = ariane_axi::AddrWidth,
-  parameter int unsigned AxiDataWidth = ariane_axi::DataWidth,
-  parameter int unsigned AxiIdWidth   = ariane_axi::IdWidth,
-  parameter type axi_ar_chan_t = ariane_axi::ar_chan_t,
-  parameter type axi_aw_chan_t = ariane_axi::aw_chan_t,
-  parameter type axi_w_chan_t  = ariane_axi::w_chan_t,
-  parameter type axi_req_t = ariane_axi::req_t,
-  parameter type axi_rsp_t = ariane_axi::resp_t
+  parameter config_pkg::cva6_cfg_t CVA6Cfg  = cva6_config_pkg::cva6_cfg,
+  parameter int unsigned AxiAddrWidth = cva6_config_pkg::CVA6ConfigAxiAddrWidth,
+  parameter int unsigned AxiDataWidth = cva6_config_pkg::CVA6ConfigAxiDataWidth,
+  parameter int unsigned AxiIdWidth   = cva6_config_pkg::CVA6ConfigAxiIdWidth,
+  parameter type axi_ar_chan_t = ariane_ace::ar_chan_t,
+  parameter type axi_aw_chan_t = ariane_ace::aw_chan_t,
+  parameter type axi_w_chan_t  = ariane_ace::ariane_axi_w_chan_t,
+  parameter type axi_req_t = ariane_ace::req_t,
+  parameter type axi_rsp_t = ariane_ace::resp_t,
+  // RVFI
+  parameter type rvfi_probes_t = struct packed {
+    logic [TRANS_ID_BITS-1:0]                                               issue_pointer;
+    logic [CVA6Cfg.NrCommitPorts-1:0][TRANS_ID_BITS-1:0]                    commit_pointer;
+    logic                                                                   flush_unissued_instr;
+    logic                                                                   decoded_instr_valid;
+    logic                                                                   flush;
+    logic                                                                   decoded_instr_ack;
+    logic                                                                   issue_instr_ack;
+    logic                                                                   fetch_entry_valid;
+    logic [31:0]                                                            instruction;
+    logic                                                                   is_compressed;
+    riscv::xlen_t                                                           rs1_forwarding;
+    riscv::xlen_t                                                           rs2_forwarding;
+    scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0]                          commit_instr;
+    exception_t                                                             ex_commit;
+    riscv::priv_lvl_t                                                       priv_lvl;
+    lsu_ctrl_t                                                              lsu_ctrl;
+    logic [((CVA6Cfg.CvxifEn || CVA6Cfg.RVV) ? 5 : 4)-1:0][riscv::XLEN-1:0] wbdata;
+    logic [CVA6Cfg.NrCommitPorts-1:0]                                       commit_ack;
+    logic [riscv::PLEN-1:0]                                                 mem_paddr;
+    logic                                                                   debug_mode;
+    logic [CVA6Cfg.NrCommitPorts-1:0][riscv::XLEN-1:0]                      wdata;
+  }
 ) (
   input logic                                             clk_i,
   input logic                                             rst_ni,
@@ -39,7 +63,7 @@ module cva6
   input logic                                             debug_req_i, // debug request (async)
    // CLIC interface - unused
   input logic                                             clic_irq_valid_i, // CLIC interrupt request
-  input logic [$clog2(ArianeCfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i, // interrupt source ID
+  input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i, // interrupt source ID
   input logic [7:0]                                       clic_irq_level_i, // interrupt level is 8-bit from CLIC spec
   input                                                   riscv::priv_lvl_t clic_irq_priv_i, // CLIC interrupt privilege level
   input logic                                             clic_irq_shv_i, // selective hardware vectoring bit
@@ -48,7 +72,7 @@ module cva6
   output logic                                            clic_kill_ack_o, // kill acknowledge
   // RISC-V formal interface port (`rvfi`):
   // Can be left open when formal tracing is not needed.
-  output                                                  ariane_pkg::rvfi_port_t rvfi_o,
+  output                                                  rvfi_probes_t rvfi_probes_o,
   output                                                  cvxif_pkg::cvxif_req_t cvxif_req_o,
   input                                                   cvxif_pkg::cvxif_resp_t cvxif_resp_i,
   // L15 (memory side)
@@ -64,10 +88,10 @@ module cva6
   logic                     icache_en_csr;
   logic                     icache_flush_ctrl_cache;
   logic                     icache_miss_cache_perf;
-  icache_areq_i_t           icache_areq_ex_cache;
-  icache_areq_o_t           icache_areq_cache_ex;
-  icache_dreq_i_t           icache_dreq_if_cache;
-  icache_dreq_o_t           icache_dreq_cache_if;
+  icache_areq_t             icache_areq_ex_cache;
+  icache_arsp_t             icache_areq_cache_ex;
+  icache_dreq_t             icache_dreq_if_cache;
+  icache_drsp_t             icache_dreq_cache_if;
 
   logic                     dcache_miss_cache_perf;
   logic                     dcache_en_csr_nbdcache;
@@ -107,10 +131,10 @@ module cva6
   // Cache Subsystem
   // -------------------
 
-  if (DCACHE_TYPE == int'(cva6_config_pkg::WT)) begin : WT
+  if (DCACHE_TYPE == int'(config_pkg::WT)) begin : WT
   // this is a cache subsystem that is compatible with OpenPiton
   wt_cache_subsystem #(
-    .ArianeCfg            ( ArianeCfg     )
+    .CVA6Cfg            ( CVA6Cfg     )
   ) i_cache_subsystem (
     // to D$
     .clk_i                 ( clk_i                       ),
@@ -152,7 +176,7 @@ module cva6
     // note: this only works with one cacheable region
     // not as important since this cache subsystem is about to be
     // deprecated
-    .ArianeCfg             ( ArianeCfg                   ),
+    .CVA6Cfg             ( CVA6Cfg                   ),
     .AxiAddrWidth          ( AxiAddrWidth                ),
     .AxiDataWidth          ( AxiDataWidth                ),
     .AxiIdWidth            ( AxiIdWidth                  ),
@@ -202,7 +226,7 @@ module cva6
   // -------------------
   // pragma translate_off
   `ifndef VERILATOR
-  initial ariane_pkg::check_cfg(ArianeCfg);
+  initial config_pkg::check_cfg(CVA6Cfg);
   `endif
   // pragma translate_on
 

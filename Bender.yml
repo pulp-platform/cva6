@@ -299,6 +299,15 @@ sources:
           - common/local/util/instr_trace_item.svh
           - common/local/util/ex_trace_item.svh
 
+      - target: test
+        files:
+          - corev_apu/tb/tb_std_cache_subsystem/hdl/tb_std_cache_subsystem_pkg.sv
+          - corev_apu/tb/tb_std_cache_subsystem/hdl/amo_intf.sv
+          - corev_apu/tb/tb_std_cache_subsystem/hdl/dcache_intf.sv
+          - corev_apu/tb/tb_std_cache_subsystem/hdl/icache_intf.sv
+          - corev_apu/tb/tb_std_cache_subsystem/hdl/sram_intf.sv
+          - corev_apu/tb/tb_std_cache_subsystem/hdl/cva6_cache_dummy.sv
+
     # TODO target define FPGA target + verification etc
     #   - target: test
     #     files:
