@@ -308,6 +308,8 @@ sources:
           - corev_apu/tb/tb_std_cache_subsystem/hdl/sram_intf.sv
           - corev_apu/tb/tb_std_cache_subsystem/hdl/cva6_cache_dummy.sv
           - corev_apu/bootrom/bootrom.sv
+          - corev_apu/tb/common/uart.sv
+          - corev_apu/tb/common/mock_uart.sv
 
     # TODO target define FPGA target + verification etc
     #   - target: test
