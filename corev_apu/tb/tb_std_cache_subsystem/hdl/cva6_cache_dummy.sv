@@ -98,8 +98,8 @@ module cva6
   logic                     dcache_flush_ctrl_cache;
   logic                     dcache_flush_ack_cache_ctrl;
 
-  dcache_req_i_t [2:0]      dcache_req_ports_ex_cache;
-  dcache_req_o_t [2:0]      dcache_req_ports_cache_ex;
+  dcache_req_i_t [3:0]      dcache_req_ports_ex_cache;
+  dcache_req_o_t [3:0]      dcache_req_ports_cache_ex;
   logic                     dcache_commit_wbuffer_empty;
   logic                     dcache_commit_wbuffer_not_ni;
 
@@ -176,10 +176,8 @@ module cva6
     // note: this only works with one cacheable region
     // not as important since this cache subsystem is about to be
     // deprecated
-    .CVA6Cfg             ( CVA6Cfg                   ),
-    .AxiAddrWidth          ( AxiAddrWidth                ),
-    .AxiDataWidth          ( AxiDataWidth                ),
-    .AxiIdWidth            ( AxiIdWidth                  ),
+    .CVA6Cfg               ( CVA6Cfg                     ),
+    .NumPorts              ( 4                           ),
     .axi_ar_chan_t         ( axi_ar_chan_t               ),
     .axi_aw_chan_t         ( axi_aw_chan_t               ),
     .axi_w_chan_t          ( axi_w_chan_t                ),
