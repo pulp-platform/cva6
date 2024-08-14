@@ -20,6 +20,7 @@ module cva6
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
+    parameter bit EccEnable = 1'b0,
     // RVFI
     parameter type rvfi_probes_t = struct packed {
       logic [TRANS_ID_BITS-1:0]                                               issue_pointer;
@@ -750,7 +751,8 @@ module cva6
   ex_stage #(
       .CVA6Cfg   (CVA6ExtendCfg),
       .ASID_WIDTH(ASID_WIDTH),
-      .VMID_WIDTH(VMID_WIDTH)
+      .VMID_WIDTH(VMID_WIDTH),
+      .EccEnable (EccEnable)
   ) ex_stage_i (
       .clk_i(clk_i),
       .rst_ni(rst_uarch_n),

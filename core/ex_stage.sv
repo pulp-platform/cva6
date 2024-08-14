@@ -20,7 +20,8 @@ module ex_stage
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned ASID_WIDTH = 1,
-    parameter int unsigned VMID_WIDTH = 1
+    parameter int unsigned VMID_WIDTH = 1,
+    parameter bit          EccEnable  = 1'b0
 ) (
     // Subsystem Clock - SUBSYSTEM
     input  logic                                                        clk_i,
@@ -411,7 +412,8 @@ module ex_stage
   load_store_unit #(
       .CVA6Cfg   (CVA6Cfg),
       .ASID_WIDTH(ASID_WIDTH),
-      .VMID_WIDTH(VMID_WIDTH)
+      .VMID_WIDTH(VMID_WIDTH),
+      .EccEnable (EccEnable)
   ) lsu_i (
       .clk_i,
       .rst_ni,

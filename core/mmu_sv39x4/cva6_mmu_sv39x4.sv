@@ -27,7 +27,8 @@ module cva6_mmu_sv39x4
     parameter int unsigned           INSTR_TLB_ENTRIES = 4,
     parameter int unsigned           DATA_TLB_ENTRIES  = 4,
     parameter int unsigned           ASID_WIDTH        = 1,
-    parameter int unsigned           VMID_WIDTH        = 1
+    parameter int unsigned           VMID_WIDTH        = 1,
+    parameter bit                    EccEnable         = 1'b0
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -140,7 +141,8 @@ module cva6_mmu_sv39x4
       .CVA6Cfg    (CVA6Cfg),
       .TLB_ENTRIES(INSTR_TLB_ENTRIES),
       .ASID_WIDTH (ASID_WIDTH),
-      .VMID_WIDTH (VMID_WIDTH)
+      .VMID_WIDTH (VMID_WIDTH),
+      .EccEnable  (EccEnable)
   ) i_itlb (
       .clk_i       (clk_i),
       .rst_ni      (rst_ni),
@@ -175,7 +177,8 @@ module cva6_mmu_sv39x4
       .CVA6Cfg    (CVA6Cfg),
       .TLB_ENTRIES(DATA_TLB_ENTRIES),
       .ASID_WIDTH (ASID_WIDTH),
-      .VMID_WIDTH (VMID_WIDTH)
+      .VMID_WIDTH (VMID_WIDTH),
+      .EccEnable  (EccEnable)
   ) i_dtlb (
       .clk_i       (clk_i),
       .rst_ni      (rst_ni),
