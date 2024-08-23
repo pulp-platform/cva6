@@ -177,6 +177,8 @@ module std_cache_subsystem
   logic [1:0] w_select, w_select_fifo, w_select_arbiter;
   logic [1:0] w_fifo_usage;
   logic w_fifo_empty, w_fifo_full;
+  logic w_fifo_push, w_fifo_pop;
+  logic aw_lock_q, aw_lock_d;
 
 
   // AR Channel
@@ -221,6 +223,15 @@ module std_cache_subsystem
   end
 
   // W Channel
+  assign w_fifo_push = ~aw_lock_q & axi_req_o.aw_valid;
+  assign w_fifo_pop  = axi_req_o.w_valid & axi_resp_i.w_ready & axi_req_o.w.last;
+  assign aw_lock_d   = ~axi_resp_i.aw_ready & (axi_req_o.aw_valid | aw_lock_q);
+
+  always_ff @( posedge clk_i or negedge rst_ni ) begin : aw_lock_reg
+    if (~rst_ni) aw_lock_q <= 1'b0;
+    else         aw_lock_q <= aw_lock_d;
+  end
+
   fifo_v3 #(
       .DATA_WIDTH  (2),
       // we can have a maximum of 4 oustanding transactions as each port is blocking
@@ -236,11 +247,11 @@ module std_cache_subsystem
       .usage_o   (w_fifo_usage),
       .data_i    (w_select),
       // a new transaction was requested and granted
-      .push_i    (axi_req_o.aw_valid & axi_resp_i.aw_ready),
+      .push_i    (w_fifo_push),
       // write ID to select the output MUX
       .data_o    (w_select_fifo),
       // transaction has finished
-      .pop_i     (axi_req_o.w_valid & axi_resp_i.w_ready & axi_req_o.w.last)
+      .pop_i     (w_fifo_pop)
   );
 
   // In fall-through mode, the empty_o will be low when push_i is high (on zero usage).
