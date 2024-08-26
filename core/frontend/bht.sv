@@ -51,12 +51,15 @@ module bht #(
   // we are not interested in all bits of the address
   unread i_unread (.d_i(|vpc_i));
 
-  struct packed {
-    logic       valid;
-    logic [1:0] saturation_counter;
-  }
-      bht_d[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0],
-      bht_q[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0];
+  localparam int unsigned BhtBits = $bits(ariane_pkg::bht_t);
+  localparam int unsigned BhtCorrBits = EccEnable ? $clog2(BhtBits) + 2 : 0;'
+  localparam int unsigned BhtSize = BhtBits + BhtCorrBits;
+
+  logic [BhtSize-1:0] bht_d[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0],
+                      bht_q[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0];
+
+  bht_t bht_update_entry_dec, bht_update_ecc_in, bht_update_ecc_out;
+  bht_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_pred_entry_dec;
 
   logic [$clog2(NR_ROWS)-1:0] index, update_pc;
   logic [ROW_INDEX_BITS-1:0] update_row_index;
@@ -69,36 +72,78 @@ module bht #(
     assign update_row_index = '0;
   end
 
+  if (EccEnable) begin: gen_enc_dec
+    hsiao_ecc_enc #(
+      .DataWidth ( BhtBits ),
+      .ProtWidth ( BhtCorrBits )
+    ) i_ecc_update_enc (
+      .in  ( bht_update_ecc_in  ),
+      .out ( bht_update_ecc_out )
+    );
+
+    hsiao_ecc_dec #(
+      .DataWidth ( BhtBits ),
+      .ProtWidth ( BhtCorrBits )
+    ) i_ecc_update_dec (
+      .in  ( bht_d[update_pc][update_row_index] ),
+      .out ( bht_update_entry_dec ),
+      .syndrome_o (),
+      .err_o      ()      
+    );
+
+    for (genvar i=0; i<ariane_pkg::INSTR_PER_FETCH; i++) begin
+      hsiao_ecc_dec #(
+        .DataWidth ( BhtBits ),
+        .ProtWidth ( BhtCorrBits )
+      ) i_ecc_update_dec (
+        .in  ( bht_q[index][i] ),
+        .out ( bht_pred_entry_dec[i] ),
+        .syndrome_o (),
+        .err_o      ()
+      );
+    end
+  end else begin
+    assign bht_update_entry_dec = bht_d[update_pc][update_row_index];
+    assign bht_update_ecc_out   = bht_update_ecc_in;
+
+    for (genvar i=0; i < ariane_pkg::INSTR_PER_FETCH; i++) begin
+      assign bht_pred_entry_dec[i] = bht_q[index][i];
+    end
+  end
+
   if (!ariane_pkg::FPGA_EN) begin : gen_asic_bht  // ASIC TARGET
 
     logic [1:0] saturation_counter;
     // prediction assignment
     for (genvar i = 0; i < ariane_pkg::INSTR_PER_FETCH; i++) begin : gen_bht_output
-      assign bht_prediction_o[i].valid = bht_q[index][i].valid;
-      assign bht_prediction_o[i].taken = bht_q[index][i].saturation_counter[1] == 1'b1;
+      assign bht_prediction_o[i].valid = bht_pred_entry_dec[i].valid;
+      assign bht_prediction_o[i].taken = bht_pred_entry_dec[i].saturation_counter[1] == 1'b1;
     end
 
     always_comb begin : update_bht
       bht_d = bht_q;
-      saturation_counter = bht_q[update_pc][update_row_index].saturation_counter;
+      saturation_counter = bht_update_entry_dec.saturation_counter;
+      bht_update_ecc_in = '0;
 
       if ((bht_update_i.valid && CVA6Cfg.DebugEn && !debug_mode_i) || (bht_update_i.valid && !CVA6Cfg.DebugEn)) begin
-        bht_d[update_pc][update_row_index].valid = 1'b1;
+        bht_update_ecc_in.valid = 1'b1;
 
         if (saturation_counter == 2'b11) begin
           // we can safely decrease it
           if (!bht_update_i.taken)
-            bht_d[update_pc][update_row_index].saturation_counter = saturation_counter - 1;
+            bht_update_ecc_in.saturation_counter = saturation_counter - 1;
           // then check if it saturated in the negative regime e.g.: branch not taken
         end else if (saturation_counter == 2'b00) begin
           // we can safely increase it
           if (bht_update_i.taken)
-            bht_d[update_pc][update_row_index].saturation_counter = saturation_counter + 1;
+            bht_update_ecc_in.saturation_counter = saturation_counter + 1;
         end else begin  // otherwise we are not in any boundaries and can decrease or increase it
           if (bht_update_i.taken)
-            bht_d[update_pc][update_row_index].saturation_counter = saturation_counter + 1;
-          else bht_d[update_pc][update_row_index].saturation_counter = saturation_counter - 1;
+            bht_update_ecc_in.saturation_counter = saturation_counter + 1;
+          else bht_update_ecc_in.saturation_counter = saturation_counter - 1;
         end
+
+        bht_d[update_pc][update_row_index] = bht_update_ecc_out;
       end
     end
 
@@ -110,24 +155,14 @@ module bht #(
           end
         end
       end else begin
-        if (clear_i) begin
+        if (clear_i || flush_i) begin
           for (int unsigned i = 0; i < NR_ROWS; i++) begin
             for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
               bht_q[i][j] <= '0;
             end
           end
         end else begin
-          // evict all entries
-          if (flush_i) begin
-            for (int i = 0; i < NR_ROWS; i++) begin
-              for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
-                bht_q[i][j].valid <= 1'b0;
-                bht_q[i][j].saturation_counter <= 2'b10;
-              end
-            end
-          end else begin
-            bht_q <= bht_d;
-          end
+          bht_q <= bht_d;
         end
       end
     end
