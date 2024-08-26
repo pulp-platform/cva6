@@ -532,7 +532,8 @@ module cva6
   // Frontend
   // --------------
   frontend #(
-      .CVA6Cfg(CVA6ExtendCfg)
+      .CVA6Cfg(CVA6ExtendCfg),
+      .EccEnable(EccEnable)
   ) i_frontend (
       .rst_ni             (rst_uarch_n),
       .clear_i            (clear_i),

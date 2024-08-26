@@ -20,7 +20,8 @@
 
 module bht #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter int unsigned NR_ENTRIES = 1024
+    parameter int unsigned NR_ENTRIES = 1024,
+    parameter bit          EccEnable = 1'b0
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -52,14 +53,14 @@ module bht #(
   unread i_unread (.d_i(|vpc_i));
 
   localparam int unsigned BhtBits = $bits(ariane_pkg::bht_t);
-  localparam int unsigned BhtCorrBits = EccEnable ? $clog2(BhtBits) + 2 : 0;'
+  localparam int unsigned BhtCorrBits = EccEnable ? $clog2(BhtBits) + 2 : 0;
   localparam int unsigned BhtSize = BhtBits + BhtCorrBits;
 
   logic [BhtSize-1:0] bht_d[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0],
                       bht_q[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0];
 
-  bht_t bht_update_entry_dec, bht_update_ecc_in, bht_update_ecc_out;
-  bht_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_pred_entry_dec;
+  ariane_pkg::bht_t bht_update_entry_dec, bht_update_ecc_in, bht_update_ecc_out;
+  ariane_pkg::bht_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_pred_entry_dec;
 
   logic [$clog2(NR_ROWS)-1:0] index, update_pc;
   logic [ROW_INDEX_BITS-1:0] update_row_index;
