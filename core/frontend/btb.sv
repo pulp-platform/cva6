@@ -27,7 +27,8 @@
 // branch target buffer
 module btb #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter int NR_ENTRIES = 8
+    parameter int NR_ENTRIES = 8,
+    parameter bit EccEnable = 1'b0
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -59,6 +60,11 @@ module btb #(
   localparam ANTIALIAS_BITS = 8;
   // number of bits par word in the bram
   localparam BRAM_WORD_BITS = $bits(ariane_pkg::btb_prediction_t);
+  // Ecc parameters
+  localparam int unsigned BtbBits = $bits(ariane_pkg::btb_update_t);
+  localparam int unsigned BtbCorrBits = EccEnable ? $clog2(BtbBits) + 2 : 0;
+  localparam int unsigned BtbSize = BtbBits + BtbCorrBits;
+
   // we are not interested in all bits of the address
   unread i_unread (.d_i(|vpc_i));
 
@@ -145,16 +151,47 @@ module btb #(
     end
 
   end else begin : gen_asic_btb  // ASIC TARGET
-
     // typedef for all branch target entries
     // we may want to try to put a tag field that fills the rest of the PC in-order to mitigate aliasing effects
-    ariane_pkg::btb_prediction_t
+    logic [BtbSize-1:0]
         btb_d[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0],
         btb_q[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0];
 
+    ariane_pkg::btb_update_t btb_update_ecc_in;
+    logic [BtbSize-1:0] btb_update_ecc_out;
+    ariane_pkg::btb_update_t [ariane_pkg::INSTR_PER_FETCH-1:0] btb_pred_entry_dec;
+
+
+    if (EccEnable) begin: gen_enc_dec
+      hsiao_ecc_enc #(
+        .DataWidth ( BtbBits ),
+        .ProtWidth ( BtbCorrBits )
+      ) i_ecc_update_enc (
+        .in  ( btb_update_ecc_in  ),
+        .out ( btb_update_ecc_out )
+      );
+
+      for (genvar i=0; i<ariane_pkg::INSTR_PER_FETCH; i++) begin
+        hsiao_ecc_dec #(
+          .DataWidth ( BtbBits ),
+          .ProtWidth ( BtbCorrBits )
+        ) i_ecc_pred_dec (
+          .in  ( btb_q[index][i] ),
+          .out ( btb_pred_entry_dec[i] ),
+          .syndrome_o (),
+          .err_o      ()
+        );
+      end
+    end else begin
+      assign btb_update_ecc_out = btb_update_ecc_in;
+      for (genvar i=0; i<ariane_pkg::INSTR_PER_FETCH; i++) begin
+        assign btb_pred_entry_dec[i] = btb_q[index][i];
+      end
+    end
+
     // output matching prediction
     for (genvar i = 0; i < ariane_pkg::INSTR_PER_FETCH; i++) begin : gen_btb_output
-      assign btb_prediction_o[i] = btb_q[index][i];  // workaround
+      assign btb_prediction_o[i] = btb_pred_entry_dec[i];  // workaround
     end
 
     // -------------------------
@@ -163,11 +200,14 @@ module btb #(
     // update on a mis-predict
     always_comb begin : update_branch_predict
       btb_d = btb_q;
+      btb_update_ecc_in = '0;
 
       if (btb_update_i.valid && !debug_mode_i) begin
-        btb_d[update_pc][update_row_index].valid = 1'b1;
+        btb_update_ecc_in.valid = 1'b1;
         // the target address is simply updated
-        btb_d[update_pc][update_row_index].target_address = btb_update_i.target_address;
+        btb_update_ecc_in.target_address = btb_update_i.target_address;
+
+        btb_d[update_pc][update_row_index] = btb_update_ecc_out;
       end
     end
 
@@ -177,19 +217,10 @@ module btb #(
         // Bias the branches to be taken upon first arrival
         for (int i = 0; i < NR_ROWS; i++) btb_q[i] <= '{default: 0};
       end else begin
-        if (clear_i) begin
+        if (clear_i | flush_i) begin
           for (int i = 0; i < NR_ROWS; i++) btb_q[i] <= '{default: 0};
         end else begin
-          // evict all entries
-          if (flush_i | clear_i) begin
-            for (int i = 0; i < NR_ROWS; i++) begin
-              for (int j = 0; j < ariane_pkg::INSTR_PER_FETCH; j++) begin
-                btb_q[i][j].valid <= 1'b0;
-              end
-            end
-          end else begin
-            btb_q <= btb_d;
-          end
+          btb_q <= btb_d;
         end
       end
     end

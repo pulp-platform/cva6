@@ -458,7 +458,8 @@ module frontend
   end else begin : ras_gen
     ras #(
         .CVA6Cfg(CVA6Cfg),
-        .DEPTH  (CVA6Cfg.RASDepth)
+        .DEPTH  (CVA6Cfg.RASDepth),
+        .EccEnable (EccEnable)
     ) i_ras (
         .clk_i,
         .rst_ni,
@@ -481,7 +482,8 @@ module frontend
   end else begin : btb_gen
     btb #(
         .CVA6Cfg   (CVA6Cfg),
-        .NR_ENTRIES(CVA6Cfg.BTBEntries)
+        .NR_ENTRIES(CVA6Cfg.BTBEntries),
+        .EccEnable (EccEnable)
     ) i_btb (
         .clk_i,
         .rst_ni,

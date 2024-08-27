@@ -59,7 +59,8 @@ module bht #(
   logic [BhtSize-1:0] bht_d[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0],
                       bht_q[NR_ROWS-1:0][ariane_pkg::INSTR_PER_FETCH-1:0];
 
-  ariane_pkg::bht_t bht_update_entry_dec, bht_update_ecc_in, bht_update_ecc_out;
+  ariane_pkg::bht_t bht_update_entry_dec, bht_update_ecc_in;
+  logic [BhtSize-1:0] bht_update_ecc_out;
   ariane_pkg::bht_t [ariane_pkg::INSTR_PER_FETCH-1:0] bht_pred_entry_dec;
 
   logic [$clog2(NR_ROWS)-1:0] index, update_pc;
@@ -86,7 +87,7 @@ module bht #(
       .DataWidth ( BhtBits ),
       .ProtWidth ( BhtCorrBits )
     ) i_ecc_update_dec (
-      .in  ( bht_d[update_pc][update_row_index] ),
+      .in  ( bht_q[update_pc][update_row_index] ),
       .out ( bht_update_entry_dec ),
       .syndrome_o (),
       .err_o      ()      
@@ -96,7 +97,7 @@ module bht #(
       hsiao_ecc_dec #(
         .DataWidth ( BhtBits ),
         .ProtWidth ( BhtCorrBits )
-      ) i_ecc_update_dec (
+      ) i_ecc_pred_dec (
         .in  ( bht_q[index][i] ),
         .out ( bht_pred_entry_dec[i] ),
         .syndrome_o (),
@@ -104,7 +105,7 @@ module bht #(
       );
     end
   end else begin
-    assign bht_update_entry_dec = bht_d[update_pc][update_row_index];
+    assign bht_update_entry_dec = bht_q[update_pc][update_row_index];
     assign bht_update_ecc_out   = bht_update_ecc_in;
 
     for (genvar i=0; i < ariane_pkg::INSTR_PER_FETCH; i++) begin
