@@ -499,7 +499,8 @@ module frontend
   end else begin : bht_gen
     bht #(
         .CVA6Cfg   (CVA6Cfg),
-        .NR_ENTRIES(CVA6Cfg.BHTEntries)
+        .NR_ENTRIES(CVA6Cfg.BHTEntries),
+        .EccEnable (EccEnable)
     ) i_bht (
         .clk_i,
         .rst_ni,
