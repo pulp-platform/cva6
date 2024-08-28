@@ -77,6 +77,11 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigRvfiTrace = 0;
 
+`ifdef SPLIT
+  localparam RedSplitSize = `SPLIT;
+`else
+  localparam RedSplitSize = 0;
+`endif
   localparam config_pkg::cva6_cfg_t cva6_cfg = '{
       NrCommitPorts: unsigned'(CVA6ConfigNrCommitPorts),
       AxiAddrWidth: unsigned'(CVA6ConfigAxiAddrWidth),
