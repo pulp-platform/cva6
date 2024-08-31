@@ -123,8 +123,11 @@ module cva6
     input logic [riscv::VLEN-1:0] boot_addr_i,
     // Hard ID reflected as CSR - SUBSYSTEM
     input logic [riscv::XLEN-1:0] hart_id_i,
+    // IMSIC
+    output imsic_pkg::csr_channel_to_imsic_t      imsic_csr_o, 
+    input  imsic_pkg::csr_channel_from_imsic_t    imsic_csr_i,
     // Level sensitive (async) interrupts - SUBSYSTEM
-    input logic [1:0] irq_i,
+    input  logic [ariane_pkg::NrIntpFiles-1:0] irq_i,
     // Inter-processor (async) interrupt - SUBSYSTEM
     input logic ipi_i,
     // Timer (async) interrupt - SUBSYSTEM
@@ -443,6 +446,9 @@ module cva6
   riscv::pmpcfg_t [15:0] pmpcfg;
   logic [15:0][riscv::PLEN-3:0] pmpaddr;
   logic [31:0] mcountinhibit_csr_perf;
+  logic [riscv::XLEN-1:0]   mtopi;
+  logic [riscv::XLEN-1:0]   stopi;
+  logic [riscv::XLEN-1:0]   vstopi;
   // ----------------------------
   // Performance Counters <-> *
   // ----------------------------
@@ -602,7 +608,10 @@ module cva6
       .tw_i            (tw_csr_id),
       .vtw_i           (vtw_csr_id),
       .tsr_i           (tsr_csr_id),
-      .hu_i            (hu)
+      .hu_i            (hu),
+      .mtopi_o         (mtopi),
+      .stopi_o         (stopi),
+      .vstopi_o        (vstopi)
   );
 
   logic [NrWbPorts-1:0][TRANS_ID_BITS-1:0] trans_id_ex_id;
@@ -954,6 +963,9 @@ module cva6
       .frm_o                   (frm_csr_id_issue_ex),
       .fprec_o                 (fprec_csr_ex),
       .vs_o                    (vs),
+      .mtopi_i                 (mtopi),
+      .stopi_i                 (stopi),
+      .vstopi_i                (vstopi),
       .irq_ctrl_o              (irq_ctrl_csr_id),
       .clic_mode_o             (clic_mode),
       .mintstatus_o            (mintstatus_csr),
