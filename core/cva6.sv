@@ -20,11 +20,7 @@ module cva6
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
-`ifdef ECC_EN
     parameter bit EccEnable = 1'b1,
-`else
-    parameter bit EccEnable = 1'b0,
-`endif
     // RVFI
     parameter type rvfi_probes_t = struct packed {
       logic [TRANS_ID_BITS-1:0]                                               issue_pointer;

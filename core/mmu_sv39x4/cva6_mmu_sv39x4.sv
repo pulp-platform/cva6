@@ -137,247 +137,78 @@ module cva6_mmu_sv39x4
   assign dtlb_lu_asid   = (ld_st_v_i || flush_tlb_vvma_i) ? vs_asid_i : asid_i;
 
 
-  if (EccEnable) begin
-    localparam TLB_SIZE = 3 + $bits(riscv::pte_t) + $bits(riscv::pte_t) + $bits(riscv::GPLEN);
-    localparam LOG2_TLB = $clog2(TLB_SIZE);
-    localparam TLB_BUS_SIZE = 2**LOG2_TLB;
-    localparam BUS_SPLIT_SIZE = TLB_BUS_SIZE/(2**cva6_config_pkg::RedSplitSize);
+  cva6_tlb_sv39x4 #(
+      .CVA6Cfg    (CVA6Cfg),
+      .TLB_ENTRIES(INSTR_TLB_ENTRIES),
+      .ASID_WIDTH (ASID_WIDTH),
+      .VMID_WIDTH (VMID_WIDTH),
+      .EccEnable  (EccEnable)
+  ) i_itlb (
+      .clk_i       (clk_i),
+      .rst_ni      (rst_ni),
+      .clear_i     (clear_i),
+      .flush_i     (flush_tlb_i),
+      .flush_vvma_i(flush_tlb_vvma_i),
+      .flush_gvma_i(flush_tlb_gvma_i),
+      .s_st_enbl_i (enable_translation_i),
+      .g_st_enbl_i (enable_g_translation_i),
+      .v_i         (v_i),
 
-    typedef struct packed {
-      logic tlb_is_2M;
-      logic tlb_is_1G;
-      logic tlb_lu_hit;
-      riscv::pte_t tlb_g_content;
-      riscv::pte_t tlb_content;
-      logic [riscv::GPLEN-1:0] tlb_gpaddr;
-      logic [TLB_BUS_SIZE-TLB_SIZE-1:0] padding;
-    } tlb_bus_t;
+      .update_i(update_ptw_itlb),
 
+      .lu_access_i           (itlb_lu_access),
+      .lu_asid_i             (itlb_lu_asid),
+      .lu_vmid_i             (vmid_i),
+      .asid_to_be_flushed_i  (asid_to_be_flushed_i),
+      .vmid_to_be_flushed_i  (vmid_to_be_flushed_i),
+      .vaddr_to_be_flushed_i (vaddr_to_be_flushed_i),
+      .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
+      .lu_vaddr_i            (icache_areq_i.fetch_vaddr),
+      .lu_content_o          (itlb_content),
+      .lu_g_content_o        (itlb_g_content),
+      .lu_gpaddr_o           (itlb_gpaddr),
 
-    logic [2:0]   red_itlb_is_2M;
-    logic [2:0]   red_itlb_is_1G;
-    logic [2:0]   red_itlb_lu_hit;
-    riscv::pte_t  [2:0]  red_itlb_g_content;
-    riscv::pte_t  [2:0]  red_itlb_content;
-    logic [2:0][riscv::GPLEN-1:0] red_itlb_gpaddr;
-    tlb_bus_t [2:0] itlb_bus;
-    logic [TLB_BUS_SIZE-1:0] itlb_majority_helper;
-    tlb_bus_t itlb_majority;
+      .lu_is_2M_o(itlb_is_2M),
+      .lu_is_1G_o(itlb_is_1G),
+      .lu_hit_o  (itlb_lu_hit)
+  );
 
-    logic [2:0] red_dtlb_is_2M;
-    logic [2:0] red_dtlb_is_1G;
-    logic [2:0] red_dtlb_lu_hit;
-    riscv::pte_t [2:0] red_dtlb_content;
-    riscv::pte_t [2:0] red_dtlb_g_content;
-    logic [2:0][riscv::GPLEN-1:0] red_dtlb_gpaddr;
-    tlb_bus_t [2:0] dtlb_bus;
-    logic [TLB_BUS_SIZE-1:0] dtlb_majority_helper;
-    tlb_bus_t dtlb_majority;
+  cva6_tlb_sv39x4 #(
+      .CVA6Cfg    (CVA6Cfg),
+      .TLB_ENTRIES(DATA_TLB_ENTRIES),
+      .ASID_WIDTH (ASID_WIDTH),
+      .VMID_WIDTH (VMID_WIDTH),
+      .EccEnable  (EccEnable)
+  ) i_dtlb (
+      .clk_i       (clk_i),
+      .rst_ni      (rst_ni),
+      .clear_i     (clear_i),
+      .flush_i     (flush_tlb_i),
+      .flush_vvma_i(flush_tlb_vvma_i),
+      .flush_gvma_i(flush_tlb_gvma_i),
+      .s_st_enbl_i (en_ld_st_translation_i),
+      .g_st_enbl_i (en_ld_st_g_translation_i),
+      .v_i         (ld_st_v_i),
 
-    for (genvar i=0; i<3; i++) begin: gen_redundancy_bus
-      assign itlb_bus[i] = '{
-                             padding: '0,
-                             tlb_is_2M: red_itlb_is_2M[i],
-                             tlb_is_1G: red_itlb_is_1G[i],
-                             tlb_lu_hit: red_itlb_lu_hit[i], 
-                             tlb_g_content: red_itlb_g_content[i],
-                             tlb_content: red_itlb_content[i],
-                             tlb_gpaddr: red_itlb_gpaddr[i]
-                            };
+      .update_i(update_ptw_dtlb),
 
-      assign dtlb_bus[i] = '{
-                             padding: '0,
-                             tlb_is_2M: red_dtlb_is_2M[i],
-                             tlb_is_1G: red_dtlb_is_1G[i],
-                             tlb_lu_hit: red_dtlb_lu_hit[i], 
-                             tlb_g_content: red_dtlb_g_content[i],
-                             tlb_content: red_dtlb_content[i],
-                             tlb_gpaddr: red_dtlb_gpaddr[i]
-                            };
-    end
+      .lu_access_i           (dtlb_lu_access),
+      .lu_asid_i             (dtlb_lu_asid),
+      .lu_vmid_i             (vmid_i),
+      .asid_to_be_flushed_i  (asid_to_be_flushed_i),
+      .vmid_to_be_flushed_i  (vmid_to_be_flushed_i),
+      .vaddr_to_be_flushed_i (vaddr_to_be_flushed_i),
+      .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
+      .lu_vaddr_i            (lsu_vaddr_i),
+      .lu_content_o          (dtlb_content),
+      .lu_g_content_o        (dtlb_g_content),
+      .lu_gpaddr_o           (dtlb_gpaddr),
 
-    for (genvar i=0; i<3; i++) begin: gen_redundancy_tlb
-      cva6_tlb_sv39x4 #(
-          .CVA6Cfg    (CVA6Cfg),
-          .TLB_ENTRIES(INSTR_TLB_ENTRIES),
-          .ASID_WIDTH (ASID_WIDTH),
-          .VMID_WIDTH (VMID_WIDTH)
-      ) i_itlb (
-          .clk_i       (clk_i),
-          .rst_ni      (rst_ni),
-          .flush_i     (flush_tlb_i),
-          .flush_vvma_i(flush_tlb_vvma_i),
-          .flush_gvma_i(flush_tlb_gvma_i),
-          .s_st_enbl_i (enable_translation_i),
-          .g_st_enbl_i (enable_g_translation_i),
-          .v_i         (v_i),
+      .lu_is_2M_o(dtlb_is_2M),
+      .lu_is_1G_o(dtlb_is_1G),
+      .lu_hit_o  (dtlb_lu_hit)
+  );
 
-          .update_i(update_ptw_itlb),
-
-          .lu_access_i           (itlb_lu_access),
-          .lu_asid_i             (itlb_lu_asid),
-          .lu_vmid_i             (vmid_i),
-          .asid_to_be_flushed_i  (asid_to_be_flushed_i),
-          .vmid_to_be_flushed_i  (vmid_to_be_flushed_i),
-          .vaddr_to_be_flushed_i (vaddr_to_be_flushed_i),
-          .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
-          .lu_vaddr_i            (icache_areq_i.fetch_vaddr),
-          .lu_content_o          (red_itlb_content[i]),
-          .lu_g_content_o        (red_itlb_g_content[i]),
-          .lu_gpaddr_o           (red_itlb_gpaddr[i]),
-
-          .lu_is_2M_o(red_itlb_is_2M[i]),
-          .lu_is_1G_o(red_itlb_is_1G[i]),
-          .lu_hit_o  (red_itlb_lu_hit[i])
-      );
-
-      cva6_tlb_sv39x4 #(
-          .CVA6Cfg    (CVA6Cfg),
-          .TLB_ENTRIES(DATA_TLB_ENTRIES),
-          .ASID_WIDTH (ASID_WIDTH),
-          .VMID_WIDTH (VMID_WIDTH)
-      ) i_dtlb (
-          .clk_i       (clk_i),
-          .rst_ni      (rst_ni),
-          .flush_i     (flush_tlb_i),
-          .flush_vvma_i(flush_tlb_vvma_i),
-          .flush_gvma_i(flush_tlb_gvma_i),
-          .s_st_enbl_i (en_ld_st_translation_i),
-          .g_st_enbl_i (en_ld_st_g_translation_i),
-          .v_i         (ld_st_v_i),
-
-          .update_i(update_ptw_dtlb),
-
-          .lu_access_i           (dtlb_lu_access),
-          .lu_asid_i             (dtlb_lu_asid),
-          .lu_vmid_i             (vmid_i),
-          .asid_to_be_flushed_i  (asid_to_be_flushed_i),
-          .vmid_to_be_flushed_i  (vmid_to_be_flushed_i),
-          .vaddr_to_be_flushed_i (vaddr_to_be_flushed_i),
-          .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
-          .lu_vaddr_i            (lsu_vaddr_i),
-          .lu_content_o          (red_dtlb_content[i]),
-          .lu_g_content_o        (red_dtlb_g_content[i]),
-          .lu_gpaddr_o           (red_dtlb_gpaddr[i]),
-
-          .lu_is_2M_o(red_dtlb_is_2M[i]),
-          .lu_is_1G_o(red_dtlb_is_1G[i]),
-          .lu_hit_o  (red_dtlb_lu_hit[i])
-      );
-    end
-
-    for (genvar i=0; i<2**cva6_config_pkg::RedSplitSize; i++) begin: gen_word_voter
-      logic [BUS_SPLIT_SIZE-1:0] itlb_helper, dtlb_helper;
-
-      TMR_word_voter #(
-        .DataWidth  (BUS_SPLIT_SIZE)
-      ) i_TMR_word_voter_itlb (
-          .a_i  (itlb_bus[0][BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .b_i  (itlb_bus[1][BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .c_i  (itlb_bus[2][BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .majority_o   (itlb_majority_helper[BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .error_o      (),
-          .error_cba_o  ()
-      );
-
-      TMR_word_voter #(
-        .DataWidth  (BUS_SPLIT_SIZE)
-      ) i_TMR_word_voter_dtlb (
-          .a_i  (dtlb_bus[0][BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .b_i  (dtlb_bus[1][BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .c_i  (dtlb_bus[2][BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .majority_o   (dtlb_majority_helper[BUS_SPLIT_SIZE*(i+1) - 1 : BUS_SPLIT_SIZE*i]),
-          .error_o      (),
-          .error_cba_o  ()
-      );
-    end
-    
-    assign itlb_majority  = tlb_bus_t'(itlb_majority_helper);
-    assign itlb_content   = itlb_majority.tlb_content;
-    assign itlb_g_content = itlb_majority.tlb_g_content; 
-    assign itlb_gpaddr    = itlb_majority.tlb_gpaddr;
-    assign itlb_is_2M     = itlb_majority.tlb_is_2M;
-    assign itlb_is_1G     = itlb_majority.tlb_is_1G;
-    assign itlb_lu_hit    = itlb_majority.tlb_lu_hit;
-
-    assign dtlb_majority  = tlb_bus_t'(dtlb_majority_helper);
-    assign dtlb_content   = dtlb_majority.tlb_content;
-    assign dtlb_g_content = dtlb_majority.tlb_g_content; 
-    assign dtlb_gpaddr    = dtlb_majority.tlb_gpaddr;
-    assign dtlb_is_2M     = dtlb_majority.tlb_is_2M;
-    assign dtlb_is_1G     = dtlb_majority.tlb_is_1G;
-    assign dtlb_lu_hit    = dtlb_majority.tlb_lu_hit;
-  end else begin
-    cva6_tlb_sv39x4 #(
-        .CVA6Cfg    (CVA6Cfg),
-        .TLB_ENTRIES(INSTR_TLB_ENTRIES),
-        .ASID_WIDTH (ASID_WIDTH),
-        .VMID_WIDTH (VMID_WIDTH)
-    ) i_itlb (
-        .clk_i       (clk_i),
-        .rst_ni      (rst_ni),
-        .clear_i     (clear_i),
-        .flush_i     (flush_tlb_i),
-        .flush_vvma_i(flush_tlb_vvma_i),
-        .flush_gvma_i(flush_tlb_gvma_i),
-        .s_st_enbl_i (enable_translation_i),
-        .g_st_enbl_i (enable_g_translation_i),
-        .v_i         (v_i),
-
-        .update_i(update_ptw_itlb),
-
-        .lu_access_i           (itlb_lu_access),
-        .lu_asid_i             (itlb_lu_asid),
-        .lu_vmid_i             (vmid_i),
-        .asid_to_be_flushed_i  (asid_to_be_flushed_i),
-        .vmid_to_be_flushed_i  (vmid_to_be_flushed_i),
-        .vaddr_to_be_flushed_i (vaddr_to_be_flushed_i),
-        .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
-        .lu_vaddr_i            (icache_areq_i.fetch_vaddr),
-        .lu_content_o          (itlb_content),
-        .lu_g_content_o        (itlb_g_content),
-        .lu_gpaddr_o           (itlb_gpaddr),
-
-        .lu_is_2M_o(itlb_is_2M),
-        .lu_is_1G_o(itlb_is_1G),
-        .lu_hit_o  (itlb_lu_hit)
-    );
-
-    cva6_tlb_sv39x4 #(
-        .CVA6Cfg    (CVA6Cfg),
-        .TLB_ENTRIES(DATA_TLB_ENTRIES),
-        .ASID_WIDTH (ASID_WIDTH),
-        .VMID_WIDTH (VMID_WIDTH)
-    ) i_dtlb (
-        .clk_i       (clk_i),
-        .rst_ni      (rst_ni),
-        .clear_i     (clear_i),
-        .flush_i     (flush_tlb_i),
-        .flush_vvma_i(flush_tlb_vvma_i),
-        .flush_gvma_i(flush_tlb_gvma_i),
-        .s_st_enbl_i (en_ld_st_translation_i),
-        .g_st_enbl_i (en_ld_st_g_translation_i),
-        .v_i         (ld_st_v_i),
-
-        .update_i(update_ptw_dtlb),
-
-        .lu_access_i           (dtlb_lu_access),
-        .lu_asid_i             (dtlb_lu_asid),
-        .lu_vmid_i             (vmid_i),
-        .asid_to_be_flushed_i  (asid_to_be_flushed_i),
-        .vmid_to_be_flushed_i  (vmid_to_be_flushed_i),
-        .vaddr_to_be_flushed_i (vaddr_to_be_flushed_i),
-        .gpaddr_to_be_flushed_i(gpaddr_to_be_flushed_i),
-        .lu_vaddr_i            (lsu_vaddr_i),
-        .lu_content_o          (dtlb_content),
-        .lu_g_content_o        (dtlb_g_content),
-        .lu_gpaddr_o           (dtlb_gpaddr),
-
-        .lu_is_2M_o(dtlb_is_2M),
-        .lu_is_1G_o(dtlb_is_1G),
-        .lu_hit_o  (dtlb_lu_hit)
-    );
-  end
 
   cva6_ptw_sv39x4 #(
       .CVA6Cfg   (CVA6Cfg),
