@@ -95,8 +95,8 @@ module axi_adapter #(
 
   assign any_outstanding_aw = outstanding_aw_cnt_q != '0;
 
-  // Busy if we're not idle
-  assign busy_o = state_q != IDLE;
+  // Busy if we're not idle or have outstanding writes
+  assign busy_o = (state_q != IDLE) || any_outstanding_aw;
 
   always_comb begin : axi_fsm
     // Default assignments
