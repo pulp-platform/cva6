@@ -78,6 +78,8 @@ package config_pkg;
     bit                          ZiCondExtEn;
     // CLIC extension
     bit                          RVSCLIC;
+    // CLIC virtualization extension (vCLIC)
+    bit                          RVVCLIC;
     // Single precision FP RISC-V extension
     bit                          RVF;
     // Double precision FP RISC-V extension
@@ -178,6 +180,7 @@ package config_pkg;
     assert (Cfg.NrExecuteRegionRules <= NrMaxRules);
     assert (Cfg.NrCachedRegionRules <= NrMaxRules);
     assert (Cfg.NrPMPEntries <= 16);
+    assert (!(Cfg.RVVCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
 `endif
     // pragma translate_on
   endfunction

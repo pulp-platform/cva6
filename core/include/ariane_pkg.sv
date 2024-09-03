@@ -149,6 +149,7 @@ package ariane_pkg;
                                                     | riscv::HSTATUS_SPV
                                                     | riscv::HSTATUS_SPVP
                                                     | riscv::HSTATUS_HU
+                                                    | riscv::HSTATUS_VGEIN
                                                     | riscv::HSTATUS_VTVM
                                                     | riscv::HSTATUS_VTW
                                                     | riscv::HSTATUS_VTSR;
@@ -156,7 +157,8 @@ package ariane_pkg;
   // hypervisor delegable interrupts
   localparam logic [riscv::XLEN-1:0] HS_DELEG_INTERRUPTS = riscv::MIP_VSSIP
                                                     | riscv::MIP_VSTIP
-                                                    | riscv::MIP_VSEIP;
+                                                    | riscv::MIP_VSEIP
+                                                    | riscv::MIP_SGEIP;
   // virtual supervisor delegable interrupts
   localparam logic [riscv::XLEN-1:0] VS_DELEG_INTERRUPTS = riscv::MIP_VSSIP
                                                     | riscv::MIP_VSTIP
@@ -288,6 +290,8 @@ package ariane_pkg;
     riscv::xlen_t mip;
     riscv::xlen_t mideleg;
     riscv::xlen_t hideleg;
+    riscv::xlen_t hgeie;          // Hypervisor Guest External Interrupt Enable (HGEIE) register
+    logic [5:0]   vgein;          // Virtual Guest external interrupt number (HSTATUS register)
     logic         sie;
     logic         global_enable;
   } irq_ctrl_t;

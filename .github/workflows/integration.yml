@@ -20,6 +20,6 @@ jobs:
           ip-name: cva6
           org: pulp-platform
           repo: cheshire
-          base-ref: cva6/pulp-v1.0.0-rel
+          base-ref: ez/vclic
           token: ${{ secrets.CHESHIRE_TOKEN }}
           lifetime: 14
