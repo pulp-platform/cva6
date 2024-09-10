@@ -18,7 +18,7 @@ module cva6_hpdcache_subsystem
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int NumPorts = 4,
-    parameter int NrHwPrefetchers = 4,
+    parameter int NrHwPrefetchers = 1,
     // AXI types
     parameter type axi_ar_chan_t = logic,
     parameter type axi_aw_chan_t = logic,
@@ -167,6 +167,9 @@ module cva6_hpdcache_subsystem
   logic                                   [                2:0] snoop_abort;
   hpdcache_pkg::hpdcache_req_offset_t     [                2:0] snoop_addr_offset;
   hpdcache_pkg::hpdcache_tag_t            [                2:0] snoop_addr_tag;
+  hpdcache_pkg::hpdcache_tag_t            [                2:0] snoop_phys_tag;
+  hpdcache_pkg::hpdcache_pma_t            [                2:0] snoop_virt_pma;
+  hpdcache_pkg::hpdcache_pma_t            [                2:0] snoop_phys_pma;
   logic                                   [                2:0] snoop_phys_indexed;
 
   logic                                                         dcache_cmo_req_is_prefetch;
@@ -308,6 +311,9 @@ module cva6_hpdcache_subsystem
       snoop_abort[0] = dcache_req_abort[1],
       snoop_addr_offset[0] = dcache_req[1].addr_offset,
       snoop_addr_tag[0] = dcache_req_tag[1],
+      snoop_phys_tag[0] = dcache_req[1].addr_tag,
+      snoop_virt_pma[0] = dcache_req_pma[1],
+      snoop_phys_pma[0] = dcache_req[1].pma,
       snoop_phys_indexed[0] = dcache_req[1].phys_indexed;
 
   //  Snoop Store/AMO port
@@ -315,6 +321,9 @@ module cva6_hpdcache_subsystem
       snoop_abort[1] = dcache_req_abort[NumPorts-1],
       snoop_addr_offset[1] = dcache_req[NumPorts-1].addr_offset,
       snoop_addr_tag[1] = dcache_req_tag[NumPorts-1],
+      snoop_phys_tag[1] = dcache_req[NumPorts-1].addr_tag,
+      snoop_virt_pma[1] = dcache_req_pma[NumPorts-1],
+      snoop_phys_pma[1] = dcache_req[NumPorts-1].pma,
       snoop_phys_indexed[1] = dcache_req[NumPorts-1].phys_indexed;
 
 `ifdef HPDCACHE_ENABLE_CMO
@@ -328,12 +337,18 @@ module cva6_hpdcache_subsystem
       snoop_abort[2] = dcache_req_abort[NumPorts],
       snoop_addr_offset[2] = dcache_req[NumPorts].addr_offset,
       snoop_addr_tag[2] = dcache_req_tag[NumPorts],
+      snoop_phys_tag[2] = dcache_req[NumPorts].addr_tag,
+      snoop_virt_pma[2] = dcache_req_pma[NumPorts],
+      snoop_phys_pma[2] = dcache_req[NumPorts].pma,
       snoop_phys_indexed[2] = dcache_req[NumPorts].phys_indexed;
 `else
   assign snoop_valid[2] = 1'b0,
       snoop_abort[2] = 1'b0,
       snoop_addr_offset[2] = '0,
       snoop_addr_tag[2] = '0,
+      snoop_phys_tag[2] = '0,
+      snoop_virt_pma[2] = '0,
+      snoop_phys_pma[2] = '0,
       snoop_phys_indexed[2] = 1'b0;
 `endif
 
@@ -344,7 +359,7 @@ module cva6_hpdcache_subsystem
     end
   endgenerate
 
-  hwpf_stride_wrapper #(
+  hwpf_stride_snoop_wrapper #(
       .NUM_HW_PREFETCH(NrHwPrefetchers),
       .NUM_SNOOP_PORTS(3)
   ) i_hwpf_stride_wrapper (
@@ -366,6 +381,9 @@ module cva6_hpdcache_subsystem
       .snoop_abort_i       (snoop_abort),
       .snoop_addr_offset_i (snoop_addr_offset),
       .snoop_addr_tag_i    (snoop_addr_tag),
+      .snoop_phys_tag_i    (snoop_phys_tag),
+      .snoop_virt_pma_i    (snoop_virt_pma),
+      .snoop_phys_pma_i    (snoop_phys_pma),
       .snoop_phys_indexed_i(snoop_phys_indexed),
 
       .hpdcache_req_sid_i(hpdcache_pkg::hpdcache_req_sid_t'(NumPorts + 1)),
