@@ -675,14 +675,14 @@ module csr_regfile
         riscv::CSR_STOPI:              csr_rdata = (stopi_i == 0) ? '0 : 
                                                     ((stopi_i << 16) | AIA_CSR_DEF_PRIO);
         riscv::CSR_VSISELECT: begin
-            if(!ariane_pkg::RVH) begin
+            if(!CVA6Cfg.RVH) begin
                 read_access_exception = 1'b1;
             end else begin
                 csr_rdata = {{riscv::XLEN-8{1'b0}}, vsiselect_q};
             end
         end
         riscv::CSR_VSIREG: begin
-            if(~ariane_pkg::RVH) begin
+            if(~CVA6Cfg.RVH) begin
                 read_access_exception = 1'b1;
             end else begin
                 case (vsiselect_q) inside
@@ -697,23 +697,23 @@ module csr_regfile
             end
         end
         riscv::CSR_HVIEN: begin
-            if(~ariane_pkg::RVH) read_access_exception = 1'b1;   
+            if(~CVA6Cfg.RVH) read_access_exception = 1'b1;   
             else csr_rdata = '0;
         end
         riscv::CSR_HVICTL: begin
-            if(~ariane_pkg::RVH) read_access_exception = 1'b1;   
+            if(~CVA6Cfg.RVH) read_access_exception = 1'b1;   
             else csr_rdata = '0;
         end
         riscv::CSR_HVIPRIO1: begin
-            if(~ariane_pkg::RVH) read_access_exception = 1'b1;   
+            if(~CVA6Cfg.RVH) read_access_exception = 1'b1;   
             else csr_rdata = '0;
         end
         riscv::CSR_HVIPRIO2: begin
-            if(~ariane_pkg::RVH) read_access_exception = 1'b1;   
+            if(~CVA6Cfg.RVH) read_access_exception = 1'b1;   
             else csr_rdata = '0;
         end
         riscv::CSR_VSTOPEI: begin
-            if(~ariane_pkg::RVH) read_access_exception = 1'b1;   
+            if(~CVA6Cfg.RVH) read_access_exception = 1'b1;   
             else begin
                 /** We should check the value of hstatus_q.vgein[ariane_pkg::NrVSIntpFilesW:0]*/
                 csr_rdata = ((imsic_csr_i.xtopei[ariane_pkg::S_FILE + hstatus_q.vgein[ariane_pkg::NrVSIntpFilesW:0]] << 16) 
@@ -721,7 +721,7 @@ module csr_regfile
             end
         end
         riscv::CSR_VSTOPI: begin
-            if(~ariane_pkg::RVH) read_access_exception = 1'b1;   
+            if(~CVA6Cfg.RVH) read_access_exception = 1'b1;   
             else begin
                 csr_rdata = (vstopi_i == 0) ? '0 : 
                             (((vstopi_i-1) << 16) | AIA_CSR_DEF_PRIO);
@@ -1646,14 +1646,14 @@ module csr_regfile
             imsic_csr_o.imsic_claim       = 1'b1;
         end
         riscv::CSR_VSISELECT: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 vsiselect_d = csr_wdata[7:0];
             end
         end
         riscv::CSR_VSIREG: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 case (vsiselect_q) inside
@@ -1669,35 +1669,35 @@ module csr_regfile
             end
         end
         riscv::CSR_HVIEN: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 /** Do nothing, not supported yet */
             end
         end
         riscv::CSR_HVICTL: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 /** Do nothing, not supported yet */
             end
         end
         riscv::CSR_HVIPRIO1: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 /** Do nothing, not supported yet */
             end
         end
         riscv::CSR_HVIPRIO2: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 /** Do nothing, not supported yet */
             end
         end
         riscv::CSR_VSTOPEI: begin
-            if(~ariane_pkg::RVH) begin 
+            if(~CVA6Cfg.RVH) begin 
                 update_access_exception = 1'b1;
             end else begin
                 wimsic_priv_lvl     = riscv::PRIV_LVL_S;
