@@ -16,8 +16,81 @@
 module cva6
   import ariane_pkg::*;
 #(
+`ifdef TARGET_SYNTHESIS
+    parameter config_pkg::cva6_cfg_t CVA6Cfg = '{
+      NrCommitPorts: 2,
+      AxiAddrWidth: 48,
+      AxiDataWidth: 64,
+      AxiIdWidth: 4,
+      AxiUserWidth: 2,
+      NrLoadBufEntries: 2,
+      FpuEn: 1,
+      XF16: 0,
+      XF16ALT: 0,
+      XF8: 0,
+      XF8ALT: 0,
+      RVA: 1,
+      RVB: 0,
+      RVV: 0,
+      RVC: 1,
+      RVH: 1,
+      RVZCB: 1,
+      XFVec: 0,
+      CvxifEn: 0,
+      ZiCondExtEn: 1,
+      RVSCLIC: 0,
+      // Extended
+      RVF: bit'(1),
+      RVD: bit'(1),
+      FpPresent: bit'(1),
+      NSX: bit'(0),
+      FLen: unsigned'(64),
+      RVFVec: bit'(0),
+      XF16Vec: bit'(0),
+      XF16ALTVec: bit'(0),
+      XF8Vec: bit'(0),
+      NrRgprPorts: unsigned'(0),
+      NrWbPorts: unsigned'(0),
+      EnableAccelerator: bit'(0),
+      RVS: bit'(1),
+      RVU: bit'(1),
+      HaltAddress: 64'h800,
+      ExceptionAddress: 64'h808,
+      RASDepth: 2,
+      BTBEntries: 32,
+      BHTEntries: 128,
+      DmBaseAddress: 64'h0,
+      TvalEn: bit'(1),
+      NrPMPEntries: unsigned'(0),
+      PMPCfgRstVal: {16{64'h0}},
+      PMPAddrRstVal: {16{64'h0}},
+      PMPEntryReadOnly: 16'd0,
+      NOCType: config_pkg::NOC_TYPE_AXI4_ATOP,
+      CLICNumInterruptSrc: unsigned'(74),
+      // idempotent region
+      NrNonIdempotentRules: unsigned'(2),
+      NonIdempotentAddrBase: {64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000040000000},
+      NonIdempotentLength: {64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000010000000, 64'h0000000040000000},
+      NrExecuteRegionRules: unsigned'(5),
+      //                      DRAM,          Boot ROM,   Debug Module
+      ExecuteRegionAddrBase: {64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000002000000, 64'h0000000010000000, 64'h0000000080000000, 64'h0000000020000000},
+      ExecuteRegionLength: {64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000040000, 64'h0000000000040000, 64'h0000000000040000, 64'h0000000080000000, 64'h0000000020000000},
+      // cached region
+      NrCachedRegionRules:
+      unsigned'(
+      3
+      ),
+      CachedRegionAddrBase: {64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000010000000, 64'h0000000080000000, 64'h0000000020000000},
+      CachedRegionLength: {64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000000000, 64'h0000000000020000, 64'h0000000080000000, 64'h0000000020000000},
+      MaxOutstandingStores: unsigned'(7),
+      DebugEn: bit'(1),
+      NonIdemPotenceEn: bit'(0),
+      AxiBurstWriteEn: bit'(0)
+  },
+`else
     // CVA6 config
     parameter config_pkg::cva6_cfg_t CVA6Cfg = cva6_config_pkg::cva6_cfg,
+`endif
     parameter bit IsRVFI = bit'(cva6_config_pkg::CVA6ConfigRvfiTrace),
     // RVFI
     parameter type rvfi_probes_t = struct packed {
