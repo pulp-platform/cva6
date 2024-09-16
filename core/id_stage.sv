@@ -73,7 +73,7 @@ module id_stage #(
 
 
     assign core_v_xif_issue_valid_o = fetch_entry_valid_i && (!issue_q.valid || issue_instr_ack_i) && !flush_unissued_instr_i && !flush_i;
-    assign push_to_register = core_v_xif_issue_ready_i;
+    assign push_to_register = core_v_xif_issue_valid_o & core_v_xif_issue_ready_i;
 
     // --------
     // Decoder
