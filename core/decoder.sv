@@ -1626,7 +1626,7 @@ module decoder
       end
 
       /** AIA: TOPI logic; It is not affected by the global enable */
-      if(ariane_pkg::RVH) begin
+      if(CVA6Cfg.RVH) begin
           if (irq_ctrl_i.mideleg[vs_interrupt_topi[$clog2(riscv::XLEN)-1:0]] &&
               irq_ctrl_i.hideleg[vs_interrupt_topi[$clog2(riscv::XLEN)-1:0]]) begin
               vstopi_o = vs_interrupt_topi;
