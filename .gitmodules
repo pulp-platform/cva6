@@ -42,7 +42,8 @@
 	url = https://github.com/openhwgroup/cvfpu.git
 [submodule "core/cache_subsystem/hpdcache"]
 	path = core/cache_subsystem/hpdcache
-	url = https://github.com/openhwgroup/cv-hpdcache.git
+	url = https://github.com/paulsc96/cv-hpdcache.git
+	commit = pulp-fixes
 [submodule "verif/sim/dv"]
 	path = verif/sim/dv
 	url = https://github.com/google/riscv-dv.git
