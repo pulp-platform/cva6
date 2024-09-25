@@ -23,13 +23,14 @@ module pmp #(
     input riscv::pmp_access_t access_type_i,
     input riscv::priv_lvl_t priv_lvl_i,
     // Configuration
-    input logic [NR_ENTRIES:0][PMP_LEN-1:0] conf_addr_i,
-    input riscv::pmpcfg_t [NR_ENTRIES:0] conf_i,
+    input logic [NR_ENTRIES-1:0][PMP_LEN-1:0] conf_addr_i,
+    input riscv::pmpcfg_t [NR_ENTRIES-1:0] conf_i,
     // Output
     output logic allow_o
 );
   // if there are no PMPs we can always grant the access.
-  if (NR_ENTRIES > 0) begin : gen_pmp
+  // In PULP systems (e.g. Cheshire), add static parameter to disable PMPs
+  if (CVA6Cfg.PMPEnable && NR_ENTRIES > 0) begin : gen_pmp
     logic [NR_ENTRIES-1:0] match;
 
     for (genvar i = 0; i < NR_ENTRIES; i++) begin

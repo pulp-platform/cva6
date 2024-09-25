@@ -279,6 +279,7 @@ package config_pkg;
     logic [63:0]                 DmBaseAddress;
     bit                          TvalEn;
     bit                          DirectVecOnly;
+    bit                          PMPEnable;
     int unsigned                 NrPMPEntries;
     logic [63:0][63:0]           PMPCfgRstVal;
     logic [63:0][63:0]           PMPAddrRstVal;
