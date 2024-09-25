@@ -14,6 +14,7 @@
 //              This unit relies on retiming features of the synthesizer
 //
 
+`include "common_cells/registers.svh"
 
 module multiplier
   import ariane_pkg::*;
@@ -24,6 +25,8 @@ module multiplier
     input  logic                             clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input  logic                             rst_ni,
+    // Synchronous clear active high
+    input  logic                             clear_i,
     // Multiplier transaction ID - Mult
     input  logic         [TRANS_ID_BITS-1:0] trans_id_i,
     // Multiplier instruction is valid - Mult
@@ -138,32 +141,14 @@ module multiplier
     endcase
   end
   if (CVA6Cfg.RVB) begin
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-      if (~rst_ni) begin
-        clmul_q  <= '0;
-        clmulr_q <= '0;
-      end else begin
-        clmul_q  <= clmul_d;
-        clmulr_q <= clmulr_d;
-      end
-    end
+    `FFARNC(clmul_q, clmul_d, clear_i, '0, clk_i, rst_ni)
+    `FFARNC(clmulr_q, clmulr_d, clear_i, '0, clk_i, rst_ni)
   end
   // -----------------------
   // Output pipeline register
   // -----------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      mult_valid_q  <= '0;
-      trans_id_q    <= '0;
-      operator_q    <= MUL;
-      mult_result_q <= '0;
-    end else begin
-      // Input silencing
-      trans_id_q    <= trans_id_i;
-      // Output Register
-      mult_valid_q  <= mult_valid;
-      operator_q    <= operator_d;
-      mult_result_q <= mult_result_d;
-    end
-  end
+  `FFARNC(mult_valid_q, mult_valid, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(trans_id_q, trans_id_i, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(operator_q, operator_d, clear_i, MUL, clk_i, rst_ni)
+  `FFARNC(mult_result_q, mult_result_d, clear_i, '0, clk_i, rst_ni)
 endmodule

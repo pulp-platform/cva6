@@ -12,6 +12,7 @@
 // Date: 19.04.2017
 // Description: Load Store Unit, handles address calculation and memory interface signals
 
+`include "common_cells/registers.svh"
 
 module load_store_unit
   import ariane_pkg::*;
@@ -24,6 +25,8 @@ module load_store_unit
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input logic flush_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
@@ -328,17 +331,9 @@ module load_store_unit
     assign dtlb_ppn                            = mmu_vaddr_plen[riscv::PLEN-1:12];
     assign dtlb_hit                            = 1'b1;
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-      if (~rst_ni) begin
-        mmu_paddr         <= '0;
-        translation_valid <= '0;
-        mmu_exception     <= '0;
-      end else begin
-        mmu_paddr         <= mmu_vaddr_plen;
-        translation_valid <= translation_req;
-        mmu_exception     <= misaligned_exception;
-      end
-    end
+    `FFARNC(mmu_paddr, mmu_vaddr_plen, clear_i, '0, clk_i, rst_ni)
+    `FFARNC(translation_valid, translation_req, clear_i, '0, clk_i, rst_ni)
+    `FFARNC(mmu_exception, misaligned_exception, clear_i, '0, clk_i, rst_ni)
   end
 
 
@@ -351,6 +346,7 @@ module load_store_unit
   ) i_store_unit (
       .clk_i,
       .rst_ni,
+      .clear_i,
       .flush_i,
       .stall_st_pending_i,
       .no_st_pending_o,

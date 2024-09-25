@@ -12,6 +12,7 @@
 // Date: 22.05.2017
 // Description: Store Unit, takes care of all store requests and atomic memory operations (AMOs)
 
+`include "common_cells/registers.svh"
 
 module store_unit
   import ariane_pkg::*;
@@ -22,6 +23,8 @@ module store_unit
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Flush - CONTROLLER
     input logic flush_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
@@ -257,6 +260,7 @@ module store_unit
   ) store_buffer_i (
       .clk_i,
       .rst_ni,
+      .clear_i,
       .flush_i,
       .stall_st_pending_i,
       .no_st_pending_o,
@@ -308,22 +312,11 @@ module store_unit
   // ---------------
   // Registers
   // ---------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q        <= IDLE;
-      st_be_q        <= '0;
-      st_data_q      <= '0;
-      st_data_size_q <= '0;
-      trans_id_q     <= '0;
-      amo_op_q       <= AMO_NONE;
-    end else begin
-      state_q        <= state_d;
-      st_be_q        <= st_be_n;
-      st_data_q      <= st_data_n;
-      trans_id_q     <= trans_id_n;
-      st_data_size_q <= st_data_size_n;
-      amo_op_q       <= amo_op_d;
-    end
-  end
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(st_be_q, st_be_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(st_data_q, st_data_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(trans_id_q, trans_id_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(st_data_size_q, st_data_size_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(amo_op_q, amo_op_d, clear_i, AMO_NONE, clk_i, rst_ni)
 
 endmodule

@@ -9,6 +9,9 @@
 // Authors: Cesar Fuguet
 // Date: February, 2023
 // Description: Interface adapter for the CVA6 core
+
+`include "common_cells/registers.svh"
+
 module cva6_hpdcache_if_adapter
   import hpdcache_pkg::*;
 
@@ -26,6 +29,7 @@ module cva6_hpdcache_if_adapter
     //  Clock and active-low reset pins
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
 
     //  Port ID
     input hpdcache_pkg::hpdcache_req_sid_t hpdcache_req_sid_i,
@@ -108,7 +112,7 @@ module cva6_hpdcache_if_adapter
       logic             [ 7:0] amo_data_be;
       hpdcache_req_op_t        amo_op;
       logic             [31:0] amo_resp_word;
-      logic                    amo_pending_q;
+      logic amo_pending_q, amo_pending_n;
 
       //  AMO logic
       //  {{{
@@ -195,16 +199,13 @@ module cva6_hpdcache_if_adapter
                                                         : hpdcache_rsp_i.rdata[0];
       //  }}}
 
-      always_ff @(posedge clk_i or negedge rst_ni) begin : amo_pending_ff
-        if (!rst_ni) begin
-          amo_pending_q <= 1'b0;
-        end else begin
-          amo_pending_q <=
+      assign amo_pending_n =
               ( cva6_amo_req_i.req  & hpdcache_req_ready_i & ~amo_pending_q) |
               (~cva6_amo_resp_o.ack & amo_pending_q);
-        end
-      end
+
+      `FFARNC(amo_pending_q, amo_pending_n, clear_i, 1'b0, clk_i, rst_ni)
     end
+
     //  }}}
   endgenerate
   //  }}}

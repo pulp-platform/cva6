@@ -48,6 +48,7 @@
 //    then, only the NC word is written into the write buffer and no further write requests are acknowledged until that
 //    word has been evicted from the write buffer.
 
+`include "common_cells/registers.svh"
 
 module wt_dcache_wbuffer
   import ariane_pkg::*;
@@ -56,8 +57,8 @@ module wt_dcache_wbuffer
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 ) (
     input logic clk_i,  // Clock
-    input logic rst_ni, // Asynchronous reset active low
-
+    input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     input logic cache_en_i,  // writes are treated as NC if disabled
     output logic empty_o,  // asserted if no data is present in write buffer
     output logic not_ni_o,  // asserted if no ni data is present in write buffer
@@ -544,34 +545,17 @@ module wt_dcache_wbuffer
   // ff's
   ///////////////////////////////////////////////////////
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-    if (!rst_ni) begin
-      wbuffer_q    <= '{default: '0};
-      tx_stat_q    <= '{default: '0};
-      ni_pending_q <= '0;
-      check_ptr_q  <= '0;
-      check_ptr_q1 <= '0;
-      check_en_q   <= '0;
-      check_en_q1  <= '0;
-      rd_tag_q     <= '0;
-      rd_hit_oh_q  <= '0;
-      wr_cl_vld_q  <= '0;
-      wr_cl_idx_q  <= '0;
-    end else begin
-      wbuffer_q    <= wbuffer_d;
-      tx_stat_q    <= tx_stat_d;
-      ni_pending_q <= ni_pending_d;
-      check_ptr_q  <= check_ptr_d;
-      check_ptr_q1 <= check_ptr_q;
-      check_en_q   <= check_en_d;
-      check_en_q1  <= check_en_q;
-      rd_tag_q     <= rd_tag_d;
-      rd_hit_oh_q  <= rd_hit_oh_d;
-      wr_cl_vld_q  <= wr_cl_vld_d;
-      wr_cl_idx_q  <= wr_cl_idx_d;
-    end
-  end
-
+  `FFARNC(wbuffer_q, wbuffer_d, clear_i, '{default: '0}, clk_i, rst_ni)
+  `FFARNC(tx_stat_q, tx_stat_d, clear_i, '{default: '0}, clk_i, rst_ni)
+  `FFARNC(ni_pending_q, ni_pending_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_ptr_q, check_ptr_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_ptr_q1, check_ptr_q, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_en_q, check_en_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(check_en_q1, check_en_q, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rd_tag_q, rd_tag_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rd_hit_oh_q, rd_hit_oh_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(wr_cl_vld_q, wr_cl_vld_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(wr_cl_idx_q, wr_cl_idx_d, clear_i, '0, clk_i, rst_ni)
 
   ///////////////////////////////////////////////////////
   // assertions

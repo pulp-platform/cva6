@@ -25,7 +25,7 @@ module sram #(
     parameter USER_WIDTH = 1,
     parameter USER_EN    = 0,
     parameter NUM_WORDS  = 1024,
-    parameter SIM_INIT   = "none",
+    parameter SIM_INIT   = "zeros",
     parameter OUT_REGS   = 0     // enables output registers in FPGA macro (read lat = 2)
 )(
    input  logic                          clk_i,

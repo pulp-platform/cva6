@@ -18,6 +18,8 @@
 // Modification: add support for multiple outstanding load operations
 //               to the data cache
 
+`include "common_cells/registers.svh"
+
 module load_unit
   import ariane_pkg::*;
 #(
@@ -27,6 +29,8 @@ module load_unit
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input logic flush_i,
     // Load unit input port - TO_BE_COMPLETED
@@ -108,7 +112,7 @@ module load_unit
 
   logic [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_valid_q, ldbuf_valid_d;
   logic [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_flushed_q, ldbuf_flushed_d;
-  ldbuf_t [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_q;
+  ldbuf_t [CVA6Cfg.NrLoadBufEntries-1:0] ldbuf_q, ldbuf_en;
   logic ldbuf_empty, ldbuf_full;
   ldbuf_id_t ldbuf_free_index;
   logic      ldbuf_w;
@@ -142,6 +146,9 @@ module load_unit
 
   assign ldbuf_windex = (LDBUF_FALLTHROUGH && ldbuf_r) ? ldbuf_rindex : ldbuf_free_index;
 
+  for (genvar i = 0; i < CVA6Cfg.NrLoadBufEntries; i++)
+    assign ldbuf_en[i] = ((i == ldbuf_windex) & ldbuf_w) ? 1'b1 : 1'b0;
+
   always_comb begin : ldbuf_comb
     ldbuf_flushed_d = ldbuf_flushed_q;
     ldbuf_valid_d   = ldbuf_valid_q;
@@ -162,21 +169,11 @@ module load_unit
     end
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : ldbuf_ff
-    if (!rst_ni) begin
-      ldbuf_flushed_q <= '0;
-      ldbuf_valid_q   <= '0;
-      ldbuf_last_id_q <= '0;
-      ldbuf_q         <= '0;
-    end else begin
-      ldbuf_flushed_q <= ldbuf_flushed_d;
-      ldbuf_valid_q   <= ldbuf_valid_d;
-      if (ldbuf_w) begin
-        ldbuf_last_id_q       <= ldbuf_windex;
-        ldbuf_q[ldbuf_windex] <= ldbuf_wdata;
-      end
-    end
-  end
+  `FFARNC(ldbuf_flushed_q, ldbuf_flushed_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(ldbuf_valid_q, ldbuf_valid_d, clear_i, '0, clk_i, rst_ni)
+  `FFLARNC(ldbuf_last_id_q, ldbuf_windex, ldbuf_w, clear_i, '0, clk_i, rst_ni)
+  for (genvar i = 0; i < CVA6Cfg.NrLoadBufEntries; i++)
+    `FFLARNC(ldbuf_q[i], ldbuf_wdata, ldbuf_en[i], clear_i, '0, clk_i, rst_ni)
 
   // page offset is defined as the lower 12 bits, feed through for address checker
   assign page_offset_o = lsu_ctrl_i.vaddr[11:0];
@@ -448,13 +445,7 @@ module load_unit
 
 
   // latch physical address for the tag cycle (one cycle after applying the index)
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q <= IDLE;
-    end else begin
-      state_q <= state_d;
-    end
-  end
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
 
   // ---------------
   // Sign Extend

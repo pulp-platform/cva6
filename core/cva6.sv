@@ -12,6 +12,7 @@
 // Date: 19.03.2017
 // Description: CVA6 Top-level module
 
+`include "common_cells/registers.svh"
 
 module cva6
   import ariane_pkg::*;
@@ -119,6 +120,8 @@ module cva6
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high
+    input logic clear_i,
     // Reset boot address - SUBSYSTEM
     input logic [riscv::VLEN-1:0] boot_addr_i,
     // Hard ID reflected as CSR - SUBSYSTEM
@@ -516,13 +519,7 @@ module cva6
   logic                                                  inval_valid;
   logic                                                  inval_ready;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      rst_uarch_n <= 1'b0;
-    end else begin
-      rst_uarch_n <= rst_uarch_controller_n;
-    end
-  end
+  `FFARNC(rst_uarch_n, rst_uarch_controller_n, clear_i, '0, clk_i, rst_ni)
 
   // ----------------------
   // CLIC Controller <-> ID
@@ -537,6 +534,7 @@ module cva6
       .CVA6Cfg(CVA6ExtendCfg)
   ) i_frontend (
       .rst_ni             (rst_uarch_n),
+      .clear_i            (clear_i),
       .flush_i            (flush_ctrl_if),                  // not entirely correct
       .flush_bp_i         (1'b0),
       .halt_i             (halt_ctrl),
@@ -566,6 +564,7 @@ module cva6
   ) id_stage_i (
       .clk_i,
       .rst_ni (rst_uarch_n),
+      .clear_i,
       .flush_i(flush_ctrl_if),
       .debug_req_i,
 
@@ -673,6 +672,7 @@ module cva6
       .clk_i,
       .rst_ni,
       .rst_uarch_ni          (rst_uarch_n),
+      .clear_i               (clear_i),
       .sb_full_o             (sb_full),
       .flush_unissued_instr_i(flush_unissued_instr_ctrl_id),
       .flush_i               (flush_ctrl_id),
@@ -749,6 +749,7 @@ module cva6
   ) ex_stage_i (
       .clk_i(clk_i),
       .rst_ni(rst_uarch_n),
+      .clear_i(clear_i),
       .debug_mode_i(debug_mode),
       .flush_i(flush_ctrl_ex),
       .rs1_forwarding_i(rs1_forwarding_id_ex),
@@ -1010,6 +1011,7 @@ module cva6
     ) perf_counters_i (
         .clk_i         (clk_i),
         .rst_ni        (rst_ni),
+        .clear_i       (clear_i),
         .debug_mode_i  (debug_mode),
         .addr_i        (addr_csr_perf),
         .we_i          (we_csr_perf),
@@ -1134,6 +1136,7 @@ module cva6
         // to D$
         .clk_i             (clk_i),
         .rst_ni            (rst_uarch_n),
+        .clear_i           (clear_i),
         .busy_o            (busy_cache_ctrl),
         .stall_i           (stall_ctrl_cache),
         .init_ni           (init_ctrl_cache_n),
@@ -1240,6 +1243,7 @@ module cva6
         // to D$
         .clk_i             (clk_i),
         .rst_ni            (rst_uarch_n),
+        .clear_i           (clear_i),
         .priv_lvl_i        (priv_lvl),
         .busy_o            (busy_cache_ctrl),
         .stall_i           (stall_ctrl_cache),
@@ -1359,6 +1363,7 @@ module cva6
     ) i_clic_controller (
         .clk_i           (clk_i),
         .rst_ni          (rst_ni),
+        .clear_i         (clear_i),
         // from CSR file
         .priv_lvl_i      (priv_lvl),
         .irq_ctrl_i      (irq_ctrl_csr_id),
@@ -1446,7 +1451,7 @@ module cva6
   instr_tracer_if tracer_if (clk_i);
   // assign instruction tracer interface
   // control signals
-  assign tracer_if.rstn           = rst_ni;
+  assign tracer_if.rstn           = rst_ni & ~clear_i;
   assign tracer_if.flush_unissued = flush_unissued_instr_ctrl_id;
   assign tracer_if.flush          = flush_ctrl_ex;
   // fetch
@@ -1498,7 +1503,7 @@ module cva6
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
+    if (~rst_ni | clear_i) begin
       cycles <= 0;
     end else begin
       byte mode = "";

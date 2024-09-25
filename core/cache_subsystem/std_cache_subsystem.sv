@@ -29,6 +29,7 @@ module std_cache_subsystem
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     input riscv::priv_lvl_t priv_lvl_i,
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
@@ -82,6 +83,7 @@ module std_cache_subsystem
   ) i_cva6_icache_axi_wrapper (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
+      .clear_i   (clear_i),
       .priv_lvl_i(priv_lvl_i),
       .flush_i   (icache_flush_i),
       .en_i      (icache_en_i),
@@ -110,6 +112,7 @@ module std_cache_subsystem
   ) i_nbdcache (
       .clk_i,
       .rst_ni,
+      .clear_i     (clear_i),
       .enable_i    (dcache_enable_i),
       .flush_i     (dcache_flush_i),
       .flush_ack_o (dcache_flush_ack_o),

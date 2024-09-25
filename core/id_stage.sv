@@ -13,6 +13,8 @@
 // Description: Instruction decode, contains the logic for decode,
 //              issue and read operands.
 
+`include "common_cells/registers.svh"
+
 module id_stage #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
 ) (
@@ -20,6 +22,8 @@ module id_stage #(
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Fetch flush request - CONTROLLER
     input logic flush_i,
     // Debug (async) request - SUBSYSTEM
@@ -178,11 +182,5 @@ module id_stage #(
   // -------------------------
   // Registers (ID <-> Issue)
   // -------------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      issue_q <= '0;
-    end else begin
-      issue_q <= issue_n;
-    end
-  end
+  `FFARNC(issue_q, issue_n, clear_i, '0, clk_i, rst_ni)
 endmodule

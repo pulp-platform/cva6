@@ -31,6 +31,7 @@ module ariane_regfile #(
     // clock and reset
     input  logic                                             clk_i,
     input  logic                                             rst_ni,
+    input  logic                                             clear_i,
     // disable clock gates for testing
     input  logic                                             test_en_i,
     // read port
@@ -63,14 +64,18 @@ module ariane_regfile #(
     if (~rst_ni) begin
       mem <= '{default: '0};
     end else begin
-      for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin
-        for (int unsigned i = 0; i < NUM_WORDS; i++) begin
-          if (we_dec[j][i]) begin
-            mem[i] <= wdata_i[j];
+      if (clear_i) begin
+        mem <= '{default: '0};
+      end else begin
+        for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin
+          for (int unsigned i = 0; i < NUM_WORDS; i++) begin
+            if (we_dec[j][i]) begin
+              mem[i] <= wdata_i[j];
+            end
           end
-        end
-        if (ZERO_REG_ZERO) begin
-          mem[0] <= '0;
+          if (ZERO_REG_ZERO) begin
+            mem[0] <= '0;
+          end
         end
       end
     end

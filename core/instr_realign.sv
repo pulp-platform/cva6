@@ -29,6 +29,8 @@ module instr_realign
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Syynchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Fetch flush request - CONTROLLER
     input logic flush_i,
     // 32-bit block is valid - CACHE
@@ -356,15 +358,21 @@ module instr_realign
       unaligned_address_q <= '0;
       unaligned_instr_q   <= '0;
     end else begin
-      if (valid_i) begin
-        unaligned_address_q <= unaligned_address_d;
-        unaligned_instr_q   <= unaligned_instr_d;
-      end
+      if (clear_i) begin
+        unaligned_q         <= 1'b0;
+        unaligned_address_q <= '0;
+        unaligned_instr_q   <= '0;
+      end else begin
+        if (valid_i) begin
+          unaligned_address_q <= unaligned_address_d;
+          unaligned_instr_q   <= unaligned_instr_d;
+        end
 
-      if (flush_i) begin
-        unaligned_q <= 1'b0;
-      end else if (valid_i) begin
-        unaligned_q <= unaligned_d;
+        if (flush_i) begin
+          unaligned_q <= 1'b0;
+        end else if (valid_i) begin
+          unaligned_q <= unaligned_d;
+        end
       end
     end
   end

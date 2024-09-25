@@ -24,6 +24,8 @@
 // 2020-02-17  0.1      S.Jacq       TLB Sv32 for CV32A6
 // =========================================================================== //
 
+`include "common_cells/registers.svh"
+
 module cva6_tlb_sv32
   import ariane_pkg::*;
 #(
@@ -33,6 +35,7 @@ module cva6_tlb_sv32
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,
     input logic flush_i,  // Flush signal
     // Update TLB
     input tlb_update_sv32_t update_i,
@@ -224,17 +227,10 @@ module cva6_tlb_sv32
   end
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      tags_q      <= '{default: 0};
-      content_q   <= '{default: 0};
-      plru_tree_q <= '{default: 0};
-    end else begin
-      tags_q      <= tags_n;
-      content_q   <= content_n;
-      plru_tree_q <= plru_tree_n;
-    end
-  end
+  `FFARNC(tags_q, tags_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(content_q, content_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(plru_tree_q, plru_tree_n, clear_i, '{default: 0}, clk_i, rst_ni)
+
   //--------------
   // Sanity checks
   //--------------
