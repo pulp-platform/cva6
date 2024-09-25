@@ -89,7 +89,7 @@ module id_stage #(
   // ID/ISSUE register stage
   typedef struct packed {
     logic              valid;
-    scoreboard_entry_t sbe;
+    logic [$bits(scoreboard_entry_t)-1:0] sbe;
     logic [31:0]       orig_instr;
     logic              is_ctrl_flow;
   } issue_struct_t;
