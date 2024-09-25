@@ -35,6 +35,7 @@ class ex_trace_item;
             riscv::ST_ACCESS_FAULT:       this.cause_s = "Store Access Fault";
             riscv::ENV_CALL_UMODE:        this.cause_s = "Environment Call User Mode";
             riscv::ENV_CALL_SMODE:        this.cause_s = "Environment Call Supervisor Mode";
+            riscv::ENV_CALL_VSMODE:       this.cause_s = "Environment Call Virtual Supervisor Mode";
             riscv::ENV_CALL_MMODE:        this.cause_s = "Environment Call Machine Mode";
             riscv::INSTR_PAGE_FAULT:      this.cause_s = "Instruction Page Fault";
             riscv::LOAD_PAGE_FAULT:       this.cause_s = "Load Page Fault";

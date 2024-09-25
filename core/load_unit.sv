@@ -208,6 +208,8 @@ module load_unit
   assign ex_o.tval2 = CVA6Cfg.RVH ? ex_i.tval2 : '0;
   assign ex_o.tinst = CVA6Cfg.RVH ? ex_i.tinst : '0;
   assign ex_o.gva = CVA6Cfg.RVH ? ex_i.gva : 1'b0;
+  assign ex_o.priv_lvl = CVA6Cfg.RVH ? ex_i.priv_lvl : riscv::PRIV_LVL_M;
+  assign ex_o.trap_to_v = CVA6Cfg.RVH ? ex_i.trap_to_v : 1'b0;
 
   // Check that NI operations follow the necessary conditions
   logic paddr_ni;
