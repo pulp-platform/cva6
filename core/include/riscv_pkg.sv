@@ -468,6 +468,13 @@ package riscv;
     CSR_VSCAUSE          = 12'h242,
     CSR_VSTVAL           = 12'h243,
     CSR_VSIP             = 12'h244,
+    CSR_VSISELECT        = 12'h250,  // Virtual supervisor indirect register select
+    CSR_VSIREG           = 12'h251,  // Virtual supervisor indirect register alias
+    CSR_VSIREG2          = 12'h252,  // Virtual supervisor indirect register alias 2
+    CSR_VSIREG3          = 12'h253,  // Virtual supervisor indirect register alias 3
+    CSR_VSIREG4          = 12'h255,  // Virtual supervisor indirect register alias 4
+    CSR_VSIREG5          = 12'h256,  // Virtual supervisor indirect register alias 5
+    CSR_VSIREG6          = 12'h257,  // Virtual supervisor indirect register alias 6
     CSR_VSATP            = 12'h280,
     // Supervisor Mode CSRs
     CSR_SSTATUS          = 12'h100,
@@ -482,6 +489,13 @@ package riscv;
     CSR_STVAL            = 12'h143,
     CSR_SIP              = 12'h144,
     CSR_SINTTHRESH       = 12'h147,
+    CSR_SISELECT         = 12'h150,  // Supervisor indirect register select
+    CSR_SIREG            = 12'h151,  // Supervisor indirect register alias
+    CSR_SIREG2           = 12'h152,  // Supervisor indirect register alias 2
+    CSR_SIREG3           = 12'h153,  // Supervisor indirect register alias 3
+    CSR_SIREG4           = 12'h155,  // Supervisor indirect register alias 4
+    CSR_SIREG5           = 12'h156,  // Supervisor indirect register alias 5
+    CSR_SIREG6           = 12'h157,  // Supervisor indirect register alias 6
     CSR_SATP             = 12'h180,
     // Hypervisor-extended Supervisor Mode CSRs
     CSR_HSTATUS          = 12'h600,
@@ -552,6 +566,13 @@ package riscv;
     CSR_MTVAL2           = 12'h34B,
     CSR_MENVCFG          = 12'h30A,
     CSR_MENVCFGH         = 12'h31A,
+    CSR_MISELECT         = 12'h350,  // Machine indirect register select
+    CSR_MIREG            = 12'h351,  // Machine indirect register alias
+    CSR_MIREG2           = 12'h352,  // Machine indirect register alias 2
+    CSR_MIREG3           = 12'h353,  // Machine indirect register alias 3
+    CSR_MIREG4           = 12'h355,  // Machine indirect register alias 4
+    CSR_MIREG5           = 12'h356,  // Machine indirect register alias 5
+    CSR_MIREG6           = 12'h357,  // Machine indirect register alias 6
     CSR_PMPCFG0          = 12'h3A0,
     CSR_PMPCFG1          = 12'h3A1,
     CSR_PMPCFG2          = 12'h3A2,

@@ -290,6 +290,10 @@ module csr_regfile
   | (riscv::XLEN'(CVA6Cfg.NSX) << 23)  // X - Non-standard extensions present
   | ((riscv::XLEN == 64 ? 2 : 1) << riscv::XLEN - 2);  // MXL
 
+  csrind_isel_t miselect_d, miselect_q;
+  csrind_isel_t siselect_d, siselect_q;
+  csrind_isel_t vsiselect_d, vsiselect_q;
+
   assign pmpcfg_o  = pmpcfg_q[15:0];
   assign pmpaddr_o = pmpaddr_q;
 
@@ -396,6 +400,95 @@ module csr_regfile
         riscv::CSR_VSIP:
         if (CVA6Cfg.RVH) csr_rdata = (mip_q & VS_DELEG_INTERRUPTS & hideleg_q) >> 1;
         else read_access_exception = 1'b1;
+        riscv::CSR_VSISELECT: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              csr_rdata = vsiselect_q;
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG2: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG3: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG4: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG5: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG6: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
         riscv::CSR_VSTVEC:
         if (CVA6Cfg.RVH) csr_rdata = vstvec_q;
         else read_access_exception = 1'b1;
@@ -487,6 +580,132 @@ module csr_regfile
         riscv::CSR_STVAL:
         if (CVA6Cfg.RVS) csr_rdata = stval_q;
         else read_access_exception = 1'b1;
+        riscv::CSR_SISELECT: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              csr_rdata = siselect_q;
+            end
+          end else begin
+            if (CVA6Cfg.RVS) csr_rdata = siselect_q;
+            else read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SIREG: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end else begin
+              read_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG2: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end else begin
+              read_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG3: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end else begin
+              read_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG4: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end else begin
+              read_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG5: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end else begin
+              read_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG6: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_read_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : read_access_exception = 1'b1;
+              endcase
+            end else begin
+              read_access_exception = 1'b1;
+            end
+          end
+        end
         riscv::CSR_SATP: begin
           if (CVA6Cfg.RVS) begin
             // intercept reads to SATP if in S-Mode and TVM is enabled
@@ -609,6 +828,39 @@ module csr_regfile
         riscv::CSR_MENVCFGH: begin
           if (CVA6Cfg.RVU && riscv::XLEN == 32) csr_rdata = '0;
           else read_access_exception = 1'b1;
+        end
+        riscv::CSR_MISELECT: begin
+          csr_rdata = miselect_q;
+        end
+        riscv::CSR_MIREG: begin
+          unique case (miselect_q)
+            default : read_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG2: begin
+          unique case (miselect_q)
+            default : read_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG3: begin
+          unique case (miselect_q)
+            default : read_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG4: begin
+          unique case (miselect_q)
+            default : read_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG5: begin
+          unique case (miselect_q)
+            default : read_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG6: begin
+          unique case (miselect_q)
+            default : read_access_exception = 1'b1;
+          endcase
         end
         riscv::CSR_MVENDORID: csr_rdata = OPENHWGROUP_MVENDORID;
         riscv::CSR_MARCHID: csr_rdata = ARIANE_MARCHID;
@@ -932,6 +1184,7 @@ module csr_regfile
     mtinst_d = mtinst_q;
     mtval2_d = mtval2_q;
     fiom_d = fiom_q;
+    miselect_d = miselect_q;
     dcache_d = dcache_q;
     icache_d = icache_q;
     acc_cons_d = acc_cons_q;
@@ -947,6 +1200,7 @@ module csr_regfile
     vsepc_d = vsepc_q;
     vscause_d = vscause_q;
     vstval_d = vstval_q;
+    vsiselect_d = vsiselect_q;
     vsatp_d = vsatp_q;
 
     sepc_d = sepc_q;
@@ -957,6 +1211,7 @@ module csr_regfile
     stvt_d = stvt_q;
     sscratch_d = sscratch_q;
     stval_d = stval_q;
+    siselect_d = siselect_q;
     satp_d = satp_q;
     hedeleg_d = hedeleg_q;
     hideleg_d = hideleg_q;
@@ -1069,6 +1324,95 @@ module csr_regfile
             // only the virtual supervisor software interrupt is write-able, iff delegated
             mask  = riscv::MIP_VSSIP & hideleg_q;
             mip_d = (mip_q & ~mask) | ((csr_wdata << 1) & mask);
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSISELECT: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              vsiselect_d = csr_wdata;
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG2: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG3: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG4: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG5: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_VSIREG6: begin
+          if (CVA6Cfg.RVH) begin
+            if (v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (vsiselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
           end else begin
             update_access_exception = 1'b1;
           end
@@ -1197,6 +1541,128 @@ module csr_regfile
         riscv::CSR_STVAL:
         if (CVA6Cfg.RVS && CVA6Cfg.TvalEn) stval_d = csr_wdata;
         else update_access_exception = 1'b1;
+        riscv::CSR_SISELECT:
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end
+          end else begin
+            if (~CVA6Cfg.RVS) update_access_exception = 1'b1;
+          end
+        riscv::CSR_SIREG: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end else begin
+              update_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG2: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end else begin
+              update_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG3: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end else begin
+              update_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG4: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end else begin
+              update_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG5: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end else begin
+              update_access_exception = 1'b1;
+            end
+          end
+        end
+        riscv::CSR_SIREG6: begin
+          if (CVA6Cfg.RVH) begin
+            if (priv_lvl_q == riscv::PRIV_LVL_U && v_q) begin
+              virtual_update_access_exception = 1'b1;
+            end else begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end
+          end else begin
+            if (CVA6Cfg.RVS) begin
+              unique case (siselect_q)
+                default : update_access_exception = 1'b1;
+              endcase
+            end else begin
+              update_access_exception = 1'b1;
+            end
+          end
+        end
         // supervisor address translation and protection
         riscv::CSR_SATP: begin
           if (CVA6Cfg.RVS) begin
@@ -1459,6 +1925,37 @@ module csr_regfile
         riscv::CSR_MENVCFG: if (CVA6Cfg.RVU) fiom_d = csr_wdata[0];
         riscv::CSR_MENVCFGH: begin
           if (!CVA6Cfg.RVU || riscv::XLEN != 32) update_access_exception = 1'b1;
+        end
+        riscv::CSR_MISELECT: ;
+        riscv::CSR_MIREG: begin
+          unique case (miselect_q)
+            default : update_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG2: begin
+          unique case (miselect_q)
+            default : update_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG3: begin
+          unique case (miselect_q)
+            default : update_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG4: begin
+          unique case (miselect_q)
+            default : update_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG5: begin
+          unique case (miselect_q)
+            default : update_access_exception = 1'b1;
+          endcase
+        end
+        riscv::CSR_MIREG6: begin
+          unique case (miselect_q)
+            default : update_access_exception = 1'b1;
+          endcase
         end
         riscv::CSR_MCOUNTINHIBIT:
         if (PERF_COUNTER_EN) mcountinhibit_d = {csr_wdata[MHPMCounterNum+2:2], 1'b0, csr_wdata[0]};
@@ -2438,6 +2935,7 @@ module csr_regfile
       mscratch_q       <= {riscv::XLEN{1'b0}};
       mtval_q          <= {riscv::XLEN{1'b0}};
       fiom_q           <= '0;
+      miselect_q       <= csrind_isel_t'('b0);
       dcache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
       icache_q         <= {{riscv::XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q  <= '0;
@@ -2454,6 +2952,7 @@ module csr_regfile
         scounteren_q <= {riscv::XLEN{1'b0}};
         sscratch_q   <= {riscv::XLEN{1'b0}};
         stval_q      <= {riscv::XLEN{1'b0}};
+        siselect_q   <= csrind_isel_t'('b0);
         satp_q       <= {riscv::XLEN{1'b0}};
       end
 
@@ -2476,6 +2975,7 @@ module csr_regfile
         vstvec_q                 <= {riscv::XLEN{1'b0}};
         vsscratch_q              <= {riscv::XLEN{1'b0}};
         vstval_q                 <= {riscv::XLEN{1'b0}};
+        vsiselect_q              <= csrind_isel_t'('b0);
         vsatp_q                  <= {riscv::XLEN{1'b0}};
         en_ld_st_g_translation_q <= 1'b0;
       end
@@ -2523,6 +3023,7 @@ module csr_regfile
       mscratch_q       <= mscratch_d;
       if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
       fiom_q          <= fiom_d;
+      miselect_q      <= miselect_d;
       dcache_q        <= dcache_d;
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;
@@ -2539,6 +3040,7 @@ module csr_regfile
         scounteren_q <= scounteren_d;
         sscratch_q   <= sscratch_d;
         if (CVA6Cfg.TvalEn) stval_q <= stval_d;
+        siselect_q   <= siselect_d;
         satp_q <= satp_d;
       end
       if (CVA6Cfg.RVH) begin
@@ -2561,6 +3063,7 @@ module csr_regfile
         vstvec_q                 <= vstvec_d;
         vsscratch_q              <= vsscratch_d;
         vstval_q                 <= vstval_d;
+        vsiselect_q              <= vsiselect_d;
         vsatp_q                  <= vsatp_d;
         en_ld_st_g_translation_q <= en_ld_st_g_translation_d;
       end
