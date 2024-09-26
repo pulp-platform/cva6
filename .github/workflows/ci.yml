@@ -20,6 +20,7 @@ jobs:
     - name: Get specific submodule hash
       id: core-v-submodule-hash
       run: |
+        source ci/install-prereq.sh
         cd verif/core-v-verif
         echo "hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
