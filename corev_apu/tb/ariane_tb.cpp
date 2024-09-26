@@ -333,11 +333,11 @@ done_processing:
 #if (VERILATOR_VERSION_INTEGER >= 5000000)
   // Verilator v5: Use rootp pointer and .data() accessor.
 #define MEM top->rootp->ariane_testharness__DOT__i_sram__DOT__i_tc_sram__DOT__sram.m_storage
-#define MEM_USER top->rootp->ariane_testharness__DOT__i_sram__DOT__gen_cut__BRA__0__KET____DOT__gen_mem_user__DOT__i_tc_sram_wrapper_user__DOT__i_tc_sram__DOT__sram.m_storage
+#define MEM_USER top->rootp->ariane_testharness__DOT__i_sram__DOT__gen_mem_user__DOT__i_tc_sram_user__DOT__sram.m_storage
 #else
   // Verilator v4
 #define MEM top->ariane_testharness__DOT__i_sram__DOT__i_tc_sram__DOT__sram
-#define MEM_USER top->ariane_testharness__DOT__i_sram__DOT__gen_cut__BRA__0__KET____DOT__gen_mem_user__DOT__i_tc_sram_wrapper_user__DOT__i_tc_sram__DOT__sram
+#define MEM_USER top->ariane_testharness__DOT__i_sram__DOT__gen_mem_user__DOT__i_tc_sram_user__DOT__sram
 #endif
   long long addr;
   long long len;
