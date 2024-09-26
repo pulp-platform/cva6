@@ -536,6 +536,7 @@ module fpu_wrap
     fpnew_top #(
         .Features      (FPU_FEATURES),
         .Implementation(FPU_IMPLEMENTATION),
+        .DivSqrtSel    (fpnew_pkg::PULP),
         .TagType       (logic [CVA6Cfg.TRANS_ID_BITS-1:0])
     ) i_fpnew_bulk (
         .clk_i,
