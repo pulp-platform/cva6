@@ -55,17 +55,17 @@ module std_nbdcache
     logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]  tag;    // tag array
     logic [CVA6Cfg.DCACHE_LINE_WIDTH-1:0] data;   // data array
     logic                                 valid;  // state array
-    logic                                 dirty;  // state array
-  };
-  localparam type cl_be_t = struct packed {
-    logic [(CVA6Cfg.DCACHE_TAG_WIDTH+7)/8-1:0] tag;  // byte enable into tag array
-    logic [(CVA6Cfg.DCACHE_LINE_WIDTH+7)/8-1:0] data;  // byte enable into data array
-    logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0]        vldrty; // bit enable into state array (valid for a pair of dirty/valid bits)
+    logic [(CVA6Cfg.DCACHE_LINE_WIDTH-1+7)/8-1:0] dirty;  // state array
   };
   typedef struct packed {
     logic [CVA6Cfg.DCACHE_LINE_WIDTH/8-1:0] dirty;
     logic                                   valid;
   } vldrty_t;
+  localparam type cl_be_t = struct packed {
+    logic [(CVA6Cfg.DCACHE_TAG_WIDTH+7)/8-1:0] tag;  // byte enable into tag array
+    logic [(CVA6Cfg.DCACHE_LINE_WIDTH+7)/8-1:0] data;  // byte enable into data array
+    vldrty_t [CVA6Cfg.DCACHE_SET_ASSOC-1:0]     vldrty; // bit enable into state array (valid for a pair of dirty/valid bits)
+  };
 
   // -------------------------------
   // Controller <-> Arbiter
