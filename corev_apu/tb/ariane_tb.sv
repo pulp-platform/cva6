@@ -21,7 +21,7 @@ import uvm_pkg::*;
 `include "rvfi_types.svh"
 
 `define MAIN_MEM(P) dut.i_sram.i_tc_sram.init_val[(``P``)]
-`define USER_MEM(P) dut.i_sram.gen_cut[0].gen_mem_user.i_tc_sram_wrapper_user.i_tc_sram.init_val[(``P``)]
+`define USER_MEM(P) dut.i_sram.gen_mem_user.i_tc_sram_user.init_val[(``P``)]
 
 `ifndef READ_ELF_T
 `define READ_ELF_T
