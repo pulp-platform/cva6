@@ -121,6 +121,8 @@ module instr_tracer (
             address_mapping = load_mapping.pop_front();
           else if (tracer_if.pck.commit_instr[i].fu == ariane_pkg::STORE)
             address_mapping = store_mapping.pop_front();
+          else if (tracer_if.pck.commit_instr[i].fu == ariane_pkg::ACCEL)
+            address_mapping = '0; // Not yet implemented
 
           if (tracer_if.pck.commit_instr[i].fu == ariane_pkg::CTRL_FLOW)
             bp_instruction = bp.pop_front();
