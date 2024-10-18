@@ -88,32 +88,32 @@ module id_stage #(
 );
   // ID/ISSUE register stage
   typedef struct packed {
-    logic                                 valid;
+    logic valid;
     logic [$bits(scoreboard_entry_t)-1:0] sbe;
-    logic [31:0]                          orig_instr;
-    logic                                 is_ctrl_flow;
+    logic [31:0] orig_instr;
+    logic is_ctrl_flow;
   } issue_struct_t;
   issue_struct_t [CVA6Cfg.NrIssuePorts-1:0] issue_n, issue_q;
 
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_control_flow_instr;
-  scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0]       decoded_instruction;
-  logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] orig_instr;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_control_flow_instr;
+  scoreboard_entry_t [CVA6Cfg.NrIssuePorts-1:0] decoded_instruction;
+  logic [CVA6Cfg.NrIssuePorts-1:0][31:0] orig_instr;
 
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_illegal;
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_illegal_cmp;
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_illegal_cvxif;
-  logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] instruction;
-  logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] compressed_instr;
-  logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] instruction_cvxif;
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_compressed;
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_compressed_cmp;
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_compressed_cvxif;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_illegal;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_illegal_cmp;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_illegal_cvxif;
+  logic [CVA6Cfg.NrIssuePorts-1:0][31:0] instruction;
+  logic [CVA6Cfg.NrIssuePorts-1:0][31:0] compressed_instr;
+  logic [CVA6Cfg.NrIssuePorts-1:0][31:0] instruction_cvxif;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_compressed;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_compressed_cmp;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_compressed_cvxif;
 
-  logic              [CVA6Cfg.NrIssuePorts-1:0]       is_macro_instr_i;
-  logic                                               stall_instr_fetch;
-  logic                                               stall_macro_deco;
-  logic                                               is_last_macro_instr_o;
-  logic                                               is_double_rd_macro_instr_o;
+  logic [CVA6Cfg.NrIssuePorts-1:0] is_macro_instr_i;
+  logic stall_instr_fetch;
+  logic stall_macro_deco;
+  logic is_last_macro_instr_o;
+  logic is_double_rd_macro_instr_o;
 
   if (CVA6Cfg.RVC) begin
     // ---------------------------------------------------------
