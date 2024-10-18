@@ -112,11 +112,11 @@ module wt_cache_subsystem
 
 
   logic dcache_adapter_data_req, adapter_dcache_data_ack, adapter_dcache_rtrn_vld;
-  dcache_req_t  dcache_adapter;
+  dcache_req_t dcache_adapter;
   dcache_rtrn_t adapter_dcache;
 
-  logic                       icache_busy;
-  logic                       dcache_busy;
+  logic icache_busy;
+  logic dcache_busy;
 
   assign busy_o = dcache_busy | icache_busy;
 

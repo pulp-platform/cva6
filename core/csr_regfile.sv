@@ -150,13 +150,13 @@ module csr_regfile
     // L1 ICache Enable - CACHE
     output logic icache_en_o,
     // L1 DCache Enable - CACHE
-    output logic                                                           dcache_en_o,
+    output logic dcache_en_o,
     // Padding time of fence.t relative to time interrupt - CONTROLLER
-    output logic              [                     31:0]                  fence_t_pad_o,
+    output logic [31:0] fence_t_pad_o,
     // Pad relative to selected source - CONTROLLER
-    output logic                                                           fence_t_src_sel_o,
+    output logic fence_t_src_sel_o,
     // Largest recorded fence.t latency - CONTROLLER
-    input  logic              [                     31:0]                  fence_t_ceil_i,
+    input logic [31:0] fence_t_ceil_i,
     // Accelerator memory consistent mode - ACC_DISPATCHER
     output logic acc_cons_en_o,
     // Performance Counter
@@ -973,9 +973,9 @@ module csr_regfile
       (fence_t_ceil_i > fence_t_ceil_q[31:0]) ? fence_t_ceil_i : fence_t_ceil_q[31:0]
     };
 
-    fiom_d     = fiom_q;
-    dcache_d   = dcache_q;
-    icache_d   = icache_q;
+    fiom_d = fiom_q;
+    dcache_d = dcache_q;
+    icache_d = icache_q;
     acc_cons_d = acc_cons_q;
 
     if (CVA6Cfg.RVH) begin

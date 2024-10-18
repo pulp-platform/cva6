@@ -109,7 +109,7 @@ module std_nbdcache
   cl_be_t                                                                       be_ram;
 
   // Busy signals
-  logic                                                         miss_handler_busy;
+  logic                                                                         miss_handler_busy;
   assign busy_o = |busy | miss_handler_busy;
 
   // ------------------

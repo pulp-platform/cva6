@@ -128,10 +128,10 @@ module wt_dcache
   wbuffer_t [     CVA6Cfg.WtDcacheWbufDepth-1:0]                                  wbuffer_data;
 
   // controllers -> management
-  logic         [              NumPorts-2:0]                          ctrl_busy;
+  logic     [                      NumPorts-2:0]                                  ctrl_busy;
 
   // missunit -> management
-  logic                                                               missunit_busy;
+  logic                                                                           missunit_busy;
 
   assign busy_o = |ctrl_busy | missunit_busy | ~wbuffer_empty_o;
 

@@ -303,7 +303,8 @@ module controller
   // ----------------------
   always_comb begin
     // halt the core if the fence is active
-    halt_o = halt_csr_i || halt_acc_i || (CVA6Cfg.DCacheType == config_pkg::WB && fence_active_q) || (fence_t_state_q != IDLE);;
+    halt_o = halt_csr_i || halt_acc_i ||(CVA6Cfg.DCacheType == config_pkg::WB && fence_active_q) ||
+             (fence_t_state_q != IDLE);
   end
 
   // ----------------------
