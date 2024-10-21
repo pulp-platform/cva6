@@ -661,7 +661,7 @@ module cva6
   // ----------------------
   // CLIC Controller <-> ID
   // ----------------------
-  logic         clic_irq_req_id;
+  logic                    clic_irq_req_id;
   logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_id;
 
   // --------------

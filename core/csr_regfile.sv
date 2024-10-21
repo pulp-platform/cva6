@@ -1052,7 +1052,7 @@ module csr_regfile
     mepc_d       = mepc_q;
     mcause_d     = mcause_q;
     mcounteren_d = mcounteren_q;
-    mtvt_d = mtvt_q;
+    mtvt_d       = mtvt_q;
     mscratch_d   = mscratch_q;
     mtval_d      = mtval_q;
     if (CVA6Cfg.RVH) begin
@@ -1275,7 +1275,7 @@ module csr_regfile
         // if the corresponding bit in mideleg is set
         riscv::CSR_SIE: begin
           if (CVA6Cfg.RVS) begin
-            mask  = (CVA6Cfg.RVH) ? mideleg_q & ~HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0] : mideleg_q;
+            mask = (CVA6Cfg.RVH) ? mideleg_q & ~HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0] : mideleg_q;
             // the mideleg makes sure only delegate-able register (and therefore also only implemented registers) are written
             if (!clic_mode_o) mie_d = (mie_q & ~mask) | (csr_wdata & mask);
             // In CLIC mode, writes to SIE are ignored.
@@ -1988,7 +1988,8 @@ module csr_regfile
         if (CVA6Cfg.RVS) begin
           if ((ex_i.cause[CVA6Cfg.XLEN-1] && mideleg_q[ex_i.cause[$clog2(
                   CVA6Cfg.XLEN
-              )-1:0]] && ~clic_mode_o) || (~ex_i.cause[CVA6Cfg.XLEN-1] && medeleg_q[ex_i.cause[$clog2(
+              )-1:0]] && ~clic_mode_o) || (
+                  ~ex_i.cause[CVA6Cfg.XLEN-1] && medeleg_q[ex_i.cause[$clog2(
                   CVA6Cfg.XLEN
               )-1:0]])) begin
             // traps never transition from a more-privileged mode to a less privileged mode
