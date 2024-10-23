@@ -1988,8 +1988,8 @@ module csr_regfile
         if (CVA6Cfg.RVS) begin
           if ((ex_i.cause[CVA6Cfg.XLEN-1] && mideleg_q[ex_i.cause[$clog2(
                   CVA6Cfg.XLEN
-              )-1:0]] && ~clic_mode_o) || (
-                  ~ex_i.cause[CVA6Cfg.XLEN-1] && medeleg_q[ex_i.cause[$clog2(
+              )-1:0]] && ~clic_mode_o) ||
+                  (~ex_i.cause[CVA6Cfg.XLEN-1] && medeleg_q[ex_i.cause[$clog2(
                   CVA6Cfg.XLEN
               )-1:0]])) begin
             // traps never transition from a more-privileged mode to a less privileged mode
