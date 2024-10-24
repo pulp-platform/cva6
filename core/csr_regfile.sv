@@ -1586,8 +1586,8 @@ module csr_regfile
         riscv::CSR_DCACHE: dcache_d = {{riscv::XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
         riscv::CSR_ICACHE: icache_d = {{riscv::XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
         riscv::CSR_FENCE_T_PAD: fence_t_pad_d = {{riscv::XLEN - 32{1'b0}}, csr_wdata[31:0]};
-        riscv::CSR_FENCE_T_SEL: fence_t_sel_d = {{riscv::XLEN - 1{1'b0}}, csr_wdata[31:0]};
-        riscv::CSR_FENCE_T_CEIL: fence_t_ceil_d = {{riscv::XLEN - 31{1'b0}}, csr_wdata[32:0]};
+        riscv::CSR_FENCE_T_SEL: fence_t_sel_d = {{riscv::XLEN - 1{1'b0}}, csr_wdata[0]};
+        riscv::CSR_FENCE_T_CEIL: fence_t_ceil_d = {{riscv::XLEN - 32{1'b0}}, csr_wdata[31:0]};
         riscv::CSR_ACC_CONS: begin
           if (CVA6Cfg.EnableAccelerator) begin
             acc_cons_d = {{riscv::XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
