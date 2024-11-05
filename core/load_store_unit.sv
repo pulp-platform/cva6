@@ -82,6 +82,10 @@ module load_store_unit
     // Enable G-Stage memory translation for load/stores - TO_BE_COMPLETED
     input logic en_ld_st_g_translation_i,
 
+    // Accelerator request for CVA6's MMU
+    input  acc_pkg::acc_mmu_req_t acc_mmu_req_i,
+    output acc_pkg::acc_mmu_resp_t acc_mmu_resp_o,
+
     // Instruction cache input request - CACHES
     input  icache_arsp_t icache_areq_i,
     // Instruction cache output request - CACHES
@@ -235,6 +239,14 @@ module load_store_unit
   logic [CVA6Cfg.PPNW-1:0] satp_ppn[2:0];
   logic [CVA6Cfg.ASID_WIDTH-1:0] asid[2:0], asid_to_be_flushed[1:0];
   logic [CVA6Cfg.VLEN-1:0] vaddr_to_be_flushed[1:0];
+
+  // Accelerator's request for the MMU
+  assign acc_mmu_resp_o.acc_mmu_dtlb_hit_o  = '0;
+  assign acc_mmu_resp_o.acc_mmu_dtlb_ppn_o  = '0;
+  assign acc_mmu_resp_o.acc_mmu_valid_o     = '0;
+  assign acc_mmu_resp_o.acc_mmu_paddr_o     = '0;
+  assign acc_mmu_resp_o.acc_mmu_exception_o = '0;
+
   // -------------------
   // MMU e.g.: TLBs/PTW
   // -------------------
@@ -705,5 +717,3 @@ module load_store_unit
   assign rvfi_lsu_ctrl_o = lsu_ctrl;
 
 endmodule
-
-

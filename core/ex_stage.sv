@@ -159,6 +159,9 @@ module ex_stage
     input logic x_transaction_rejected_i,
     // accelerate port result is valid - ACC_DISPATCHER
     input logic acc_valid_i,
+    // Accelerator MMU access
+    input acc_pkg::acc_mmu_req_t  acc_mmu_req_i,
+    output acc_pkg::acc_mmu_resp_t acc_mmu_resp_o,
     // Enable virtual memory translation - CSR_REGFILE
     input logic enable_translation_i,
     // Enable G-Stage memory translation - CSR_REGFILE
@@ -551,6 +554,8 @@ module ex_stage
       .enable_g_translation_i,
       .en_ld_st_translation_i,
       .en_ld_st_g_translation_i,
+      .acc_mmu_req_i,
+      .acc_mmu_resp_o,
       .icache_areq_i,
       .icache_areq_o,
       .priv_lvl_i,
