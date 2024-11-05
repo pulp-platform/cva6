@@ -25,7 +25,9 @@ module load_store_unit
     parameter type icache_arsp_t = logic,
     parameter type icache_dreq_t = logic,
     parameter type icache_drsp_t = logic,
-    parameter type lsu_ctrl_t = logic
+    parameter type lsu_ctrl_t = logic,
+    parameter type acc_mmu_req_t  = logic,
+    parameter type acc_mmu_resp_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -83,8 +85,8 @@ module load_store_unit
     input logic en_ld_st_g_translation_i,
 
     // Accelerator request for CVA6's MMU
-    input  acc_pkg::acc_mmu_req_t acc_mmu_req_i,
-    output acc_pkg::acc_mmu_resp_t acc_mmu_resp_o,
+    input  acc_mmu_req_t acc_mmu_req_i,
+    output acc_mmu_resp_t acc_mmu_resp_o,
 
     // Instruction cache input request - CACHES
     input  icache_arsp_t icache_areq_i,

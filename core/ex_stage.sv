@@ -29,7 +29,9 @@ module ex_stage
     parameter type icache_dreq_t = logic,
     parameter type icache_drsp_t = logic,
     parameter type lsu_ctrl_t = logic,
-    parameter type x_result_t = logic
+    parameter type x_result_t = logic,
+    parameter type acc_mmu_req_t  = logic,
+    parameter type acc_mmu_resp_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -160,8 +162,8 @@ module ex_stage
     // accelerate port result is valid - ACC_DISPATCHER
     input logic acc_valid_i,
     // Accelerator MMU access
-    input acc_pkg::acc_mmu_req_t  acc_mmu_req_i,
-    output acc_pkg::acc_mmu_resp_t acc_mmu_resp_o,
+    input acc_mmu_req_t  acc_mmu_req_i,
+    output acc_mmu_resp_t acc_mmu_resp_o,
     // Enable virtual memory translation - CSR_REGFILE
     input logic enable_translation_i,
     // Enable G-Stage memory translation - CSR_REGFILE
@@ -529,7 +531,9 @@ module ex_stage
       .icache_arsp_t(icache_arsp_t),
       .icache_dreq_t(icache_dreq_t),
       .icache_drsp_t(icache_drsp_t),
-      .lsu_ctrl_t(lsu_ctrl_t)
+      .lsu_ctrl_t(lsu_ctrl_t),
+      .acc_mmu_req_t(acc_mmu_req_t),
+      .acc_mmu_resp_t(acc_mmu_resp_t)
   ) lsu_i (
       .clk_i,
       .rst_ni,

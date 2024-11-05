@@ -205,6 +205,22 @@ module cva6
       logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0] data_ruser;
     },
 
+    // Accelerator - CVA6's MMU
+	localparam type acc_mmu_req_t = struct packed {
+      logic                    acc_mmu_misaligned_ex;
+      logic                    acc_mmu_req;
+      logic [CVA6Cfg.VLEN-1:0] acc_mmu_vaddr;
+      logic                    acc_mmu_is_store;
+    },
+
+    localparam type acc_mmu_resp_t = struct packed {
+      logic                    acc_mmu_dtlb_hit;
+      logic [CVA6Cfg.PPNW-1:0] acc_mmu_dtlb_ppn;
+      logic                    acc_mmu_valid;
+      logic [CVA6Cfg.PLEN-1:0] acc_mmu_paddr;
+      exception_t              acc_mmu_exception;
+    },
+
     // AXI types
     parameter type axi_ar_chan_t = struct packed {
       logic [CVA6Cfg.AxiIdWidth-1:0]   id;
@@ -506,8 +522,8 @@ module cva6
   // --------------
   // EX <-> ACC_DISP
   // --------------
-  acc_pkg::acc_mmu_req_t acc_mmu_req;
-  acc_pkg::acc_mmu_resp_t acc_mmu_resp;
+  acc_mmu_req_t acc_mmu_req;
+  acc_mmu_resp_t acc_mmu_resp;
   // --------------
   // ID <-> COMMIT
   // --------------
@@ -936,7 +952,9 @@ module cva6
       .icache_dreq_t(icache_dreq_t),
       .icache_drsp_t(icache_drsp_t),
       .lsu_ctrl_t(lsu_ctrl_t),
-      .x_result_t(x_result_t)
+      .x_result_t(x_result_t),
+      .acc_mmu_req_t(acc_mmu_req_t),
+      .acc_mmu_resp_t(acc_mmu_resp_t)
   ) ex_stage_i (
       .clk_i(clk_i),
       .rst_ni(rst_uarch_n),
@@ -1530,7 +1548,9 @@ module cva6
         .acc_cfg_t         (acc_cfg_t),
         .AccCfg            (AccCfg),
         .acc_req_t         (cvxif_req_t),
-        .acc_resp_t        (cvxif_resp_t)
+        .acc_resp_t        (cvxif_resp_t),
+        .acc_mmu_req_t     (acc_mmu_req_t),
+        .acc_mmu_resp_t    (acc_mmu_resp_t)
     ) i_acc_dispatcher (
         .clk_i                 (clk_i),
         .rst_ni                (rst_ni),

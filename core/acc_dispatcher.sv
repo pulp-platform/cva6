@@ -23,10 +23,10 @@ module acc_dispatcher
     parameter type exception_t = logic,
     parameter type fu_data_t = logic,
     parameter type scoreboard_entry_t = logic,
-    localparam type accelerator_req_t = acc_pkg::cva6_to_acc_t,
-    parameter type acc_req_t = accelerator_req_t,
-    localparam type accelerator_resp_t = acc_pkg::acc_to_cva6_t,
-    parameter type acc_resp_t = accelerator_resp_t,
+    parameter type acc_req_t = logic,
+    parameter type acc_resp_t = logic,
+    parameter type acc_mmu_req_t  = logic,
+    parameter type acc_mmu_resp_t = logic,
     parameter type acc_cfg_t = logic,
     parameter acc_cfg_t AccCfg = '0
 ) (
@@ -64,8 +64,8 @@ module acc_dispatcher
     input logic acc_no_st_pending_i,
     input dcache_req_i_t [2:0] dcache_req_ports_i,
     // Interface with the MMU
-    output acc_pkg::acc_mmu_req_t acc_mmu_req_o,
-    input acc_pkg::acc_mmu_resp_t acc_mmu_resp_i,
+    output acc_mmu_req_t acc_mmu_req_o,
+    input acc_mmu_resp_t acc_mmu_resp_i,
     // Interface with the controller
     output logic ctrl_halt_o,
     input logic [11:0] csr_addr_i,
