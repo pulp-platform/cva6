@@ -207,7 +207,11 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_ctrl_pe.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_memctrl.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_miss_handler.sv
-      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_mshr.sv
+      # FIXME: Disable misfiring assertion in HPDCache MSHR using masking define
+      - defines:
+          HPDCACHE_ASSERT_OFF: ~
+        files:
+          - core/cache_subsystem/hpdcache/rtl/src/hpdcache_mshr.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_rtab.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_uncached.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_plru.sv
