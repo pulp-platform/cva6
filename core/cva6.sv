@@ -205,6 +205,35 @@ module cva6
       logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0] data_ruser;
     },
 
+    // Accelerator - CVA6's
+    localparam type accelerator_req_t = struct packed {
+      logic                             req_valid;
+      logic                             resp_ready;
+      riscv::instruction_t              insn;
+      logic [CVA6Cfg.XLEN-1:0]          rs1;
+      logic [CVA6Cfg.XLEN-1:0]          rs2;
+      fpnew_pkg::roundmode_e            frm;
+      logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id;
+      logic                             store_pending;
+      logic                             acc_cons_en; // Invalidation interface
+      logic                             inval_ready; // Invalidation interface
+    },
+
+    localparam type accelerator_resp_t = struct packed {
+      logic                                 req_ready;
+      logic                                 resp_valid;
+      logic [CVA6Cfg.XLEN-1:0]              result;
+      logic [CVA6Cfg.TRANS_ID_BITS-1:0]     trans_id;
+      exception_t                           exception;
+      logic                                 store_pending;
+      logic                                 store_complete;
+      logic                                 load_complete;
+      logic [4:0]                           fflags;
+      logic                                 fflags_valid;
+      logic                                 inval_valid; // Invalidation interface
+      logic [63:0]                          inval_addr; // Invalidation interface
+    },
+
     // Accelerator - CVA6's MMU
 	localparam type acc_mmu_req_t = struct packed {
       logic                    acc_mmu_misaligned_ex;
@@ -1550,6 +1579,8 @@ module cva6
         .AccCfg            (AccCfg),
         .acc_req_t         (cvxif_req_t),
         .acc_resp_t        (cvxif_resp_t),
+        .accelerator_req_t (accelerator_req_t),
+        .accelerator_resp_t(accelerator_resp_t),
         .acc_mmu_req_t     (acc_mmu_req_t),
         .acc_mmu_resp_t    (acc_mmu_resp_t)
     ) i_acc_dispatcher (

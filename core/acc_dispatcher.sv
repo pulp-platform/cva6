@@ -25,6 +25,8 @@ module acc_dispatcher
     parameter type scoreboard_entry_t = logic,
     parameter type acc_req_t = logic,
     parameter type acc_resp_t = logic,
+    parameter type accelerator_req_t = logic,
+    parameter type accelerator_resp_t = logic,
     parameter type acc_mmu_req_t  = logic,
     parameter type acc_mmu_resp_t = logic,
     parameter type acc_cfg_t = logic,
@@ -204,13 +206,13 @@ module acc_dispatcher
    *  Accelerator request  *
    *************************/
 
-  acc_req_t acc_req;
+  accelerator_req_t acc_req;
   logic     acc_req_valid;
   logic     acc_req_ready;
 
-  acc_req_t acc_req_int;
+  accelerator_req_t acc_req_int;
   fall_through_register #(
-      .T(acc_req_t)
+      .T(accelerator_req_t)
   ) i_accelerator_req_register (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
