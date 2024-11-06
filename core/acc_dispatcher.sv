@@ -199,7 +199,7 @@ module acc_dispatcher
     end
 
     // An accelerator instruction was issued.
-    if (acc_req_o.acc_req.req_valid) insn_ready_d[acc_req_o.trans_id] = 1'b0;
+    if (acc_req_o.acc_req.req_valid) insn_ready_d[acc_req_o.acc_req.trans_id] = 1'b0;
   end : p_non_speculative_ff
 
   /*************************
@@ -223,7 +223,7 @@ module acc_dispatcher
       .ready_o   (acc_req_ready),
       .data_o    (acc_req_int),
       .valid_o   (acc_req_o.acc_req.req_valid),
-      .ready_i   (acc_resp_i.req_ready)
+      .ready_i   (acc_resp_i.acc_resp.req_ready)
   );
 
   assign acc_req_o.acc_req.insn          = acc_req_int.insn;
