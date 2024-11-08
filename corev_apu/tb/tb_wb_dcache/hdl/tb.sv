@@ -265,7 +265,7 @@ module tb import ariane_pkg::*; import std_cache_pkg::*; import tb_pkg::*; #(
   // Write directly the tb memory
   function automatic void external_writer(int unsigned pos, int unsigned half);
     automatic logic[7:0] val;
-    for (int k=0; k<MemBytes; k++) begin
+    for (int k=0; k<cva6_config_pkg::MemBytes; k++) begin
       //$fdisplay(fd,"------------------- k = 0b%b",k);
       if (half&&(k & (1 << pos)) || !half&&!(k & (1 << pos))) begin
         void'(std::randomize(val));
@@ -485,7 +485,6 @@ axi_riscv_atomics_wrap #(
     .AXI_ID_WIDTH       ( TbAxiIdWidthFull + 32'd1 ),
     .AXI_USER_WIDTH     ( TbAxiUserWidthFull       ),
     .AXI_MAX_WRITE_TXNS ( 1                        ),
-    .AXI_MAX_READ_TXNS  ( 1                        ),
     .RISCV_WORD_WIDTH   ( CVA6Cfg.XLEN             )
 ) i_amo_adapter (
     .clk_i  ( clk_i                         ),
@@ -1055,7 +1054,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1078,7 +1077,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1101,7 +1100,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1124,7 +1123,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1147,7 +1146,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1170,7 +1169,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1193,7 +1192,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,0);
     external_writer(int'(max_size),int'(!half));
@@ -1216,7 +1215,7 @@ axi_riscv_atomics_wrap #(
     // cache enabled ~> requests to cached region should use cache port,
     // those to uncached regions should use bypass port
     bypass_mem_port.set_region(0, CachedAddrBeg - 1);
-    data_mem_port.set_region(CachedAddrBeg, MemBytes - 1);
+    data_mem_port.set_region(CachedAddrBeg, cva6_config_pkg::MemBytes - 1);
 
     runSeq(0,nWriteVectors,1);
     external_writer(int'(max_size),int'(!half));
