@@ -46,27 +46,27 @@ package ariane_ace;
     axi_pkg::atop_t     atop;
     ariane_axi_user_t   user;
     ace_pkg::awsnoop_t  snoop;
-    ace_pkg::bar_t      bar;
-    ace_pkg::domain_t   domain;
+    ace_pkg::axbar_t    bar;
+    ace_pkg::axdomain_t domain;
     ace_pkg::awunique_t awunique;
   } aw_chan_t;
 
   // AR Channel
   typedef struct packed {
-    ariane_axi_id_t    id;
-    ariane_axi_addr_t  addr;
-    axi_pkg::len_t     len;
-    axi_pkg::size_t    size;
-    axi_pkg::burst_t   burst;
-    logic              lock;
-    axi_pkg::cache_t   cache;
-    axi_pkg::prot_t    prot;
-    axi_pkg::qos_t     qos;
-    axi_pkg::region_t  region;
-    ariane_axi_user_t  user;
-    ace_pkg::arsnoop_t snoop;
-    ace_pkg::bar_t     bar;
-    ace_pkg::domain_t  domain;
+    ariane_axi_id_t     id;
+    ariane_axi_addr_t   addr;
+    axi_pkg::len_t      len;
+    axi_pkg::size_t     size;
+    axi_pkg::burst_t    burst;
+    logic               lock;
+    axi_pkg::cache_t    cache;
+    axi_pkg::prot_t     prot;
+    axi_pkg::qos_t      qos;
+    axi_pkg::region_t   region;
+    ariane_axi_user_t   user;
+    ace_pkg::arsnoop_t  snoop;
+    ace_pkg::axbar_t    bar;
+    ace_pkg::axdomain_t domain;
   } ar_chan_t;
 
   // R Channel
@@ -80,9 +80,9 @@ package ariane_ace;
 
   // AC Channel
   typedef struct packed {
-    ariane_axi_addr_t    addr;
-    snoop_pkg::acsnoop_t snoop;
-    snoop_pkg::acprot_t  prot;
+    ariane_axi_addr_t  addr;
+    ace_pkg::acsnoop_t snoop;
+    ace_pkg::acprot_t  prot;
   } ac_chan_t;
 
   // CD Cannel
@@ -109,7 +109,7 @@ package ariane_ace;
     // Snoop signals are reversed w.r.t. request / response
     logic                 ac_ready;
     logic                 cr_valid;
-    snoop_pkg::crresp_t   cr_resp;
+    ace_pkg::crresp_t     cr_resp;
     logic                 cd_valid;
     cd_chan_t             cd;
   } req_t;
@@ -162,7 +162,7 @@ package ariane_ace;
   typedef struct  packed {
     logic               ac_ready;
     logic               cr_valid;
-    snoop_pkg::crresp_t cr_resp;
+    ace_pkg::crresp_t   cr_resp;
     logic               cd_valid;
     cd_chan_t           cd;
   } snoop_resp_t;

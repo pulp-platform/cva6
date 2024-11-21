@@ -104,7 +104,7 @@ module miss_handler
     CHECK_BEFORE_CLEAN,  // F
     SEND_CLEAN,          // 10
     REQ_CACHELINE_UNIQUE // 11
-  } 
+  }
       state_d, state_q;
 
   // Registers
@@ -149,7 +149,7 @@ module miss_handler
   logic                [     (DCACHE_LINE_WIDTH/8)-1:0]       req_fsm_miss_be;
   ariane_pkg::ad_req_t                                        req_fsm_miss_req;
   logic                [                           1:0]       req_fsm_miss_size;
-  ace_pkg::ace_trs_t                                          req_fsm_miss_type;
+  std_cache_pkg::ace_trs_t                                    req_fsm_miss_type;
 
   logic                                                       gnt_miss_fsm;
   logic                                                       valid_miss_fsm;
@@ -216,7 +216,7 @@ module miss_handler
     req_fsm_miss_be             = '0;
     req_fsm_miss_req            = ariane_pkg::CACHE_LINE_REQ;
     req_fsm_miss_size           = 2'b11;
-    req_fsm_miss_type           = ace_pkg::READ_SHARED;
+    req_fsm_miss_type           = std_cache_pkg::READ_SHARED;
     // to AXI bypass
     amo_bypass_req.req          = 1'b0;
     amo_bypass_req.reqtype      = ariane_pkg::SINGLE_REQ;
@@ -343,13 +343,13 @@ module miss_handler
         req_fsm_miss_addr   = mshr_q.addr;
         if (state_q == REQ_CACHELINE_UNIQUE) begin
           // start a ReadUnique request, the requested adress was cleared by snoop
-          req_fsm_miss_type = ace_pkg::READ_UNIQUE;
+          req_fsm_miss_type = std_cache_pkg::READ_UNIQUE;
         end else begin
           case ({mshr_q.we, is_inside_shareable_regions(CVA6Cfg, mshr_q.addr)})
-            2'b00: req_fsm_miss_type = ace_pkg::READ_NO_SNOOP;
-            2'b01: req_fsm_miss_type = ace_pkg::READ_SHARED;
-            2'b10: req_fsm_miss_type = ace_pkg::READ_NO_SNOOP;
-            2'b11: req_fsm_miss_type = ace_pkg::READ_UNIQUE;
+            2'b00: req_fsm_miss_type = std_cache_pkg::READ_NO_SNOOP;
+            2'b01: req_fsm_miss_type = std_cache_pkg::READ_SHARED;
+            2'b10: req_fsm_miss_type = std_cache_pkg::READ_NO_SNOOP;
+            2'b11: req_fsm_miss_type = std_cache_pkg::READ_UNIQUE;
           endcase
         end
         if (gnt_miss_fsm) begin
@@ -424,7 +424,7 @@ module miss_handler
         req_fsm_miss_be     = evict_cl_q.dirty;
         req_fsm_miss_we     = 1'b1;
         req_fsm_miss_wdata  = evict_cl_q.data;
-        req_fsm_miss_type   = ace_pkg::WRITE_BACK;
+        req_fsm_miss_type   = std_cache_pkg::WRITE_BACK;
         flushing_o          = state_q == WB_CACHELINE_FLUSH;
 
         // we've got a grant --> this is timing critical, think about it
@@ -511,7 +511,7 @@ module miss_handler
         if (matching_way) begin
           req_fsm_miss_valid  = 1'b1;
           req_fsm_miss_addr   = mshr_q.addr;
-          req_fsm_miss_type   = ace_pkg::CLEAN_UNIQUE;
+          req_fsm_miss_type   = std_cache_pkg::CLEAN_UNIQUE;
           state_d             = SEND_CLEAN;
         end
         else begin
@@ -525,7 +525,7 @@ module miss_handler
       SEND_CLEAN: begin
         req_fsm_miss_valid  = 1'b1;
         req_fsm_miss_addr   = mshr_q.addr;
-        req_fsm_miss_type   = ace_pkg::CLEAN_UNIQUE;
+        req_fsm_miss_type   = std_cache_pkg::CLEAN_UNIQUE;
 
         if (valid_miss_fsm) begin
           // if the cacheline has just been invalidated, request it again
@@ -699,15 +699,15 @@ module miss_handler
 
       if (miss_req_we[id]) begin
         if (is_inside_shareable_regions(CVA6Cfg, miss_req_addr[id])) begin
-          bypass_ports_req[id].acetype = ace_pkg::WRITE_UNIQUE;
+          bypass_ports_req[id].acetype = std_cache_pkg::WRITE_UNIQUE;
         end else begin
-          bypass_ports_req[id].acetype = ace_pkg::WRITE_NO_SNOOP;
+          bypass_ports_req[id].acetype = std_cache_pkg::WRITE_NO_SNOOP;
         end
       end else begin
         if (is_inside_shareable_regions(CVA6Cfg, miss_req_addr[id])) begin
-          bypass_ports_req[id].acetype = ace_pkg::READ_ONCE;
+          bypass_ports_req[id].acetype = std_cache_pkg::READ_ONCE;
         end else begin
-          bypass_ports_req[id].acetype = ace_pkg::READ_NO_SNOOP;
+          bypass_ports_req[id].acetype = std_cache_pkg::READ_NO_SNOOP;
         end
       end
 
@@ -721,15 +721,15 @@ module miss_handler
     bypass_ports_req[id].id = 4'b1000 + id;
     if (amo_bypass_req.we) begin
       if (is_inside_shareable_regions(CVA6Cfg, amo_bypass_req.addr)) begin
-        bypass_ports_req[id].acetype = ace_pkg::WRITE_UNIQUE;
+        bypass_ports_req[id].acetype = std_cache_pkg::WRITE_UNIQUE;
       end else begin
-        bypass_ports_req[id].acetype = ace_pkg::WRITE_NO_SNOOP;
+        bypass_ports_req[id].acetype = std_cache_pkg::WRITE_NO_SNOOP;
       end
     end else begin
       if (is_inside_shareable_regions(CVA6Cfg, amo_bypass_req.addr)) begin
-        bypass_ports_req[id].acetype = ace_pkg::READ_ONCE;
+        bypass_ports_req[id].acetype = std_cache_pkg::READ_ONCE;
       end else begin
-        bypass_ports_req[id].acetype = ace_pkg::READ_NO_SNOOP;
+        bypass_ports_req[id].acetype = std_cache_pkg::READ_NO_SNOOP;
       end
     end
     amo_bypass_rsp       = bypass_ports_rsp[id];

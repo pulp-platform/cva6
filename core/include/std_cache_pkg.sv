@@ -45,10 +45,21 @@ package std_cache_pkg;
     logic        make_unique;
   } miss_req_t;
 
+  typedef enum logic[2:0] {
+    READ_NO_SNOOP,
+    READ_ONCE,
+    READ_SHARED,
+    READ_UNIQUE,
+    CLEAN_UNIQUE,
+    WRITE_NO_SNOOP,
+    WRITE_BACK,
+    WRITE_UNIQUE
+  } ace_trs_t;
+
   typedef struct packed {
     logic                req;
     ariane_pkg::ad_req_t reqtype;
-    ace_pkg::ace_trs_t   acetype;
+    ace_trs_t            acetype;
     ariane_pkg::amo_t    amo;
     logic [3:0]          id;
     logic [63:0]         addr;
@@ -89,7 +100,7 @@ package std_cache_pkg;
     logic        valid;
     logic [63:0] addr;
   } readshared_done_t;
-  
+
   // convert one hot to bin for -> needed for cache replacement
   function automatic logic [DCACHE_SET_ASSOC_WIDTH-1:0] one_hot_to_bin(
       input logic [ariane_pkg::DCACHE_SET_ASSOC-1:0] in);
