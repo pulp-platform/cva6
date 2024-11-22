@@ -169,7 +169,7 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; (
             else begin
               send_snoop_resp = 1'b1;
               state_d = snoop_port_done ? IDLE : WAIT_SNOOP_PORT;
-              cr_resp_d.error = 1'b1;
+              cr_resp_d.Error = 1'b1;
             end
           end
         end
@@ -191,14 +191,14 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; (
         shared_way_d = shared_way_i;
         dirty_way_d = dirty_way_i;
         if (|hit_way_i) begin
-          cr_resp_d.dataTransfer = 1'b1;
-          cr_resp_d.passDirty = 1'b0; //dirty;
+          cr_resp_d.DataTransfer = 1'b1;
+          cr_resp_d.PassDirty = 1'b0; //dirty;
           cache_data_d = cl_i;
           case (ac_snoop_q)
             ace_pkg::CleanInvalid: begin
-              cr_resp_d.dataTransfer = dirty;
-              cr_resp_d.passDirty = dirty;
-              cr_resp_d.isShared = 1'b0;
+              cr_resp_d.DataTransfer = dirty;
+              cr_resp_d.PassDirty = dirty;
+              cr_resp_d.IsShared = 1'b0;
               clean_invalid_hit_o = 1'b1;
               invalidate_o = 1'b1;
               if (gnt_i) begin
@@ -209,12 +209,12 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; (
               end
             end
             ace_pkg::ReadOnce: begin
-              cr_resp_d.isShared = shared;
+              cr_resp_d.IsShared = shared;
               send_snoop_resp = 1'b1;
               state_d = snoop_port_done ? IDLE : WAIT_SNOOP_PORT;
             end
             ace_pkg::ReadShared: begin
-              cr_resp_d.isShared = 1'b1;
+              cr_resp_d.IsShared = 1'b1;
               update_shared = 1'b1;
               if (gnt_i) begin
                 send_snoop_resp = 1'b1;
@@ -226,8 +226,8 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; (
               end
             end
             default : begin // ace_pkg::ReadUnique
-              cr_resp_d.passDirty = dirty;
-              cr_resp_d.isShared = 1'b0;
+              cr_resp_d.PassDirty = dirty;
+              cr_resp_d.IsShared = 1'b0;
               state_d = INVALIDATE;
               assert (ac_snoop_q == ace_pkg::ReadUnique) else
                 $error("Unexpected snoop type");
@@ -236,9 +236,9 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; (
         end
         // Miss
         else begin
-          cr_resp_d.dataTransfer = 1'b0;
-          cr_resp_d.passDirty = 1'b0;
-          cr_resp_d.isShared = 1'b0;
+          cr_resp_d.DataTransfer = 1'b0;
+          cr_resp_d.PassDirty = 1'b0;
+          cr_resp_d.IsShared = 1'b0;
           send_snoop_resp = 1'b1;
           state_d = snoop_port_done ? IDLE : WAIT_SNOOP_PORT;
           clean_invalid_miss_o = (ac_snoop_q == ace_pkg::CleanInvalid);
@@ -295,7 +295,7 @@ module snoop_cache_ctrl import ariane_pkg::*; import std_cache_pkg::*; (
     if (snoop_port_busy_q) begin
       snoop_port_busy_d     = 1'b1;
       snoop_port_o.cr_valid = !cr_done_q;
-      if (cr_resp_q.dataTransfer) begin
+      if (cr_resp_q.DataTransfer) begin
         snoop_port_o.cd_valid = 1'b1;
         cacheline_word_sel_d  = snoop_port_i.cd_ready || cacheline_word_sel_q;
         cr_done_d             = snoop_port_i.cr_ready || cr_done_q;
