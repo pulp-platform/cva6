@@ -276,7 +276,6 @@ module std_cache_subsystem
   );
 
   assign axi_sort_req = {axi_req_icache, axi_req_bypass, axi_req_data};
-  assign axi_req_o.wack = axi_sort_req[w_select_arbiter].wack;
 
   // Route responses based on ID
   // 0000 -> I$
@@ -309,7 +308,15 @@ module std_cache_subsystem
       .oup_ready_i({axi_req_icache.r_ready, axi_req_bypass.r_ready, axi_req_data.r_ready})
   );
 
-  assign axi_req_o.rack = axi_sort_req[r_select].rack;
+  // RACK
+  logic [1:0] rack_select;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (!rst_ni) rack_select <= '0;
+      else         rack_select <= r_select;
+  end
+
+  assign axi_req_o.rack = axi_sort_req[rack_select].rack;
 
   // B Channel
   logic [1:0] b_select;
@@ -337,6 +344,15 @@ module std_cache_subsystem
       .oup_valid_o({axi_resp_icache.b_valid, axi_resp_bypass.b_valid, axi_resp_data.b_valid}),
       .oup_ready_i({axi_req_icache.b_ready, axi_req_bypass.b_ready, axi_req_data.b_ready})
   );
+
+  //WACK
+  logic [1:0] wack_select;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (!rst_ni) wack_select <= '0;
+      else         wack_select <= b_select;
+  end
+  assign axi_req_o.wack = axi_sort_req[wack_select].wack;
 
   ///////////////////////////////////////////////////////
   // assertions

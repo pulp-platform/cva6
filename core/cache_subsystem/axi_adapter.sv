@@ -492,7 +492,7 @@ module axi_adapter #(
       // assert WACK the cycle after the BVALID/BREADY handshake is finished
       wack_d = axi_req_o.b_ready & axi_resp_i.b_valid;
       // assert RACK the cycle after the RVALID/RREADY handshake is finished
-      rack_d = axi_req_o.r_ready & axi_resp_i.r_valid;
+      rack_d = axi_req_o.r_ready & axi_resp_i.r_valid & axi_resp_i.r.last;
     end
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
