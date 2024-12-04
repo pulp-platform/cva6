@@ -31,15 +31,7 @@ module cva6
       rvfi_probes_instr_t instr;
     },
 
-    // branchpredict scoreboard entry
-    // this is the struct which we will inject into the pipeline to guide the various
-    // units towards the correct branch decision and resolve
-    localparam type branchpredict_sbe_t = struct packed {
-      cf_t                     cf;               // type of control flow prediction
-      logic [CVA6Cfg.VLEN-1:0] predict_address;  // target address at which to jump, or not
-    },
-
-    localparam type exception_t = struct packed {
+    parameter type exception_t = struct packed {
       logic [CVA6Cfg.XLEN-1:0] cause;  // cause of exception
       logic [CVA6Cfg.XLEN-1:0] tval;  // additional information of causing exception (e.g.: instruction causing it),
       // address of LD/ST fault
@@ -47,6 +39,14 @@ module cva6
       logic [31:0] tinst;  // transformed instruction information
       logic gva;  // signals when a guest virtual address is written to tval
       logic valid;
+    },
+
+    // branchpredict scoreboard entry
+    // this is the struct which we will inject into the pipeline to guide the various
+    // units towards the correct branch decision and resolve
+    localparam type branchpredict_sbe_t = struct packed {
+      cf_t                     cf;               // type of control flow prediction
+      logic [CVA6Cfg.VLEN-1:0] predict_address;  // target address at which to jump, or not
     },
 
     // cache request ports
@@ -205,50 +205,13 @@ module cva6
       logic [CVA6Cfg.DCACHE_USER_WIDTH-1:0] data_ruser;
     },
 
-    // Accelerator - CVA6's
-    localparam type accelerator_req_t = struct packed {
-      logic                             req_valid;
-      logic                             resp_ready;
-      riscv::instruction_t              insn;
-      logic [CVA6Cfg.XLEN-1:0]          rs1;
-      logic [CVA6Cfg.XLEN-1:0]          rs2;
-      fpnew_pkg::roundmode_e            frm;
-      logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id;
-      logic                             store_pending;
-      logic                             acc_cons_en; // Invalidation interface
-      logic                             inval_ready; // Invalidation interface
-    },
-
-    localparam type accelerator_resp_t = struct packed {
-      logic                                 req_ready;
-      logic                                 resp_valid;
-      logic [CVA6Cfg.XLEN-1:0]              result;
-      logic [CVA6Cfg.TRANS_ID_BITS-1:0]     trans_id;
-      exception_t                           exception;
-      logic                                 store_pending;
-      logic                                 store_complete;
-      logic                                 load_complete;
-      logic [4:0]                           fflags;
-      logic                                 fflags_valid;
-      logic                                 inval_valid; // Invalidation interface
-      logic [63:0]                          inval_addr; // Invalidation interface
-    },
+    // Accelerator - CVA6
+    parameter type accelerator_req_t = logic,
+    parameter type accelerator_resp_t = logic,
 
     // Accelerator - CVA6's MMU
-	localparam type acc_mmu_req_t = struct packed {
-      logic                    acc_mmu_misaligned_ex;
-      logic                    acc_mmu_req;
-      logic [CVA6Cfg.VLEN-1:0] acc_mmu_vaddr;
-      logic                    acc_mmu_is_store;
-    },
-
-    localparam type acc_mmu_resp_t = struct packed {
-      logic                    acc_mmu_dtlb_hit;
-      logic [CVA6Cfg.PPNW-1:0] acc_mmu_dtlb_ppn;
-      logic                    acc_mmu_valid;
-      logic [CVA6Cfg.PLEN-1:0] acc_mmu_paddr;
-      exception_t              acc_mmu_exception;
-    },
+    parameter type acc_mmu_req_t = logic,
+    parameter type acc_mmu_resp_t = logic,
 
     // AXI types
     parameter type axi_ar_chan_t = struct packed {

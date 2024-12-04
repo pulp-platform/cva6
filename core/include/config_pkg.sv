@@ -48,6 +48,11 @@ package config_pkg;
   typedef struct packed {
     // General Purpose Register Size (in bits)
     int unsigned                 XLEN;
+    //
+    int unsigned                 VLEN;
+    int unsigned                 PLEN;
+    int unsigned                 GPLEN;
+    int unsigned                 PPNW;
     // Atomic RISC-V extension
     bit                          RVA;
     // Bit manipulation RISC-V extension
@@ -204,6 +209,8 @@ package config_pkg;
     bit unsigned                 UseSharedTlb;
     // MMU depth of shared TLB
     int unsigned                 SharedTlbDepth;
+    //
+    int unsigned                 TRANS_ID_BITS;
   } cva6_user_cfg_t;
 
   typedef struct packed {
