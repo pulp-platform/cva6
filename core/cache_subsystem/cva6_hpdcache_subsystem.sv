@@ -220,13 +220,13 @@ module cva6_hpdcache_subsystem
       wbufWords: 1,
       wbufTimecntWidth: 3,
       rtabEntries: 4,
-      flushEntries: 0,
-      flushFifoDepth: 0,
+      flushEntries: 4,
+      flushFifoDepth: 2,
       memAddrWidth: CVA6Cfg.AxiAddrWidth,
       memIdWidth: CVA6Cfg.MEM_TID_WIDTH,
       memDataWidth: CVA6Cfg.AxiDataWidth,
-      wtEn: 1'b1,
-      wbEn: 1'b0
+      wtEn: 1'b0,
+      wbEn: 1'b1
   };
 
   localparam hpdcache_pkg::hpdcache_cfg_t HPDcacheCfg = hpdcache_pkg::hpdcacheBuildConfig(
