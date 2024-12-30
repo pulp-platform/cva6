@@ -1,7 +1,7 @@
 bootrom_img = bootrom.img bootrom.sv
 
-RISCV_GCC?=riscv64-unknown-elf-gcc
-RISCV_OBJCOPY?=riscv64-unknown-elf-objcopy
+RISCV_GCC?=riscv-none-elf-gcc
+RISCV_OBJCOPY?=riscv-none-elf-objcopy
 DTB=ariane.dtb
 PYTHON=python
 
@@ -14,7 +14,7 @@ all: $(bootrom_img)
 	$(RISCV_OBJCOPY) -O binary $< $@
 
 %.elf: %.S linker.ld $(DTB)
-	$(RISCV_GCC) -Tlinker.ld -march=rv32i -mabi=ilp32 $< -nostdlib -static -Wl,--no-gc-sections -o $@
+	$(RISCV_GCC) -Tlinker.ld -march=rv32i_zicsr -mabi=ilp32 $< -nostdlib -static -Wl,--no-gc-sections -o $@
 
 %.dtb: %.dts
 	dtc -I dts $< -O dtb -o $@

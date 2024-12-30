@@ -1696,41 +1696,41 @@ module cva6
 `endif  // PITON_ARIANE
 
 `ifndef VERILATOR
-  instr_tracer #(
-      .CVA6Cfg(CVA6Cfg),
-      .bp_resolve_t(bp_resolve_t),
-      .scoreboard_entry_t(scoreboard_entry_t),
-      .interrupts_t(interrupts_t),
-      .exception_t(exception_t),
-      .INTERRUPTS(INTERRUPTS)
-  ) instr_tracer_i (
-      // .tracer_if(tracer_if),
-      .pck(clk_i),
-      .rstn(rst_ni),
-      .flush_unissued(flush_unissued_instr_ctrl_id),
-      .flush_all(flush_ctrl_ex),
-      .instruction(id_stage_i.fetch_entry_i[0].instruction),
-      .fetch_valid(id_stage_i.fetch_entry_valid_i[0]),
-      .fetch_ack(id_stage_i.fetch_entry_ready_o[0]),
-      .issue_ack(issue_stage_i.i_scoreboard.issue_ack_i),
-      .issue_sbe(issue_stage_i.i_scoreboard.issue_instr_o),
-      .waddr(waddr_commit_id),
-      .wdata(wdata_commit_id),
-      .we_gpr(we_gpr_commit_id),
-      .we_fpr(we_fpr_commit_id),
-      .commit_instr(commit_instr_id_commit),
-      .commit_ack(commit_ack),
-      .st_valid(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.valid_i),
-      .st_paddr(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.paddr_i),
-      .ld_valid(ex_stage_i.lsu_i.i_load_unit.req_port_o.tag_valid),
-      .ld_kill(ex_stage_i.lsu_i.i_load_unit.req_port_o.kill_req),
-      .ld_paddr(ex_stage_i.lsu_i.i_load_unit.paddr_i),
-      .resolve_branch(resolved_branch),
-      .commit_exception(commit_stage_i.exception_o),
-      .priv_lvl(priv_lvl),
-      .debug_mode(debug_mode),
-      .hart_id_i(hart_id_i)
-  );
+  // instr_tracer #(
+  //     .CVA6Cfg(CVA6Cfg),
+  //     .bp_resolve_t(bp_resolve_t),
+  //     .scoreboard_entry_t(scoreboard_entry_t),
+  //     .interrupts_t(interrupts_t),
+  //     .exception_t(exception_t),
+  //     .INTERRUPTS(INTERRUPTS)
+  // ) instr_tracer_i (
+  //     // .tracer_if(tracer_if),
+  //     .pck(clk_i),
+  //     .rstn(rst_ni),
+  //     .flush_unissued(flush_unissued_instr_ctrl_id),
+  //     .flush_all(flush_ctrl_ex),
+  //     .instruction(id_stage_i.fetch_entry_i[0].instruction),
+  //     .fetch_valid(id_stage_i.fetch_entry_valid_i[0]),
+  //     .fetch_ack(id_stage_i.fetch_entry_ready_o[0]),
+  //     .issue_ack(issue_stage_i.i_scoreboard.issue_ack_i),
+  //     .issue_sbe(issue_stage_i.i_scoreboard.issue_instr_o),
+  //     .waddr(waddr_commit_id),
+  //     .wdata(wdata_commit_id),
+  //     .we_gpr(we_gpr_commit_id),
+  //     .we_fpr(we_fpr_commit_id),
+  //     .commit_instr(commit_instr_id_commit),
+  //     .commit_ack(commit_ack),
+  //     .st_valid(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.valid_i),
+  //     .st_paddr(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.paddr_i),
+  //     .ld_valid(ex_stage_i.lsu_i.i_load_unit.req_port_o.tag_valid),
+  //     .ld_kill(ex_stage_i.lsu_i.i_load_unit.req_port_o.kill_req),
+  //     .ld_paddr(ex_stage_i.lsu_i.i_load_unit.paddr_i),
+  //     .resolve_branch(resolved_branch),
+  //     .commit_exception(commit_stage_i.exception_o),
+  //     .priv_lvl(priv_lvl),
+  //     .debug_mode(debug_mode),
+  //     .hart_id_i(hart_id_i)
+  // );
 
   // mock tracer for Verilator, to be used with spike-dasm
 `else

@@ -6,7 +6,7 @@ _start:
 # versions. That's why we have replaced it by li and slli instructions
 # to generates code compatible with both versions.
   li s0, 1
-  slli s0, s0, 31
+  slli s0, s0, 29
   csrr a0, mhartid
   la a1, _dtb
   jr s0
