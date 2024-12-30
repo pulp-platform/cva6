@@ -54,16 +54,9 @@ package ariane_soc;
   localparam bit GenProtocolChecker = 1'b0;
 
   typedef enum logic [63:0] {
-    DebugBase    = 64'h0000_0000,
     ROMBase      = 64'h0001_0000,
-    CLINTBase    = 64'h0200_0000,
-    PLICBase     = 64'h0C00_0000,
     UARTBase     = 64'h1000_0000,
-    TimerBase    = 64'h1800_0000,
-    SPIBase      = 64'h2000_0000,
-    EthernetBase = 64'h3000_0000,
-    GPIOBase     = 64'h4000_0000,
-    DRAMBase     = 64'h8000_0000
+    DRAMBase     = 64'h2000_0000
   } soc_bus_start_t;
 
   localparam NrRegion = 1;

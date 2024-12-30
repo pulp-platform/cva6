@@ -77,6 +77,35 @@ sources:
       - core/include/riscv_pkg.sv
       - core/include/ariane_pkg.sv
       - core/include/build_config_pkg.sv
+      ##### Temp mods #####
+      - corev_apu/tb/ariane_axi_pkg.sv
+      - corev_apu/tb/ariane_soc_pkg.sv
+      - corev_apu/tb/ariane_axi_soc_pkg.sv
+      - corev_apu/tb/common/mock_uart.sv
+      - corev_apu/tb/rvfi_tracer.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_res_tbl.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_riscv_amos_alu.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_riscv_amos.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_riscv_atomics_wrap.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_riscv_atomics.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_riscv_lrsc_wrap.sv
+      - corev_apu/src/axi_riscv_atomics/src/axi_riscv_lrsc.sv
+      - corev_apu/axi_mem_if/src/axi2mem.sv
+      - corev_apu/bootrom/bootrom.sv
+      - corev_apu/fpga/src/axi2apb/src/axi2apb_64_32.sv
+      - corev_apu/fpga/src/axi2apb/src/axi2apb.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_ar_buffer.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_aw_buffer.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_b_buffer.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_r_buffer.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_single_slice.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_slice_wrap.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_slice.sv
+      - corev_apu/fpga/src/axi_slice/src/axi_w_buffer.sv
+      - core/cva6_rvfi_probes.sv
+      - core/cva6_rvfi.sv
+      #####################
+      - core/include/riscv_pkg.sv
 
       - target: not(exclude_first_pass_decoder)
         files:
