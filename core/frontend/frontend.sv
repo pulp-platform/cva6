@@ -507,7 +507,7 @@ module frontend
 
   if (CVA6Cfg.BHTEntries == 0) begin
     assign bht_prediction = '0;
-  end else begin : bht_gen
+  end else if (cva6_config_pkg::CVA6ConfigBHTType == 0) begin : bht_gen
     bht #(
         .CVA6Cfg   (CVA6Cfg),
         .bht_update_t(bht_update_t),
@@ -517,6 +517,20 @@ module frontend
         .rst_ni,
         .flush_bp_i      (flush_bp_i),
         .debug_mode_i,
+        .vpc_i           (icache_vaddr_q),
+        .bht_update_i    (bht_update),
+        .bht_prediction_o(bht_prediction)
+    );
+  end else if (cva6_config_pkg::CVA6ConfigBHTType == 1) begin : bht2lvl_gen
+    bht2lvl #(
+        .CVA6Cfg        ( CVA6Cfg                           ),
+        .NR_ENTRIES     ( cva6_config_pkg::CVA6ConfigBHTEntries ),
+        .HISTORY_LENGTH ( cva6_config_pkg::CVA6ConfigBHTHist    ),
+        .bht_update_t   ( bht_update_t )
+    ) i_bht (
+        .clk_i,
+        .rst_ni,
+        .flush_i         (flush_bp_i),
         .vpc_i           (icache_vaddr_q),
         .bht_update_i    (bht_update),
         .bht_prediction_o(bht_prediction)
