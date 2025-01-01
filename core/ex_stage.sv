@@ -228,7 +228,8 @@ module ex_stage
     // Information dedicated to RVFI - RVFI
     output lsu_ctrl_t rvfi_lsu_ctrl_o,
     // Information dedicated to RVFI - RVFI
-    output [CVA6Cfg.PLEN-1:0] rvfi_mem_paddr_o
+    output [CVA6Cfg.PLEN-1:0] rvfi_mem_paddr_o,
+    output logic fpu_early_valid_o
 );
 
   // -------------------------
@@ -436,7 +437,8 @@ module ex_stage
           .fpu_trans_id_o(fpu_trans_id),
           .result_o(fpu_result),
           .fpu_valid_o(fpu_valid),
-          .fpu_exception_o
+          .fpu_exception_o,
+          .fpu_early_valid_o
       );
     end else begin : no_fpu_gen
       assign fpu_ready_o     = '0;

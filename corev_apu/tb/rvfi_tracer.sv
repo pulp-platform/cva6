@@ -78,8 +78,10 @@ module rvfi_tracer #(
       // print the instruction information if the instruction is valid or a trap is taken
       if (rvfi_i[i].valid) begin
         // Instruction information
-        $fwrite(f, "core   0: 0x%h (0x%h) DASM(%h)\n",
-          pc64, rvfi_i[i].insn, rvfi_i[i].insn);
+        $fwrite(f, "core   0: 0x%h (0x%h) @%d DASM(%h)\n",
+          pc64, rvfi_i[i].insn, cycles, rvfi_i[i].insn);
+        // $fwrite(f, "core   0: 0x%h (0x%h) DASM(%h)\n",
+        //   pc64, rvfi_i[i].insn, rvfi_i[i].insn);
         // Destination register information
         if (rvfi_i[i].insn[1:0] != 2'b11) begin
           $fwrite(f, "%h 0x%h (0x%h)",
