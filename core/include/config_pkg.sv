@@ -90,6 +90,8 @@ package config_pkg;
     bit                          XF8ALT;
     // Non standard Vector Floating Point extension
     bit                          XFVec;
+    // ALU -> ALU Fusion
+    bit                          FUSE;
     // Perf counters
     bit                          PerfCounterEn;
     // MMU
@@ -281,6 +283,7 @@ package config_pkg;
     bit          XF16ALTVec;
     bit          XF8Vec;
     bit          XF8ALTVec;
+    bit          FUSE;
     int unsigned NrRgprPorts;
     int unsigned NrWbPorts;
     bit          EnableAccelerator;

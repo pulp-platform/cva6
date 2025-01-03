@@ -761,6 +761,12 @@ package ariane_pkg;
       default:                                              return 2'b11;
     endcase
   endfunction
+
+  typedef struct packed {
+    logic rs1_into_rd;
+    logic rs2_into_rd;
+  } fusion_t;
+  
   // ----------------------
   // MMU Functions
   // ----------------------

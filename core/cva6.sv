@@ -424,6 +424,7 @@ module cva6
   logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.VLEN-1:0] rs2_forwarding_id_ex;  // unregistered version of fu_data_o.operandb
 
   fu_data_t [CVA6Cfg.NrIssuePorts-1:0] fu_data_id_ex;
+  ariane_pkg::fusion_t fuse_id_ex;
   logic [CVA6Cfg.VLEN-1:0] pc_id_ex;
   logic is_compressed_instr_id_ex;
   logic [CVA6Cfg.NrIssuePorts-1:0][31:0] tinst_ex;
@@ -858,6 +859,7 @@ module cva6
       .rs1_forwarding_o        (rs1_forwarding_id_ex),
       .rs2_forwarding_o        (rs2_forwarding_id_ex),
       .fu_data_o               (fu_data_id_ex),
+      .fuse_o                  (fuse_id_ex),
       .pc_o                    (pc_id_ex),
       .is_compressed_instr_o   (is_compressed_instr_id_ex),
       .tinst_o                 (tinst_ex),
@@ -950,6 +952,7 @@ module cva6
       .rs1_forwarding_i(rs1_forwarding_id_ex),
       .rs2_forwarding_i(rs2_forwarding_id_ex),
       .fu_data_i(fu_data_id_ex),
+      .fuse_i               (fuse_id_ex),
       .pc_i(pc_id_ex),
       .is_compressed_instr_i(is_compressed_instr_id_ex),
       .tinst_i(tinst_ex),
