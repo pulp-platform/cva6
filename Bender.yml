@@ -121,7 +121,6 @@ sources:
       - core/cva6_rvfi_probes.sv
       - core/cva6_rvfi.sv
       #####################
-      - core/include/riscv_pkg.sv
 
       - target: not(exclude_first_pass_decoder)
         files:
