@@ -51,6 +51,8 @@ module issue_read_operands
     input forwarding_t fwd_i,
     // FU data useful to execute instruction - EX_STAGE
     output fu_data_t [CVA6Cfg.NrIssuePorts-1:0] fu_data_o,
+    // Fusion signal - EX_STAGE
+    output fusion_t fuse_o,
     // Unregistered version of fu_data_o.operanda - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rs1_forwarding_o,
     // Unregistered version of fu_data_o.operandb - EX_STAGE
@@ -133,6 +135,15 @@ module issue_read_operands
     logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, accel;
   } fus_busy_t;
 
+  typedef struct packed {
+    logic [CVA6Cfg.NrIssuePorts-1:0] rs1;
+    logic [CVA6Cfg.NrIssuePorts-1:0] rs2;
+    logic [CVA6Cfg.NrIssuePorts-1:0] rs3;
+    logic rs1_rd;
+    logic rs2_rd;
+    logic rs3_rd;
+  } mo_t;
+
   logic [CVA6Cfg.NrIssuePorts-1:0] stall_raw, stall_waw, stall_rs1, stall_rs2, stall_rs3;
   logic [CVA6Cfg.NrIssuePorts-1:0] fu_busy;  // functional unit is busy
   fus_busy_t [CVA6Cfg.NrIssuePorts-1:0] fus_busy;  // which functional units are considered busy
@@ -207,6 +218,9 @@ module issue_read_operands
     assign orig_instr[i] = riscv::instruction_t'(orig_instr_i[i]);
   end
 
+  // Operand fusion signals
+  fusion_t fuse, fuse_q;
+
   // CVXIF Signals
   logic cvxif_req_allowed;
   logic x_transaction_rejected;
@@ -264,6 +278,7 @@ module issue_read_operands
     assign rs2_forwarding_o[i] = fu_data_n[i].operand_b[CVA6Cfg.VLEN-1:0];  //forwarding or unregistered rs2 value
   end
 
+  assign fuse_o = fuse_q;
   assign fu_data_o = fu_data_q;
   assign alu_valid_o = alu_valid_q;
   assign branch_valid_o = branch_valid_q;
@@ -350,14 +365,13 @@ module issue_read_operands
           end
         end
         ALU: begin
-          if (CVA6Cfg.SuperscalarEn && !fus_busy[0].alu2) begin //check fpu
+          if (CVA6Cfg.SuperscalarEn && !fus_busy[0].alu2) begin
             if (issue_instr_i[1].fu inside {FPU, FPU_VEC} && !flu_ready_i) begin
               fus_busy[0].alu2 = 1'b1; // Here we block the ALU2 from being used from [0].
                                        // If not, it would use the same WB port of the FPU.
             end else if (issue_instr_i[1].fu == CTRL_FLOW) begin
               fus_busy[0].alu  = 1'b1;
-//            end else if (CVA6Cfg.FUSE && issue_instr_i[1].fu == ALU && issue_instr_valid_i[1] && !fus_busy[0].alu) begin
-              end else if (issue_instr_i[1].fu == ALU && issue_instr_valid_i[1] && !fus_busy[0].alu) begin
+            end else if (CVA6Cfg.FUSE && issue_instr_i[1].fu == ALU && issue_instr_valid_i[1] && !fus_busy[0].alu) begin
               fus_busy[0].alu2 = 1'b1;
             end else begin
               fus_busy[1].alu2 = 1'b1;
@@ -460,58 +474,16 @@ module issue_read_operands
   // WB ports have higher prio than entries
   for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
     for (genvar k = 0; unsigned'(k) < CVA6Cfg.NrWbPorts; k++) begin : gen_rs_wb
-
       assign rs1_fwd_req[i][k] = ((fwd_i.wb[k].trans_id == rd_clobber_gpr[issue_instr_i[i].rs1] && (!ariane_pkg::is_rs1_fpr(issue_instr_i[i].op))) || (fwd_i.wb[k].trans_id == rd_clobber_fpr[issue_instr_i[i].rs1] && (CVA6Cfg.FpPresent && ariane_pkg::is_rs1_fpr(issue_instr_i[i].op)))) & fwd_i.wb[k].valid & (~fwd_i.wb[k].ex_valid);
-
-      // assign rs1_fwd_req[i][k] = (fwd_i.sbe[fwd_i.wb[k].trans_id].rd == issue_instr_i[i].rs1) & (fwd_i.still_issued[fwd_i.wb[k].trans_id]) & fwd_i.wb[k].valid & (~fwd_i.wb[k].ex_valid) & ((CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-      //     fwd_i.sbe[fwd_i.wb[k].trans_id].op
-      // )) == (CVA6Cfg.FpPresent && ariane_pkg::is_rs1_fpr(
-      //     issue_instr_i[i].op
-      // )));
-
       assign rs2_fwd_req[i][k] = ((fwd_i.wb[k].trans_id == rd_clobber_gpr[issue_instr_i[i].rs2] && (!ariane_pkg::is_rs2_fpr(issue_instr_i[i].op))) || (fwd_i.wb[k].trans_id == rd_clobber_fpr[issue_instr_i[i].rs2] && (CVA6Cfg.FpPresent && ariane_pkg::is_rs2_fpr(issue_instr_i[i].op)))) & fwd_i.wb[k].valid & (~fwd_i.wb[k].ex_valid);
-
-      // assign rs2_fwd_req[i][k] = (fwd_i.sbe[fwd_i.wb[k].trans_id].rd == issue_instr_i[i].rs2) & (fwd_i.still_issued[fwd_i.wb[k].trans_id]) & fwd_i.wb[k].valid & (~fwd_i.wb[k].ex_valid) & ((CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-      //     fwd_i.sbe[fwd_i.wb[k].trans_id].op
-      // )) == (CVA6Cfg.FpPresent && ariane_pkg::is_rs2_fpr(
-      //     issue_instr_i[i].op
-      // )));
-
       assign rs3_fwd_req[i][k] = ((fwd_i.wb[k].trans_id == rd_clobber_gpr[issue_instr_i[i].result[ariane_pkg::REG_ADDR_SIZE-1:0]] && (!ariane_pkg::is_imm_fpr(issue_instr_i[i].op))) || (fwd_i.wb[k].trans_id == rd_clobber_fpr[issue_instr_i[i].result[ariane_pkg::REG_ADDR_SIZE-1:0]] && (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr(issue_instr_i[i].op)))) & fwd_i.wb[k].valid & (~fwd_i.wb[k].ex_valid);
-
-      // assign rs3_fwd_req[i][k] = (fwd_i.sbe[fwd_i.wb[k].trans_id].rd == issue_instr_i[i].result[ariane_pkg::REG_ADDR_SIZE-1:0]) & (fwd_i.still_issued[fwd_i.wb[k].trans_id]) & fwd_i.wb[k].valid & (~fwd_i.wb[k].ex_valid) & ((CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-      //     fwd_i.sbe[fwd_i.wb[k].trans_id].op
-      // )) == (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr(
-      //     issue_instr_i[i].op
-      // )));
-
       assign rs_data[i][k] = fwd_i.wb[k].data;
     end
 
     for (genvar k = 0; unsigned'(k) < CVA6Cfg.NR_SB_ENTRIES; k++) begin : gen_rs_entries
-
       assign rs1_fwd_req[i][k+CVA6Cfg.NrWbPorts] = ((rd_clobber_gpr[issue_instr_i[i].rs1] == k && (!ariane_pkg::is_rs1_fpr(issue_instr_i[i].op))) || (rd_clobber_fpr[issue_instr_i[i].rs1] == k && (CVA6Cfg.FpPresent && ariane_pkg::is_rs1_fpr(issue_instr_i[i].op)))) & fwd_i.still_issued[k] & fwd_i.sbe[k].valid ;
       assign rs2_fwd_req[i][k+CVA6Cfg.NrWbPorts] = ((rd_clobber_gpr[issue_instr_i[i].rs2] == k && (!ariane_pkg::is_rs2_fpr(issue_instr_i[i].op))) || (rd_clobber_fpr[issue_instr_i[i].rs2] == k && (CVA6Cfg.FpPresent && ariane_pkg::is_rs2_fpr(issue_instr_i[i].op)))) & fwd_i.still_issued[k] & fwd_i.sbe[k].valid ;
       assign rs3_fwd_req[i][k+CVA6Cfg.NrWbPorts] = ((rd_clobber_gpr[issue_instr_i[i].result[ariane_pkg::REG_ADDR_SIZE-1:0]] == k && (!ariane_pkg::is_imm_fpr(issue_instr_i[i].op))) || (rd_clobber_fpr[issue_instr_i[i].result[ariane_pkg::REG_ADDR_SIZE-1:0]] == k && (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr(issue_instr_i[i].op)))) & fwd_i.still_issued[k] & fwd_i.sbe[k].valid ;
-
-      // assign rs1_fwd_req[i][k+CVA6Cfg.NrWbPorts] = (fwd_i.sbe[k].rd == issue_instr_i[i].rs1) & fwd_i.still_issued[k] & fwd_i.sbe[k].valid & ((CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-      //     fwd_i.sbe[k].op
-      // )) == (CVA6Cfg.FpPresent && ariane_pkg::is_rs1_fpr(
-      //     issue_instr_i[i].op
-      // )));
-
-      // assign rs2_fwd_req[i][k+CVA6Cfg.NrWbPorts] = (fwd_i.sbe[k].rd == issue_instr_i[i].rs2) & fwd_i.still_issued[k] & fwd_i.sbe[k].valid & ((CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-      //     fwd_i.sbe[k].op
-      // )) == (CVA6Cfg.FpPresent && ariane_pkg::is_rs2_fpr(
-      //     issue_instr_i[i].op
-      // )));
-
-      // assign rs3_fwd_req[i][k+CVA6Cfg.NrWbPorts] = (fwd_i.sbe[k].rd == issue_instr_i[i].result[ariane_pkg::REG_ADDR_SIZE-1:0]) & fwd_i.still_issued[k] & fwd_i.sbe[k].valid & ((CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-      //     fwd_i.sbe[k].op
-      // )) == (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr(
-      //     issue_instr_i[i].op
-      // )));
-
       assign rs_data[i][k+CVA6Cfg.NrWbPorts] = fwd_i.sbe[k].result;
     end
 
@@ -610,12 +582,19 @@ module issue_read_operands
 
   end
 
+  // Signal for performance monitoring
+
+  mo_t missing_op;
+
   // ---------------
   // Register stage
   // ---------------
   // check that all operands are available, otherwise stall
   // forward corresponding register
   always_comb begin : operands_available
+    missing_op = '0;
+    fuse = '0;
+
     stall_raw   = '{default: stall_i};
     stall_rs1   = '{default: stall_i};
     stall_rs2   = '{default: stall_i};
@@ -679,15 +658,36 @@ module issue_read_operands
           ) == is_rd_fpr(
               issue_instr_i[0].op
           ))) && issue_instr_i[1].rs1 == issue_instr_i[0].rd && issue_instr_i[1].rs1 != '0) begin
-        stall_raw[1] = 1'b1;
-      end
+           // Check if the operations are ALU -> ALU, if not, stall.
+           if ( !CVA6Cfg.FUSE || ( CVA6Cfg.FUSE && !(issue_instr_i[0].fu == ALU && issue_instr_i[1].fu == ALU) ) ) begin
+               stall_raw[1] = 1'b1; // RS1[1] NEEDS RD[0]
+               missing_op.rs1_rd = 1'b1;
+           // If it is a ALU -> ALU, we can fuse all operation beside CPOP (maybe can be optimized OP -> CPOP, to explore).
+           end else if ( ((issue_instr_i[0].op inside {CPOP, CPOPW}) || (issue_instr_i[1].op inside {CPOP, CPOPW}) )) begin
+               stall_raw[1] = 1'b1; // RS1[1] NEEDS RD[0]
+               missing_op.rs1_rd = 1'b1;
+           end else begin
+               // We cannot fuse if we have the same destination register, it will create a forwarding inconsistency.
+               fuse.rs1_into_rd = issue_instr_i[0].rd != issue_instr_i[1].rd;
+           end
+        end
 
       if ((!CVA6Cfg.FpPresent || (is_rs2_fpr(
               issue_instr_i[1].op
           ) == is_rd_fpr(
               issue_instr_i[0].op
           ))) && issue_instr_i[1].rs2 == issue_instr_i[0].rd && issue_instr_i[1].rs2 != '0) begin
-        stall_raw[1] = 1'b1;
+            if ( !CVA6Cfg.FUSE || ( CVA6Cfg.FUSE && !(issue_instr_i[0].fu == ALU && issue_instr_i[1].fu == ALU) ) ) begin
+                stall_raw[1] = 1'b1; // RS2[1] NEEDS RD[0]
+                missing_op.rs2_rd = 1'b1;
+            // If it is a ALU -> ALU, we can fuse all operation beside CPOP (maybe can be optimized OP -> CPOP, to explore).
+            end else if ( ((issue_instr_i[0].op inside {CPOP, CPOPW}) || (issue_instr_i[1].op inside {CPOP, CPOPW}) )) begin
+                stall_raw[1] = 1'b1; // RS1[1] NEEDS RD[0]
+                missing_op.rs2_rd = 1'b1;
+            end else begin
+                // We cannot fuse if we have the same destination register, it will create a forwarding inconsistency.
+                fuse.rs2_into_rd = issue_instr_i[0].rd != issue_instr_i[1].rd;
+            end
       end
 
       // Only check clobbered gpr for OFFLOADED instruction
@@ -699,6 +699,7 @@ module issue_read_operands
               issue_instr_i[1].op == OFFLOAD && OPERANDS_PER_INSTR == 3 ?
               issue_instr_i[0].rd == issue_instr_i[1].result[REG_ADDR_SIZE-1:0] : 1'b0) begin
         stall_raw[1] = 1'b1;
+        missing_op.rs3_rd = 1'b1;
       end
     end
   end
@@ -889,6 +890,14 @@ module issue_read_operands
       if (issue_instr_valid_i[i] && !fu_busy[i]) begin
         if (!stall_raw[i] && !stall_waw[i]) begin
           issue_ack[i] = 1'b1;
+          // For now keep this as is, we cannot do inter dual-issue forwarding
+          if (i > 0) begin
+            if ((issue_instr_i[i].rd[4:0] == issue_instr_i[i-1].rd[4:0]) && (issue_instr_i[i].rd[4:0] != '0)) begin
+              if (!(fuse.rs1_into_rd || fuse.rs2_into_rd)) begin
+                  issue_ack[i] = 1'b0;
+              end
+            end
+          end
         end
         if (issue_instr_i[i].ex.valid) begin
           issue_ack[i] = 1'b1;
@@ -1068,8 +1077,10 @@ module issue_read_operands
       is_compressed_instr_o    <= 1'b0;
       branch_predict_o         <= {cf_t'(0), {CVA6Cfg.VLEN{1'b0}}};
       x_transaction_rejected_o <= 1'b0;
+      fuse_q                   <= '0;
     end else begin
       fu_data_q <= fu_data_n;
+      fuse_q <= &issue_ack_o ? fuse : '0;
       if (CVA6Cfg.RVH) begin
         tinst_q <= tinst_n;
       end
