@@ -100,6 +100,7 @@ module load_unit
   localparam int PPNPredictWidth = PPNPredictEn ? CVA6Cfg.DCACHE_INDEX_WIDTH-12 : 1;
 
   logic [PPNPredictWidth-1:0] ppn_predict_d, ppn_predict_q;
+  logic                       ppn_predict_kill_d, ppn_predict_kill_q;
 
   // in order to decouple the response interface from the request interface,
   // we need a a buffer which can hold all inflight memory load requests
@@ -268,6 +269,7 @@ module load_unit
 
     // PPN lsb prediction
     ppn_predict_d        = ppn_predict_q;
+    ppn_predict_kill_d   = ppn_predict_kill_q;
     ppn_predict_match    = !PPNPredictEn || (dtlb_paddr_i[12 +: PPNPredictWidth] == ppn_predict_q);
 
     case (state_q)
@@ -284,8 +286,12 @@ module load_unit
             if (!req_port_i.data_gnt) begin
               state_d = WAIT_GNT;
             end else begin
-              if (CVA6Cfg.MmuPresent && (!dtlb_hit_i || !ppn_predict_match)) begin
+              if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
                 state_d = ABORT_TRANSACTION;
+              end else if (PPNPredictEn && !ppn_predict_match) begin
+                ppn_predict_d = dtlb_paddr_i[12 +: PPNPredictWidth];
+                ppn_predict_kill_d = 1'b1;
+                state_d = WAIT_GNT;
               end else begin
                 if (!stall_ni) begin
                   // we got a grant and a hit on the DTLB so we can send the tag in the next cycle
@@ -313,6 +319,14 @@ module load_unit
       end
 
       WAIT_GNT: begin
+        // if we came here because of a cache index misprediction, kill the request
+        if (ppn_predict_kill_q) begin
+          ppn_predict_kill_d = 1'b0;
+          // the D$ arbiter will take care of presenting this to the memory only in case we
+          // have an outstanding request
+          req_port_o.kill_req = 1'b1;
+          req_port_o.tag_valid = 1'b1;
+        end
         // keep the translation request up
         translation_req_o   = 1'b1;
         // keep the request up
@@ -320,8 +334,12 @@ module load_unit
         // we finally got a data grant
         if (req_port_i.data_gnt) begin
           // so we send the tag in the next cycle
-          if (CVA6Cfg.MmuPresent && (!dtlb_hit_i || !ppn_predict_match)) begin
+          if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
             state_d = ABORT_TRANSACTION;
+          end else if (PPNPredictEn && !ppn_predict_match) begin
+            ppn_predict_d = dtlb_paddr_i[12 +: PPNPredictWidth];
+            ppn_predict_kill_d = 1'b1;
+            state_d = WAIT_GNT;
           end else begin
             if (!stall_ni) begin
               // we got a grant and a hit on the DTLB so we can send the tag in the next cycle
@@ -354,8 +372,12 @@ module load_unit
               state_d = WAIT_GNT;
             end else begin
               // we got a grant so we can send the tag in the next cycle
-              if (CVA6Cfg.MmuPresent && (!dtlb_hit_i || !ppn_predict_match)) begin
+              if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
                 state_d = ABORT_TRANSACTION;
+              end else if (PPNPredictEn && !ppn_predict_match) begin
+                ppn_predict_d = dtlb_paddr_i[12 +: PPNPredictWidth];
+                ppn_predict_kill_d = 1'b1;
+                state_d = WAIT_GNT;
               end else begin
                 if (!stall_ni) begin
                   // we got a grant and a hit on the DTLB so we can send the tag in the next cycle
@@ -484,9 +506,11 @@ module load_unit
     if (~rst_ni) begin
       state_q <= IDLE;
       ppn_predict_q <= '0;
+      ppn_predict_kill_q <= 1'b0;
     end else begin
       state_q <= state_d;
       ppn_predict_q <= ppn_predict_d;
+      ppn_predict_kill_q <= ppn_predict_kill_d;
     end
   end
 
