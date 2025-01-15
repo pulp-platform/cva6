@@ -17,6 +17,8 @@
 
 /* verilator lint_off WIDTH */
 
+`include "common_cells/registers.svh"
+
 module cva6_shared_tlb_sv32
   import ariane_pkg::*;
 #(
@@ -25,9 +27,10 @@ module cva6_shared_tlb_sv32
     parameter int SHARED_TLB_WAYS = 2,
     parameter int ASID_WIDTH = 1
 ) (
-    input logic clk_i,   // Clock
-    input logic rst_ni,  // Asynchronous reset active low
+    input logic clk_i,
+    input logic rst_ni,
     input logic flush_i,
+    input logic clear_i,
 
     input logic enable_translation_i,   // CSRs indicate to enable SV32
     input logic en_ld_st_translation_i, // enable virtual memory translation for load/stores
@@ -229,33 +232,17 @@ module cva6_shared_tlb_sv32
   end  //tag_comparison
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      itlb_vpn_q <= '0;
-      dtlb_vpn_q <= '0;
-      tlb_update_asid_q <= '0;
-      shared_tlb_access_q <= '0;
-      shared_tlb_vaddr_q <= '0;
-      shared_tag_valid_q <= '0;
-      vpn0_q <= '0;
-      vpn1_q <= '0;
-      itlb_req_q <= '0;
-      dtlb_req_q <= '0;
-      shared_tag_valid <= '0;
-    end else begin
-      itlb_vpn_q <= itlb_vaddr_i[riscv::SV-1:12];
-      dtlb_vpn_q <= dtlb_vaddr_i[riscv::SV-1:12];
-      tlb_update_asid_q <= tlb_update_asid_d;
-      shared_tlb_access_q <= shared_tlb_access_d;
-      shared_tlb_vaddr_q <= shared_tlb_vaddr_d;
-      shared_tag_valid_q <= shared_tag_valid_d;
-      vpn0_q <= vpn0_d;
-      vpn1_q <= vpn1_d;
-      itlb_req_q <= itlb_req_d;
-      dtlb_req_q <= dtlb_req_d;
-      shared_tag_valid <= shared_tag_valid_q[tag_rd_addr];
-    end
-  end
+  `FFARNC(itlb_vpn_q, itlb_vaddr_i[riscv::SV-1:12], clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_vpn_q, dtlb_vaddr_i[riscv::SV-1:12], clear_i, '0, clk_i, rst_ni)
+  `FFARNC(tlb_update_asid_q, tlb_update_asid_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tlb_access_q, shared_tlb_access_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tlb_vaddr_q, shared_tlb_vaddr_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tag_valid_q, shared_tag_valid_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vpn0_q, vpn0_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vpn1_q, vpn1_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(itlb_req_q, itlb_req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(dtlb_req_q, dtlb_req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(shared_tag_valid, shared_tag_valid_q[tag_rd_addr], clear_i, '0, clk_i, rst_ni)
 
   // ------------------
   // Update and Flush

@@ -16,6 +16,7 @@
 //              This module is an adaptation of the Sv39 TLB developed
 //              by Florian Zaruba and David Schaffenrath to the Sv39x4 standard.
 
+`include "common_cells/registers.svh"
 
 module cva6_tlb_sv39x4
   import ariane_pkg::*;
@@ -27,6 +28,7 @@ module cva6_tlb_sv39x4
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,
     input logic flush_i,  // Flush normal translations signal
     input logic flush_vvma_i,  // Flush vs stage signal
     input logic flush_gvma_i,  // Flush g stage signal
@@ -357,17 +359,10 @@ module cva6_tlb_sv39x4
   end
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      tags_q      <= '{default: 0};
-      content_q   <= '{default: 0};
-      plru_tree_q <= '{default: 0};
-    end else begin
-      tags_q      <= tags_n;
-      content_q   <= content_n;
-      plru_tree_q <= plru_tree_n;
-    end
-  end
+  `FFARNC(tags_q, tags_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(content_q, content_n, clear_i, '{default: 0}, clk_i, rst_ni)
+  `FFARNC(plru_tree_q, plru_tree_n, clear_i, '{default: 0}, clk_i, rst_ni)
+
   //--------------
   // Sanity checks
   //--------------

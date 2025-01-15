@@ -12,6 +12,7 @@
 // Date: 08.05.2017
 // Description: Flush controller
 
+`include "common_cells/registers.svh"
 
 module controller
   import ariane_pkg::*;
@@ -22,6 +23,8 @@ module controller
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear, active high
+    input logic clear_i,
     // VS mode - CSR_REGFILE
     input logic v_i,
     // Reset microarchitecture - SUBSYSTEM
@@ -379,8 +382,8 @@ module controller
   ) i_drain_cnt (
       .clk_i,
       .rst_ni,
-      .clear_i   (cache_busy_i),       // Start counting from 0 when cache is busy
-      .en_i      (drain_cnt != 4'hf),  // Stop counting when saturated
+      .clear_i   (cache_busy_i | clear_i),  // Start counting from 0 when cache is busy
+      .en_i      (drain_cnt != 4'hf),       // Stop counting when saturated
       .load_i    (1'b0),
       .down_i    (1'b0),
       .d_i       ('0),
@@ -394,7 +397,7 @@ module controller
   ) i_pad_cnt (
       .clk_i,
       .rst_ni,
-      .clear_i   (1'b0),
+      .clear_i,
       .en_i      (|pad_cnt),       // Count until 0
       .load_i    (load_pad_cnt),   // Start counting on positive edge of time irq
       .down_i    (1'b1),           // Always count down
@@ -406,26 +409,13 @@ module controller
   // ----------------------
   // Registers
   // ----------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      fence_t_state_q <= IDLE;
-      rst_uarch_cnt_q <= 4'b0;
-      fence_active_q  <= 1'b0;
-      flush_dcache_o  <= 1'b0;
-      rst_addr_q      <= boot_addr_i;
-      time_irq_q      <= 1'b0;
-      priv_lvl_q      <= riscv::PRIV_LVL_M;
-      cache_init_q    <= '0;
-    end else begin
-      fence_t_state_q <= fence_t_state_d;
-      fence_active_q  <= fence_active_d;
-      rst_uarch_cnt_q <= rst_uarch_cnt_d;
-      // register on the flush signal, this signal might be critical
-      flush_dcache_o  <= flush_dcache;
-      rst_addr_q      <= rst_addr_d;
-      time_irq_q      <= time_irq_i;
-      priv_lvl_q      <= priv_lvl_i;
-      cache_init_q    <= cache_init_d;
-    end
-  end
+  `FFARNC(fence_t_state_q, fence_t_state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(fence_active_q, fence_active_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rst_uarch_cnt_q, rst_uarch_cnt_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(flush_dcache_o, flush_dcache, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(rst_addr_q, rst_addr_d, clear_i, boot_addr_i, clk_i, rst_ni)
+  `FFARNC(time_irq_q, time_irq_i, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(priv_lvl_q, priv_lvl_i, clear_i, riscv::PRIV_LVL_M, clk_i, rst_ni)
+  `FFARNC(cache_init_q, cache_init_d, clear_i, '0, clk_i, rst_ni)
+
 endmodule

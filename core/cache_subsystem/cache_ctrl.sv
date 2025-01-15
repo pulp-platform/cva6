@@ -17,6 +17,7 @@
 //
 // Description: Cache controller
 
+`include "common_cells/registers.svh"
 
 module cache_ctrl
   import ariane_pkg::*;
@@ -26,6 +27,7 @@ module cache_ctrl
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
+    input logic clear_i,  // Synchronous clear active high
     input logic bypass_i,  // enable cache
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
@@ -442,17 +444,9 @@ module cache_ctrl
   // --------------
   // Registers
   // --------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q   <= IDLE;
-      mem_req_q <= '0;
-      hit_way_q <= '0;
-    end else begin
-      state_q   <= state_d;
-      mem_req_q <= mem_req_d;
-      hit_way_q <= hit_way_d;
-    end
-  end
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(mem_req_q, mem_req_d, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(hit_way_q, hit_way_d, clear_i, '0, clk_i, rst_ni)
 
   //pragma translate_off
 `ifndef VERILATOR

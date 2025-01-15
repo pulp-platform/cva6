@@ -43,6 +43,8 @@
 // the replay mechanism gets more complicated as it can be that a 32 bit instruction
 // can not be pushed at once.
 
+`include "common_cells/registers.svh"
+
 module instr_queue
   import ariane_pkg::*;
 #(
@@ -52,6 +54,8 @@ module instr_queue
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Fetch flush request - CONTROLLER
     input logic flush_i,
     // Instruction - instr_realign
@@ -457,17 +461,24 @@ ariane_pkg::FETCH_FIFO_DEPTH
         pc_q            <= '0;
         reset_address_q <= 1'b1;
       end else begin
-        pc_q            <= pc_d;
-        reset_address_q <= reset_address_d;
-        if (flush_i) begin
-          // one-hot encoded
+        if (clear_i) begin
           idx_ds_q        <= 'b1;
-          // binary encoded
           idx_is_q        <= '0;
+          pc_q            <= '0;
           reset_address_q <= 1'b1;
         end else begin
-          idx_ds_q <= idx_ds_d;
-          idx_is_q <= idx_is_d;
+          pc_q            <= pc_d;
+          reset_address_q <= reset_address_d;
+          if (flush_i) begin
+            // one-hot encoded
+            idx_ds_q        <= 'b1;
+            // binary encoded
+            idx_is_q        <= '0;
+            reset_address_q <= 1'b1;
+          end else begin
+            idx_ds_q <= idx_ds_d;
+            idx_is_q <= idx_is_d;
+          end
         end
       end
     end
@@ -479,10 +490,15 @@ ariane_pkg::FETCH_FIFO_DEPTH
         pc_q            <= '0;
         reset_address_q <= 1'b1;
       end else begin
-        pc_q            <= pc_d;
-        reset_address_q <= reset_address_d;
-        if (flush_i) begin
+        if (clear_i) begin
+          pc_q            <= '0;
           reset_address_q <= 1'b1;
+        end else begin
+          pc_q            <= pc_d;
+          reset_address_q <= reset_address_d;
+          if (flush_i) begin
+            reset_address_q <= 1'b1;
+          end
         end
       end
     end

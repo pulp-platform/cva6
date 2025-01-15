@@ -30,6 +30,7 @@ module wt_cache_subsystem
 ) (
     input logic clk_i,
     input logic rst_ni,
+    input logic clear_i,
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
     input logic init_ni,
@@ -91,6 +92,7 @@ module wt_cache_subsystem
   ) i_cva6_icache (
       .clk_i         (clk_i),
       .rst_ni        (rst_ni),
+      .clear_i       (clear_i),
       .flush_i       (icache_flush_i),
       .en_i          (icache_en_i),
       .miss_o        (icache_miss_o),
@@ -121,6 +123,7 @@ module wt_cache_subsystem
   ) i_wt_dcache (
       .clk_i           (clk_i),
       .rst_ni          (rst_ni),
+      .clear_i         (clear_i),
       .enable_i        (dcache_enable_i),
       .busy_o          (dcache_busy),
       .stall_i         (stall_i),
@@ -175,6 +178,7 @@ module wt_cache_subsystem
   ) i_adapter (
       .clk_i            (clk_i),
       .rst_ni           (rst_ni),
+      .clear_i          (clear_i),
       .icache_data_req_i(icache_adapter_data_req),
       .icache_data_ack_o(adapter_icache_data_ack),
       .icache_data_i    (icache_adapter),

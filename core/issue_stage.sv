@@ -23,6 +23,8 @@ module issue_stage
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // Synchronous clear active high - SUBSYSTEM
+    input logic clear_i,
     // Microreset active low - CONTROLLER
     input logic rst_uarch_ni,
     // Is scoreboard full - PERF_COUNTERS

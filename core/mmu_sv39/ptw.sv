@@ -15,6 +15,8 @@
 
 /* verilator lint_off WIDTH */
 
+`include "common_cells/registers.svh"
+
 module ptw
   import ariane_pkg::*;
 #(
@@ -23,6 +25,7 @@ module ptw
 ) (
     input  logic clk_i,                   // Clock
     input  logic rst_ni,                  // Asynchronous reset active low
+    input  logic clear_i,
     input  logic flush_i,                 // flush everything, we need to do this because
                                           // actually everything we do is speculative at this stage
                                           // e.g.: there could be a CSR instruction that changes everything
@@ -379,31 +382,16 @@ module ptw
   end
 
   // sequential process
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      state_q           <= IDLE;
-      is_instr_ptw_q    <= 1'b0;
-      ptw_lvl_q         <= LVL1;
-      tag_valid_q       <= 1'b0;
-      tlb_update_asid_q <= '0;
-      vaddr_q           <= '0;
-      ptw_pptr_q        <= '0;
-      global_mapping_q  <= 1'b0;
-      data_rdata_q      <= '0;
-      data_rvalid_q     <= 1'b0;
-    end else begin
-      state_q           <= state_d;
-      ptw_pptr_q        <= ptw_pptr_n;
-      is_instr_ptw_q    <= is_instr_ptw_n;
-      ptw_lvl_q         <= ptw_lvl_n;
-      tag_valid_q       <= tag_valid_n;
-      tlb_update_asid_q <= tlb_update_asid_n;
-      vaddr_q           <= vaddr_n;
-      global_mapping_q  <= global_mapping_n;
-      data_rdata_q      <= req_port_i.data_rdata;
-      data_rvalid_q     <= req_port_i.data_rvalid;
-    end
-  end
+  `FFARNC(state_q, state_d, clear_i, IDLE, clk_i, rst_ni)
+  `FFARNC(ptw_pptr_q, ptw_pptr_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(is_instr_ptw_q, is_instr_ptw_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(ptw_lvl_q, ptw_lvl_n, clear_i, LVL1, clk_i, rst_ni)
+  `FFARNC(tag_valid_q, tag_valid_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(tlb_update_asid_q, tlb_update_asid_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(vaddr_q, vaddr_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(global_mapping_q, global_mapping_n, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(data_rdata_q, req_port_i.data_rdata, clear_i, '0, clk_i, rst_ni)
+  `FFARNC(data_rvalid_q, req_port_i.data_rvalid, clear_i, '0, clk_i, rst_ni)
 
 endmodule
 /* verilator lint_on WIDTH */
