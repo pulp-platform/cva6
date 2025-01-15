@@ -65,6 +65,8 @@ module load_unit
     input logic dtlb_hit_i,
     // Physical page number from the DTLB - MMU
     input logic [CVA6Cfg.PPNW-1:0] dtlb_ppn_i,
+    // Physical address from the DTLB - MMU (same cycle as translation request)
+    input logic [CVA6Cfg.PLEN-1:0] dtlb_paddr_i,
     // Page offset for address checking - STORE_UNIT
     output logic [11:0] page_offset_o,
     // Indicates if the page offset matches a store unit entry - STORE_UNIT
@@ -94,7 +96,7 @@ module load_unit
       state_d, state_q;
 
   // PPN (least-significant bits) prediction
-  localparam bit PPNPredictEn = CVA6Cfg.DCACHE_INDEX_WIDTH > 12;
+  localparam bit PPNPredictEn = CVA6Cfg.MmuPresent && (CVA6Cfg.DCACHE_INDEX_WIDTH > 12);
   localparam int PPNPredictWidth = PPNPredictEn ? CVA6Cfg.DCACHE_INDEX_WIDTH-12 : 1;
 
   logic [PPNPredictWidth-1:0] ppn_predict_d, ppn_predict_q;
@@ -212,7 +214,7 @@ module load_unit
     // part of the offset of 4K virtual pages)
     assign req_port_o.address_index = {ppn_predict_q, lsu_ctrl_i.vaddr[11:0]};
   end else begin : gen_index_nopredict
-    // we can output the lower 12 bits as the index to the cache (virt <-> phys)
+    // we can output the lower 12 bits as the index to the cache (virt[11:0] == phys[11:0])
     assign req_port_o.address_index = lsu_ctrl_i.vaddr[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
   end
 
@@ -266,7 +268,7 @@ module load_unit
 
     // PPN lsb prediction
     ppn_predict_d        = ppn_predict_q;
-    ppn_predict_match    = !PPNPredictEn || (dtlb_ppn_i[0 +: PPNPredictWidth] == ppn_predict_q);
+    ppn_predict_match    = !PPNPredictEn || (dtlb_paddr_i[12 +: PPNPredictWidth] == ppn_predict_q);
 
     case (state_q)
       IDLE: begin
@@ -411,7 +413,7 @@ module load_unit
           // we've got a hit and we can continue with the request process
           if (dtlb_hit_i) begin
             if (PPNPredictEn) begin
-              ppn_predict_d = dtlb_ppn_i[0 +: PPNPredictWidth];
+              ppn_predict_d = dtlb_paddr_i[12 +: PPNPredictWidth];
             end
             state_d = WAIT_GNT;
           end
