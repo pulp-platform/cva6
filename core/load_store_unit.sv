@@ -215,6 +215,7 @@ module load_store_unit
   logic                                     pmp_translation_valid;
   logic                                     dtlb_hit;
   logic         [         CVA6Cfg.PPNW-1:0] dtlb_ppn;
+  logic         [         CVA6Cfg.PLEN-1:0] dtlb_paddr;
 
   logic                                     ld_valid;
   logic         [CVA6Cfg.TRANS_ID_BITS-1:0] ld_trans_id;
@@ -273,6 +274,7 @@ module load_store_unit
         .csr_hs_ld_st_inst_o(csr_hs_ld_st_inst_o),
         .lsu_dtlb_hit_o(dtlb_hit),  // send in the same cycle as the request
         .lsu_dtlb_ppn_o(dtlb_ppn),  // send in the same cycle as the request
+        .lsu_dtlb_paddr_o(dtlb_paddr),  // send in the same cycle as the request
 
         .lsu_valid_o    (pmp_translation_valid),
         .lsu_paddr_o    (lsu_paddr),
@@ -469,6 +471,7 @@ module load_store_unit
       .ex_i                 (mmu_exception),
       .dtlb_hit_i           (dtlb_hit),
       .dtlb_ppn_i           (dtlb_ppn),
+      .dtlb_paddr_i         (dtlb_paddr),
       // to store unit
       .page_offset_o        (page_offset),
       .page_offset_matches_i(page_offset_matches),
