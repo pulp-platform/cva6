@@ -93,6 +93,12 @@ module load_unit
   }
       state_d, state_q;
 
+  // PPN (least-significant bits) prediction
+  localparam bit PPNPredictEn = CVA6Cfg.DCACHE_INDEX_WIDTH > 12;
+  localparam int PPNPredictWidth = PPNPredictEn ? CVA6Cfg.DCACHE_INDEX_WIDTH-12 : 1;
+
+  logic [PPNPredictWidth-1:0] ppn_predict_d, ppn_predict_q;
+
   // in order to decouple the response interface from the request interface,
   // we need a a buffer which can hold all inflight memory load requests
   typedef struct packed {
@@ -201,8 +207,15 @@ module load_unit
     lsu_ctrl_i.trans_id, lsu_ctrl_i.vaddr[CVA6Cfg.XLEN_ALIGN_BYTES-1:0], lsu_ctrl_i.operation
   };
   // output address
-  // we can now output the lower 12 bit as the index to the cache
-  assign req_port_o.address_index = lsu_ctrl_i.vaddr[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
+  if (PPNPredictEn) begin : gen_index_predict
+    // predict the most significant bits of the cache index (as they are not
+    // part of the offset of 4K virtual pages)
+    assign req_port_o.address_index = {ppn_predict_q, lsu_ctrl_i.vaddr[11:0]};
+  end else begin : gen_index_nopredict
+    // we can output the lower 12 bits as the index to the cache (virt <-> phys)
+    assign req_port_o.address_index = lsu_ctrl_i.vaddr[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
+  end
+
   // translation from last cycle, again: control is handled in the FSM
   assign req_port_o.address_tag   = paddr_i[CVA6Cfg.DCACHE_TAG_WIDTH     +
                                               CVA6Cfg.DCACHE_INDEX_WIDTH-1 :
@@ -233,6 +246,7 @@ module load_unit
   // ---------------
   always_comb begin : load_control
     automatic logic accept_req;
+    automatic logic ppn_predict_match;
 
     // default assignments
     state_d              = state_q;
@@ -250,6 +264,10 @@ module load_unit
     // load buffer is in fall-through mode
     accept_req           = (valid_i && (!ldbuf_full || (LDBUF_FALLTHROUGH && ldbuf_r)));
 
+    // PPN lsb prediction
+    ppn_predict_d        = ppn_predict_q;
+    ppn_predict_match    = !PPNPredictEn || (dtlb_ppn_i[0 +: PPNPredictWidth] == ppn_predict_q);
+
     case (state_q)
       IDLE: begin
         if (accept_req) begin
@@ -264,7 +282,7 @@ module load_unit
             if (!req_port_i.data_gnt) begin
               state_d = WAIT_GNT;
             end else begin
-              if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
+              if (CVA6Cfg.MmuPresent && (!dtlb_hit_i || !ppn_predict_match)) begin
                 state_d = ABORT_TRANSACTION;
               end else begin
                 if (!stall_ni) begin
@@ -300,7 +318,7 @@ module load_unit
         // we finally got a data grant
         if (req_port_i.data_gnt) begin
           // so we send the tag in the next cycle
-          if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
+          if (CVA6Cfg.MmuPresent && (!dtlb_hit_i || !ppn_predict_match)) begin
             state_d = ABORT_TRANSACTION;
           end else begin
             if (!stall_ni) begin
@@ -334,7 +352,7 @@ module load_unit
               state_d = WAIT_GNT;
             end else begin
               // we got a grant so we can send the tag in the next cycle
-              if (CVA6Cfg.MmuPresent && !dtlb_hit_i) begin
+              if (CVA6Cfg.MmuPresent && (!dtlb_hit_i || !ppn_predict_match)) begin
                 state_d = ABORT_TRANSACTION;
               end else begin
                 if (!stall_ni) begin
@@ -391,7 +409,12 @@ module load_unit
         end else if(state_q == WAIT_TRANSLATION && (CVA6Cfg.MmuPresent || CVA6Cfg.NonIdemPotenceEn)) begin
           translation_req_o = 1'b1;
           // we've got a hit and we can continue with the request process
-          if (dtlb_hit_i) state_d = WAIT_GNT;
+          if (dtlb_hit_i) begin
+            if (PPNPredictEn) begin
+              ppn_predict_d = dtlb_ppn_i[0 +: PPNPredictWidth];
+            end
+            state_d = WAIT_GNT;
+          end
 
           // we got an exception
           if (ex_i.valid) begin
@@ -458,8 +481,10 @@ module load_unit
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
       state_q <= IDLE;
+      ppn_predict_q <= '0;
     end else begin
       state_q <= state_d;
+      ppn_predict_q <= ppn_predict_d;
     end
   end
 
