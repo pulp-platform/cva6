@@ -235,7 +235,8 @@ module issue_stage
       .x_we_i,
       .x_rd_i,
       .rvfi_issue_pointer_o,
-      .rvfi_commit_pointer_o
+      .rvfi_commit_pointer_o,
+      .*
   );
 
   // ---------------------------------------------------------
@@ -305,7 +306,8 @@ module issue_stage
       .wdata_i,
       .we_gpr_i,
       .we_fpr_i,
-      .stall_issue_o
+      .stall_issue_o,
+      .*
   );
 
 endmodule
