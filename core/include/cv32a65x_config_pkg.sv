@@ -19,6 +19,8 @@ package cva6_config_pkg;
   localparam CVA6ConfigAxiAddrWidth = 64;  // axi_pkg.sv
   localparam CVA6ConfigAxiDataWidth = 64;  // axi_pkg.sv
   localparam CVA6ConfigDataUserWidth = 32;  // axi_pkg.sv
+  localparam CVA6ConfigBHTHist = 3;
+  localparam CVA6ConfigBHTType = 0;
 
   localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
       XLEN: unsigned'(CVA6ConfigXlen),
