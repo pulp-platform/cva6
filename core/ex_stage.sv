@@ -45,7 +45,7 @@ module ex_stage
     input logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.VLEN-1:0] rs2_forwarding_i,
     // FU data useful to execute instruction - ISSUE_STAGE
     input fu_data_t [CVA6Cfg.NrIssuePorts-1:0] fu_data_i,
-    input fusion_t fuse_i,    
+    input fusion_t fuse_i,
     // PC of the current instruction - ISSUE_STAGE
     input logic [CVA6Cfg.VLEN-1:0] pc_i,
     // Report whether instruction is compressed - ISSUE_STAGE
@@ -297,34 +297,34 @@ module ex_stage
   end
 
 
-if (CVA6Cfg.FUSE) begin
+  if (CVA6Cfg.FUSE) begin
     always_comb begin
-        alu2_data = (alu2_valid_i[0]) ? fu_data_i[0] : '0;
-        if (alu2_valid_i[1]) begin
-            alu2_data = fu_data_i[1];
-        end
+      alu2_data = (alu2_valid_i[0]) ? fu_data_i[0] : '0;
+      if (alu2_valid_i[1]) begin
+        alu2_data = fu_data_i[1];
+      end
     end
 
-   dual_alu_wrap #(
-      .CVA6Cfg   ( CVA6Cfg   ),
-      .fu_data_t ( fu_data_t )
-   ) dual_alu_wrap_i (
-      .clk_i,
-      .rst_ni,
-      .fuse_i          ( fuse_i ),
-      .fu_data_i       ({one_cycle_data,  alu2_data}   ),
-      .result_o        ({alu_result,      alu2_result} ),
-      .alu_branch_res_o( alu_branch_res )
-  );
+    dual_alu_wrap #(
+        .CVA6Cfg  (CVA6Cfg),
+        .fu_data_t(fu_data_t)
+    ) dual_alu_wrap_i (
+        .clk_i,
+        .rst_ni,
+        .fuse_i          (fuse_i),
+        .fu_data_i       ({one_cycle_data, alu2_data}),
+        .result_o        ({alu_result, alu2_result}),
+        .alu_branch_res_o(alu_branch_res)
+    );
 
-  assign bu_data = alu2_data;
+    assign bu_data = alu2_data;
 
-end else begin
+  end else begin
     assign bu_data = one_cycle_data;
     // 1. ALU (combinatorial)
     alu #(
-        .CVA6Cfg    ( CVA6Cfg   ),
-        .fu_data_t  ( fu_data_t )        
+        .CVA6Cfg  (CVA6Cfg),
+        .fu_data_t(fu_data_t)
     ) alu_i (
         .clk_i,
         .rst_ni,
@@ -333,29 +333,29 @@ end else begin
         .alu_branch_res_o(alu_branch_res)
     );
 
-  if (CVA6Cfg.SuperscalarEn) begin : alu2_gen
-    always_comb begin
-      alu2_data = alu2_valid_i[0] ? fu_data_i[0] : '0;
-      if (alu2_valid_i[1]) begin
-        alu2_data = fu_data_i[1];
+    if (CVA6Cfg.SuperscalarEn) begin : alu2_gen
+      always_comb begin
+        alu2_data = alu2_valid_i[0] ? fu_data_i[0] : '0;
+        if (alu2_valid_i[1]) begin
+          alu2_data = fu_data_i[1];
+        end
       end
-    end
 
-    alu #(
-        .CVA6Cfg    ( CVA6Cfg   ),
-        .fu_data_t  ( fu_data_t )
-    ) alu2_i (
-        .clk_i,
-        .rst_ni,
-        .fu_data_i       (alu2_data),
-        .result_o        (alu2_result),
-        .alu_branch_res_o()
-    );
-  end else begin
-    assign alu2_data   = '0;
-    assign alu2_result = '0;
+      alu #(
+          .CVA6Cfg  (CVA6Cfg),
+          .fu_data_t(fu_data_t)
+      ) alu2_i (
+          .clk_i,
+          .rst_ni,
+          .fu_data_i       (alu2_data),
+          .result_o        (alu2_result),
+          .alu_branch_res_o()
+      );
+    end else begin
+      assign alu2_data   = '0;
+      assign alu2_result = '0;
+    end
   end
-end
 
   // 2. Branch Unit (combinatorial)
   // we don't silence the branch unit as this is already critical and we do

@@ -562,7 +562,7 @@ module fpu_wrap
         .out_valid_o   (fpu_out_valid),
         .out_ready_i   (fpu_out_ready),
         .busy_o        (  /* unused */),
-        .early_valid_o (fpu_early_valid_o )
+        .early_valid_o (fpu_early_valid_o)
     );
 
     // Pack status flag into exception cause, tval ignored in wb, exception is always invalid

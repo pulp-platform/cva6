@@ -526,10 +526,10 @@ module frontend
     );
   end else if (cva6_config_pkg::CVA6ConfigBHTType == 1) begin : bht2lvl_gen
     bht2lvl #(
-        .CVA6Cfg        ( CVA6Cfg                           ),
-        .NR_ENTRIES     ( cva6_config_pkg::CVA6ConfigBHTEntries ),
-        .HISTORY_LENGTH ( cva6_config_pkg::CVA6ConfigBHTHist    ),
-        .bht_update_t   ( bht_update_t )
+        .CVA6Cfg       (CVA6Cfg),
+        .NR_ENTRIES    (cva6_config_pkg::CVA6ConfigBHTEntries),
+        .HISTORY_LENGTH(cva6_config_pkg::CVA6ConfigBHTHist),
+        .bht_update_t  (bht_update_t)
     ) i_bht (
         .clk_i,
         .rst_ni,

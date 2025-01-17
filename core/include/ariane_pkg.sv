@@ -766,7 +766,7 @@ package ariane_pkg;
     logic rs1_into_rd;
     logic rs2_into_rd;
   } fusion_t;
-  
+
   // ----------------------
   // MMU Functions
   // ----------------------

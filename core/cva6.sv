@@ -952,7 +952,7 @@ module cva6
       .rs1_forwarding_i(rs1_forwarding_id_ex),
       .rs2_forwarding_i(rs2_forwarding_id_ex),
       .fu_data_i(fu_data_id_ex),
-      .fuse_i               (fuse_id_ex),
+      .fuse_i(fuse_id_ex),
       .pc_i(pc_id_ex),
       .is_compressed_instr_i(is_compressed_instr_id_ex),
       .tinst_i(tinst_ex),
@@ -1006,7 +1006,7 @@ module cva6
       .fpu_result_o            (fpu_result_ex_id),
       .fpu_valid_o             (fpu_valid_ex_id),
       .fpu_exception_o         (fpu_exception_ex_id),
-      .fpu_early_valid_o      (fpu_early_valid_ex_id),
+      .fpu_early_valid_o       (fpu_early_valid_ex_id),
       // ALU2
       .alu2_valid_i            (alu2_valid_id_ex),
       .amo_valid_commit_i      (amo_valid_commit),
@@ -1701,103 +1701,104 @@ module cva6
   );
 `endif  // PITON_ARIANE
 
-// FIXME: the tracer does not work with the superscalar core
-if (!CVA6Cfg.SuperscalarEn) begin
+  // FIXME: the tracer does not work with the superscalar core
+  if (!CVA6Cfg.SuperscalarEn) begin
 
 `ifndef VERILATOR
-  instr_tracer #(
-      .CVA6Cfg(CVA6Cfg),
-      .bp_resolve_t(bp_resolve_t),
-      .scoreboard_entry_t(scoreboard_entry_t),
-      .interrupts_t(interrupts_t),
-      .exception_t(exception_t),
-      .INTERRUPTS(INTERRUPTS)
-  ) instr_tracer_i (
-      // .tracer_if(tracer_if),
-      .pck(clk_i),
-      .rstn(rst_ni),
-      .flush_unissued(flush_unissued_instr_ctrl_id),
-      .flush_all(flush_ctrl_ex),
-      .instruction(id_stage_i.fetch_entry_i[0].instruction),
-      .fetch_valid(id_stage_i.fetch_entry_valid_i[0]),
-      .fetch_ack(id_stage_i.fetch_entry_ready_o[0]),
-      .issue_ack(issue_stage_i.i_scoreboard.issue_ack_i),
-      .issue_sbe(issue_stage_i.i_scoreboard.issue_instr_o),
-      .waddr(waddr_commit_id),
-      .wdata(wdata_commit_id),
-      .we_gpr(we_gpr_commit_id),
-      .we_fpr(we_fpr_commit_id),
-      .commit_instr(commit_instr_id_commit),
-      .commit_ack(commit_ack),
-      .st_valid(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.valid_i),
-      .st_paddr(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.paddr_i),
-      .ld_valid(ex_stage_i.lsu_i.i_load_unit.req_port_o.tag_valid),
-      .ld_kill(ex_stage_i.lsu_i.i_load_unit.req_port_o.kill_req),
-      .ld_paddr(ex_stage_i.lsu_i.i_load_unit.paddr_i),
-      .resolve_branch(resolved_branch),
-      .commit_exception(commit_stage_i.exception_o),
-      .priv_lvl(priv_lvl),
-      .debug_mode(debug_mode),
-      .hart_id_i(hart_id_i)
-  );
+    instr_tracer #(
+        .CVA6Cfg(CVA6Cfg),
+        .bp_resolve_t(bp_resolve_t),
+        .scoreboard_entry_t(scoreboard_entry_t),
+        .interrupts_t(interrupts_t),
+        .exception_t(exception_t),
+        .INTERRUPTS(INTERRUPTS)
+    ) instr_tracer_i (
+        // .tracer_if(tracer_if),
+        .pck(clk_i),
+        .rstn(rst_ni),
+        .flush_unissued(flush_unissued_instr_ctrl_id),
+        .flush_all(flush_ctrl_ex),
+        .instruction(id_stage_i.fetch_entry_i[0].instruction),
+        .fetch_valid(id_stage_i.fetch_entry_valid_i[0]),
+        .fetch_ack(id_stage_i.fetch_entry_ready_o[0]),
+        .issue_ack(issue_stage_i.i_scoreboard.issue_ack_i),
+        .issue_sbe(issue_stage_i.i_scoreboard.issue_instr_o),
+        .waddr(waddr_commit_id),
+        .wdata(wdata_commit_id),
+        .we_gpr(we_gpr_commit_id),
+        .we_fpr(we_fpr_commit_id),
+        .commit_instr(commit_instr_id_commit),
+        .commit_ack(commit_ack),
+        .st_valid(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.valid_i),
+        .st_paddr(ex_stage_i.lsu_i.i_store_unit.store_buffer_i.paddr_i),
+        .ld_valid(ex_stage_i.lsu_i.i_load_unit.req_port_o.tag_valid),
+        .ld_kill(ex_stage_i.lsu_i.i_load_unit.req_port_o.kill_req),
+        .ld_paddr(ex_stage_i.lsu_i.i_load_unit.paddr_i),
+        .resolve_branch(resolved_branch),
+        .commit_exception(commit_stage_i.exception_o),
+        .priv_lvl(priv_lvl),
+        .debug_mode(debug_mode),
+        .hart_id_i(hart_id_i)
+    );
 
-  // mock tracer for Verilator, to be used with spike-dasm
+    // mock tracer for Verilator, to be used with spike-dasm
 `else
 
-  int f;
-  logic [63:0] cycles;
+    int f;
+    logic [63:0] cycles;
 
-  initial begin
-    string fn;
-    $sformat(fn, "trace_hart_%0.0f.dasm", hart_id_i);
-    f = $fopen(fn, "w");
-  end
+    initial begin
+      string fn;
+      $sformat(fn, "trace_hart_%0.0f.dasm", hart_id_i);
+      f = $fopen(fn, "w");
+    end
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
-      cycles <= 0;
-    end else begin
-      byte mode = "";
-      if (CVA6Cfg.DebugEn && debug_mode) mode = "D";
-      else begin
-        case (priv_lvl)
-          riscv::PRIV_LVL_M: mode = "M";
-          riscv::PRIV_LVL_S: if (CVA6Cfg.RVS) mode = "S";
-          riscv::PRIV_LVL_U: mode = "U";
-          default: ;  // Do nothing
-        endcase
-      end
-      for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
-        if (commit_ack[i] && !commit_instr_id_commit[i].ex.valid) begin
-          $fwrite(f, "%d 0x%0h %s (0x%h) DASM(%h)\n", cycles, commit_instr_id_commit[i].pc, mode,
-                  commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].ex.tval[31:0]);
-        end else if (commit_ack[i] && commit_instr_id_commit[i].ex.valid) begin
-          if (commit_instr_id_commit[i].ex.cause == 2) begin
-            $fwrite(f, "Exception Cause: Illegal Instructions, DASM(%h) PC=%h\n",
-                    commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].pc);
-          end else begin
-            if (CVA6Cfg.DebugEn && debug_mode) begin
-              $fwrite(f, "%d 0x%0h %s (0x%h) DASM(%h)\n", cycles, commit_instr_id_commit[i].pc,
-                      mode, commit_instr_id_commit[i].ex.tval[31:0],
-                      commit_instr_id_commit[i].ex.tval[31:0]);
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+      if (~rst_ni) begin
+        cycles <= 0;
+      end else begin
+        byte mode = "";
+        if (CVA6Cfg.DebugEn && debug_mode) mode = "D";
+        else begin
+          case (priv_lvl)
+            riscv::PRIV_LVL_M: mode = "M";
+            riscv::PRIV_LVL_S: if (CVA6Cfg.RVS) mode = "S";
+            riscv::PRIV_LVL_U: mode = "U";
+            default: ;  // Do nothing
+          endcase
+        end
+        for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
+          if (commit_ack[i] && !commit_instr_id_commit[i].ex.valid) begin
+            $fwrite(f, "%d 0x%0h %s (0x%h) DASM(%h)\n", cycles, commit_instr_id_commit[i].pc, mode,
+                    commit_instr_id_commit[i].ex.tval[31:0],
+                    commit_instr_id_commit[i].ex.tval[31:0]);
+          end else if (commit_ack[i] && commit_instr_id_commit[i].ex.valid) begin
+            if (commit_instr_id_commit[i].ex.cause == 2) begin
+              $fwrite(f, "Exception Cause: Illegal Instructions, DASM(%h) PC=%h\n",
+                      commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].pc);
             end else begin
-              $fwrite(f, "Exception Cause: %5d, DASM(%h) PC=%h\n",
-                      commit_instr_id_commit[i].ex.cause, commit_instr_id_commit[i].ex.tval[31:0],
-                      commit_instr_id_commit[i].pc);
+              if (CVA6Cfg.DebugEn && debug_mode) begin
+                $fwrite(f, "%d 0x%0h %s (0x%h) DASM(%h)\n", cycles, commit_instr_id_commit[i].pc,
+                        mode, commit_instr_id_commit[i].ex.tval[31:0],
+                        commit_instr_id_commit[i].ex.tval[31:0]);
+              end else begin
+                $fwrite(f, "Exception Cause: %5d, DASM(%h) PC=%h\n",
+                        commit_instr_id_commit[i].ex.cause,
+                        commit_instr_id_commit[i].ex.tval[31:0], commit_instr_id_commit[i].pc);
+              end
             end
           end
         end
+        cycles <= cycles + 1;
       end
-      cycles <= cycles + 1;
     end
-  end
 
-  final begin
-    $fclose(f);
-  end
+    final begin
+      $fclose(f);
+    end
 `endif  // VERILATOR
 
-end
+  end
   //pragma translate_on
 
 
