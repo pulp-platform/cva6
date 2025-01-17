@@ -20,6 +20,6 @@ jobs:
           ip-name: cva6
           org: pulp-platform
           repo: cheshire
-          base-ref: nw/cva6-pulp-v2
+          base-ref: rt/computing-frontiers
           token: ${{ secrets.CHESHIRE_TOKEN }}
           lifetime: 14
