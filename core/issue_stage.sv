@@ -91,6 +91,8 @@ module issue_stage
     output logic [1:0] fpu_fmt_o,
     // FPU rm field - EX_STAGE
     output logic [2:0] fpu_rm_o,
+    // FPU writeback in the next cycle
+    input logic fpu_early_valid_i,
     // ALU2 FU is valid - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] alu2_valid_o,
     // CSR is valid - EX_STAGE
@@ -160,8 +162,7 @@ module issue_stage
     // Information dedicated to RVFI - RVFI
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] rvfi_issue_pointer_o,
     // Information dedicated to RVFI - RVFI
-    output logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] rvfi_commit_pointer_o,
-    input logic fpu_early_valid_i
+    output logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] rvfi_commit_pointer_o
 );
   // ---------------------------------------------------
   // Scoreboard (SB) <-> Issue and Read Operands (IRO)
@@ -266,6 +267,7 @@ module issue_stage
       .issue_ack_o             (issue_ack_iro_sb),
       .fwd_i                   (fwd),
       .fu_data_o               (fu_data_o),
+      .fuse_o,
       .rs1_forwarding_o        (rs1_forwarding_xlen),
       .rs2_forwarding_o        (rs2_forwarding_xlen),
       .pc_o,
@@ -282,6 +284,7 @@ module issue_stage
       .fpu_valid_o,
       .fpu_fmt_o,
       .fpu_rm_o,
+      .fpu_early_valid_i,
       .alu2_valid_o,
       .csr_valid_o,
       .cvxif_valid_o           (xfu_valid_o),
