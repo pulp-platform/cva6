@@ -1695,6 +1695,9 @@ module cva6
   );
 `endif  // PITON_ARIANE
 
+// FIXME: the tracer does not work with the superscalar core
+if (!CVA6Cfg.SuperscalarEn) begin
+
 `ifndef VERILATOR
   instr_tracer #(
       .CVA6Cfg(CVA6Cfg),
@@ -1787,6 +1790,8 @@ module cva6
     $fclose(f);
   end
 `endif  // VERILATOR
+
+end
   //pragma translate_on
 
 
