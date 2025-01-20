@@ -112,6 +112,7 @@ sources:
       # - corev_apu/tb/ariane.sv
       - core/cva6.sv
       - core/alu.sv
+      - core/dual_alu_wrapper.sv
       - core/fpu_wrap.sv # depends on fpnew_pkg, above
       - core/branch_unit.sv
       - core/compressed_decoder.sv
