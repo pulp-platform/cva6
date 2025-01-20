@@ -744,7 +744,7 @@ module issue_read_operands
         fu_data_n[i].operand_b = rs2_res[i];
       end
       if ((CVA6Cfg.FpPresent || (CVA6Cfg.CvxifEn && OPERANDS_PER_INSTR == 3)) && forward_rs3[i]) begin
-        fu_data_n[i].imm = imm_forward_rs3;
+        fu_data_n[i].imm = imm_forward_rs3[i];
       end
 
       // use the PC as operand a
