@@ -409,6 +409,7 @@ module load_unit
         req_port_o.kill_req = 1'b1;
         req_port_o.tag_valid = 1'b1;
         // we've killed the current request so we can go back to idle
+        ppn_predict_kill_d = 1'b0;
         state_d = IDLE;
       end
 
