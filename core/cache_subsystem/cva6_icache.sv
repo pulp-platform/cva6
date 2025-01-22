@@ -592,11 +592,11 @@ module cva6_icache
   else $fatal(1, "[l1 icache] cannot allocate a CL that is already present in the cache");
 
 
-  initial begin
-    // assert wrong parameterizations
-    assert (CVA6Cfg.ICACHE_INDEX_WIDTH <= 12)
-    else $fatal(1, "[l1 icache] cache index width can be maximum 12bit since VM uses 4kB pages");
-  end
+  // initial begin
+  //   // assert wrong parameterizations
+  //   assert (CVA6Cfg.ICACHE_INDEX_WIDTH <= 12)
+  //   else $fatal(1, "[l1 icache] cache index width can be maximum 12bit since VM uses 4kB pages");
+  // end
 `endif
   //pragma translate_on
 

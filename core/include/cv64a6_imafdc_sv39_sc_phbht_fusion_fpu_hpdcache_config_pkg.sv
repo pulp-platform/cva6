@@ -6,19 +6,13 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/
 //
 // Original Author: Jean-Roch COULON - Thales
-//
-// Copyright 2023 Commissariat a l'Energie Atomique et aux Energies
-//                Alternatives (CEA)
-//
-// Author: Cesar Fuguet - CEA
-// Date: August, 2023
-// Description: CVA6 configuration package using the HPDcache as cache subsystem
 
 
 package cva6_config_pkg;
 
   localparam CVA6ConfigXlen = 64;
 
+  localparam CVA6ConfigRVD = 1;
   localparam CVA6ConfigRVF = 1;
   localparam CVA6ConfigF16En = 0;
   localparam CVA6ConfigF16AltEn = 0;
@@ -69,7 +63,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigBTBEntries = 32;
   localparam CVA6ConfigBHTEntries = 128;
   localparam CVA6ConfigBHTHist = 3;
-  localparam CVA6ConfigBHTType = 0;
+  localparam CVA6ConfigBHTType = 1;
 
   localparam CVA6ConfigTvalEn = 1;
 
@@ -82,14 +76,14 @@ package cva6_config_pkg;
   localparam CVA6ConfigMmuPresent = 1;
 
   localparam CVA6ConfigRvfiTrace = 1;
-  localparam CVA6Fuse = 0;
+  localparam CVA6Fuse = 1;
 
   localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
       XLEN: unsigned'(CVA6ConfigXlen),
       VLEN: unsigned'(64),
       FpgaEn: bit'(CVA6ConfigFpgaEn),
       TechnoCut: bit'(0),
-      SuperscalarEn: bit'(0),
+      SuperscalarEn: bit'(1),
       NrCommitPorts: unsigned'(2),
       AxiAddrWidth: unsigned'(CVA6ConfigAxiAddrWidth),
       AxiDataWidth: unsigned'(CVA6ConfigAxiDataWidth),
@@ -98,7 +92,7 @@ package cva6_config_pkg;
       MemTidWidth: unsigned'(CVA6ConfigMemTidWidth),
       NrLoadBufEntries: unsigned'(CVA6ConfigNrLoadBufEntries),
       RVF: bit'(CVA6ConfigRVF),
-      RVD: bit'(CVA6ConfigRVF),
+      RVD: bit'(CVA6ConfigRVD),
       XF16: bit'(CVA6ConfigF16En),
       XF16ALT: bit'(CVA6ConfigF16AltEn),
       XF8: bit'(CVA6ConfigF8En),
