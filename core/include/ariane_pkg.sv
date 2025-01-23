@@ -276,6 +276,17 @@ package ariane_pkg;
     ACCEL       // 10
   } fu_t;
 
+  typedef riscv::xlen_t csrind_isel_t;
+
+  typedef struct packed {
+    riscv::xlen_t ireg;
+    riscv::xlen_t ireg2;
+    riscv::xlen_t ireg3;
+    riscv::xlen_t ireg4;
+    riscv::xlen_t ireg5;
+    riscv::xlen_t ireg6;
+  } csrind_ireg_t;
+
   localparam EXC_OFF_RST = 8'h80;
 
   localparam SupervisorIrq = 1;
@@ -1067,7 +1078,7 @@ package ariane_pkg;
   function automatic logic is_trans_2M(input logic s_st_enbl, input logic g_st_enbl,
                                        input logic is_s_1G, input logic is_s_2M,
                                        input logic is_g_1G, input logic is_g_2M);
-    return  (s_st_enbl && g_st_enbl) ? 
+    return  (s_st_enbl && g_st_enbl) ?
                 ((is_s_2M && (is_g_1G || is_g_2M)) || (is_g_2M && (is_s_1G || is_s_2M))) :
                 ((is_s_2M && s_st_enbl) || (is_g_2M && g_st_enbl));
   endfunction : is_trans_2M
