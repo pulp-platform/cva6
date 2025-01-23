@@ -70,6 +70,8 @@ package config_pkg;
     bit                          RVZCMP;
     // CLIC extension
     bit                          RVSCLIC;
+    // CLIC virtualization extension (vCLIC)
+    bit                          RVVCLIC;
     // Zicond RISC-V extension
     bit                          RVZiCond;
     // Zicntr RISC-V extension
@@ -264,6 +266,7 @@ package config_pkg;
     bit          RVZCB;
     bit          RVZCMP;
     bit          RVSCLIC;
+    bit          RVVCLIC;
     bit          XFVec;
     bit          CvxifEn;
     bit          RVZiCond;
@@ -395,6 +398,7 @@ package config_pkg;
     assert (Cfg.NrExecuteRegionRules <= NrMaxRules);
     assert (Cfg.NrCachedRegionRules <= NrMaxRules);
     assert (Cfg.NrPMPEntries <= 64);
+    assert (!(Cfg.RVVCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
     assert (!(Cfg.SuperscalarEn && Cfg.RVF));
     assert (!(Cfg.SuperscalarEn && Cfg.RVZCMP));
     assert (Cfg.FETCH_WIDTH == 32 || Cfg.FETCH_WIDTH == 64)

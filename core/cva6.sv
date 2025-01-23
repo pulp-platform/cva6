@@ -141,6 +141,8 @@ module cva6
       logic [CVA6Cfg.XLEN-1:0] mip;
       logic [CVA6Cfg.XLEN-1:0] mideleg;
       logic [CVA6Cfg.XLEN-1:0] hideleg;
+      logic [CVA6Cfg.XLEN-1:0] hgeie;
+      logic [5:0]              vgein;
       logic                    sie;
       logic                    global_enable;
     },
@@ -317,6 +319,8 @@ module cva6
     input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,  // interrupt source ID
     input logic [7:0] clic_irq_level_i,  // interrupt level is 8-bit from CLIC spec
     input riscv::priv_lvl_t clic_irq_priv_i,  // CLIC interrupt privilege level
+    input logic clic_irq_v_i, // CLIC interrupt virtualization bit (only for vCLIC)
+    input logic [5:0] clic_irq_vsid_i, // CLIC interrupt Virtual Supervisor ID (only for vCLIC)
     input logic clic_irq_shv_i,  // selective hardware vectoring bit
     output logic clic_irq_ready_o,  // core side interrupt hanshake (ready)
     input logic clic_kill_req_i,  // kill request
@@ -568,6 +572,7 @@ module cva6
   riscv::intstatus_rv_t mintstatus_csr;
   logic [7:0] mintthresh_csr;
   logic [7:0] sintthresh_csr;
+  logic [7:0] vsintthresh_csr;
   logic dcache_en_csr_nbdcache;
   logic csr_write_fflags_commit_cs;
   logic icache_en_csr;
@@ -1162,6 +1167,8 @@ module cva6
       .mintstatus_o            (mintstatus_csr),
       .mintthresh_o            (mintthresh_csr),
       .sintthresh_o            (sintthresh_csr),
+      .vsintthresh_o           (vsintthresh_csr),
+      .clic_irq_req_i          (clic_irq_valid_i),
       .clic_irq_shv_i          (clic_irq_shv_i),
       .clic_irq_ready_o        (clic_irq_ready_o),
       .en_translation_o        (enable_translation_csr_ex),
@@ -1615,9 +1622,11 @@ module cva6
         .rst_ni          (rst_ni),
         // from CSR file
         .priv_lvl_i      (priv_lvl),
+        .v_i             (v),
         .irq_ctrl_i      (irq_ctrl_csr_id),
         .mintthresh_i    (mintthresh_csr),
         .sintthresh_i    (sintthresh_csr),
+        .vsintthresh_i   (vsintthresh_csr),
         .mintstatus_i    (mintstatus_csr),
         // from/to CLIC
         .clic_irq_valid_i(clic_irq_valid_i),
@@ -1625,6 +1634,8 @@ module cva6
         .clic_irq_id_i   (clic_irq_id_i),
         .clic_irq_level_i(clic_irq_level_i),
         .clic_irq_priv_i (clic_irq_priv_i),
+        .clic_irq_v_i    (clic_irq_v_i),
+        .clic_irq_vsid_i (clic_irq_vsid_i),
         .clic_kill_req_i (clic_kill_req_i),
         .clic_kill_ack_o (clic_kill_ack_o),
         // to ID stage
