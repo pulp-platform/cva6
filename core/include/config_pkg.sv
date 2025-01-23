@@ -78,6 +78,8 @@ package config_pkg;
     bit                          RVZCMT;
     // CLIC extension
     bit                          RVSCLIC;
+    // CLIC virtualization extension (vCLIC)
+    bit                          RVVCLIC;
     // Zicond RISC-V extension
     bit                          RVZiCond;
     // Zicntr RISC-V extension
@@ -277,6 +279,7 @@ package config_pkg;
     bit          RVZCMP;
     bit          RVZCMT;
     bit          RVSCLIC;
+    bit          RVVCLIC;
     bit          XFVec;
     bit          CvxifEn;
     copro_type_t CoproType;
@@ -410,6 +413,7 @@ package config_pkg;
     assert (Cfg.NrExecuteRegionRules <= NrMaxRules);
     assert (Cfg.NrCachedRegionRules <= NrMaxRules);
     assert (Cfg.NrPMPEntries <= 64);
+    assert (!(Cfg.RVVCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
     assert (!(Cfg.SuperscalarEn && Cfg.RVF));
     assert (Cfg.FETCH_WIDTH == 32 || Cfg.FETCH_WIDTH == 64)
     else $fatal(1, "[frontend] fetch width != not supported");
