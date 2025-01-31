@@ -1707,6 +1707,11 @@ module cva6
 `endif  // PITON_ARIANE
 
 `ifndef VERILATOR
+
+  logic [31:0] [CVA6Cfg.NrIssuePorts-1:0] fetch_instructions;
+  for(genvar i = 0; i < CVA6Cfg.NrIssuePorts; ++i) begin
+    assign fetch_instructions[i] = fetch_entry_if_id[i].instruction;
+  end
   instr_tracer #(
       .CVA6Cfg(CVA6Cfg),
       .bp_resolve_t(bp_resolve_t),
@@ -1720,9 +1725,9 @@ module cva6
       .rstn(rst_ni),
       .flush_unissued(flush_unissued_instr_ctrl_id),
       .flush_all(flush_ctrl_ex),
-      .instruction(id_stage_i.fetch_entry_i[0].instruction),
-      .fetch_valid(id_stage_i.fetch_entry_valid_i[0]),
-      .fetch_ack(id_stage_i.fetch_entry_ready_o[0]),
+      .instruction(fetch_instructions),
+      .fetch_valid(id_stage_i.fetch_entry_valid_i),
+      .fetch_ack(id_stage_i.fetch_entry_ready_o),
       .issue_ack(issue_stage_i.i_scoreboard.issue_ack_i),
       .issue_sbe(issue_stage_i.i_scoreboard.issue_instr_o),
       .waddr(waddr_commit_id),
