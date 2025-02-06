@@ -45,7 +45,9 @@ module cvxif_compressed_if_driver #(
     compressed_req_o.instr  = '0;
     compressed_req_o.hartid = hart_id_i;
     stall_o[0]              = stall_i;
-    stall_o[1]              = 1'b0;
+    if (CVA6Cfg.SuperscalarEn) begin
+      stall_o[1]              = 1'b0;
+    end
     if (is_illegal_i[0]) begin
       compressed_valid_o = is_illegal_i[0] && instruction_valid_i[0];
       compressed_req_o.instr = instruction_i[0][15:0];
