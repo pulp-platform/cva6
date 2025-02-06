@@ -29,7 +29,7 @@ module instr_tracer #(
   input logic                    rstn,
   input logic                    flush_unissued,
   input logic                    flush_all,
-  input logic [31:0] [CVA6Cfg.NrIssuePorts-1:0] instruction,
+  input logic [31:0] instruction [CVA6Cfg.NrIssuePorts-1:0],
   input logic        [CVA6Cfg.NrIssuePorts-1:0] fetch_valid,
   input logic        [CVA6Cfg.NrIssuePorts-1:0] fetch_ack,
   input logic [CVA6Cfg.NrIssuePorts-1:0] issue_ack, // issue acknowledged

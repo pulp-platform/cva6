@@ -1708,7 +1708,7 @@ module cva6
 
 `ifndef VERILATOR
 
-  logic [31:0] [CVA6Cfg.NrIssuePorts-1:0] fetch_instructions;
+  logic [31:0] fetch_instructions [CVA6Cfg.NrIssuePorts-1:0];
   for(genvar i = 0; i < CVA6Cfg.NrIssuePorts; ++i) begin
     assign fetch_instructions[i] = fetch_entry_if_id[i].instruction;
   end
