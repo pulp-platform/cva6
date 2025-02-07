@@ -188,6 +188,16 @@ module csr_regfile
   logic read_access_exception, update_access_exception, privilege_violation;
   logic virtual_read_access_exception, virtual_update_access_exception, virtual_privilege_violation;
   logic csr_we, csr_read;
+  // Hijack CSR register to dump register value
+  logic csr_dump_read, csr_dump_write;
+  logic csr_dump;
+
+  always_comb begin
+    // decode read => default => csr_dump_read=1;
+    // decode write => default => csr_dump_write=1;
+    csr_dump = csr_dump_read | csr_dump_write;
+  end
+
   riscv::xlen_t csr_wdata, csr_rdata;
   riscv::priv_lvl_t trap_to_priv_lvl;
   logic             trap_to_v;
@@ -290,6 +300,8 @@ module csr_regfile
   | (riscv::XLEN'(CVA6Cfg.NSX) << 23)  // X - Non-standard extensions present
   | ((riscv::XLEN == 64 ? 2 : 1) << riscv::XLEN - 2);  // MXL
 
+  localparam logic [11:0] CSR_DUMP_TRIGGER = 12'h7FF;
+
   assign pmpcfg_o  = pmpcfg_q[15:0];
   assign pmpaddr_o = pmpaddr_q;
 
@@ -337,6 +349,7 @@ module csr_regfile
     csr_rdata = '0;
     perf_addr_o = csr_addr.address[11:0];
     index = '0;
+    csr_dump_read  = 1'b0;
 
     if (csr_read) begin
       unique case (conv_csr_addr.address)
@@ -843,7 +856,10 @@ module csr_regfile
           if (pmpcfg_q[index].addr_mode[1] == 1'b1) csr_rdata = pmpaddr_q[index][riscv::PLEN-3:0];
           else csr_rdata = {pmpaddr_q[index][riscv::PLEN-3:1], 1'b0};
         end
-        default: read_access_exception = 1'b1;
+        default: begin
+          read_access_exception = 1'b1;
+          csr_dump_read = 1'b1;
+        end
       endcase
     end
   end
@@ -882,6 +898,7 @@ module csr_regfile
       else cycle_d = cycle_q;
     end
 
+    csr_dump_write = 1'b0;
     eret_o                          = 1'b0;
     flush_o                         = 1'b0;
     update_access_exception         = 1'b0;
@@ -1643,7 +1660,10 @@ module csr_regfile
             pmpaddr_d[index] = csr_wdata[riscv::PLEN-3:0];
           end
         end
-        default: update_access_exception = 1'b1;
+        default: begin
+          update_access_exception = 1'b1;
+          csr_dump_write = 1'b1;
+        end
       endcase
     end
 
@@ -2242,10 +2262,22 @@ module csr_regfile
     // we got an exception in one of the processes above
     // throw an illegal instruction exception
     if (update_access_exception || read_access_exception) begin
-      csr_exception_o.cause = riscv::ILLEGAL_INSTR;
+      
       // we don't set the tval field as this will be set by the commit stage
       // this spares the extra wiring from commit to CSR and back to commit
       csr_exception_o.valid = 1'b1;
+
+      $display("[CSR TRAP] Illegal CSR Access: Address = 0x%03h, Cause = ILLEGAL_INSTR",
+                  conv_csr_addr.address); */
+
+      if (conv_csr_addr.address == CSR_DUMP_TRIGGER) begin
+        csr_exception_o.valid = 1'b0; // Do not throw an exception for this CSR
+      end else begin
+        $display("[CSR TRAP] Illegal CSR Access: Address = 0x%03h, Cause = ILLEGAL_INSTR",
+                  conv_csr_addr.address);
+        csr_exception_o.cause = riscv::ILLEGAL_INSTR;
+        csr_exception_o.valid = 1'b1;
+      end
     end
 
     if (privilege_violation) begin
@@ -2604,4 +2636,21 @@ module csr_regfile
     $stop();
   end
   //pragma translate_on
+
+  //-------------
+  //pragma translate_off
+  // CSR Dump
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+        // No action on reset
+    end else if (csr_dump) begin
+        if (csr_dump_read) begin
+        end
+        if (csr_dump_write) begin
+            $display("[CSR DUMP] Time: %0t, Core: %0d, Address: 0x%03h, Data: 0x%08h", 
+                     $time, hart_id_i, conv_csr_addr.address, csr_wdata);
+        end
+    end
+  end
+  // pragma translate_on
 endmodule
