@@ -434,6 +434,7 @@ module cva6
   logic [31:0] fence_t_pad_csr_ctrl;
   logic fence_t_src_sel_csr_ctrl;
   logic [31:0] fence_t_ceil_csr_ctrl;
+  logic [31:0] selfinval_period_csr_ctrl;
   logic debug_mode;
   logic single_step_csr_commit;
   riscv::pmpcfg_t [15:0] pmpcfg;
@@ -986,6 +987,7 @@ module cva6
       .fence_t_pad_o           (fence_t_pad_csr_ctrl),
       .fence_t_src_sel_o       (fence_t_src_sel_csr_ctrl),
       .fence_t_ceil_i          (fence_t_ceil_csr_ctrl),
+      .selfinval_period_o      (selfinval_period_csr_ctrl),
       .perf_addr_o             (addr_csr_perf),
       .perf_data_o             (data_csr_perf),
       .perf_data_i             (data_perf_csr),
@@ -1069,6 +1071,7 @@ module cva6
       .fence_t_src_sel_i     (fence_t_src_sel_csr_ctrl),
       .fence_t_ceil_o        (fence_t_ceil_csr_ctrl),
       .priv_lvl_i            (priv_lvl),
+      .selfinval_period_i    (selfinval_period_csr_ctrl),
 
       .halt_csr_i       (halt_csr_ctrl),
       .halt_acc_i       (halt_acc_ctrl),
