@@ -78,6 +78,8 @@ module controller
     input logic time_irq_i,
     // Current privilege level - CSR_REGFILE
     input riscv::priv_lvl_t priv_lvl_i,
+    // Self-invalidation period - CSR_REGFILE
+    input logic [31:0] selfinval_period_i,
     // Return from exception - CSR_REGFILE
     input logic eret_i,
     // We got an exception, flush the pipeline - FRONTEND
@@ -135,6 +137,10 @@ module controller
   } fence_t_state_e;
   fence_t_state_e fence_t_state_d, fence_t_state_q;
   logic [3:0] rst_uarch_cnt_d, rst_uarch_cnt_q;
+
+  // Self invalidation counter
+  logic       selfinval;
+  logic [31:0] selfinval_cnt;
 
   // ------------
   // Flush CTRL
@@ -278,6 +284,16 @@ module controller
       flush_ex_o             = 1'b1;
     end
 
+    if (DCACHE_TYPE == int'(config_pkg::WB) && selfinval && !fence_active_q) begin
+      set_pc_commit_o        = 1'b1;
+      flush_if_o             = 1'b1;
+      flush_unissued_instr_o = 1'b1;
+      flush_id_o             = 1'b1;
+      flush_ex_o             = 1'b1;
+      flush_dcache           = 1'b1;
+      fence_active_d         = 1'b1;
+    end
+
     // ---------------------------------
     // 1. Exception
     // 2. Return from exception
@@ -401,6 +417,27 @@ module controller
       .d_i       (fence_t_pad_i),  // Start counting from FENCE_T_CSR value
       .q_o       (pad_cnt),
       .overflow_o()
+  );
+
+  // --------
+  // Self-invalidation: progress enforcement
+  // --------
+
+  assign selfinval = (selfinval_cnt == '0) && (selfinval_period_i != '0);
+
+  counter #(
+    .WIDTH (32),
+    .STICKY_OVERFLOW (0)
+  ) i_selfinval_cnt (
+    .clk_i,
+    .rst_ni,
+    .clear_i (1'b0),
+    .en_i (|selfinval_period_i),
+    .load_i (selfinval),
+    .down_i (1'b1),
+    .d_i (selfinval_period_i),
+    .q_o (selfinval_cnt),
+    .overflow_o ()
   );
 
   // ----------------------
