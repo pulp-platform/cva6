@@ -285,11 +285,6 @@ module controller
     end
 
     if (DCACHE_TYPE == int'(config_pkg::WB) && selfinval && !fence_active_q) begin
-      set_pc_commit_o        = 1'b1;
-      flush_if_o             = 1'b1;
-      flush_unissued_instr_o = 1'b1;
-      flush_id_o             = 1'b1;
-      flush_ex_o             = 1'b1;
       flush_dcache           = 1'b1;
       fence_active_d         = 1'b1;
     end
