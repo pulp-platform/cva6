@@ -150,7 +150,7 @@ module commit_stage
 
     // we will not commit the instruction if we took an exception
     // and we do not commit the instruction if we requested a halt
-    if (commit_instr_i[0].valid && !commit_instr_i[0].ex.valid && !halt_i) begin
+    if (commit_instr_i[0].valid && !commit_instr_i[0].ex.valid && (!halt_i || instr_0_is_amo)) begin
       // we can definitely write the register file
       // if the instruction is not committing anything the destination
       commit_ack_o[0] = 1'b1;
