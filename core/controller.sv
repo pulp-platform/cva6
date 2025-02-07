@@ -428,7 +428,7 @@ module controller
     .rst_ni,
     .clear_i (1'b0),
     .en_i (|selfinval_period_i),
-    .load_i (selfinval),
+    .load_i (flush_dcache),
     .down_i (1'b1),
     .d_i (selfinval_period_i),
     .q_o (selfinval_cnt),
