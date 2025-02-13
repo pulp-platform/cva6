@@ -13,6 +13,8 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigRvfiTrace = 1;
 
+  localparam CVA6ConfigSclicExtEn = 0;
+
   localparam CVA6ConfigAxiIdWidth = 4;  // axi_pkg.sv
   localparam CVA6ConfigAxiAddrWidth = 64;  // axi_pkg.sv
   localparam CVA6ConfigAxiDataWidth = 64;  // axi_pkg.sv
@@ -50,6 +52,7 @@ package cva6_config_pkg;
       CvxifEn: bit'(1),
       CoproType: config_pkg::COPRO_EXAMPLE,
       RVZiCond: bit'(0),
+      RVSCLIC: bit'(CVA6ConfigSclicExtEn),
       RVZicntr: bit'(0),
       RVZihpm: bit'(0),
       NrScoreboardEntries: unsigned'(8),
@@ -72,6 +75,7 @@ package cva6_config_pkg;
       PMPEntryReadOnly: 64'd0,
       PMPNapotEn: bit'(0),
       NOCType: config_pkg::NOC_TYPE_AXI4_ATOP,
+      CLICNumInterruptSrc: unsigned'(256),
       NrNonIdempotentRules: unsigned'(0),
       NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
       NonIdempotentLength: 1024'({64'b0, 64'b0}),
