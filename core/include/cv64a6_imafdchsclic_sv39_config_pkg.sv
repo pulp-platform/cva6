@@ -12,8 +12,6 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigXlen = 64;
 
-  localparam CVA6ConfigNrCommitPorts = 2;
-
   localparam CVA6ConfigRVF = 1;
   localparam CVA6ConfigRVD = 1;
   localparam CVA6ConfigF16En = 0;
@@ -23,29 +21,29 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigCvxifEn = 0;
   localparam CVA6ConfigCExtEn = 1;
-  localparam CVA6ConfigZcbExtEn = 0;
+  localparam CVA6ConfigZcbExtEn = 1;
   localparam CVA6ConfigZcmpExtEn = 0;
   localparam CVA6ConfigAExtEn = 1;
+  localparam CVA6ConfigHExtEn = 1;
   localparam CVA6ConfigBExtEn = 0;
-  localparam CVA6ConfigHExtEn = 0;
-  localparam CVA6ConfigVExtEn = 1;
-  localparam CVA6ConfigRVZiCond = 0;
-  localparam CVA6ConfigSclicExtEn = 0;
+  localparam CVA6ConfigVExtEn = 0;
+  localparam CVA6ConfigRVZiCond = 1;
+  localparam CVA6ConfigSclicExtEn = 1;
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 64;
   localparam CVA6ConfigAxiDataWidth = 64;
   localparam CVA6ConfigFetchUserEn = 0;
-  localparam CVA6ConfigFetchUserWidth = 1;  // Just not to raise warnings
+  localparam CVA6ConfigFetchUserWidth = CVA6ConfigXlen;
   localparam CVA6ConfigDataUserEn = 0;
-  localparam CVA6ConfigDataUserWidth = CVA6ConfigXlen;
+  localparam CVA6ConfigDataUserWidth = 1;
 
-  localparam CVA6ConfigIcacheByteSize = 4096;
+  localparam CVA6ConfigIcacheByteSize = 16384;
   localparam CVA6ConfigIcacheSetAssoc = 4;
   localparam CVA6ConfigIcacheLineWidth = 128;
-  localparam CVA6ConfigDcacheByteSize = 8192;
-  localparam CVA6ConfigDcacheSetAssoc = 4;
-  localparam CVA6ConfigDcacheLineWidth = 256;
+  localparam CVA6ConfigDcacheByteSize = 32768;
+  localparam CVA6ConfigDcacheSetAssoc = 8;
+  localparam CVA6ConfigDcacheLineWidth = 128;
 
   localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
   localparam CVA6ConfigDcacheFlushOnFenceI = 1'b0;
@@ -86,7 +84,7 @@ package cva6_config_pkg;
       TechnoCut: bit'(0),
       SuperscalarEn: bit'(0),
       ALUBypass: bit'(0),
-      NrCommitPorts: unsigned'(CVA6ConfigNrCommitPorts),
+      NrCommitPorts: unsigned'(2),
       AxiAddrWidth: unsigned'(CVA6ConfigAxiAddrWidth),
       AxiDataWidth: unsigned'(CVA6ConfigAxiDataWidth),
       AxiIdWidth: unsigned'(CVA6ConfigAxiIdWidth),
@@ -105,8 +103,8 @@ package cva6_config_pkg;
       RVC: bit'(CVA6ConfigCExtEn),
       RVH: bit'(CVA6ConfigHExtEn),
       RVZCB: bit'(CVA6ConfigZcbExtEn),
-      RVZCMP: bit'(CVA6ConfigZcmpExtEn),
       RVZCMT: bit'(0),
+      RVZCMP: bit'(CVA6ConfigZcmpExtEn),
       RVSCLIC: bit'(CVA6ConfigSclicExtEn),
       XFVec: bit'(CVA6ConfigFVecEn),
       CvxifEn: bit'(CVA6ConfigCvxifEn),
@@ -168,19 +166,19 @@ package cva6_config_pkg;
       IcacheByteSize: unsigned'(CVA6ConfigIcacheByteSize),
       IcacheSetAssoc: unsigned'(CVA6ConfigIcacheSetAssoc),
       IcacheLineWidth: unsigned'(CVA6ConfigIcacheLineWidth),
+      DCacheType: CVA6ConfigDcacheType,
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
       DcacheLineWidth: unsigned'(CVA6ConfigDcacheLineWidth),
-      DcacheFlushOnFence: unsigned'(CVA6ConfigDcacheFlushOnFence),
-      DcacheFlushOnFenceI: unsigned'(CVA6ConfigDcacheFlushOnFenceI),
-      DcacheInvalidateOnFlush: unsigned'(CVA6ConfigDcacheInvalidateOnFlush),
+      DcacheFlushOnFence: bit'(CVA6ConfigDcacheFlushOnFence),
+      DcacheFlushOnFenceI: bit'(CVA6ConfigDcacheFlushOnFenceI),
+      DcacheInvalidateOnFlush: bit'(CVA6ConfigDcacheInvalidateOnFlush),
       DcacheEccEnable: bit'(0),
       DcacheEccScrubberEnable: bit'(0),
       DataUserEn: unsigned'(CVA6ConfigDataUserEn),
       WtDcacheWbufDepth: int'(CVA6ConfigWtDcacheWbufDepth),
       FetchUserWidth: unsigned'(CVA6ConfigFetchUserWidth),
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
-      DCacheType: CVA6ConfigDcacheType,
       InstrTlbEntries: int'(16),
       DataTlbEntries: int'(16),
       UseSharedTlb: bit'(0),
@@ -190,4 +188,5 @@ package cva6_config_pkg;
       NrStorePipeRegs: int'(CVA6ConfigNrStorePipeRegs),
       DcacheIdWidth: int'(CVA6ConfigDcacheIdWidth)
   };
+
 endpackage
