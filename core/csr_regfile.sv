@@ -2791,6 +2791,10 @@ module csr_regfile
         sscratch_q   <= {CVA6Cfg.XLEN{1'b0}};
         stval_q      <= {CVA6Cfg.XLEN{1'b0}};
         satp_q       <= {CVA6Cfg.XLEN{1'b0}};
+        if (CVA6Cfg.RVSCLIC) begin
+          stvt_q       <= {CVA6Cfg.XLEN{1'b0}};
+          sintthresh_q <= '0;
+        end
       end
 
       if (CVA6Cfg.RVH) begin
@@ -2880,6 +2884,10 @@ module csr_regfile
         sscratch_q   <= sscratch_d;
         if (CVA6Cfg.TvalEn) stval_q <= stval_d;
         satp_q <= satp_d;
+        if (CVA6Cfg.RVSCLIC) begin
+          stvt_q       <= stvt_d;
+          sintthresh_q <= sintthresh_d;
+        end
       end
       if (CVA6Cfg.RVH) begin
         v_q                      <= v_d;
