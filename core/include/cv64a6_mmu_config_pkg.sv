@@ -14,6 +14,8 @@ package cva6_config_pkg;
   localparam CVA6ConfigBExtEn = 1;  // UVM
   localparam CVA6ConfigRvfiTrace = 1;
 
+  localparam CVA6ConfigSclicExtEn = 0;
+
   localparam CVA6ConfigAxiIdWidth = 4;  // axi_pkg.sv
   localparam CVA6ConfigAxiAddrWidth = 64;  // axi_pkg.sv
   localparam CVA6ConfigAxiDataWidth = 64;  // axi_pkg.sv
@@ -57,6 +59,7 @@ package cva6_config_pkg;
       CvxifEn: bit'(1),
       CoproType: config_pkg::COPRO_NONE,
       RVZiCond: bit'(0),
+      RVSCLIC: bit'(CVA6ConfigSclicExtEn),
       RVZicntr: bit'(1),
       RVZihpm: bit'(1),
       NrScoreboardEntries: unsigned'(CVA6ConfigNrScoreboardEntries),
