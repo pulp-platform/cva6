@@ -2615,13 +2615,13 @@ module csr_regfile
     // significant benefit, we conciously diverge from the spec here by jumping to
     // trap_vector_base instead.
     if (ex_i.cause[CVA6Cfg.XLEN-1] &&
-                ((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])))
-               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0])
+                (((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0]))) && ~clic_mode_o)
+               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0] && ~clic_mode_o)
                || (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i))) begin
       trap_vector_base_o[7:2] = ex_i.cause[5:0];
     end
     if (ex_i.cause[CVA6Cfg.XLEN-1] &&
-                (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0])) begin
+                (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0]) && ~clic_mode_o) begin
       trap_vector_base_o[7:2] = {ex_i.cause[5:2], 2'b01};
     end
 
