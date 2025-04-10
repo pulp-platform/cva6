@@ -26,10 +26,12 @@ module sram_cache #(
     parameter SIM_INIT   = "none",
     parameter BYTE_ACCESS = 1,
     parameter TECHNO_CUT = 0,
-    parameter OUT_REGS   = 0     // enables output registers in FPGA macro (read lat = 2)
+    parameter OUT_REGS   = 0,     // enables output registers in FPGA macro (read lat = 2)
+    parameter type impl_in_t = logic
 )(
    input  logic                          clk_i,
    input  logic                          rst_ni,
+   input  impl_in_t                      impl_i,
    input  logic                          req_i,
    input  logic                          we_i,
    input  logic [$clog2(NUM_WORDS)-1:0]  addr_i,
@@ -107,10 +109,12 @@ module sram_cache #(
           .USER_WIDTH (USER_WIDTH),
           .DATA_WIDTH (DATA_WIDTH),
           .USER_EN    (USER_EN),
-          .NUM_WORDS  (NUM_WORDS)
+          .NUM_WORDS  (NUM_WORDS),
+          .impl_in_t  (impl_in_t)
       ) data_sram (
           .clk_i  (clk_i),
           .rst_ni (rst_ni),
+          .impl_i (impl_i),
           .req_i  (req_i),
           .we_i   (we_i),
           .addr_i (addr_i),

@@ -310,12 +310,15 @@ module cva6
     parameter type cvxif_req_t =
     `CVXIF_REQ_T(CVA6Cfg, x_compressed_req_t, x_issue_req_t, x_register_req_t, x_commit_t),
     parameter type cvxif_resp_t =
-    `CVXIF_RESP_T(CVA6Cfg, x_compressed_resp_t, x_issue_resp_t, x_result_t)
+    `CVXIF_RESP_T(CVA6Cfg, x_compressed_resp_t, x_issue_resp_t, x_result_t),
+    parameter type impl_in_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
+    // sram_impl signals
+    input impl_in_t [2*CVA6Cfg.ICACHE_SET_ASSOC+2*CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
     // Reset boot address - SUBSYSTEM
     input logic [CVA6Cfg.VLEN-1:0] boot_addr_i,
     // Hard ID reflected as CSR - SUBSYSTEM
@@ -1548,7 +1551,8 @@ module cva6
         .axi_aw_chan_t (axi_aw_chan_t),
         .axi_w_chan_t  (axi_w_chan_t),
         .axi_req_t     (noc_req_t),
-        .axi_rsp_t     (noc_resp_t)
+        .axi_rsp_t     (noc_resp_t),
+        .impl_in_t     (impl_in_t)
     ) i_cache_subsystem (
         // to D$
         .clk_i             (clk_i),
@@ -1557,6 +1561,7 @@ module cva6
         .busy_o            (busy_cache_ctrl),
         .stall_i           (stall_ctrl_cache),
         .init_ni           (init_ctrl_cache_n),
+        .sram_impl_i       (sram_impl_i),
         // I$
         .icache_en_i       (icache_en_csr),
         .icache_flush_i    (icache_flush_ctrl_cache),

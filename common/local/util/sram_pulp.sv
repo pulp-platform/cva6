@@ -26,10 +26,12 @@ module sram #(
     parameter USER_EN    = 0,
     parameter NUM_WORDS  = 1024,
     parameter SIM_INIT   = "none",
-    parameter OUT_REGS   = 0     // enables output registers in FPGA macro (read lat = 2)
+    parameter OUT_REGS   = 0,     // enables output registers in FPGA macro (read lat = 2)
+    parameter type impl_in_t = logic
 )(
    input  logic                          clk_i,
    input  logic                          rst_ni,
+   input  impl_in_t                      impl_i,
    input  logic                          req_i,
    input  logic                          we_i,
    input  logic [$clog2(NUM_WORDS)-1:0]  addr_i,
@@ -40,17 +42,20 @@ module sram #(
    output logic [DATA_WIDTH-1:0]         rdata_o
 );
 
-  tc_sram #(
+  tc_sram_impl #(
     .NumWords    ( NUM_WORDS  ),
     .DataWidth   ( DATA_WIDTH ),
     .ByteWidth   ( BYTE_WIDTH ),
     .NumPorts    ( 32'd1      ),
     .Latency     ( 32'd1      ),
     .SimInit     ( SIM_INIT   ),
-    .PrintSimCfg ( 1'b0       )
+    .PrintSimCfg ( 1'b0       ),
+    .impl_in_t   ( impl_in_t  )
   ) i_tc_sram (
     .clk_i   ( clk_i   ),
     .rst_ni  ( rst_ni  ),
+    .impl_i  ( impl_i  ),
+    .impl_o  (         ), // unconnected
     .req_i   ( req_i   ),
     .we_i    ( we_i    ),
     .be_i    ( be_i    ),
@@ -60,17 +65,20 @@ module sram #(
   );
 
   if (USER_EN > 0) begin : gen_mem_user
-    tc_sram #(
+    tc_sram_impl #(
       .NumWords    ( NUM_WORDS  ),
       .DataWidth   ( DATA_WIDTH ),
       .ByteWidth   ( BYTE_WIDTH ),
       .NumPorts    ( 32'd1      ),
       .Latency     ( 32'd1      ),
       .SimInit     ( SIM_INIT   ),
-      .PrintSimCfg ( 1'b0       )
+      .PrintSimCfg ( 1'b0       ),
+      .impl_in_t   ( impl_in_t  )
     ) i_tc_sram_user (
       .clk_i   ( clk_i   ),
       .rst_ni  ( rst_ni  ),
+      .impl_i  ( impl_i  ),
+      .impl_o  (         ), // unconnected
       .req_i   ( req_i   ),
       .we_i    ( we_i    ),
       .be_i    ( be_i    ),

@@ -37,7 +37,8 @@ module cva6_icache
     parameter type icache_req_t = logic,
     parameter type icache_rtrn_t = logic,
     /// ID to be used for read transactions
-    parameter logic [CVA6Cfg.MEM_TID_WIDTH-1:0] RdTxId = 0
+    parameter logic [CVA6Cfg.MEM_TID_WIDTH-1:0] RdTxId = 0,
+    parameter type impl_in_t = logic
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -51,6 +52,7 @@ module cva6_icache
     output logic         busy_o,
     input  logic         stall_i,
     input  logic         init_ni,         // do not init after enabling
+    input  impl_in_t [2*CVA6Cfg.ICACHE_SET_ASSOC-1:0] sram_impl_i,
     // address translation requests
     input  icache_areq_t areq_i,
     output icache_arsp_t areq_o,
@@ -467,10 +469,12 @@ module cva6_icache
         .DATA_WIDTH (CVA6Cfg.ICACHE_TAG_WIDTH + 1),
         .BYTE_ACCESS(0),
         .TECHNO_CUT (CVA6Cfg.TechnoCut),
-        .NUM_WORDS  (ICACHE_NUM_WORDS)
+        .NUM_WORDS  (ICACHE_NUM_WORDS),
+        .impl_in_t  (impl_in_t)
     ) tag_sram (
         .clk_i  (clk_i),
         .rst_ni (rst_ni),
+        .impl_i (sram_impl_i[2*i]),
         .req_i  (vld_req[i]),
         .we_i   (vld_we),
         .addr_i (vld_addr),
@@ -493,10 +497,12 @@ module cva6_icache
         .USER_EN    (CVA6Cfg.FETCH_USER_EN),
         .BYTE_ACCESS(0),
         .TECHNO_CUT (CVA6Cfg.TechnoCut),
-        .NUM_WORDS  (ICACHE_NUM_WORDS)
+        .NUM_WORDS  (ICACHE_NUM_WORDS),
+        .impl_in_t  (impl_in_t)
     ) data_sram (
         .clk_i  (clk_i),
         .rst_ni (rst_ni),
+        .impl_i (sram_impl_i[(2*i)+1]),
         .req_i  (cl_req[i]),
         .we_i   (cl_we),
         .addr_i (cl_index),
