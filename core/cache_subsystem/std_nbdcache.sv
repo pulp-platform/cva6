@@ -22,7 +22,8 @@ module std_nbdcache
     parameter type dcache_req_o_t = logic,
     parameter int unsigned NumPorts = 4,
     parameter type axi_req_t = logic,
-    parameter type axi_rsp_t = logic
+    parameter type axi_rsp_t = logic,
+    parameter type impl_in_t = logic
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
@@ -34,6 +35,7 @@ module std_nbdcache
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
     input logic init_ni,
+    input  impl_in_t [2*CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
     // AMOs
     input amo_req_t amo_req_i,
     output amo_resp_t amo_resp_o,
@@ -212,10 +214,12 @@ module std_nbdcache
   for (genvar i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin : sram_block
     sram #(
         .DATA_WIDTH(CVA6Cfg.DCACHE_LINE_WIDTH),
-        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
+        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS),
+        .impl_in_t (impl_in_t)
     ) data_sram (
         .req_i  (req_ram[i]),
         .rst_ni (rst_ni),
+        .impl_i (sram_impl_i[2*i]),
         .we_i   (we_ram),
         .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
         .wuser_i('0),
@@ -228,10 +232,12 @@ module std_nbdcache
 
     sram #(
         .DATA_WIDTH(CVA6Cfg.DCACHE_TAG_WIDTH),
-        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
+        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS),
+        .impl_in_t (impl_in_t)
     ) tag_sram (
         .req_i  (req_ram[i]),
         .rst_ni (rst_ni),
+        .impl_i (sram_impl_i[(2*i)+1]),
         .we_i   (we_ram),
         .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
         .wuser_i('0),
@@ -262,10 +268,12 @@ module std_nbdcache
       .USER_WIDTH(1),
       .DATA_WIDTH(CVA6Cfg.DCACHE_SET_ASSOC * $bits(vldrty_t)),
       .BYTE_WIDTH(1),
-      .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
+      .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS),
+      .impl_in_t (impl_in_t)
   ) valid_dirty_sram (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .impl_i (sram_impl_i[2*CVA6Cfg.DCACHE_SET_ASSOC]),
       .req_i  (|req_ram),
       .we_i   (we_ram),
       .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
