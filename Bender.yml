@@ -204,6 +204,7 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_decoder.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_1hot_to_binary.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_1hot_encoder.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_bin_encoder.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wmask.sv
@@ -232,6 +233,7 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_sel.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_wbuf.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_flush.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cbuf.sv
       # HPDCache integration
       - core/cache_subsystem/cva6_hpdcache_if_adapter.sv
       - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
