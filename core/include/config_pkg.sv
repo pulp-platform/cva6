@@ -176,6 +176,14 @@ package config_pkg;
     int unsigned                 IcacheSetAssoc;
     // Instruction cache line width
     int unsigned                 IcacheLineWidth;
+    // Base address of the ICache SPM (if enabled)
+    logic [55:0]                 ICacheSpmAddrBase;
+    // Length of the reserved address space
+    logic [55:0]                 ICacheSpmLength;
+    // Base address of the DCache SPM (if enabled)
+    logic [55:0]                 DCacheSpmAddrBase;
+    // Length of the reserved address space
+    logic [55:0]                 DCacheSpmLength;
     // Cache Type
     cache_type_t                 DCacheType;
     // Data cache ID
@@ -349,6 +357,10 @@ package config_pkg;
     int unsigned ICACHE_TAG_WIDTH;
     int unsigned ICACHE_LINE_WIDTH;
     int unsigned ICACHE_USER_LINE_WIDTH;
+    logic [55:0] ICacheSpmAddrBase;
+    logic [55:0] ICacheSpmLength;
+    logic [55:0] DCacheSpmAddrBase;
+    logic [55:0] DCacheSpmLength;
     cache_type_t DCacheType;
     int unsigned DcacheIdWidth;
     int unsigned DCACHE_SET_ASSOC;
@@ -412,6 +424,7 @@ package config_pkg;
     assert (Cfg.NrNonIdempotentRules <= NrMaxRules);
     assert (Cfg.NrExecuteRegionRules <= NrMaxRules);
     assert (Cfg.NrCachedRegionRules <= NrMaxRules);
+    assert (Cfg.ICacheSpmLength > 0);
     assert (Cfg.NrPMPEntries <= 64);
     assert (!(Cfg.RVVCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
     assert (!(Cfg.SuperscalarEn && Cfg.RVF));

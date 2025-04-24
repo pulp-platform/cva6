@@ -649,6 +649,7 @@ package riscv;
     CSR_MHPM_COUNTER_30H = 12'hB9E,  // reserved
     CSR_MHPM_COUNTER_31H = 12'hB9F,  // reserved
     // Cache Control (platform specifc)
+    CSR_ICACHE_SPM_WAYS  = 12'h5E1,
     CSR_DCACHE           = 12'h7C1,
     CSR_ICACHE           = 12'h7C0,
     // Accelerator memory consistency (platform specific)
