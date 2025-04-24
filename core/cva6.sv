@@ -318,7 +318,7 @@ module cva6
     // Asynchronous reset active low - SUBSYSTEM
     input logic rst_ni,
     // sram_impl signals
-    input impl_in_t [2*CVA6Cfg.ICACHE_SET_ASSOC+2*CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
+    input impl_in_t [CVA6Cfg.ICACHE_SET_ASSOC+2*CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
     // Reset boot address - SUBSYSTEM
     input logic [CVA6Cfg.VLEN-1:0] boot_addr_i,
     // Hard ID reflected as CSR - SUBSYSTEM
@@ -601,6 +601,7 @@ module cva6
   logic [7:0] sintthresh_csr;
   logic [7:0] vsintthresh_csr;
   logic dcache_en_csr_nbdcache;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_csr_cache;
   logic csr_write_fflags_commit_cs;
   logic icache_en_csr;
   logic acc_cons_en_csr;
@@ -1256,6 +1257,7 @@ module cva6
       .single_step_o           (single_step_csr_commit),
       .icache_en_o             (icache_en_csr),
       .dcache_en_o             (dcache_en_csr_nbdcache),
+      .icache_spm_ways_o       (icache_spm_ways_csr_cache),
       .acc_cons_en_o           (acc_cons_en_csr),
       .fence_t_pad_o           (fence_t_pad_csr_ctrl),
       .fence_t_src_sel_o       (fence_t_src_sel_csr_ctrl),
@@ -1575,6 +1577,7 @@ module cva6
         .icache_en_i       (icache_en_csr),
         .icache_flush_i    (icache_flush_ctrl_cache),
         .icache_miss_o     (icache_miss_cache_perf),
+        .icache_spm_ways_i (icache_spm_ways_csr_cache),
         .icache_areq_i     (icache_areq_ex_cache),
         .icache_areq_o     (icache_areq_cache_ex),
         .icache_dreq_i     (icache_dreq_if_cache),
