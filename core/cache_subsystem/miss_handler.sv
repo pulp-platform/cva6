@@ -35,6 +35,7 @@ module miss_handler
     output logic miss_o,
     input logic busy_i,  // dcache is busy with something
     input logic init_ni,  // do not init after reset
+    input logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] spm_ways_i,  // the mask of cache ways currently owned by the SPM
     // Bypass or miss
     input logic [NR_PORTS-1:0][$bits(miss_req_t)-1:0] miss_req_i,
     // Bypass handling
@@ -177,8 +178,8 @@ module miss_handler
     automatic logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] evict_way, valid_way;
 
     for (int unsigned i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin
-      evict_way[i] = data_i[i].valid & (|data_i[i].dirty);
-      valid_way[i] = data_i[i].valid;
+      evict_way[i] = data_i[i].valid & (|data_i[i].dirty) & ~spm_ways_i[i];
+      valid_way[i] = data_i[i].valid | spm_ways_i[i];
     end
     // ----------------------
     // Default Assignments
@@ -681,14 +682,36 @@ module miss_handler
   // -----------------
   // Replacement LFSR
   // -----------------
+
+  logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] lfsr_oh_raw, cache_ways_oh;
+  logic [$clog2(CVA6Cfg.DCACHE_SET_ASSOC)-1:0] lfsr_bin_raw, cache_ways_bin;
+
   lfsr_8bit #(
       .WIDTH(CVA6Cfg.DCACHE_SET_ASSOC)
   ) i_lfsr (
       .en_i          (lfsr_enable),
-      .refill_way_oh (lfsr_oh),
-      .refill_way_bin(lfsr_bin),
+      .refill_way_oh (lfsr_oh_raw),
+      .refill_way_bin(lfsr_bin_raw),
       .*
   );
+
+  // Calculate the first cache owned way
+  assign cache_ways_oh = (spm_ways_i + 1'b1) & ~spm_ways_i;
+
+  // And the binary representation of it
+  always_comb begin
+    cache_ways_bin = 0;
+    for(int unsigned i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin
+      if(cache_ways_oh[i]) begin
+        cache_ways_bin = i;
+      end
+    end
+  end
+
+  // If the LFSR chose a cache owned way we can use that one
+  // otherwise use the first cache owned way
+  assign lfsr_oh  = (lfsr_oh_raw & ~spm_ways_i) ? lfsr_oh_raw : cache_ways_oh;
+  assign lfsr_bin = (lfsr_oh_raw & ~spm_ways_i) ? lfsr_bin_raw : cache_ways_bin;
 
   // -----------------
   // Struct Split
