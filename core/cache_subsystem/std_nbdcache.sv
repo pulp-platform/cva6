@@ -35,6 +35,7 @@ module std_nbdcache
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
     input logic init_ni,
+    input logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_i,
     // AMOs
     input amo_req_t amo_req_i,
     output amo_resp_t amo_resp_o,
@@ -54,6 +55,8 @@ module std_nbdcache
   import std_cache_pkg::*;
 
   localparam DCACHE_DIRTY_WIDTH = CVA6Cfg.DCACHE_SET_ASSOC * 2;
+  localparam DCACHE_MEMORY_WIDTH = CVA6Cfg.DCACHE_TAG_WIDTH + CVA6Cfg.DCACHE_LINE_WIDTH;
+  localparam DCACHE_BE_WIDTH = (DCACHE_MEMORY_WIDTH + 7) / 8;
 
   localparam type cache_line_t = struct packed {
     logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0]          tag;    // tag array
@@ -109,13 +112,27 @@ module std_nbdcache
   // -------------------------------
   // Arbiter <-> Datram,
   // -------------------------------
-  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 req_ram;
-  logic        [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0]                                 addr_ram;
-  logic                                                                         we_ram;
-  cache_line_t                                                                  wdata_ram;
-  cache_line_t [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 rdata_ram;
-  cl_be_t                                                                       be_ram;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 req_cache;
+  logic        [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0]                                 addr_cache;
+  logic                                                                         we_cache;
+  cache_line_t                                                                  wdata_cache;
+  cache_line_t [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 rdata_cache;
+  cl_be_t                                                                       be_cache;
   vldrty_t     [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 be_valid_dirty_ram;
+
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 req_spm;
+  logic        [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0]                                 addr_spm;
+  logic                                                                         we_spm;
+  logic        [       DCACHE_MEMORY_WIDTH-1:0]                                 wdata_spm;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0][       DCACHE_MEMORY_WIDTH-1:0] rdata_spm;
+  logic        [           DCACHE_BE_WIDTH-1:0]                                 be_spm;
+
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 req_ram;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0][CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] addr_ram;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0]                                 we_ram;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0][       DCACHE_MEMORY_WIDTH-1:0] wdata_ram;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0][       DCACHE_MEMORY_WIDTH-1:0] rdata_ram;
+  logic        [  CVA6Cfg.DCACHE_SET_ASSOC-1:0][           DCACHE_BE_WIDTH-1:0] be_ram;
 
   // Busy signals
   logic                                                                         miss_handler_busy;
@@ -457,26 +474,29 @@ module std_nbdcache
   // SPM Controller
   // ------------------
 
-  generate
-    for (genvar i = 0; i < NumPorts; ++i) begin
-      logic data_req_d, data_req_q;
-      logic data_we_d, data_we_q;
-      logic [CVA6Cfg.DcacheIdWidth-1:0] data_id_d, data_id_q;
-      // Latch previous request for reads
-      assign data_req_d = dspm_ports_in[i].data_req;
-      assign data_we_d = dspm_ports_in[i].data_req ? dspm_ports_in[i].data_we : data_we_q;
-      assign data_id_d = dspm_ports_in[i].data_req ? dspm_ports_in[i].data_id : data_id_q;
-      // Accept all requests but always read zero
-      assign dspm_ports_out[i].data_gnt = dspm_ports_in[i].data_req;
-      assign dspm_ports_out[i].data_rvalid = data_req_q & ~data_we_q & dspm_ports_in[i].tag_valid;
-      assign dspm_ports_out[i].data_rid = data_id_q;
-      assign dspm_ports_out[i].data_rdata = '0;
-      assign dspm_ports_out[i].data_ruser = '0;
-      `FF(data_req_q, data_req_d, '0, clk_i, rst_ni)
-      `FF(data_we_q, data_we_d, '0, clk_i, rst_ni)
-      `FF(data_id_q, data_id_d, '0, clk_i, rst_ni)
-    end
-  endgenerate
+  dspm_ctrl #(
+      .dcache_req_i_t(dcache_req_i_t),
+      .dcache_req_o_t(dcache_req_o_t),
+      .NR_PORTS      (NumPorts),
+      .NR_WAYS       (CVA6Cfg.DCACHE_SET_ASSOC),
+      .LINE_WIDTH    (CVA6Cfg.DCACHE_LINE_WIDTH),
+      .ADDR_WIDTH    (CVA6Cfg.DCACHE_INDEX_WIDTH),
+      .MEMORY_WIDTH  (DCACHE_MEMORY_WIDTH),
+      .IDX_WIDTH     (CVA6Cfg.DCACHE_INDEX_WIDTH),
+      .NR_WAIT_STAGES(1)
+  ) i_dspm_ctrl (
+      .clk_i          (clk_i),
+      .rst_ni         (rst_ni),
+      .active_ways_i  (dcache_spm_ways_i),
+      .spm_req_ports_i(dspm_ports_in),
+      .spm_req_ports_o(dspm_ports_out),
+      .req_o          (req_spm),
+      .addr_o         (addr_spm),
+      .wdata_o        (wdata_spm),
+      .we_o           (we_spm),
+      .be_o           (be_spm),
+      .rdata_i        (rdata_spm)
+  );
 
   // ------------------
   // Cache Controller
@@ -505,7 +525,8 @@ module std_nbdcache
           .data_o    (wdata[i+1]),
           .we_o      (we[i+1]),
           .be_o      (be[i+1]),
-          .hit_way_i (hit_way),
+          // Ensure that only cache owned ways can hit
+          .hit_way_i (hit_way & ~dcache_spm_ways_i),
 
           .miss_req_o           (miss_req[i]),
           .miss_gnt_i           (miss_gnt[i]),
@@ -538,6 +559,7 @@ module std_nbdcache
       .busy_o               (miss_handler_busy),
       .flush_i              (flush_i),
       .busy_i               (|busy),
+      .spm_ways_i           (dcache_spm_ways_i),
       // AMOs
       .amo_req_i            (amo_req_i),
       .amo_resp_o           (amo_resp_o),
@@ -571,38 +593,43 @@ module std_nbdcache
   // Memory Arrays
   // --------------
   for (genvar i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin : sram_block
-    sram #(
-        .DATA_WIDTH(CVA6Cfg.DCACHE_LINE_WIDTH),
-        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
-    ) data_sram (
-        .req_i  (req_ram[i]),
-        .rst_ni (rst_ni),
-        .we_i   (we_ram),
-        .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
-        .wuser_i('0),
-        .wdata_i(wdata_ram.data),
-        .be_i   (be_ram.data),
-        .ruser_o(),
-        .rdata_o(rdata_ram[i].data),
-        .*
-    );
+    always_comb begin
+      // Is this cache way SPM owned?
+      if (dcache_spm_ways_i[i]) begin
+        req_ram[i]   = req_spm[i];
+        we_ram[i]    = we_spm;
+        addr_ram[i]  = addr_spm;
+        wdata_ram[i] = wdata_spm;
+        be_ram[i]    = be_spm;
+        // Otherwise the cache accesses it
+      end else begin
+        req_ram[i]   = req_cache[i];
+        we_ram[i]    = we_cache;
+        addr_ram[i]  = addr_cache;
+        wdata_ram[i] = {wdata_cache.tag, wdata_cache.data};
+        be_ram[i]    = {be_cache.tag, be_cache.data};
+      end
+    end
+
+    // Read data can be forwarded to both
+    assign {rdata_cache[i].tag, rdata_cache[i].data} = rdata_ram[i];
+    assign rdata_spm[i] = rdata_ram[i];
 
     sram #(
-        .DATA_WIDTH(CVA6Cfg.DCACHE_TAG_WIDTH),
+        .DATA_WIDTH(DCACHE_MEMORY_WIDTH),
         .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
-    ) tag_sram (
+    ) i_cachline_sram (
         .req_i  (req_ram[i]),
         .rst_ni (rst_ni),
-        .we_i   (we_ram),
-        .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
+        .we_i   (we_ram[i]),
+        .addr_i (addr_ram[i][CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
         .wuser_i('0),
-        .wdata_i(wdata_ram.tag),
-        .be_i   (be_ram.tag),
+        .wdata_i(wdata_ram[i]),
+        .be_i   (be_ram[i]),
         .ruser_o(),
-        .rdata_o(rdata_ram[i].tag),
+        .rdata_o(rdata_ram[i]),
         .*
     );
-
   end
 
   // ----------------
@@ -612,11 +639,15 @@ module std_nbdcache
   vldrty_t [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dirty_wdata, dirty_rdata;
 
   for (genvar i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin
-    assign dirty_wdata[i]              = '{dirty: wdata_ram.dirty, valid: wdata_ram.valid};
-    assign rdata_ram[i].dirty          = dirty_rdata[i].dirty;
-    assign rdata_ram[i].valid          = dirty_rdata[i].valid;
-    assign be_valid_dirty_ram[i].valid = be_ram.vldrty[i].valid;
-    assign be_valid_dirty_ram[i].dirty = be_ram.vldrty[i].dirty;
+    // If the way is owned by the SPM it's always clean and not valid
+    assign dirty_wdata[i] = (dcache_spm_ways_i[i]) ?
+        '{dirty: {CVA6Cfg.DCACHE_SET_ASSOC{1'b0}}, valid: 1'b0}
+        : '{dirty: wdata_cache.dirty, valid: wdata_cache.valid};
+    assign rdata_cache[i].dirty = dirty_rdata[i].dirty;
+    assign rdata_cache[i].valid = dirty_rdata[i].valid;
+    // Always write the zeroes of SPM owned ways to the memory array
+    assign be_valid_dirty_ram[i].valid = be_cache.vldrty[i].valid | dcache_spm_ways_i[i];
+    assign be_valid_dirty_ram[i].dirty = be_cache.vldrty[i].dirty | {((CVA6Cfg.DCACHE_LINE_WIDTH+7)/8){dcache_spm_ways_i[i]}};
   end
 
   sram #(
@@ -627,9 +658,9 @@ module std_nbdcache
   ) valid_dirty_sram (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
-      .req_i  (|req_ram),
-      .we_i   (we_ram),
-      .addr_i (addr_ram[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
+      .req_i  (|req_cache),
+      .we_i   (we_cache),
+      .addr_i (addr_cache[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
       .wuser_i('0),
       .wdata_i(dirty_wdata),
       .be_i   (be_valid_dirty_ram),
@@ -657,12 +688,12 @@ module std_nbdcache
       .tag_i    (tag),
       .hit_way_o(hit_way),
 
-      .req_o  (req_ram),
-      .addr_o (addr_ram),
-      .wdata_o(wdata_ram),
-      .we_o   (we_ram),
-      .be_o   (be_ram),
-      .rdata_i(rdata_ram),
+      .req_o  (req_cache),
+      .addr_o (addr_cache),
+      .wdata_o(wdata_cache),
+      .we_o   (we_cache),
+      .be_o   (be_cache),
+      .rdata_i(rdata_cache),
       .*
   );
 
