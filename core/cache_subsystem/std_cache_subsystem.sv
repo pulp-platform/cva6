@@ -42,7 +42,7 @@ module std_cache_subsystem
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
     input logic init_ni,  // do not init after reset
-    input impl_in_t [CVA6Cfg.ICACHE_SET_ASSOC+2*CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
+    input impl_in_t [CVA6Cfg.ICACHE_SET_ASSOC+CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
     // I$
     input logic icache_en_i,  // enable icache (or bypass e.g: in debug mode)
     input logic icache_flush_i,  // flush the icache, flush and kill have to be asserted together
@@ -63,6 +63,7 @@ module std_cache_subsystem
     input logic dcache_flush_i,  // high until acknowledged
     output logic                           dcache_flush_ack_o,     // send a single cycle acknowledge signal when the cache is flushed
     output logic dcache_miss_o,  // we missed on a ld/st
+    input [CVA6Cfg.DCACHE_SET_ASSOC-1:0]   dcache_spm_ways_i,      // dcache ways configured as SPM
     output logic                           wbuffer_empty_o,        // statically set to 1, as there is no wbuffer in this cache system
     // Request ports
     input dcache_req_i_t [NumPorts-1:0] dcache_req_ports_i,  // to/from LSU
@@ -147,7 +148,8 @@ module std_cache_subsystem
       .busy_o      (dcache_busy),
       .stall_i     (stall_i),
       .init_ni     (init_ni),
-      .sram_impl_i (sram_impl_i[CVA6Cfg.ICACHE_SET_ASSOC+2*CVA6Cfg.DCACHE_SET_ASSOC:CVA6Cfg.ICACHE_SET_ASSOC]),
+      .dcache_spm_ways_i(dcache_spm_ways_i),
+      .sram_impl_i (sram_impl_i[CVA6Cfg.ICACHE_SET_ASSOC+CVA6Cfg.DCACHE_SET_ASSOC:CVA6Cfg.ICACHE_SET_ASSOC]),
       .axi_bypass_o(axi_req_bypass),
       .axi_bypass_i(axi_resp_bypass),
       .axi_data_o  (axi_req_data),
