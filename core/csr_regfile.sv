@@ -199,6 +199,8 @@ module csr_regfile
     output locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_o,
     // L1 ICache: bitmask of ways in SPM mode
     output logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_o,
+    // L1 DCache: bitmask of ways in SPM mode
+    output logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_o,
     // Padding time of fence.t relative to time interrupt - CONTROLLER
     output logic [31:0] fence_t_pad_o,
     // Pad relative to selected source - CONTROLLER
@@ -416,6 +418,10 @@ module csr_regfile
   // ICache ways configured for SPM mode
   logic [CVA6Cfg.XLEN-1:0] icache_spm_ways_q, icache_spm_ways_d;
   assign icache_spm_ways_o = icache_spm_ways_q[CVA6Cfg.ICACHE_SET_ASSOC-1:0];
+
+  // DCache ways configured for SPM mode
+  logic [CVA6Cfg.XLEN-1:0] dcache_spm_ways_q, dcache_spm_ways_d;
+  assign dcache_spm_ways_o = dcache_spm_ways_q[CVA6Cfg.DCACHE_SET_ASSOC-1:0];
 
   logic wfi_d, wfi_q;
 
@@ -1264,6 +1270,14 @@ module csr_regfile
           end
         end
 
+        riscv::CSR_DCACHE_SPM_WAYS: begin
+          if (!v_q) begin
+            csr_rdata = dcache_spm_ways_q;
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+
         // custom (non RISC-V) cache control
         riscv::CSR_DCACHE: csr_rdata = dcache_q;
         riscv::CSR_ICACHE: csr_rdata = icache_q;
@@ -1519,6 +1533,7 @@ module csr_regfile
     tlb_lock_id_d = tlb_lock_id_q;
 
     icache_spm_ways_d = icache_spm_ways_q;
+    dcache_spm_ways_d = dcache_spm_ways_q;
 
     if (CVA6Cfg.RVH) begin
       vstvec_d                 = vstvec_q;
@@ -2624,6 +2639,14 @@ module csr_regfile
           end
         end
 
+        riscv::CSR_DCACHE_SPM_WAYS: begin
+          if (!v_q) begin
+            dcache_spm_ways_d = csr_wdata & ((2 ** CVA6Cfg.DCACHE_SET_ASSOC) - 1);
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
         riscv::CSR_DCACHE: dcache_d = csr_wdata;  // enable bit
         riscv::CSR_ICACHE: icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
         riscv::CSR_FENCE_T_PAD: fence_t_pad_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
@@ -3667,6 +3690,7 @@ module csr_regfile
       tlb_lock_vpn_q  <= '0;
       tlb_lock_id_q   <= '0;
       icache_spm_ways_q <= '0;
+      dcache_spm_ways_q <= '0;
       dcache_q        <= '{cacheEn: 1'b1, default: '0};
       icache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q <= '0;
@@ -3787,6 +3811,7 @@ module csr_regfile
       tlb_lock_vpn_q  <= tlb_lock_vpn_d;
       tlb_lock_id_q   <= tlb_lock_id_d;
       icache_spm_ways_q <= icache_spm_ways_d;
+      dcache_spm_ways_q <= dcache_spm_ways_d;
       dcache_q        <= dcache_d;
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;

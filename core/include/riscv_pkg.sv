@@ -712,6 +712,7 @@ package riscv;
     CSR_TLB_LOCK_VPN_16  = 12'h5FA,
     CSR_TLB_LOCK_ID_16   = 12'h5FB,
     // Cache Control (platform specifc)
+    CSR_DCACHE_SPM_WAYS  = 12'h5E0,
     CSR_ICACHE_SPM_WAYS  = 12'h5E1,
     CSR_DCACHE           = 12'h7C1,
     CSR_ICACHE           = 12'h7C0,
