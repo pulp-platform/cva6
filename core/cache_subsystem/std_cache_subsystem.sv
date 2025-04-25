@@ -61,6 +61,7 @@ module std_cache_subsystem
     input logic dcache_flush_i,  // high until acknowledged
     output logic                           dcache_flush_ack_o,     // send a single cycle acknowledge signal when the cache is flushed
     output logic dcache_miss_o,  // we missed on a ld/st
+    input [CVA6Cfg.DCACHE_SET_ASSOC-1:0]   dcache_spm_ways_i,      // dcache ways configured as SPM
     output logic                           wbuffer_empty_o,        // statically set to 1, as there is no wbuffer in this cache system
     // Request ports
     input dcache_req_i_t [NumPorts-1:0] dcache_req_ports_i,  // to/from LSU
@@ -142,6 +143,7 @@ module std_cache_subsystem
       .busy_o      (dcache_busy),
       .stall_i     (stall_i),
       .init_ni     (init_ni),
+      .dcache_spm_ways_i(dcache_spm_ways_i),
       .axi_bypass_o(axi_req_bypass),
       .axi_bypass_i(axi_resp_bypass),
       .axi_data_o  (axi_req_data),
