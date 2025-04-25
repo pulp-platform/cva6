@@ -641,6 +641,7 @@ module cva6
   logic [7:0] vsintthresh_csr;
   logic dcache_en_csr_nbdcache;
   logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_csr_cache;
+  logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_csr_cache;
   logic csr_write_fflags_commit_cs;
   logic icache_en_csr;
   logic acc_cons_en_csr;
@@ -1332,6 +1333,7 @@ module cva6
       .cur_clrs_o              (cur_clrs_csr_ex),
       .locked_tlb_entries_o    (locked_tlb_entries_csr_ex),
       .icache_spm_ways_o       (icache_spm_ways_csr_cache),
+      .dcache_spm_ways_o       (dcache_spm_ways_csr_cache),
       .acc_cons_en_o           (acc_cons_en_csr),
       .fence_t_pad_o           (fence_t_pad_csr_ctrl),
       .fence_t_src_sel_o       (fence_t_src_sel_csr_ctrl),
@@ -1672,6 +1674,7 @@ module cva6
         .dcache_enable_i   (dcache_en_csr_nbdcache),
         .dcache_flush_i    (dcache_flush_ctrl_cache),
         .dcache_flush_ack_o(dcache_flush_ack_cache_ctrl),
+        .dcache_spm_ways_i (dcache_spm_ways_csr_cache),
         // to commit stage
         .amo_req_i         (amo_req),
         .amo_resp_o        (amo_resp),
