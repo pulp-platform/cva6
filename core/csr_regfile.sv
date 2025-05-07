@@ -182,6 +182,8 @@ module csr_regfile
     output logic icache_en_o,
     // L1 DCache Enable - CACHE
     output logic dcache_en_o,
+    // TLB partitioning: currently allowed colors
+    output logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_o,
     // Padding time of fence.t relative to time interrupt - CONTROLLER
     output logic [31:0] fence_t_pad_o,
     // Pad relative to selected source - CONTROLLER
@@ -326,6 +328,12 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] fence_t_ceil_q, fence_t_ceil_d;
   logic [CVA6Cfg.XLEN-1:0] acc_cons_q, acc_cons_d;
 
+  // TLB partitioning CSRs
+  // cur_clrs  : current active colors bitmask
+  // last_clrs : last active colors bitmask
+  logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_q, cur_clrs_d;
+  logic [CVA6Cfg.NumTlbColors-1:0] last_clrs_q, last_clrs_d;
+
   logic wfi_d, wfi_q;
 
   logic [63:0] cycle_q, cycle_d;
@@ -372,6 +380,12 @@ module csr_regfile
 
   assign pmpcfg_o  = pmpcfg_q[(CVA6Cfg.NrPMPEntries>0?CVA6Cfg.NrPMPEntries-1 : 0):0];
   assign pmpaddr_o = pmpaddr_q[(CVA6Cfg.NrPMPEntries>0?CVA6Cfg.NrPMPEntries-1 : 0):0];
+
+  if (CVA6Cfg.TlbColoring) begin : gen_tlb_clrs_csr_signals
+    assign cur_clrs_o = cur_clrs_q;
+  end else begin : gen_dummy_tlb_clrs_csr_signals
+    assign cur_clrs_o = '1;
+  end
 
   riscv::fcsr_t fcsr_q, fcsr_d;
   jvt_t jvt_q, jvt_d;
@@ -967,6 +981,18 @@ module csr_regfile
           read_access_exception = 1'b1;
         end
 
+        riscv::CSR_CUR_CLRS:
+        if (CVA6Cfg.TlbColoring)
+          csr_rdata = {{CVA6Cfg.XLEN - CVA6Cfg.NumTlbColors{1'b0}}, cur_clrs_q};
+        else read_access_exception = 1'b1;
+        riscv::CSR_LAST_CLRS:
+        if (CVA6Cfg.TlbColoring)
+          csr_rdata = {{CVA6Cfg.XLEN - CVA6Cfg.NumTlbColors{1'b0}}, last_clrs_q};
+        else read_access_exception = 1'b1;
+        riscv::CSR_RSTR_LAST_CLRS:
+        if (CVA6Cfg.TlbColoring) csr_rdata = '0;
+        else read_access_exception = 1'b1;
+
         // custom (non RISC-V) cache control
         riscv::CSR_DCACHE: csr_rdata = dcache_q;
         riscv::CSR_ICACHE: csr_rdata = icache_q;
@@ -1198,6 +1224,9 @@ module csr_regfile
     dcache_d = dcache_q;
     icache_d = icache_q;
     acc_cons_d = acc_cons_q;
+
+    cur_clrs_d = cur_clrs_q;
+    last_clrs_d = last_clrs_q;
 
     if (CVA6Cfg.RVH) begin
       vstvec_d                 = vstvec_q;
@@ -2038,6 +2067,33 @@ module csr_regfile
           perf_we_o = 1'b1;
           if (CVA6Cfg.XLEN == 32) perf_data_o = csr_wdata;
           else update_access_exception = 1'b1;
+        end
+
+        riscv::CSR_CUR_CLRS: begin
+          if (CVA6Cfg.TlbColoring) begin
+            cur_clrs_d  = csr_wdata[CVA6Cfg.NumTlbColors-1:0];
+            last_clrs_d = cur_clrs_q;
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_LAST_CLRS: begin
+          if (CVA6Cfg.TlbColoring) begin
+            last_clrs_d = csr_wdata[CVA6Cfg.NumTlbColors-1:0];
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_RSTR_LAST_CLRS: begin
+          if (CVA6Cfg.TlbColoring) begin
+            if (csr_wdata & 1'b1) begin
+              cur_clrs_d = last_clrs_q;
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
         end
 
         riscv::CSR_DCACHE: dcache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
@@ -3056,6 +3112,8 @@ module csr_regfile
       mfiom_q         <= 1'b0;
       sfiom_q         <= 1'b0;
       hfiom_q         <= 1'b0;
+      cur_clrs_q      <= '1;
+      last_clrs_q     <= '1;
       dcache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       icache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q <= '0;
@@ -3170,6 +3228,8 @@ module csr_regfile
       mfiom_q         <= mfiom_d;
       sfiom_q         <= sfiom_d;
       hfiom_q         <= hfiom_d;
+      cur_clrs_q      <= cur_clrs_d;
+      last_clrs_q     <= last_clrs_d;
       dcache_q        <= dcache_d;
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;

@@ -38,6 +38,7 @@ module cva6_tlb
     input logic s_st_enbl_i,  // S-stage enabled
     input logic g_st_enbl_i,  // G-stage enabled
     input logic v_i,  // virtualization mode
+    input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,  // Currently active colors
     // Update TLB
     input tlb_update_cva6_t update_i,
     // Lookup signals
@@ -56,6 +57,7 @@ module cva6_tlb
     output logic lu_hit_o
 );
   localparam GPPN2 = (CVA6Cfg.XLEN == 32) ? CVA6Cfg.VLEN - 33 : 10;
+  localparam CLR_TLB_RATIO = TLB_ENTRIES / CVA6Cfg.NumTlbColors;
   // SV39 defines three levels of page tables
   struct packed {
     logic [CVA6Cfg.ASID_WIDTH-1:0] asid;
@@ -79,6 +81,13 @@ module cva6_tlb
   } [TLB_ENTRIES-1:0]
       content_q, content_n;
 
+  typedef enum logic [1:0] {
+    DISABLED = 2'b00,
+    LEFT     = 2'b01,
+    RIGHT    = 2'b10,
+    BOTH     = 2'b11
+  } plru_node_state_t;
+
   logic [TLB_ENTRIES-1:0][CVA6Cfg.PtLevels-1:0] vpn_match;
   logic [TLB_ENTRIES-1:0][CVA6Cfg.PtLevels-1:0] level_match;
   logic [TLB_ENTRIES-1:0][HYP_EXT:0][CVA6Cfg.PtLevels-1:0] vaddr_vpn_match;
@@ -94,11 +103,21 @@ module cva6_tlb
   pte_cva6_t g_content;
   logic [TLB_ENTRIES-1:0][(CVA6Cfg.GPPNW-1):0] gppn;
   logic [HYP_EXT*2:0] v_st_enbl;
+  logic [TLB_ENTRIES-1:0] replacement_allowed;
 
   logic [TLB_ENTRIES-1:0] napot_tag_match;
   pte_cva6_t patched_pte;
   logic [TLB_ENTRIES-1:0] vpn0_napot_match;
   assign v_st_enbl = (CVA6Cfg.RVH) ? {v_i, g_st_enbl_i, s_st_enbl_i} : '1;
+
+  // Figure out the currently writable TLB ways
+  // I.e. the set of non-locked TLB ways which are allowed by our color set
+  always_comb begin
+    for (int unsigned i = 0; i < TLB_ENTRIES; i++) begin
+      replacement_allowed[i] = cur_clrs_i[i/CLR_TLB_RATIO];
+    end
+  end
+
   //-------------
   // Translation
   //-------------
@@ -405,8 +424,48 @@ module cva6_tlb
   // PLRU - Pseudo Least Recently Used Replacement
   // -----------------------------------------------
   logic [2*(TLB_ENTRIES-1)-1:0] plru_tree_q, plru_tree_n;
+  plru_node_state_t [(TLB_ENTRIES-1)-1:0] plru_node_state_q, plru_node_state_n;
   always_comb begin : plru_replacement
+
+    // This configures the allowed directions per non-leaf node of the tree depending on the
+    // incoming coloring information
+    for (int n = (TLB_ENTRIES - 1) - 1; n >= 0; n--) begin
+      // The LSB contains the root of the tree, so whether or not a given tree branch is
+      // allowed to be used depends on the tree nodes one level further down towards the
+      // leaves (i.e. (2*n + 1) places ahead)
+      if (n < ((TLB_ENTRIES / 2) - 1)) begin
+        plru_node_state_n[n] = plru_node_state_t'({
+          |plru_node_state_n[2*n+2], |plru_node_state_n[2*n+1]
+        });
+        // The topmost (TLB_ENTRIES/2) places are only related to the allowed colors and
+        // any current lockings (i.e. a TLB way is eligible for replacement iff we own
+        // that color and this way is not currently locked)
+      end else begin
+        // This gives the offset into the replacement_allowed array
+        automatic int unsigned bit_idx = n - ((TLB_ENTRIES / 2) - 1);
+        // The next state is determined by two adjacent TLB ways
+        // (i.e. LEFT, RIGHT, BOTH, DISABLED)
+        automatic logic [1:0] n_st = (replacement_allowed >> 2 * bit_idx);
+        plru_node_state_n[n] = plru_node_state_t'(n_st);
+      end
+    end
+
     plru_tree_n = plru_tree_q;
+
+    // But if the color config was changed, re-init the tree
+    // This makes sure the tree is in a known good state when switching configuration
+    if (plru_node_state_n != plru_node_state_q) begin
+      for (int unsigned n = 0; n < (TLB_ENTRIES - 1); n++) begin
+        // By default everything is initialized to "left"
+        // except right only nodes of course
+        if (plru_node_state_n[n] == RIGHT) begin
+          plru_tree_n[n] = 1'b1;
+        end else begin
+          plru_tree_n[n] = 1'b0;
+        end
+      end
+    end
+
     // The PLRU-tree indexing:
     // lvl0        0
     //            / \
@@ -443,7 +502,14 @@ module cva6_tlb
           shift = $clog2(TLB_ENTRIES) - lvl;
           // to circumvent the 32 bit integer arithmetic assignment
           new_index = ~((i >> (shift - 1)) & 32'b1);
-          plru_tree_n[idx_base+(i>>shift)] = new_index[0];
+          // If the colouring allows it, we flip the current state
+          if (plru_node_state_q[idx_base+(i>>shift)] == BOTH) begin
+            plru_tree_n[idx_base+(i>>shift)] = new_index[0];
+          end else if (plru_node_state_q[idx_base+(i>>shift)] == DISABLED) begin
+            plru_tree_n[idx_base+(i>>shift)] = 1'b0;
+          end else begin
+            plru_tree_n[idx_base+(i>>shift)] = (plru_node_state_q[idx_base+(i>>shift)] == LEFT) ? 1'b0 : 1'b1;
+          end
         end
       end
     end
@@ -470,12 +536,19 @@ module cva6_tlb
         // lvl0 <=> MSB, lvl1 <=> MSB-1, ...
         shift = $clog2(TLB_ENTRIES) - lvl;
 
-        // en &= plru_tree_q[idx_base + (i>>shift)] == ((i >> (shift-1)) & 1'b1);
         new_index = (i >> (shift - 1)) & 32'b1;
+
+        // We have to treat left and right a bit differently
+        // This is the right case
         if (new_index[0]) begin
-          en &= plru_tree_q[idx_base+(i>>shift)];
+          en &= plru_tree_q[idx_base+(i>>shift)] &
+               (plru_node_state_q[idx_base+(i>>shift)] == BOTH ||
+                plru_node_state_q[idx_base+(i>>shift)] == RIGHT);
+          // And this is the left case
         end else begin
-          en &= ~plru_tree_q[idx_base+(i>>shift)];
+          en &= ~plru_tree_q[idx_base+(i>>shift)] &
+               (plru_node_state_q[idx_base+(i>>shift)] == BOTH ||
+                plru_node_state_q[idx_base+(i>>shift)] == LEFT);
         end
       end
       replace_en[i] = en;
@@ -485,13 +558,15 @@ module cva6_tlb
   // sequential process
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      tags_q      <= '{default: 0};
-      content_q   <= '{default: 0};
-      plru_tree_q <= '{default: 0};
+      tags_q            <= '{default: 0};
+      content_q         <= '{default: 0};
+      plru_tree_q       <= '{default: 0};
+      plru_node_state_q <= {(TLB_ENTRIES - 1) {BOTH}};
     end else begin
-      tags_q      <= tags_n;
-      content_q   <= content_n;
-      plru_tree_q <= plru_tree_n;
+      tags_q            <= tags_n;
+      content_q         <= content_n;
+      plru_tree_q       <= plru_tree_n;
+      plru_node_state_q <= plru_node_state_n;
     end
   end
   //--------------
@@ -509,6 +584,12 @@ module cva6_tlb
     assert (CVA6Cfg.ASID_WIDTH >= 1)
     else begin
       $error("ASID width must be at least 1");
+      $stop();
+    end
+    assert ((CVA6Cfg.NumTlbColors <= TLB_ENTRIES) && (CLR_TLB_RATIO == 1 || (CLR_TLB_RATIO & (CLR_TLB_RATIO - 1)) == 0))
+    else begin
+      $error(
+          "The number of colors must be less than or equal to the number of TLB entries and their ratio must be a power of two");
       $stop();
     end
   end
