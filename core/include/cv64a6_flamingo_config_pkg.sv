@@ -72,7 +72,8 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigInstrTlbEntries = 16;
   localparam CVA6ConfigDataTlbEntries = 16;
-  localparam CVA6ConfigUseSharedTlb = 1;
+  localparam CVA6ConfigNumTlbColors = 4;
+  localparam CVA6ConfigUseSharedTlb = 0;
   localparam CVA6ConfigSharedTlbDepth = 64;
 
   localparam CVA6ConfigTvalEn = 1;
@@ -176,6 +177,7 @@ package cva6_config_pkg;
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
       InstrTlbEntries: int'(CVA6ConfigInstrTlbEntries),
       DataTlbEntries: int'(CVA6ConfigDataTlbEntries),
+      NumTlbColors: int'(CVA6ConfigNumTlbColors),
       UseSharedTlb: bit'(CVA6ConfigUseSharedTlb),
       SharedTlbDepth: int'(CVA6ConfigSharedTlbDepth),
       NrLoadPipeRegs: int'(CVA6ConfigNrLoadPipeRegs),

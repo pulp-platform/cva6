@@ -41,6 +41,8 @@ module ex_stage
     input logic flush_i,
     // Debug mode is enabled - CSR_REGFILE
     input logic debug_mode_i,
+    // TLB partitioning: currently allowed colors
+    input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
     // rs1 forwarding - ISSUE_STAGE
     input logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.VLEN-1:0] rs1_forwarding_i,
     // rs2 forwarding - ISSUE_STAGE
@@ -574,6 +576,7 @@ module ex_stage
       .vs_sum_i,
       .mxr_i,
       .vmxr_i,
+      .cur_clrs_i,
       .satp_ppn_i,
       .vsatp_ppn_i,
       .hgatp_ppn_i,
