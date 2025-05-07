@@ -204,8 +204,8 @@ package config_pkg;
     // DcacheInvalidateOnFlush causes dcache to also be invalidated when flushed
     // tradeoff between coherence and efficiency, depending on remaining configuration:
 
-    // DcacheFlushOnFenceI is required for write-back caches - otherwise, 
-    // no way to reliably write instruction memory with store instructions, 
+    // DcacheFlushOnFenceI is required for write-back caches - otherwise,
+    // no way to reliably write instruction memory with store instructions,
     // as data and instruction cache are currently not coherent
     // DcacheFlushOnFence is required for write-back caches to ensure coherency
     // with other harts or DMA devices --> a fence forces all stores to commit to memory
@@ -263,6 +263,10 @@ package config_pkg;
     int unsigned InstrTlbEntries;
     // MMU data TLB entries
     int unsigned DataTlbEntries;
+    // MMU enable TLB coloring
+    bit unsigned TlbColoring;
+    // MMU TLBs number of colors
+    int unsigned NumTlbColors;
     // MMU option to use shared TLB
     bit unsigned UseSharedTlb;
     // MMU depth of shared TLB
@@ -355,6 +359,8 @@ package config_pkg;
     int unsigned BHTHist;
     int unsigned InstrTlbEntries;
     int unsigned DataTlbEntries;
+    bit unsigned TlbColoring;
+    int unsigned NumTlbColors;
     bit unsigned UseSharedTlb;
     bit SvnapotEn;
     int unsigned SharedTlbDepth;

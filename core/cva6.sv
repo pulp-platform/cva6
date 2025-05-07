@@ -590,6 +590,7 @@ module cva6
   logic [CVA6Cfg.ASID_WIDTH-1:0] vs_asid_csr_ex;
   logic [CVA6Cfg.PPNW-1:0] hgatp_ppn_csr_ex;
   logic [CVA6Cfg.VMID_WIDTH-1:0] vmid_csr_ex;
+  logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_csr_ex;
   logic [11:0] csr_addr_ex_csr;
   fu_op csr_op_commit_csr;
   logic [CVA6Cfg.XLEN-1:0] csr_wdata_commit_csr;
@@ -1026,6 +1027,7 @@ module cva6
       .clk_i(clk_i),
       .rst_ni(rst_uarch_n),
       .debug_mode_i(debug_mode),
+      .cur_clrs_i(cur_clrs_csr_ex),
       .flush_i(flush_ctrl_ex),
       .rs1_forwarding_i(rs1_forwarding_id_ex),
       .rs2_forwarding_i(rs2_forwarding_id_ex),
@@ -1290,6 +1292,7 @@ module cva6
       .single_step_o           (single_step_csr_commit),
       .icache_en_o             (icache_en_csr),
       .dcache_en_o             (dcache_en_csr_nbdcache),
+      .cur_clrs_o              (cur_clrs_csr_ex),
       .acc_cons_en_o           (acc_cons_en_csr),
       .fence_t_pad_o           (fence_t_pad_csr_ctrl),
       .fence_t_src_sel_o       (fence_t_src_sel_csr_ctrl),
