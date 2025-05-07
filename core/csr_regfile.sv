@@ -171,6 +171,8 @@ module csr_regfile
     output logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_o,
     // L1 DCache: bitmask of ways in SPM mode
     output logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_o,
+    // TLB partitioning: currently allowed colors
+    output logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_o,
     // Padding time of fence.t relative to time interrupt - CONTROLLER
     output logic [31:0] fence_t_pad_o,
     // Pad relative to selected source - CONTROLLER
@@ -314,6 +316,9 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] dcache_spm_ways_q, dcache_spm_ways_d;
   assign dcache_spm_ways_o = dcache_spm_ways_q[CVA6Cfg.DCACHE_SET_ASSOC-1:0];
 
+  logic [31:0] cur_clrs_q, cur_clrs_d;
+  logic [31:0] last_clrs_q, last_clrs_d;
+
   logic wfi_d, wfi_q;
 
   logic [63:0] cycle_q, cycle_d;
@@ -340,6 +345,8 @@ module csr_regfile
 
   assign pmpcfg_o  = pmpcfg_q[(CVA6Cfg.NrPMPEntries>0?CVA6Cfg.NrPMPEntries-1 : 0):0];
   assign pmpaddr_o = pmpaddr_q[(CVA6Cfg.NrPMPEntries>0?CVA6Cfg.NrPMPEntries-1 : 0):0];
+
+  assign cur_clrs_o = cur_clrs_q;
 
   riscv::fcsr_t fcsr_q, fcsr_d;
   jvt_t jvt_q, jvt_d;
@@ -889,6 +896,16 @@ module csr_regfile
           read_access_exception = 1'b1;
         end
 
+        riscv::CSR_CUR_CLRS:
+        if(!v_q) csr_rdata = cur_clrs_q;
+        else read_access_exception = 1'b1;
+        riscv::CSR_LAST_CLRS:
+        if(!v_q) csr_rdata = last_clrs_q;
+        else read_access_exception = 1'b1;
+        riscv::CSR_RSTR_LAST_CLRS:
+        if(!v_q) csr_rdata = '0;
+        else read_access_exception = 1'b1;
+
         riscv::CSR_ICACHE_SPM_WAYS: begin
           if(!v_q) begin
             csr_rdata = icache_spm_ways_q;
@@ -1134,6 +1151,9 @@ module csr_regfile
     dcache_d = dcache_q;
     icache_d = icache_q;
     acc_cons_d = acc_cons_q;
+
+    cur_clrs_d = cur_clrs_q;
+    last_clrs_d = last_clrs_q;
 
     icache_spm_ways_d = icache_spm_ways_q;
     dcache_spm_ways_d = dcache_spm_ways_q;
@@ -1871,6 +1891,33 @@ module csr_regfile
           perf_we_o = 1'b1;
           if (CVA6Cfg.XLEN == 32) perf_data_o = csr_wdata;
           else update_access_exception = 1'b1;
+        end
+
+        riscv::CSR_CUR_CLRS: begin
+          if (!v_q) begin
+            cur_clrs_d  = csr_wdata & {{(riscv::XLEN-CVA6Cfg.NumTlbColors){1'b0}}, {CVA6Cfg.NumTlbColors{1'b1}}};
+            last_clrs_d = cur_clrs_q;
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_LAST_CLRS: begin
+          if (!v_q) begin
+            last_clrs_d = csr_wdata & {{(riscv::XLEN-CVA6Cfg.NumTlbColors){1'b0}}, {CVA6Cfg.NumTlbColors{1'b1}}};
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_RSTR_LAST_CLRS: begin
+          if (!v_q) begin
+            if(csr_wdata & 1'b1) begin
+              cur_clrs_d = last_clrs_q;
+            end
+          end else begin
+            update_access_exception = 1'b1;
+          end
         end
 
         riscv::CSR_ICACHE_SPM_WAYS: begin
@@ -2882,6 +2929,8 @@ module csr_regfile
       mscratch_q       <= {CVA6Cfg.XLEN{1'b0}};
       if (CVA6Cfg.TvalEn) mtval_q <= {CVA6Cfg.XLEN{1'b0}};
       fiom_q          <= '0;
+      cur_clrs_q      <= {{(riscv::XLEN-CVA6Cfg.NumTlbColors){1'b0}}, {CVA6Cfg.NumTlbColors{1'b1}}};
+      last_clrs_q     <= {{(riscv::XLEN-CVA6Cfg.NumTlbColors){1'b0}}, {CVA6Cfg.NumTlbColors{1'b1}}};
       icache_spm_ways_q <= '0;
       dcache_spm_ways_q <= '0;
       dcache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
@@ -2981,6 +3030,8 @@ module csr_regfile
       mscratch_q       <= mscratch_d;
       if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
       fiom_q          <= fiom_d;
+      cur_clrs_q      <= cur_clrs_d;
+      last_clrs_q     <= last_clrs_d;
       icache_spm_ways_q <= icache_spm_ways_d;
       dcache_spm_ways_q <= dcache_spm_ways_d;
       dcache_q        <= dcache_d;

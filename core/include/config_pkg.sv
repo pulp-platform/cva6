@@ -246,6 +246,8 @@ package config_pkg;
     int unsigned                 InstrTlbEntries;
     // MMU data TLB entries
     int unsigned                 DataTlbEntries;
+    // MMU TLBs number of colors
+    int unsigned                 NumTlbColors;
     // MMU option to use shared TLB
     bit unsigned                 UseSharedTlb;
     // MMU depth of shared TLB
@@ -334,6 +336,7 @@ package config_pkg;
     int unsigned BHTHist;
     int unsigned InstrTlbEntries;
     int unsigned DataTlbEntries;
+    int unsigned NumTlbColors;
     bit unsigned UseSharedTlb;
     int unsigned SharedTlbDepth;
     int unsigned VpnLen;

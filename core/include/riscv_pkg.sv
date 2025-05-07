@@ -648,6 +648,10 @@ package riscv;
     CSR_MHPM_COUNTER_29H = 12'hB9D,  // reserved
     CSR_MHPM_COUNTER_30H = 12'hB9E,  // reserved
     CSR_MHPM_COUNTER_31H = 12'hB9F,  // reserved
+    // TLB partitioning (platform specifc)
+    CSR_CUR_CLRS         = 12'h5C0,
+    CSR_LAST_CLRS        = 12'h5C1,
+    CSR_RSTR_LAST_CLRS   = 12'h5C2,
     // Cache Control (platform specifc)
     CSR_DCACHE_SPM_WAYS  = 12'h5E0,
     CSR_ICACHE_SPM_WAYS  = 12'h5E1,

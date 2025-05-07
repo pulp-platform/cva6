@@ -111,6 +111,8 @@ module load_store_unit
     input  logic                                      mxr_i,
     // Make Executable Readable Virtual Supervisor - CSR_REGFILE
     input  logic                                      vmxr_i,
+    // TLB partitioning: currently allowed colors - CSR_REGFILE
+    input logic            [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input  logic             [      CVA6Cfg.PPNW-1:0] satp_ppn_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
@@ -292,6 +294,7 @@ module load_store_unit
         .vs_sum_i,
         .mxr_i,
         .vmxr_i,
+        .cur_clrs_i,
 
         .hlvx_inst_i    (mmu_hlvx_inst),
         .hs_ld_st_inst_i(mmu_hs_ld_st_inst),
