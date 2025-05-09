@@ -32,7 +32,9 @@ module ex_stage
     parameter type x_result_t = logic,
     parameter type acc_mmu_req_t = logic,
     parameter type acc_mmu_resp_t = logic,
-    parameter type cbo_t = logic
+    parameter type cbo_t = logic,
+    parameter type pte_cva6_t = logic,
+    parameter type locked_tlb_entry_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -44,6 +46,8 @@ module ex_stage
     input logic debug_mode_i,
     // TLB partitioning: currently allowed colors
     input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
+    // TLB locking: locked TLB entries
+    input locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_i,
     // rs1 forwarding - ISSUE_STAGE
     input logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.VLEN-1:0] rs1_forwarding_i,
     // rs2 forwarding - ISSUE_STAGE
@@ -547,7 +551,9 @@ module ex_stage
       .cbo_t(cbo_t),
       .acc_mmu_req_t(acc_mmu_req_t),
       .acc_mmu_resp_t(acc_mmu_resp_t),
-      .bp_resolve_t(bp_resolve_t)
+      .bp_resolve_t(bp_resolve_t),
+      .pte_cva6_t(pte_cva6_t),
+      .locked_tlb_entry_t(locked_tlb_entry_t)
   ) lsu_i (
       .clk_i,
       .rst_ni,
@@ -589,6 +595,7 @@ module ex_stage
       .mxr_i,
       .vmxr_i,
       .cur_clrs_i,
+      .locked_tlb_entries_i,
       .satp_ppn_i,
       .vsatp_ppn_i,
       .hgatp_ppn_i,

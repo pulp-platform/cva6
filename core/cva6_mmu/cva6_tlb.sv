@@ -26,6 +26,7 @@ module cva6_tlb
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type pte_cva6_t = logic,
+    parameter type locked_tlb_entry_t = logic,
     parameter type tlb_update_cva6_t = logic,
     parameter int unsigned TLB_ENTRIES = 4,
     parameter int unsigned HYP_EXT = 0
@@ -39,6 +40,7 @@ module cva6_tlb
     input logic g_st_enbl_i,  // G-stage enabled
     input logic v_i,  // virtualization mode
     input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,  // Currently active colors
+    input locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_i,  // Locked TLB entries
     // Update TLB
     input tlb_update_cva6_t update_i,
     // Lookup signals
@@ -70,6 +72,7 @@ module cva6_tlb
     logic [CVA6Cfg.PtLevels+HYP_EXT-1:0][(CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)-1:0] vpn;
     logic [CVA6Cfg.PtLevels-2:0][HYP_EXT:0] is_page;
     logic [HYP_EXT*2:0] v_st_enbl;  // v_i, g-stage enabled, s-stage enabled
+    logic locked;  // Is this a locked entry?
     logic valid;
     logic is_napot_64k;  // Svnapot: Flag indicating a 64KiB NAPOT page
   } [TLB_ENTRIES-1:0]
@@ -114,7 +117,11 @@ module cva6_tlb
   // I.e. the set of non-locked TLB ways which are allowed by our color set
   always_comb begin
     for (int unsigned i = 0; i < TLB_ENTRIES; i++) begin
-      replacement_allowed[i] = cur_clrs_i[i/CLR_TLB_RATIO];
+      if (i < CVA6Cfg.LockableTlbWays) begin
+        replacement_allowed[i] = cur_clrs_i[i/CLR_TLB_RATIO] & ~locked_tlb_entries_i[i].valid;
+      end else begin
+        replacement_allowed[i] = cur_clrs_i[i/CLR_TLB_RATIO];
+      end
     end
   end
 
@@ -319,6 +326,14 @@ module cva6_tlb
     tags_n    = tags_q;
     content_n = content_q;
 
+    // Default values
+    flush_addr_napot_match = '0;
+    flush_addr_matches = '0;
+    temp_stored_vpn = '0;
+    flush_vpn_masked = '0;
+    stored_vpn_masked = '0;
+    vpn_to_store = '0;
+
     for (int unsigned i = 0; i < TLB_ENTRIES; i++) begin
 
 
@@ -336,6 +351,37 @@ module cva6_tlb
           gppn[i][CVA6Cfg.VpnLen-1:0] = CVA6Cfg.VpnLen'(tags_q[i].vpn);
         end
       end
+
+      // Locked TLB entries
+      // they take precedence over everything and are never flushed until
+      // they are marked as no longer valid
+      if (i < CVA6Cfg.LockableTlbWays && locked_tlb_entries_i[i].valid) begin
+        // update tag array
+        tags_n[i].asid = locked_tlb_entries_i[i].asid;
+        tags_n[i].vmid = locked_tlb_entries_i[i].vmid;
+        tags_n[i].vpn = ((CVA6Cfg.PtLevels + HYP_EXT) * (CVA6Cfg.VpnLen / CVA6Cfg.PtLevels))'(locked_tlb_entries_i[i].vpn);
+        tags_n[i].is_page[0] = {
+          locked_tlb_entries_i[i].size == PTE_MEGA_PAGE,
+          locked_tlb_entries_i[i].size == PTE_GIGA_PAGE
+        };
+        if (CVA6Cfg.RVH) begin
+          tags_n[i].is_page[1] = {
+            locked_tlb_entries_i[i].size == PTE_MEGA_PAGE,
+            locked_tlb_entries_i[i].size == PTE_GIGA_PAGE
+          };
+        end
+        tags_n[i].v_st_enbl = (CVA6Cfg.RVH) ? {locked_tlb_entries_i[i].virt_mode, locked_tlb_entries_i[i].g_st_enbl, locked_tlb_entries_i[i].s_st_enbl} : '1;
+        tags_n[i].locked = 1'b1;
+        tags_n[i].valid = 1'b1;
+        // and content as well
+        content_n[i].pte = locked_tlb_entries_i[i].leaf_pte;
+        // Patch the locked PTE for the G stage to always have
+        // the u bit set
+        if (CVA6Cfg.RVH) begin
+          content_n[i].gpte   = locked_tlb_entries_i[i].leaf_pte;
+          content_n[i].gpte.u = 1'b1;
+        end
+      end else begin
 
       if (tags_q[i].is_napot_64k && CVA6Cfg.SvnapotEn) begin
         temp_stored_vpn = {tags_q[i].vpn[2], tags_q[i].vpn[1], tags_q[i].vpn[0]};
@@ -410,12 +456,19 @@ module cva6_tlb
           ((CVA6Cfg.PtLevels + HYP_EXT) * (CVA6Cfg.VpnLen / CVA6Cfg.PtLevels))'(vpn_to_store),
           update_i.is_page,
           update_i.v_st_enbl,
+          1'b0,
           1'b1,
           CVA6Cfg.SvnapotEn ? update_i.is_napot_64k : 1'b0  // Svnapot: Propagate the NAPOT flag into the TLB entry
         };
         // update content as well
         content_n[i].pte = update_i.content;
         if (CVA6Cfg.RVH) content_n[i].gpte = update_i.g_content;
+        // If we reach here, the respective CSR TLB lock entry was set to not valid
+        // so also invalidate the actual TLB entry
+      end else if (tags_q[i].locked) begin
+        tags_n[i].locked = 1'b0;
+        tags_n[i].valid  = 1'b0;
+      end
       end
     end
   end
