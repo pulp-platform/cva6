@@ -190,6 +190,7 @@ package build_config_pkg;
     cfg.DataTlbEntries = CVA6Cfg.DataTlbEntries;
     cfg.TlbColoring = CVA6Cfg.TlbColoring;
     cfg.NumTlbColors = CVA6Cfg.NumTlbColors;
+    cfg.LockableTlbWays = CVA6Cfg.LockableTlbWays;
     cfg.UseSharedTlb = CVA6Cfg.UseSharedTlb;
     cfg.SvnapotEn = CVA6Cfg.SvnapotEn;
     cfg.SharedTlbDepth = CVA6Cfg.SharedTlbDepth;
