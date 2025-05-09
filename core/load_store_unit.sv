@@ -27,7 +27,9 @@ module load_store_unit
     parameter type icache_drsp_t = logic,
     parameter type lsu_ctrl_t = logic,
     parameter type acc_mmu_req_t = logic,
-    parameter type acc_mmu_resp_t = logic
+    parameter type acc_mmu_resp_t = logic,
+    parameter type pte_cva6_t = logic,
+    parameter type locked_tlb_entry_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -113,6 +115,8 @@ module load_store_unit
     input  logic                                      vmxr_i,
     // TLB partitioning: currently allowed colors - CSR_REGFILE
     input logic            [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
+    // TLB locking: locked TLB entries - CSR_REGFILE
+    input locked_tlb_entry_t [CVA6Cfg.LockableTlbWays-1:0] locked_tlb_entries_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input  logic             [      CVA6Cfg.PPNW-1:0] satp_ppn_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
@@ -261,6 +265,8 @@ module load_store_unit
         .icache_drsp_t (icache_drsp_t),
         .dcache_req_i_t(dcache_req_i_t),
         .dcache_req_o_t(dcache_req_o_t),
+        .pte_cva6_t    (pte_cva6_t),
+        .locked_tlb_entry_t(locked_tlb_entry_t),
         .HYP_EXT       (HYP_EXT)
     ) i_cva6_mmu (
         .clk_i(clk_i),
@@ -295,6 +301,7 @@ module load_store_unit
         .mxr_i,
         .vmxr_i,
         .cur_clrs_i,
+        .locked_tlb_entries_i,
 
         .hlvx_inst_i    (mmu_hlvx_inst),
         .hs_ld_st_inst_i(mmu_hs_ld_st_inst),

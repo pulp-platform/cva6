@@ -184,6 +184,7 @@ package build_config_pkg;
     cfg.SVX = (cfg.MODE_SV == config_pkg::ModeSv32) ? 34 : 41;
     cfg.InstrTlbEntries = CVA6Cfg.InstrTlbEntries;
     cfg.DataTlbEntries = CVA6Cfg.DataTlbEntries;
+    cfg.LockableTlbWays = CVA6Cfg.LockableTlbWays;
     cfg.NumTlbColors = CVA6Cfg.NumTlbColors;
     cfg.UseSharedTlb = CVA6Cfg.UseSharedTlb;
     cfg.SharedTlbDepth = CVA6Cfg.SharedTlbDepth;

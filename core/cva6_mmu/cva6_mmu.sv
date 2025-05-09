@@ -33,6 +33,8 @@ module cva6_mmu
     parameter type                   dcache_req_i_t = logic,
     parameter type                   dcache_req_o_t = logic,
     parameter type                   exception_t    = logic,
+    parameter type                   pte_cva6_t     = logic,
+    parameter type                   locked_tlb_entry_t = logic,
     parameter int unsigned           HYP_EXT        = 0
 
 ) (
@@ -73,6 +75,7 @@ module cva6_mmu
     input logic mxr_i,
     input logic vmxr_i,
     input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
+    input locked_tlb_entry_t [CVA6Cfg.LockableTlbWays-1:0] locked_tlb_entries_i,
     input logic hlvx_inst_i,
     input logic hs_ld_st_inst_i,
     // input logic flag_mprv_i,
@@ -104,21 +107,6 @@ module cva6_mmu
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0]                   pmpcfg_i,
     input logic           [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_i
 );
-
-  // memory management, pte for cva6
-  localparam type pte_cva6_t = struct packed {
-    logic [9:0] reserved;
-    logic [CVA6Cfg.PPNW-1:0] ppn;  // PPN length for
-    logic [1:0] rsw;
-    logic d;
-    logic a;
-    logic g;
-    logic u;
-    logic x;
-    logic w;
-    logic r;
-    logic v;
-  };
 
   localparam type tlb_update_cva6_t = struct packed {
     logic                                   valid;
@@ -168,6 +156,8 @@ module cva6_mmu
   logic shared_tlb_access, shared_tlb_miss;
   logic shared_tlb_hit, itlb_req;
 
+  locked_tlb_entry_t [CVA6Cfg.LockableTlbWays-1:0] locked_dtlb_entries, locked_itlb_entries;
+
   // Assignments
 
   assign itlb_lu_access = icache_areq_i.fetch_req;
@@ -175,10 +165,24 @@ module cva6_mmu
   assign itlb_lu_asid   = v_i ? vs_asid_i : asid_i;
   assign dtlb_lu_asid   = (ld_st_v_i || flush_tlb_vvma_i) ? vs_asid_i : asid_i;
 
+  // Split the incoming locked TLB entries in data/instruction lockings
+  always_comb begin
+    // Filter out instruction entries for the DTLB...
+    for(int unsigned i = 0; i < CVA6Cfg.LockableTlbWays; i++) begin
+      locked_dtlb_entries[i] = locked_tlb_entries_i[i];
+      locked_dtlb_entries[i].valid = locked_tlb_entries_i[i].valid & locked_tlb_entries_i[i].data;
+    end
+    // ...and data entries for the ITLB
+    for(int unsigned i = 0; i < CVA6Cfg.LockableTlbWays; i++) begin
+      locked_itlb_entries[i] = locked_tlb_entries_i[i];
+      locked_itlb_entries[i].valid = locked_tlb_entries_i[i].valid & locked_tlb_entries_i[i].instr;
+    end
+  end
 
   cva6_tlb #(
       .CVA6Cfg          (CVA6Cfg),
       .pte_cva6_t       (pte_cva6_t),
+      .locked_tlb_entry_t(locked_tlb_entry_t),
       .tlb_update_cva6_t(tlb_update_cva6_t),
       .TLB_ENTRIES      (CVA6Cfg.InstrTlbEntries),
       .HYP_EXT          (HYP_EXT)
@@ -192,6 +196,7 @@ module cva6_mmu
       .g_st_enbl_i   (enable_g_translation_i),
       .v_i           (v_i),
       .cur_clrs_i    (cur_clrs_i),
+      .locked_tlb_entries_i(locked_itlb_entries),
       .update_i      (update_itlb),
       .lu_access_i   (itlb_lu_access),
       .lu_asid_i     (itlb_lu_asid),
@@ -211,6 +216,7 @@ module cva6_mmu
   cva6_tlb #(
       .CVA6Cfg          (CVA6Cfg),
       .pte_cva6_t       (pte_cva6_t),
+      .locked_tlb_entry_t(locked_tlb_entry_t),
       .tlb_update_cva6_t(tlb_update_cva6_t),
       .TLB_ENTRIES      (CVA6Cfg.DataTlbEntries),
       .HYP_EXT          (HYP_EXT)
@@ -224,6 +230,7 @@ module cva6_mmu
       .g_st_enbl_i   (en_ld_st_g_translation_i),
       .v_i           (ld_st_v_i),
       .cur_clrs_i    (cur_clrs_i),
+      .locked_tlb_entries_i(locked_dtlb_entries),
       .update_i      (update_dtlb),
       .lu_access_i   (dtlb_lu_access),
       .lu_asid_i     (itlb_lu_asid),
