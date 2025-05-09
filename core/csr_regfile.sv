@@ -22,6 +22,8 @@ module csr_regfile
     parameter type                   irq_ctrl_t         = logic,
     parameter type                   scoreboard_entry_t = logic,
     parameter type                   rvfi_probes_csr_t  = logic,
+    parameter type                   pte_cva6_t         = logic,
+    parameter type                   locked_tlb_entry_t = logic,
     parameter int                    VmidWidth          = 1,
     parameter int unsigned           MHPMCounterNum     = 6
 ) (
@@ -173,6 +175,8 @@ module csr_regfile
     output logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_o,
     // TLB partitioning: currently allowed colors
     output logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_o,
+    // TLB locking: locked TLB entries
+    output locked_tlb_entry_t [CVA6Cfg.LockableTlbWays-1:0] locked_tlb_entries_o,
     // Padding time of fence.t relative to time interrupt - CONTROLLER
     output logic [31:0] fence_t_pad_o,
     // Pad relative to selected source - CONTROLLER
@@ -222,6 +226,25 @@ module csr_regfile
     logic [CVA6Cfg.VMIDW-1:0] vmid;
     logic [CVA6Cfg.PPNW-1:0]  ppn;
   } hgatp_t;
+
+  typedef struct packed {
+    logic [6:0] padding2;
+    logic [44:0] vpn;
+    logic [4:0] padding1;
+    logic g_st_enbl;
+    logic s_st_enbl;
+    logic data;
+    logic instr;
+    logic virt_mode;
+    pte_entry_size_t size;
+  } tlb_lock_vpn_t;
+
+  typedef struct packed {
+    logic [32-(CVA6Cfg.ASIDW+CVA6Cfg.VMIDW+1)-1:0] padding;
+    logic [CVA6Cfg.ASIDW-1:0] asid;
+    logic [CVA6Cfg.VMIDW-1:0] vmid;
+    logic valid;
+  } tlb_lock_id_t;
 
   // internal signal to keep track of access exceptions
   logic read_access_exception, update_access_exception, privilege_violation;
@@ -318,6 +341,9 @@ module csr_regfile
 
   logic [31:0] cur_clrs_q, cur_clrs_d;
   logic [31:0] last_clrs_q, last_clrs_d;
+  pte_cva6_t [CVA6Cfg.LockableTlbWays-1:0] tlb_lock_pte_q, tlb_lock_pte_d;
+  tlb_lock_vpn_t [CVA6Cfg.LockableTlbWays-1:0] tlb_lock_vpn_q, tlb_lock_vpn_d;
+  tlb_lock_id_t [CVA6Cfg.LockableTlbWays-1:0] tlb_lock_id_q, tlb_lock_id_d;
 
   logic wfi_d, wfi_q;
 
@@ -347,6 +373,23 @@ module csr_regfile
   assign pmpaddr_o = pmpaddr_q[(CVA6Cfg.NrPMPEntries>0?CVA6Cfg.NrPMPEntries-1 : 0):0];
 
   assign cur_clrs_o = cur_clrs_q;
+
+  // Assemble tlb lock entries
+  always_comb begin
+    for(int unsigned i = 0; i < CVA6Cfg.LockableTlbWays; i++) begin
+      locked_tlb_entries_o[i].leaf_pte    = tlb_lock_pte_q[i];
+      locked_tlb_entries_o[i].asid        = tlb_lock_id_q[i].asid[CVA6Cfg.ASID_WIDTH-1:0];
+      locked_tlb_entries_o[i].vmid        = tlb_lock_id_q[i].vmid[CVA6Cfg.VMID_WIDTH-1:0];
+      locked_tlb_entries_o[i].vpn         = tlb_lock_vpn_q[i].vpn;
+      locked_tlb_entries_o[i].g_st_enbl   = tlb_lock_vpn_q[i].g_st_enbl;
+      locked_tlb_entries_o[i].s_st_enbl   = tlb_lock_vpn_q[i].s_st_enbl;
+      locked_tlb_entries_o[i].data        = tlb_lock_vpn_q[i].data;
+      locked_tlb_entries_o[i].instr       = tlb_lock_vpn_q[i].instr;
+      locked_tlb_entries_o[i].virt_mode   = tlb_lock_vpn_q[i].virt_mode;
+      locked_tlb_entries_o[i].size        = tlb_lock_vpn_q[i].size;
+      locked_tlb_entries_o[i].valid       = tlb_lock_pte_q[i].v & (tlb_lock_vpn_q[i].size != PTE_INVALID) & tlb_lock_id_q[i].valid;
+    end
+  end
 
   riscv::fcsr_t fcsr_q, fcsr_d;
   jvt_t jvt_q, jvt_d;
@@ -906,6 +949,31 @@ module csr_regfile
         if(!v_q) csr_rdata = '0;
         else read_access_exception = 1'b1;
 
+        riscv::CSR_TLB_LOCK_PTE_1: if(CVA6Cfg.LockableTlbWays >= 1 && !v_q) csr_rdata = tlb_lock_pte_q[0]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_1: if(CVA6Cfg.LockableTlbWays >= 1 && !v_q) csr_rdata = tlb_lock_vpn_q[0]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_1:  if(CVA6Cfg.LockableTlbWays >= 1 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[0]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_2: if(CVA6Cfg.LockableTlbWays >= 2 && !v_q) csr_rdata = tlb_lock_pte_q[1]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_2: if(CVA6Cfg.LockableTlbWays >= 2 && !v_q) csr_rdata = tlb_lock_vpn_q[1]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_2:  if(CVA6Cfg.LockableTlbWays >= 2 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[1]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_3: if(CVA6Cfg.LockableTlbWays >= 3 && !v_q) csr_rdata = tlb_lock_pte_q[2]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_3: if(CVA6Cfg.LockableTlbWays >= 3 && !v_q) csr_rdata = tlb_lock_vpn_q[2]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_3:  if(CVA6Cfg.LockableTlbWays >= 3 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[2]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_4: if(CVA6Cfg.LockableTlbWays >= 4 && !v_q) csr_rdata = tlb_lock_pte_q[3]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_4: if(CVA6Cfg.LockableTlbWays >= 4 && !v_q) csr_rdata = tlb_lock_vpn_q[3]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_4:  if(CVA6Cfg.LockableTlbWays >= 4 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[3]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_5: if(CVA6Cfg.LockableTlbWays >= 5 && !v_q) csr_rdata = tlb_lock_pte_q[4]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_5: if(CVA6Cfg.LockableTlbWays >= 5 && !v_q) csr_rdata = tlb_lock_vpn_q[4]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_5:  if(CVA6Cfg.LockableTlbWays >= 5 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[4]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_6: if(CVA6Cfg.LockableTlbWays >= 6 && !v_q) csr_rdata = tlb_lock_pte_q[5]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_6: if(CVA6Cfg.LockableTlbWays >= 6 && !v_q) csr_rdata = tlb_lock_vpn_q[5]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_6:  if(CVA6Cfg.LockableTlbWays >= 6 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[5]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_7: if(CVA6Cfg.LockableTlbWays >= 7 && !v_q) csr_rdata = tlb_lock_pte_q[6]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_7: if(CVA6Cfg.LockableTlbWays >= 7 && !v_q) csr_rdata = tlb_lock_vpn_q[6]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_7:  if(CVA6Cfg.LockableTlbWays >= 7 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[6]}; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_8: if(CVA6Cfg.LockableTlbWays >= 8 && !v_q) csr_rdata = tlb_lock_pte_q[7]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_8: if(CVA6Cfg.LockableTlbWays >= 8 && !v_q) csr_rdata = tlb_lock_vpn_q[7]; else read_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_8:  if(CVA6Cfg.LockableTlbWays >= 8 && !v_q) csr_rdata = {32'b0, tlb_lock_id_q[7]}; else read_access_exception = 1'b1;
+
         riscv::CSR_ICACHE_SPM_WAYS: begin
           if(!v_q) begin
             csr_rdata = icache_spm_ways_q;
@@ -1154,6 +1222,10 @@ module csr_regfile
 
     cur_clrs_d = cur_clrs_q;
     last_clrs_d = last_clrs_q;
+
+    tlb_lock_pte_d = tlb_lock_pte_q;
+    tlb_lock_vpn_d = tlb_lock_vpn_q;
+    tlb_lock_id_d = tlb_lock_id_q;
 
     icache_spm_ways_d = icache_spm_ways_q;
     dcache_spm_ways_d = dcache_spm_ways_q;
@@ -1919,6 +1991,31 @@ module csr_regfile
             update_access_exception = 1'b1;
           end
         end
+
+        riscv::CSR_TLB_LOCK_PTE_1: if(CVA6Cfg.LockableTlbWays >= 1 && !v_q) tlb_lock_pte_d[0] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_1: if(CVA6Cfg.LockableTlbWays >= 1 && !v_q) tlb_lock_vpn_d[0] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_1:  if(CVA6Cfg.LockableTlbWays >= 1 && !v_q) tlb_lock_id_d[0] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_2: if(CVA6Cfg.LockableTlbWays >= 2 && !v_q) tlb_lock_pte_d[1] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_2: if(CVA6Cfg.LockableTlbWays >= 2 && !v_q) tlb_lock_vpn_d[1] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_2:  if(CVA6Cfg.LockableTlbWays >= 2 && !v_q) tlb_lock_id_d[1] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_3: if(CVA6Cfg.LockableTlbWays >= 3 && !v_q) tlb_lock_pte_d[2] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_3: if(CVA6Cfg.LockableTlbWays >= 3 && !v_q) tlb_lock_vpn_d[2] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_3:  if(CVA6Cfg.LockableTlbWays >= 3 && !v_q) tlb_lock_id_d[2] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_4: if(CVA6Cfg.LockableTlbWays >= 4 && !v_q) tlb_lock_pte_d[3] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_4: if(CVA6Cfg.LockableTlbWays >= 4 && !v_q) tlb_lock_vpn_d[3] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_4:  if(CVA6Cfg.LockableTlbWays >= 4 && !v_q) tlb_lock_id_d[3] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_5: if(CVA6Cfg.LockableTlbWays >= 5 && !v_q) tlb_lock_pte_d[4] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_5: if(CVA6Cfg.LockableTlbWays >= 5 && !v_q) tlb_lock_vpn_d[4] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_5:  if(CVA6Cfg.LockableTlbWays >= 5 && !v_q) tlb_lock_id_d[4] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_6: if(CVA6Cfg.LockableTlbWays >= 6 && !v_q) tlb_lock_pte_d[5] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_6: if(CVA6Cfg.LockableTlbWays >= 6 && !v_q) tlb_lock_vpn_d[5] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_6:  if(CVA6Cfg.LockableTlbWays >= 6 && !v_q) tlb_lock_id_d[5] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_7: if(CVA6Cfg.LockableTlbWays >= 7 && !v_q) tlb_lock_pte_d[6] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_7: if(CVA6Cfg.LockableTlbWays >= 7 && !v_q) tlb_lock_vpn_d[6] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_7:  if(CVA6Cfg.LockableTlbWays >= 7 && !v_q) tlb_lock_id_d[6] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_PTE_8: if(CVA6Cfg.LockableTlbWays >= 8 && !v_q) tlb_lock_pte_d[7] = pte_cva6_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_VPN_8: if(CVA6Cfg.LockableTlbWays >= 8 && !v_q) tlb_lock_vpn_d[7] = tlb_lock_vpn_t'(csr_wdata); else update_access_exception = 1'b1;
+        riscv::CSR_TLB_LOCK_ID_8:  if(CVA6Cfg.LockableTlbWays >= 8 && !v_q) tlb_lock_id_d[7] = tlb_lock_id_t'(csr_wdata[31:0]); else update_access_exception = 1'b1;
 
         riscv::CSR_ICACHE_SPM_WAYS: begin
           if(!v_q) begin
@@ -2931,6 +3028,9 @@ module csr_regfile
       fiom_q          <= '0;
       cur_clrs_q      <= {{(riscv::XLEN-CVA6Cfg.NumTlbColors){1'b0}}, {CVA6Cfg.NumTlbColors{1'b1}}};
       last_clrs_q     <= {{(riscv::XLEN-CVA6Cfg.NumTlbColors){1'b0}}, {CVA6Cfg.NumTlbColors{1'b1}}};
+      tlb_lock_pte_q  <= '0;
+      tlb_lock_vpn_q  <= '0;
+      tlb_lock_id_q   <= '0;
       icache_spm_ways_q <= '0;
       dcache_spm_ways_q <= '0;
       dcache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
@@ -3032,6 +3132,9 @@ module csr_regfile
       fiom_q          <= fiom_d;
       cur_clrs_q      <= cur_clrs_d;
       last_clrs_q     <= last_clrs_d;
+      tlb_lock_pte_q  <= tlb_lock_pte_d;
+      tlb_lock_vpn_q  <= tlb_lock_vpn_d;
+      tlb_lock_id_q   <= tlb_lock_id_d;
       icache_spm_ways_q <= icache_spm_ways_d;
       dcache_spm_ways_q <= dcache_spm_ways_d;
       dcache_q        <= dcache_d;

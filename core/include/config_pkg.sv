@@ -246,6 +246,8 @@ package config_pkg;
     int unsigned                 InstrTlbEntries;
     // MMU data TLB entries
     int unsigned                 DataTlbEntries;
+    // MMU TLBs number of lockable entries
+    int unsigned                 LockableTlbWays;
     // MMU TLBs number of colors
     int unsigned                 NumTlbColors;
     // MMU option to use shared TLB
@@ -336,6 +338,7 @@ package config_pkg;
     int unsigned BHTHist;
     int unsigned InstrTlbEntries;
     int unsigned DataTlbEntries;
+    int unsigned LockableTlbWays;
     int unsigned NumTlbColors;
     bit unsigned UseSharedTlb;
     int unsigned SharedTlbDepth;
@@ -440,6 +443,7 @@ package config_pkg;
     assert (Cfg.NrExecuteRegionRules <= NrMaxRules);
     assert (Cfg.NrCachedRegionRules <= NrMaxRules);
     assert (Cfg.ICacheSpmLength > 0);
+    assert ((Cfg.LockableTlbWays <= Cfg.InstrTlbEntries) && (Cfg.LockableTlbWays <= Cfg.DataTlbEntries) && (Cfg.LockableTlbWays <= 8));
     assert (Cfg.NrPMPEntries <= 64);
     assert (!(Cfg.RVXHCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
     assert (!(Cfg.SuperscalarEn && Cfg.RVF));

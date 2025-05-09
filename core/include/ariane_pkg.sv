@@ -669,6 +669,13 @@ package ariane_pkg;
   } tlb_update_sv32_t;
 
   typedef enum logic [1:0] {
+    PTE_INVALID   = 2'b00,
+    PTE_STD_PAGE  = 2'b01,
+    PTE_MEGA_PAGE = 2'b10,
+    PTE_GIGA_PAGE = 2'b11
+  } pte_entry_size_t;
+
+  typedef enum logic [1:0] {
     FE_NONE,
     FE_INSTR_ACCESS_FAULT,
     FE_INSTR_PAGE_FAULT,
