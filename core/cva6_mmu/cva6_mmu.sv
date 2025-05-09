@@ -33,6 +33,8 @@ module cva6_mmu
     parameter type                   dcache_req_i_t = logic,
     parameter type                   dcache_req_o_t = logic,
     parameter type                   exception_t    = logic,
+    parameter type                   pte_cva6_t     = logic,
+    parameter type                   locked_tlb_entry_t = logic,
     parameter int unsigned           HYP_EXT        = 0
 
 ) (
@@ -81,6 +83,7 @@ module cva6_mmu
     input logic hlvx_inst_i,
     input logic hs_ld_st_inst_i,
     input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
+    input locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_i,
     // input logic flag_mprv_i,
     input logic [CVA6Cfg.PPNW-1:0] satp_ppn_i,
     input logic [CVA6Cfg.PPNW-1:0] vsatp_ppn_i,
@@ -114,22 +117,6 @@ module cva6_mmu
     input logic           [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_i
 );
 
-  // memory management, pte for cva6
-  localparam type pte_cva6_t = struct packed {
-    logic n;
-    logic [8:0] reserved;
-    logic [CVA6Cfg.PPNW-1:0] ppn;  // PPN length for
-    logic [1:0] rsw;
-    logic d;
-    logic a;
-    logic g;
-    logic u;
-    logic x;
-    logic w;
-    logic r;
-    logic v;
-  };
-
   localparam type tlb_update_cva6_t = struct packed {
     logic valid;
     logic is_napot_64k;  // Svnapot: Flag indicating a 64KiB NAPOT page
@@ -145,6 +132,7 @@ module cva6_mmu
   logic iaccess_err;  // insufficient privilege to access this instruction page
   logic i_g_st_access_err;  // insufficient privilege at g stage to access this instruction page
   logic daccess_err;  // insufficient privilege to access this data page
+  logic d_load_access_ok;  // the S-stage PTE allows this load
   logic canonical_addr_check;  // canonical check on the virtual address for SV39
   logic d_g_st_access_err;  // insufficient privilege to access this data page
   logic ptw_active;  // PTW is currently walking a page table
@@ -186,6 +174,8 @@ module cva6_mmu
   logic itlb_miss_pend_q, dtlb_miss_pend_q;
   logic [CVA6Cfg.VLEN-13:0] itlb_lu_vpn, dtlb_lu_vpn;
   logic [CVA6Cfg.VLEN-13:0] itlb_lu_vpn_q, dtlb_lu_vpn_q;
+
+  locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_dtlb_entries, locked_itlb_entries;
 
   // Assignments
 
@@ -236,9 +226,26 @@ module cva6_mmu
     end
   end
 
+  // Split the incoming locked TLB entries in data/instruction lockings
+  always_comb begin
+    locked_dtlb_entries = '0;
+    locked_itlb_entries = '0;
+    // Filter out instruction entries for the DTLB...
+    for (int unsigned i = 0; i < CVA6Cfg.LockableTlbWays; i++) begin
+      locked_dtlb_entries[i] = locked_tlb_entries_i[i];
+      locked_dtlb_entries[i].valid = locked_tlb_entries_i[i].valid & locked_tlb_entries_i[i].data;
+    end
+    // ...and data entries for the ITLB
+    for (int unsigned i = 0; i < CVA6Cfg.LockableTlbWays; i++) begin
+      locked_itlb_entries[i] = locked_tlb_entries_i[i];
+      locked_itlb_entries[i].valid = locked_tlb_entries_i[i].valid & locked_tlb_entries_i[i].instr;
+    end
+  end
+
   cva6_tlb #(
       .CVA6Cfg          (CVA6Cfg),
       .pte_cva6_t       (pte_cva6_t),
+      .locked_tlb_entry_t(locked_tlb_entry_t),
       .tlb_update_cva6_t(tlb_update_cva6_t),
       .TLB_ENTRIES      (CVA6Cfg.InstrTlbEntries),
       .HYP_EXT          (HYP_EXT)
@@ -252,6 +259,7 @@ module cva6_mmu
       .g_st_enbl_i   (enable_g_translation_i),
       .v_i           (v_i),
       .cur_clrs_i    (cur_clrs_i),
+      .locked_tlb_entries_i(locked_itlb_entries),
       .update_i      (update_itlb),
       .lu_access_i   (itlb_lu_access),
       .lu_asid_i     (itlb_lu_asid),
@@ -271,6 +279,7 @@ module cva6_mmu
   cva6_tlb #(
       .CVA6Cfg          (CVA6Cfg),
       .pte_cva6_t       (pte_cva6_t),
+      .locked_tlb_entry_t(locked_tlb_entry_t),
       .tlb_update_cva6_t(tlb_update_cva6_t),
       .TLB_ENTRIES      (CVA6Cfg.DataTlbEntries),
       .HYP_EXT          (HYP_EXT)
@@ -284,6 +293,7 @@ module cva6_mmu
       .g_st_enbl_i   (en_ld_st_g_translation_i),
       .v_i           (ld_st_v_i),
       .cur_clrs_i    (cur_clrs_i),
+      .locked_tlb_entries_i(locked_dtlb_entries),
       .update_i      (update_dtlb),
       .lu_access_i   (dtlb_lu_access),
       .lu_asid_i     (dtlb_lu_asid),
@@ -437,9 +447,12 @@ module cva6_mmu
     // 2. We got an access error because of insufficient permissions -> throw an access exception
     icache_areq_o.fetch_exception = '0;
     // Check whether we are allowed to access this memory region from a fetch perspective
+    // The page walk checks X and A before it fills the TLB, but a locked entry
+    // comes from software, so the hit is checked as well
     iaccess_err = icache_areq_i.fetch_req && enable_translation_i &&  //
     (((priv_lvl_i == riscv::PRIV_LVL_U) && ~itlb_content.u)  //
-    || ((priv_lvl_i == riscv::PRIV_LVL_S) && itlb_content.u));
+    || ((priv_lvl_i == riscv::PRIV_LVL_S) && itlb_content.u)  //
+    || !itlb_content.x || !itlb_content.a);
 
     if (CVA6Cfg.RVH)
       i_g_st_access_err = icache_areq_i.fetch_req && enable_g_translation_i && !itlb_g_content.u;
@@ -610,7 +623,11 @@ module cva6_mmu
     // if SUM is enabled
     daccess_err = en_ld_st_translation_i &&
               ((ld_st_priv_lvl_i == riscv::PRIV_LVL_S && (ld_st_v_i ? !vs_sum_i : !sum_i ) && dtlb_pte_q.u) || // SUM is not set and we are trying to access a user page in supervisor mode
-    (ld_st_priv_lvl_i == riscv::PRIV_LVL_U && !dtlb_pte_q.u));
+    (ld_st_priv_lvl_i == riscv::PRIV_LVL_U && !dtlb_pte_q.u) || !dtlb_pte_q.a);
+    // The S-stage read permission of a load, as the page walk checks it before it
+    // fills the TLB; a locked entry comes from software, so the hit is checked too
+    d_load_access_ok = (dtlb_pte_q.r && !(CVA6Cfg.RVH && hlvx_inst_q)) ||
+                       (dtlb_pte_q.x && (mxr_i || (CVA6Cfg.RVH && (hlvx_inst_q || (vmxr_i && ld_st_v_i)))));
 
     if (CVA6Cfg.RVH) begin
       lsu_tinst_n = lsu_tinst_i;
@@ -719,7 +736,7 @@ module cva6_mmu
               lsu_exception_o.gva = ld_st_v_i;
             end
             // check for sufficient access privileges - throw a page fault if necessary
-          end else if (daccess_err || canonical_addr_check) begin
+          end else if (daccess_err || (en_ld_st_translation_i && !d_load_access_ok) || canonical_addr_check) begin
             lsu_exception_o.cause = riscv::LOAD_PAGE_FAULT;
             lsu_exception_o.valid = 1'b1;
             if (CVA6Cfg.TvalEn)
