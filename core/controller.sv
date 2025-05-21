@@ -61,6 +61,8 @@ module controller
     input logic halt_csr_i,
     // Halt request from accelerator dispatcher - ACC_DISPATCHER
     input logic halt_acc_i,
+    // Halt frontend during fence.i to prevent fetching stale instructions
+    output logic halt_frontend_o,
     // Halt signal to commit stage - COMMIT_STAGE
     output logic halt_o,
     // Cache is busy - CACHE
@@ -109,7 +111,9 @@ module controller
 
   // active fence - high if we are currently flushing the dcache
   logic fence_active_d, fence_active_q;
-  logic                    flush_dcache;
+  logic flush_dcache;
+  // Added fence_i_active state to track fence.i progress
+  logic fence_i_active_d, fence_i_active_q;
 
   // Pad counter
   logic             [31:0] pad_cnt;
@@ -143,6 +147,7 @@ module controller
   always_comb begin : flush_ctrl
     rst_addr_d             = rst_addr_q;
     fence_active_d         = fence_active_q;
+    fence_i_active_d       = fence_i_active_q;
     set_pc_commit_o        = 1'b0;
     flush_if_o             = 1'b0;
     flush_unissued_instr_o = 1'b0;
@@ -195,16 +200,22 @@ module controller
       flush_icache_o         = 1'b1;
       // this is not needed in the case since we
       // have a write-through cache in this case
+      // When handling fence.i, flush both caches and activate fence_i state
       if (CVA6Cfg.DcacheFlushOnFence) begin
-        flush_dcache   = 1'b1;
+        flush_dcache = 1'b1;
         fence_active_d = 1'b1;
+        fence_i_active_d = 1'b1;
       end
     end
 
     // this is not needed in the case since we
     // have a write-through cache in this case
     if (CVA6Cfg.DcacheFlushOnFence) begin
-      // wait for the acknowledge here
+      // Wait for the acknowledge here
+      // Deassert fence_i state only after DCache flush completes
+      if (flush_dcache_ack_i && fence_i_active_q) begin
+        fence_i_active_d = 1'b0;
+      end
       if (flush_dcache_ack_i && fence_active_q) begin
         fence_active_d = 1'b0;
         // keep the flush dcache signal high as long as we didn't get the acknowledge from the cache
@@ -309,6 +320,8 @@ module controller
     // halt the core if the fence is active
     halt_o = halt_csr_i || halt_acc_i || (CVA6Cfg.DcacheFlushOnFence && fence_active_q) ||
              (fence_t_state_q != IDLE);
+    // Halt frontend during fence.i to synchronize ICache/DCache flushes
+    halt_frontend_o = fence_i_active_q;
   end
 
   // ----------------------
@@ -414,24 +427,26 @@ module controller
   // ----------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      fence_t_state_q <= IDLE;
-      rst_uarch_cnt_q <= 4'b0;
-      fence_active_q  <= 1'b0;
-      flush_dcache_o  <= 1'b0;
-      rst_addr_q      <= boot_addr_i;
-      time_irq_q      <= 1'b0;
-      priv_lvl_q      <= riscv::PRIV_LVL_M;
-      cache_init_q    <= '0;
+      fence_t_state_q  <= IDLE;
+      rst_uarch_cnt_q  <= 4'b0;
+      fence_active_q   <= 1'b0;
+      fence_i_active_q <= 1'b0;
+      flush_dcache_o   <= 1'b0;
+      rst_addr_q       <= boot_addr_i;
+      time_irq_q       <= 1'b0;
+      priv_lvl_q       <= riscv::PRIV_LVL_M;
+      cache_init_q     <= '0;
     end else begin
-      fence_t_state_q <= fence_t_state_d;
-      fence_active_q  <= fence_active_d;
-      rst_uarch_cnt_q <= rst_uarch_cnt_d;
+      fence_t_state_q  <= fence_t_state_d;
+      fence_active_q   <= fence_active_d;
+      fence_i_active_q <= fence_i_active_d;
+      rst_uarch_cnt_q  <= rst_uarch_cnt_d;
       // register on the flush signal, this signal might be critical
-      flush_dcache_o  <= flush_dcache;
-      rst_addr_q      <= rst_addr_d;
-      time_irq_q      <= time_irq_i;
-      priv_lvl_q      <= priv_lvl_i;
-      cache_init_q    <= cache_init_d;
+      flush_dcache_o   <= flush_dcache;
+      rst_addr_q       <= rst_addr_d;
+      time_irq_q       <= time_irq_i;
+      priv_lvl_q       <= priv_lvl_i;
+      cache_init_q     <= cache_init_d;
     end
   end
 endmodule
