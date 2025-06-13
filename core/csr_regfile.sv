@@ -127,6 +127,8 @@ module csr_regfile
     output logic [CVA6Cfg.VMID_WIDTH-1:0] vmid_o,
     // external interrupt in - SUBSYSTEM
     input logic [1:0] irq_i,
+    // interrupt request bit - CLIC
+    input logic clic_irq_req_i,
     // selective hardware vectoring bit - CLIC
     input logic clic_irq_shv_i,
     // inter processor interrupt -> connected to machine mode sw - SUBSYSTEM
@@ -2575,7 +2577,7 @@ module csr_regfile
     wfi_d = wfi_q;
     // if there is any (enabled) interrupt pending un-stall the core
     // also un-stall if we want to enter debug mode
-    if ((CVA6Cfg.DebugEn && debug_req_i) || (!clic_mode_o && (|(mip_q & mie_q) || irq_i[1])) || clic_irq_ready_o) begin
+    if ((CVA6Cfg.DebugEn && debug_req_i) || (!clic_mode_o && (|(mip_q & mie_q) || irq_i[1])) || (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_req_i)) begin
       wfi_d = 1'b0;
       // or alternatively if there is no exception pending and we are not in debug mode wait here
       // for the interrupt
@@ -2613,13 +2615,13 @@ module csr_regfile
     // significant benefit, we conciously diverge from the spec here by jumping to
     // trap_vector_base instead.
     if (ex_i.cause[CVA6Cfg.XLEN-1] &&
-                ((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])))
-               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0])
+                (((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0]))) && ~clic_mode_o)
+               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0] && ~clic_mode_o)
                || (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i))) begin
       trap_vector_base_o[7:2] = ex_i.cause[5:0];
     end
     if (ex_i.cause[CVA6Cfg.XLEN-1] &&
-                (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0])) begin
+                (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0]) && ~clic_mode_o) begin
       trap_vector_base_o[7:2] = {ex_i.cause[5:2], 2'b01};
     end
 
@@ -2789,6 +2791,10 @@ module csr_regfile
         sscratch_q   <= {CVA6Cfg.XLEN{1'b0}};
         stval_q      <= {CVA6Cfg.XLEN{1'b0}};
         satp_q       <= {CVA6Cfg.XLEN{1'b0}};
+        if (CVA6Cfg.RVSCLIC) begin
+          stvt_q       <= {CVA6Cfg.XLEN{1'b0}};
+          sintthresh_q <= '0;
+        end
       end
 
       if (CVA6Cfg.RVH) begin
@@ -2878,6 +2884,10 @@ module csr_regfile
         sscratch_q   <= sscratch_d;
         if (CVA6Cfg.TvalEn) stval_q <= stval_d;
         satp_q <= satp_d;
+        if (CVA6Cfg.RVSCLIC) begin
+          stvt_q       <= stvt_d;
+          sintthresh_q <= sintthresh_d;
+        end
       end
       if (CVA6Cfg.RVH) begin
         v_q                      <= v_d;

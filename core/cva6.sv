@@ -1214,6 +1214,7 @@ module cva6
       .mintstatus_o            (mintstatus_csr),
       .mintthresh_o            (mintthresh_csr),
       .sintthresh_o            (sintthresh_csr),
+      .clic_irq_req_i          (clic_irq_valid_i),
       .clic_irq_shv_i          (clic_irq_shv_i),
       .clic_irq_ready_o        (clic_irq_ready_o),
       .en_translation_o        (enable_translation_csr_ex),
