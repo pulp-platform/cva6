@@ -91,7 +91,7 @@ module cva6_tlb_sv39x4
   //-------------
   always_comb begin : translation
     automatic logic [riscv::GPPN2:0] mask_pn2;
-    mask_pn2       = s_st_enbl_i ? ((2 ** (riscv::VPN2 + 1)) - 1) : ((2 ** (riscv::GPPN2 + 1)) - 1);
+    mask_pn2       = s_st_enbl_i ? ((1 << (riscv::VPN2 + 1)) - 1) : ((1 << (riscv::GPPN2 + 1)) - 1);
     vpn0           = lu_vaddr_i[20:12];
     vpn1           = lu_vaddr_i[29:21];
     vpn2           = lu_vaddr_i[30+riscv::GPPN2:30] & mask_pn2;
@@ -312,7 +312,7 @@ module cva6_tlb_sv39x4
       if (lu_hit[i] & lu_access_i) begin
         // Set the nodes to the values we would expect
         for (int unsigned lvl = 0; lvl < $clog2(TLB_ENTRIES); lvl++) begin
-          idx_base = $unsigned((2 ** lvl) - 1);
+          idx_base = $unsigned((1 << lvl) - 1);
           // lvl0 <=> MSB, lvl1 <=> MSB-1, ...
           shift = $clog2(TLB_ENTRIES) - lvl;
           // to circumvent the 32 bit integer arithmetic assignment
@@ -340,7 +340,7 @@ module cva6_tlb_sv39x4
       automatic int unsigned idx_base, shift, new_index;
       en = 1'b1;
       for (int unsigned lvl = 0; lvl < $clog2(TLB_ENTRIES); lvl++) begin
-        idx_base = $unsigned((2 ** lvl) - 1);
+        idx_base = $unsigned((1 << lvl) - 1);
         // lvl0 <=> MSB, lvl1 <=> MSB-1, ...
         shift = $clog2(TLB_ENTRIES) - lvl;
 
