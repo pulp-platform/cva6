@@ -8,22 +8,24 @@
 // Original Author: Jean-Roch COULON - Thales
 
 
+// Appears to be forked from cv64a6_imafdchsclic_sv39_wb_config_pkg.sv
+
+
 package cva6_config_pkg;
 
   localparam CVA6ConfigXlen = 64;
 
   localparam CVA6ConfigRVF = 1;
+  localparam CVA6ConfigRVD = 1;
   localparam CVA6ConfigF16En = 0;
   localparam CVA6ConfigF16AltEn = 0;
   localparam CVA6ConfigF8En = 0;
   localparam CVA6ConfigF8AltEn = 0;
   localparam CVA6ConfigFVecEn = 0;
-  localparam CVA6ConfigSuperscalarEn = 0; // Only works with FPU disabled
 
   localparam CVA6ConfigCvxifEn = 0;
   localparam CVA6ConfigCExtEn = 1;
   localparam CVA6ConfigZcbExtEn = 1;
-  localparam CVA6ConfigZcmtExtEn = 0;
   localparam CVA6ConfigZcmpExtEn = 0;
   localparam CVA6ConfigAExtEn = 1;
   localparam CVA6ConfigHExtEn = 1;
@@ -34,11 +36,13 @@ package cva6_config_pkg;
   localparam CVA6ConfigVclicExtEn = 1;
 
   localparam CVA6ConfigAxiIdWidth = 4;
+  // FLAMINGO: Modified 48->64.
   localparam CVA6ConfigAxiAddrWidth = 48;
   localparam CVA6ConfigAxiDataWidth = 64;
   localparam CVA6ConfigFetchUserEn = 0;
   localparam CVA6ConfigFetchUserWidth = CVA6ConfigXlen;
   localparam CVA6ConfigDataUserEn = 0;
+  // FLAMINGO: Modified 1->2
   localparam CVA6ConfigDataUserWidth = 2;
 
   localparam CVA6ConfigIcacheByteSize = 16384;
@@ -48,14 +52,17 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
 
+  // FLAMINGO: Added c9f48a86929b9dee5ccd7af1f840ca4d8f4cb400
   localparam CVA6ConfigICacheSpmAddrBase = 56'h01A0_0000;
   localparam CVA6ConfigDCacheSpmAddrBase = 56'h0180_0000;
 
   localparam CVA6ConfigDcacheFlushOnFence = 1'b1;
+  // FLAMINGO: Comment added.
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0; // Only for HPDCache
-  localparam CVA6ConfigMaxOutstandingStores = 7;
 
+  // FLAMINGO: Comment added
   localparam CVA6ConfigDcacheIdWidth = 1;  // Must be >= $clog2(CVA6Cfg.NrLoadBufEntries)
+  // FLAMINGO: Modified 2->4 (&indirection through parameter)
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
 
   localparam CVA6ConfigWtDcacheWbufDepth = 8;
@@ -70,12 +77,10 @@ package cva6_config_pkg;
   localparam CVA6ConfigBTBEntries = 32;
   localparam CVA6ConfigBHTEntries = 128;
 
-  localparam CVA6ConfigInstrTlbEntries = 16;
-  localparam CVA6ConfigDataTlbEntries = 16;
+  // FLAMINGO: Added 6cf3ffc897f6205aa1b03a2494f157f5c2852391
   localparam CVA6ConfigLockableTlbWays = 8;
+  // FLAMINGO: Added 282bd4d854c0197bd6b86dbdec72b3a4fa28c05c
   localparam CVA6ConfigNumTlbColors = 4;
-  localparam CVA6ConfigUseSharedTlb = 0;
-  localparam CVA6ConfigSharedTlbDepth = 64;
 
   localparam CVA6ConfigTvalEn = 1;
 
@@ -87,6 +92,7 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigMmuPresent = 1;
 
+  // FLAMINGO: Modified 1->0
   localparam CVA6ConfigRvfiTrace = 0;
 
   localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
@@ -95,7 +101,7 @@ package cva6_config_pkg;
       FpgaEn: bit'(0),  // for Xilinx and Altera
       FpgaAlteraEn: bit'(0),  // for Altera (only)
       TechnoCut: bit'(0),
-      SuperscalarEn: bit'(CVA6ConfigSuperscalarEn),
+      SuperscalarEn: bit'(0),
       NrCommitPorts: unsigned'(2),
       AxiAddrWidth: unsigned'(CVA6ConfigAxiAddrWidth),
       AxiDataWidth: unsigned'(CVA6ConfigAxiDataWidth),
@@ -104,7 +110,7 @@ package cva6_config_pkg;
       MemTidWidth: unsigned'(CVA6ConfigMemTidWidth),
       NrLoadBufEntries: unsigned'(CVA6ConfigNrLoadBufEntries),
       RVF: bit'(CVA6ConfigRVF),
-      RVD: bit'(CVA6ConfigRVF),
+      RVD: bit'(CVA6ConfigRVD),
       XF16: bit'(CVA6ConfigF16En),
       XF16ALT: bit'(CVA6ConfigF16AltEn),
       XF8: bit'(CVA6ConfigF8En),
@@ -116,7 +122,7 @@ package cva6_config_pkg;
       RVC: bit'(CVA6ConfigCExtEn),
       RVH: bit'(CVA6ConfigHExtEn),
       RVZCB: bit'(CVA6ConfigZcbExtEn),
-      RVZCMT: bit'(CVA6ConfigZcmtExtEn),
+      RVZCMT: bit'(0),
       RVZCMP: bit'(CVA6ConfigZcmpExtEn),
       XFVec: bit'(CVA6ConfigFVecEn),
       CvxifEn: bit'(CVA6ConfigCvxifEn),
@@ -133,6 +139,7 @@ package cva6_config_pkg;
       RVU: bit'(1),
       SoftwareInterruptEn: bit'(1),
       HaltAddress: 64'h800,
+      // FLAMINGO: Modified (why???)
       ExceptionAddress: 64'h810,
       RASDepth: unsigned'(CVA6ConfigRASDepth),
       BTBEntries: unsigned'(CVA6ConfigBTBEntries),
@@ -152,22 +159,28 @@ package cva6_config_pkg;
       NrNonIdempotentRules: unsigned'(2),
       NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
       NonIdempotentLength: 1024'({64'b0, 64'b0}),
+
+      // FLAMINGO: Modified c9f48a86929b9dee5ccd7af1f840ca4d8f4cb400
       NrExecuteRegionRules: unsigned'(4),
       ExecuteRegionAddrBase: 1024'({64'h8000_0000, 64'(CVA6ConfigICacheSpmAddrBase), 64'h1_0000, 64'h0}),
       ExecuteRegionLength: 1024'({64'h40000000, 64'(CVA6ConfigIcacheByteSize), 64'h10000, 64'h1000}),
+
       NrCachedRegionRules: unsigned'(1),
       CachedRegionAddrBase: 1024'({64'h8000_0000}),
       CachedRegionLength: 1024'({64'h40000000}),
-      MaxOutstandingStores: unsigned'(CVA6ConfigMaxOutstandingStores),
+      MaxOutstandingStores: unsigned'(7),
       DebugEn: bit'(1),
       AxiBurstWriteEn: bit'(0),
       IcacheByteSize: unsigned'(CVA6ConfigIcacheByteSize),
       IcacheSetAssoc: unsigned'(CVA6ConfigIcacheSetAssoc),
       IcacheLineWidth: unsigned'(CVA6ConfigIcacheLineWidth),
+
+      // FLAMINGO: Added c9f48a86929b9dee5ccd7af1f840ca4d8f4cb400
       ICacheSpmAddrBase: 56'(CVA6ConfigICacheSpmAddrBase),
       ICacheSpmLength: 56'(CVA6ConfigIcacheByteSize),
       DCacheSpmAddrBase: 56'(CVA6ConfigDCacheSpmAddrBase),
       DCacheSpmLength: 56'(CVA6ConfigDcacheByteSize),
+
       DCacheType: CVA6ConfigDcacheType,
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
@@ -178,12 +191,16 @@ package cva6_config_pkg;
       WtDcacheWbufDepth: int'(CVA6ConfigWtDcacheWbufDepth),
       FetchUserWidth: unsigned'(CVA6ConfigFetchUserWidth),
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
-      InstrTlbEntries: int'(CVA6ConfigInstrTlbEntries),
-      DataTlbEntries: int'(CVA6ConfigDataTlbEntries),
+      InstrTlbEntries: int'(16),
+      DataTlbEntries: int'(16),
+
+      // FLAMINGO: Added 6cf3ffc897f6205aa1b03a2494f157f5c2852391
       LockableTlbWays: int'(CVA6ConfigLockableTlbWays),
+      // FLAMINGO: Added 282bd4d854c0197bd6b86dbdec72b3a4fa28c05c
       NumTlbColors: int'(CVA6ConfigNumTlbColors),
-      UseSharedTlb: bit'(CVA6ConfigUseSharedTlb),
-      SharedTlbDepth: int'(CVA6ConfigSharedTlbDepth),
+
+      UseSharedTlb: bit'(0),
+      SharedTlbDepth: int'(64),
       NrLoadPipeRegs: int'(CVA6ConfigNrLoadPipeRegs),
       NrStorePipeRegs: int'(CVA6ConfigNrStorePipeRegs),
       DcacheIdWidth: int'(CVA6ConfigDcacheIdWidth)
