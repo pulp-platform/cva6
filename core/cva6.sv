@@ -1442,6 +1442,7 @@ module cva6
   );
 `endif  // PITON_ARIANE
 
+`ifndef CVA6_NO_TRACE
 `ifndef VERILATOR
   instr_tracer_if tracer_if (clk_i);
   // assign instruction tracer interface
@@ -1540,6 +1541,7 @@ module cva6
     $fclose(f);
   end
 `endif  // VERILATOR
+`endif  // CVA6_NO_TRACE
   //pragma translate_on
 
 
