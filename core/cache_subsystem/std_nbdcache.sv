@@ -12,6 +12,7 @@
 // Date: 13.10.2017
 // Description: Nonblocking private L1 dcache
 
+`include "common_cells/registers.svh"
 
 module std_nbdcache
   import std_cache_pkg::*;
@@ -40,6 +41,9 @@ module std_nbdcache
     // Request ports
     input dcache_req_i_t [NumPorts-1:0] req_ports_i,  // request ports
     output dcache_req_o_t [NumPorts-1:0] req_ports_o,  // request ports
+    // Request ports to instruction SPM (within icache)
+    input  dcache_req_o_t ispm_req_i,
+    output dcache_req_i_t ispm_req_o,
     // Cache AXI refill port
     output axi_req_t axi_data_o,
     input axi_rsp_t axi_data_i,
@@ -117,6 +121,363 @@ module std_nbdcache
   logic                                                                         miss_handler_busy;
   assign busy_o = |busy | miss_handler_busy;
 
+  // States of the Cache vs. SPM demux
+  typedef enum logic [2:0] {
+    IDLE = 0,
+    WAIT_TAG,
+    WAIT_CACHE,
+    WAIT_SPM,
+    WRITE
+  } addr_decode_state_t;
+
+  dcache_req_i_t [NumPorts-1:0] cache_ports_in;
+  dcache_req_o_t [NumPorts-1:0] cache_ports_out;
+
+  dcache_req_i_t [NumPorts-1:0] dspm_ports_in;
+  dcache_req_o_t [NumPorts-1:0] dspm_ports_out;
+
+  dcache_req_i_t [NumPorts-1:0] ispm_ports_out;
+  dcache_req_o_t [NumPorts-1:0] ispm_ports_in;
+
+  // ------------------
+  // Cache vs. SPM split
+  // ------------------
+
+  typedef logic [CVA6Cfg.PLEN-1:0] paddr_t;
+
+  // Possible request destinations
+  typedef enum logic [1:0] {
+    CACHE_REQ = 2'h0,
+    DSPM_REQ  = 2'h1,
+    ISPM_REQ  = 2'h2,
+    INVALID_REQ
+  } req_dest_t;
+
+  typedef struct packed {
+    logic [1:0] idx;
+    paddr_t     start_addr;
+    paddr_t     end_addr;
+  } rule_t;
+
+  localparam paddr_t DCacheSpmAddrEnd = CVA6Cfg.DCacheSpmAddrBase + CVA6Cfg.DCacheSpmLength;
+  localparam paddr_t ICacheSpmAddrEnd = CVA6Cfg.ICacheSpmAddrBase + CVA6Cfg.ICacheSpmLength;
+
+  // This defines which address ranges are attributed to the SPMs
+  // Any space between the DSPM and ISPM does not get an extra rule
+  // but is handled by the address decoders default index
+  // (which is set to CACHE)
+  rule_t [3:0] dcache_spm_map;
+  assign dcache_spm_map = {
+    { CACHE_REQ,                     56'h0, CVA6Cfg.DCacheSpmAddrBase },
+    {  DSPM_REQ, CVA6Cfg.DCacheSpmAddrBase,          DCacheSpmAddrEnd },
+    {  ISPM_REQ, CVA6Cfg.ICacheSpmAddrBase,          ICacheSpmAddrEnd },
+    { CACHE_REQ,          ICacheSpmAddrEnd,                     56'h0 }
+  };
+
+  // This uses 2'b11 as "no current request" state
+  logic [1:0] ispm_port_next, ispm_port_d, ispm_port_q;
+
+  // Icache SPM arbitration
+  // This handles which port gets forwarded to the ISPM
+  always_comb begin
+    ispm_port_d    = ispm_port_q;
+    ispm_port_next = 2'b11;
+    ispm_req_o     = '{default: 0};
+    ispm_ports_in  = '{default: 0};
+    // Lower indices are prioritized
+    for(int unsigned i = 0; i < NumPorts; i++) begin
+      if(ispm_ports_out[i].data_req) begin
+        ispm_port_next = 2'(i);
+        break;
+      end
+    end
+    // Not serving a request => take the next one
+    if(ispm_port_q == 2'b11) begin
+      if(!(&ispm_port_next)) begin
+        ispm_port_d = ispm_port_next;
+        ispm_req_o = ispm_ports_out[ispm_port_next];
+        ispm_ports_in[ispm_port_next] = ispm_req_i;
+      end
+    // We're still serving a request so wait for it
+    // to complete
+    end else begin
+      ispm_req_o = ispm_ports_out[ispm_port_q];
+      ispm_ports_in[ispm_port_q] = ispm_req_i;
+      if(ispm_ports_in[ispm_port_q].data_rvalid || ispm_ports_in[ispm_port_q].data_gnt) begin
+        ispm_port_d = 2'b11;
+      end
+    end
+  end
+
+  `FF(ispm_port_q, ispm_port_d, 2'b11, clk_i, rst_ni)
+
+  // Address decoding logic
+  // One for each port
+  generate
+    for (genvar i = 0; i < NumPorts; i++) begin: address_decode
+
+      addr_decode_state_t adec_state_d, adec_state_q;
+      logic [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] addr_idx_d, addr_idx_q;
+      logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0] addr_tag_d, addr_tag_q;
+      req_dest_t req_dest_d, req_dest_q;
+      logic [1:0] cur_idx;
+
+      // Decode the address (rather, the address tag)
+      // of an incoming request
+      addr_decode #(
+          .NoIndices ( 3       ),
+          .NoRules   ( 4       ),
+          .addr_t    ( paddr_t ),
+          .rule_t    ( rule_t  ),
+          .Napot     ( 0       )
+      ) i_addr_dec (
+          .addr_i           ( {req_ports_i[i].address_tag, {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}}  ),
+          .addr_map_i       ( dcache_spm_map    ),
+          .idx_o            ( cur_idx           ),
+          .dec_valid_o      (                   ),
+          .dec_error_o      (                   ),
+          .en_default_idx_i ( 1'b1              ),
+          .default_idx_i    ( CACHE_REQ         )
+      );
+
+      always_comb begin
+        addr_idx_d   = addr_idx_q;
+        addr_tag_d   = addr_tag_q;
+        adec_state_d = adec_state_q;
+        req_dest_d   = req_dest_q;
+
+        // By default we forward all communication to
+        // all targets, but without the valid and kill signals
+        // That way fewer muxes/logic levels are needed for
+        // the majority of the signals
+        cache_ports_in[i]           = req_ports_i[i];
+        cache_ports_in[i].data_req  = 1'b0;
+        cache_ports_in[i].tag_valid = 1'b0;
+        cache_ports_in[i].kill_req  = 1'b0;
+
+        dspm_ports_in[i]            = req_ports_i[i];
+        dspm_ports_in[i].data_req   = 1'b0;
+        dspm_ports_in[i].tag_valid  = 1'b0;
+        dspm_ports_in[i].kill_req   = 1'b0;
+
+        ispm_ports_out[i]           = req_ports_i[i];
+        ispm_ports_out[i].data_req  = 1'b0;
+        ispm_ports_out[i].tag_valid = 1'b0;
+        ispm_ports_out[i].kill_req  = 1'b0;
+
+        // As the answer will most likely come from the
+        // cache we forward that by default, also without valid
+        req_ports_o[i]              = cache_ports_out[i];
+        req_ports_o[i].data_gnt     = 1'b0;
+        req_ports_o[i].data_rvalid  = 1'b0;
+
+        unique case (adec_state_q)
+          IDLE: begin
+            // By default, everything goes to the cache
+            req_dest_d = CACHE_REQ;
+            // If we got a request and are not stalled, process it
+            if (req_ports_i[i].data_req && !stall_i) begin
+              // Save the address index, as it's usually only valid
+              // until the request is granted (for a read)
+              addr_idx_d = req_ports_i[i].address_index;
+              // If this is a write, we know both the address index
+              // and the tag, so we can decide where to forward it to
+              // immediately
+              if(req_ports_i[i].data_we) begin
+                adec_state_d = WRITE;
+                req_dest_d = req_dest_t'(cur_idx);
+                // Connect the full signals to the correct port
+                unique case (req_dest_q)
+                  CACHE_REQ: begin
+                    cache_ports_in[i] = req_ports_i[i];
+                    req_ports_o[i] = cache_ports_out[i];
+                  end
+                  DSPM_REQ: begin
+                      dspm_ports_in[i] = req_ports_i[i];
+                      req_ports_o[i] = dspm_ports_out[i];
+                  end
+                  ISPM_REQ: begin
+                    ispm_ports_out[i] = req_ports_i[i];
+                    req_ports_o[i] = ispm_ports_in[i];
+                  end
+                  default: begin
+                    cache_ports_in[i] = req_ports_i[i];
+                    req_ports_o[i] = cache_ports_out[i];
+                  end
+                endcase
+                // If the write could be acknowledged already
+                // we stay in the idle state
+                if(req_ports_o[i].data_gnt) begin
+                  adec_state_d = IDLE;
+                end
+              // If it's a read on the other hand, we need to wait
+              // for the tag to be valid to decide. Until then,
+              // forward it to the cache
+              end else begin
+                adec_state_d = WAIT_TAG;
+                cache_ports_in[i] = req_ports_i[i];
+                req_ports_o[i] = cache_ports_out[i];
+              end
+            end
+          end
+
+          WAIT_TAG: begin
+            // By default we forward to the cache
+            cache_ports_in[i] = req_ports_i[i];
+            req_ports_o[i] = cache_ports_out[i];
+            // Once the tag is valid, we can see where this request
+            // needs to go
+            if (req_ports_i[i].tag_valid) begin
+              req_dest_d = req_dest_t'(cur_idx);
+              // Here we enter if it is NOT a cache request
+              if(req_dest_d != CACHE_REQ) begin
+                adec_state_d = WAIT_SPM;
+                // Now we can also record the rag
+                addr_tag_d = req_ports_i[i].address_tag;
+                // Now dispatch the request to the correct SPM
+                if(req_dest_d == DSPM_REQ) begin
+                  dspm_ports_in[i] = req_ports_i[i];
+                  req_ports_o[i] = dspm_ports_out[i];
+                  // Inject the previously recorded index
+                  dspm_ports_in[i].address_index = addr_idx_q;
+                  // All reads have been granted by the cache before,
+                  // this is just to signal a pending request to the SPM controller
+                  dspm_ports_in[i].data_req = 1'b1;
+                end else begin
+                  ispm_ports_out[i] = req_ports_i[i];
+                  req_ports_o[i] = ispm_ports_in[i];
+                  // Inject the previously recorded index
+                  ispm_ports_out[i].address_index = addr_idx_q;
+                  // All reads have been granted by the cache before,
+                  // this is just to signal a pending request to the SPM controller
+                  ispm_ports_out[i].data_req = 1'b1;
+                end
+                // Kill the started cache request as this is an SPM access
+                cache_ports_in[i].kill_req = 1'b1;
+              // If it is a normal cache request we just wait it out
+              end else begin
+                adec_state_d = WAIT_CACHE;
+              end
+              // If the request could already be answered in this cycle
+              // we return to the idle state
+              if(req_ports_o[i].data_rvalid) begin
+                adec_state_d = IDLE;
+              end
+              // Speculative grants are only handed out to reads so we can
+              // just re-enter the WAIT_TAG state while recording the new
+              // index
+              if(req_ports_o[i].data_gnt) begin
+                addr_idx_d = req_ports_i[i].address_index;
+                adec_state_d = WAIT_TAG;
+              end
+            end
+          end
+
+          // This state connects the port with the cache
+          // and waits for it to finish
+          WAIT_CACHE: begin
+            cache_ports_in[i] = req_ports_i[i];
+            req_ports_o[i] = cache_ports_out[i];
+            if(req_ports_o[i].data_rvalid) begin
+              adec_state_d = IDLE;
+            end
+            // If the next read was already granted, go right
+            // back to the state that waits for the tag
+            if(req_ports_o[i].data_gnt) begin
+              adec_state_d = WAIT_TAG;
+            end
+          end
+
+          // This state just waits for the SPM(s) to finish
+          WAIT_SPM: begin
+            if(req_dest_q == DSPM_REQ) begin
+              dspm_ports_in[i] = req_ports_i[i];
+              req_ports_o[i] = dspm_ports_out[i];
+              dspm_ports_in[i].address_index = addr_idx_q;
+              dspm_ports_in[i].address_tag = addr_tag_q;
+              // All reads have been granted by the cache before,
+              // this is just to signal a pending request to the SPM controller
+              dspm_ports_in[i].data_req = 1'b1;
+            // If we end up here it has to be an ISPM request
+            end else begin
+              ispm_ports_out[i] = req_ports_i[i];
+              req_ports_o[i] = ispm_ports_in[i];
+              ispm_ports_out[i].address_index = addr_idx_q;
+              ispm_ports_out[i].address_tag = addr_tag_q;
+              ispm_ports_out[i].data_req = 1'b1;
+            end
+            // As soon as the read data is valid, we go back to idle
+            if(req_ports_o[i].data_rvalid) begin
+              adec_state_d = IDLE;
+            end
+          end
+
+          // As the name implies, this state just waits for a write to finish
+          WRITE: begin
+            unique case (req_dest_q)
+              CACHE_REQ: begin
+                cache_ports_in[i] = req_ports_i[i];
+                req_ports_o[i] = cache_ports_out[i];
+              end
+              DSPM_REQ: begin
+                dspm_ports_in[i] = req_ports_i[i];
+                req_ports_o[i] = dspm_ports_out[i];
+              end
+              ISPM_REQ: begin
+                ispm_ports_out[i] = req_ports_i[i];
+                req_ports_o[i] = ispm_ports_in[i];
+              end
+              default: begin
+                cache_ports_in[i] = req_ports_i[i];
+                req_ports_o[i] = cache_ports_out[i];
+              end
+            endcase
+            if(req_ports_o[i].data_gnt) begin
+              adec_state_d = IDLE;
+            end
+          end
+
+          default: begin
+          end
+        endcase
+        // If we get a kill request at any point in time, we just return to idle
+        if(req_ports_i[i].kill_req) begin
+          adec_state_d = IDLE;
+        end
+      end
+
+      `FF(addr_idx_q, addr_idx_d, '0, clk_i, rst_ni)
+      `FF(addr_tag_q, addr_tag_d, '0, clk_i, rst_ni)
+      `FF(adec_state_q, adec_state_d, IDLE, clk_i, rst_ni)
+      `FF(req_dest_q, req_dest_d, CACHE_REQ, clk_i, rst_ni)
+    end
+  endgenerate
+
+  // ------------------
+  // SPM Controller
+  // ------------------
+
+  generate
+    for (genvar i = 0; i < NumPorts; ++i) begin
+      logic data_req_d, data_req_q;
+      logic data_we_d, data_we_q;
+      logic [CVA6Cfg.DcacheIdWidth-1:0] data_id_d, data_id_q;
+      // Latch previous request for reads
+      assign data_req_d = dspm_ports_in[i].data_req;
+      assign data_we_d  = dspm_ports_in[i].data_req ? dspm_ports_in[i].data_we : data_we_q;
+      assign data_id_d  = dspm_ports_in[i].data_req ? dspm_ports_in[i].data_id : data_id_q;
+      // Accept all requests but always read zero
+      assign dspm_ports_out[i].data_gnt    = dspm_ports_in[i].data_req;
+      assign dspm_ports_out[i].data_rvalid = data_req_q & ~data_we_q & dspm_ports_in[i].tag_valid;
+      assign dspm_ports_out[i].data_rid    = data_id_q;
+      assign dspm_ports_out[i].data_rdata  = '0;
+      assign dspm_ports_out[i].data_ruser  = '0;
+      `FF(data_req_q, data_req_d, '0, clk_i, rst_ni)
+      `FF(data_we_q, data_we_d, '0, clk_i, rst_ni)
+      `FF(data_id_q, data_id_d, '0, clk_i, rst_ni)
+    end
+  endgenerate
+
   // ------------------
   // Cache Controller
   // ------------------
@@ -133,8 +494,8 @@ module std_nbdcache
           .busy_o    (busy[i]),
           .stall_i   (stall_i | flush_i),
           // from core
-          .req_port_i(req_ports_i[i]),
-          .req_port_o(req_ports_o[i]),
+          .req_port_i(cache_ports_in[i]),
+          .req_port_o(cache_ports_out[i]),
           // to SRAM array
           .req_o     (req[i+1]),
           .addr_o    (addr[i+1]),
