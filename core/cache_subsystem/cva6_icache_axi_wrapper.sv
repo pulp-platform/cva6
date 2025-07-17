@@ -24,6 +24,8 @@ module cva6_icache_axi_wrapper
     parameter type icache_drsp_t = logic,
     parameter type icache_req_t = logic,
     parameter type icache_rtrn_t = logic,
+    parameter type dcache_req_i_t = logic,
+    parameter type dcache_req_o_t = logic,
     parameter type axi_req_t = logic,
     parameter type axi_rsp_t = logic
 ) (
@@ -37,12 +39,15 @@ module cva6_icache_axi_wrapper
     output logic busy_o,
     input logic stall_i,
     input logic init_ni,
+    input logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_i,
     // address translation requests
     input icache_areq_t areq_i,
     output icache_arsp_t areq_o,
     // data requests
     input icache_dreq_t dreq_i,
     output icache_drsp_t dreq_o,
+    input dcache_req_i_t ispm_req_i,
+    output dcache_req_o_t ispm_req_o,
     // AXI refill port
     output axi_req_t axi_req_o,
     input axi_rsp_t axi_resp_i
@@ -116,6 +121,8 @@ module cva6_icache_axi_wrapper
       .icache_dreq_t(icache_dreq_t),
       .icache_drsp_t(icache_drsp_t),
       .icache_req_t(icache_req_t),
+      .dcache_req_i_t(dcache_req_i_t),
+      .dcache_req_o_t(dcache_req_o_t),
       .icache_rtrn_t(icache_rtrn_t),
       .RdTxId(0)
   ) i_cva6_icache (
@@ -127,10 +134,13 @@ module cva6_icache_axi_wrapper
       .busy_o        (busy_o),
       .stall_i       (stall_i),
       .init_ni       (init_ni),
+      .icache_spm_ways_i(icache_spm_ways_i),
       .areq_i        (areq_i),
       .areq_o        (areq_o),
       .dreq_i        (dreq_i),
       .dreq_o        (dreq_o),
+      .ispm_req_i    (ispm_req_i),
+      .ispm_req_o    (ispm_req_o),
       .mem_rtrn_vld_i(icache_mem_rtrn_vld),
       .mem_rtrn_i    (icache_mem_rtrn),
       .mem_data_req_o(icache_mem_data_req),
