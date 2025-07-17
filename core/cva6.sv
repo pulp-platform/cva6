@@ -652,6 +652,7 @@ module cva6
   logic dcache_dat_unc_err_csr;
   logic dcache_dir_cor_err_csr;
   logic dcache_dir_unc_err_csr;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_csr_cache;
   logic csr_write_fflags_commit_cs;
   logic icache_en_csr;
   logic acc_cons_en_csr;
@@ -1387,6 +1388,7 @@ module cva6
       .dcache_dir_unc_err_i               (dcache_dir_unc_err_csr),
       .cur_clrs_o                         (cur_clrs_csr_ex),
       .locked_tlb_entries_o               (locked_tlb_entries_csr_ex),
+      .icache_spm_ways_o                  (icache_spm_ways_csr_cache),
       .acc_cons_en_o                      (acc_cons_en_csr),
       .fence_t_pad_o                      (fence_t_pad_csr_ctrl),
       .fence_t_src_sel_o                  (fence_t_src_sel_csr_ctrl),
@@ -1741,6 +1743,7 @@ module cva6
         .icache_en_i       (icache_en_csr),
         .icache_flush_i    (icache_flush_ctrl_cache),
         .icache_miss_o     (icache_miss_cache_perf),
+        .icache_spm_ways_i (icache_spm_ways_csr_cache),
         .icache_areq_i     (icache_areq_ex_cache),
         .icache_areq_o     (icache_areq_cache_ex),
         .icache_dreq_i     (icache_dreq_if_cache),
