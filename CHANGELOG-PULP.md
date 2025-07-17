@@ -4,12 +4,20 @@ All notable changes to the `pulp` branch of this project will be documented in t
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## pulp-v2.0.0 - 2025-07-17
+### Added
+- vCLIC support
+
 ### Changed
 - Rebase onto openhwgroup:cva6:master#2d411b2d (2025-02-20)
+- Apply upstream patches adding superscalar configuration options
 - Add HPDCache wrappers
 - FPU: Upgrade to pulp-v0.2.3
 - fence.t: Support 32-bit XLEN
+
+### Fixed
+- Apply upstream bugfixes mostly regarding H extension
+- CLIC WFI resume condition and trap vector base
 
 ## pulp-v1.0.0 - 2024-02-25
 ### Changed
@@ -66,7 +74,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Bender.yml`: Add cv64a6_imafdcsclic_sv39 target
 
 ## pulp-v0.2.0 - 2023-04-08
-
 ### Added
 - CLIC support
 
