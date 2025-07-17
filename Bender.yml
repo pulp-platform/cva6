@@ -202,6 +202,7 @@ sources:
       - core/cache_subsystem/wt_dcache.sv
       - core/cache_subsystem/wt_cache_subsystem.sv
       - core/cache_subsystem/wt_axi_adapter.sv
+      - core/cache_subsystem/ispm_ctrl.sv
       - core/cache_subsystem/cva6_icache.sv
       - core/cache_subsystem/tag_cmp.sv
       - core/cache_subsystem/cache_ctrl.sv
