@@ -133,6 +133,8 @@ module wt_cache_subsystem
       .icache_drsp_t(icache_drsp_t),
       .icache_req_t(icache_req_t),
       .icache_rtrn_t(icache_rtrn_t),
+      .dcache_req_i_t(dcache_req_i_t),
+      .dcache_req_o_t(dcache_req_o_t),
       .RdTxId(0)
   ) i_cva6_icache (
       .clk_i         (clk_i),
@@ -143,10 +145,13 @@ module wt_cache_subsystem
       .busy_o        (icache_busy),
       .stall_i       (stall_i),
       .init_ni       (init_ni),
+      .icache_spm_ways_i('0),
       .areq_i        (icache_areq_i),
       .areq_o        (icache_areq_o),
       .dreq_i        (icache_dreq_i),
       .dreq_o        (icache_dreq_o),
+      .ispm_req_i    ('0),
+      .ispm_req_o    (),
       .mem_rtrn_vld_i(adapter_icache_rtrn_vld),
       .mem_rtrn_i    (adapter_icache),
       .mem_data_req_o(icache_adapter_data_req),
