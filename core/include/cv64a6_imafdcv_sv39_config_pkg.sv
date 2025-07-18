@@ -173,6 +173,7 @@ package cva6_config_pkg;
       DCacheType: CVA6ConfigDcacheType,
       InstrTlbEntries: int'(16),
       DataTlbEntries: int'(16),
+      NumTlbColors: int'(4),
       UseSharedTlb: bit'(0),
       SharedTlbDepth: int'(64),
       NrLoadPipeRegs: int'(CVA6ConfigNrLoadPipeRegs),
