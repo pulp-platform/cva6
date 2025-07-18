@@ -33,7 +33,8 @@ module std_cache_subsystem
     parameter type axi_aw_chan_t = logic,
     parameter type axi_w_chan_t = logic,
     parameter type axi_req_t = logic,
-    parameter type axi_rsp_t = logic
+    parameter type axi_rsp_t = logic,
+    parameter type impl_in_t = logic
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -41,6 +42,7 @@ module std_cache_subsystem
     output logic busy_o,
     input logic stall_i,  // stall new memory requests
     input logic init_ni,  // do not init after reset
+    input impl_in_t [CVA6Cfg.ICACHE_SET_ASSOC+CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
     // I$
     input logic icache_en_i,  // enable icache (or bypass e.g: in debug mode)
     input logic icache_flush_i,  // flush the icache, flush and kill have to be asserted together
@@ -99,7 +101,8 @@ module std_cache_subsystem
       .dcache_req_i_t(dcache_req_i_t),
       .dcache_req_o_t(dcache_req_o_t),
       .axi_req_t(axi_req_t),
-      .axi_rsp_t(axi_rsp_t)
+      .axi_rsp_t(axi_rsp_t),
+      .impl_in_t(impl_in_t)
   ) i_cva6_icache_axi_wrapper (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
@@ -111,6 +114,7 @@ module std_cache_subsystem
       .stall_i   (stall_i),
       .init_ni   (init_ni),
       .icache_spm_ways_i (icache_spm_ways_i),
+      .sram_impl_i (sram_impl_i[CVA6Cfg.ICACHE_SET_ASSOC-1:0]),
       .areq_i    (icache_areq_i),
       .areq_o    (icache_areq_o),
       .dreq_i    (icache_dreq_i),
@@ -132,7 +136,8 @@ module std_cache_subsystem
       .dcache_req_o_t(dcache_req_o_t),
       .NumPorts(NumPorts),
       .axi_req_t(axi_req_t),
-      .axi_rsp_t(axi_rsp_t)
+      .axi_rsp_t(axi_rsp_t),
+      .impl_in_t(impl_in_t)
   ) i_nbdcache (
       .clk_i,
       .rst_ni,
@@ -144,6 +149,7 @@ module std_cache_subsystem
       .stall_i     (stall_i),
       .init_ni     (init_ni),
       .dcache_spm_ways_i(dcache_spm_ways_i),
+      .sram_impl_i (sram_impl_i[CVA6Cfg.ICACHE_SET_ASSOC+CVA6Cfg.DCACHE_SET_ASSOC:CVA6Cfg.ICACHE_SET_ASSOC]),
       .axi_bypass_o(axi_req_bypass),
       .axi_bypass_i(axi_resp_bypass),
       .axi_data_o  (axi_req_data),

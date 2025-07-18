@@ -27,7 +27,8 @@ module cva6_icache_axi_wrapper
     parameter type dcache_req_i_t = logic,
     parameter type dcache_req_o_t = logic,
     parameter type axi_req_t = logic,
-    parameter type axi_rsp_t = logic
+    parameter type axi_rsp_t = logic,
+    parameter type impl_in_t = logic
 ) (
     input logic             clk_i,
     input logic             rst_ni,
@@ -40,6 +41,7 @@ module cva6_icache_axi_wrapper
     input logic stall_i,
     input logic init_ni,
     input logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_i,
+    input impl_in_t [CVA6Cfg.ICACHE_SET_ASSOC-1:0] sram_impl_i,
     // address translation requests
     input icache_areq_t areq_i,
     output icache_arsp_t areq_o,
@@ -124,7 +126,8 @@ module cva6_icache_axi_wrapper
       .dcache_req_i_t(dcache_req_i_t),
       .dcache_req_o_t(dcache_req_o_t),
       .icache_rtrn_t(icache_rtrn_t),
-      .RdTxId(0)
+      .RdTxId(0),
+      .impl_in_t(impl_in_t)
   ) i_cva6_icache (
       .clk_i         (clk_i),
       .rst_ni        (rst_ni),
@@ -135,6 +138,7 @@ module cva6_icache_axi_wrapper
       .stall_i       (stall_i),
       .init_ni       (init_ni),
       .icache_spm_ways_i(icache_spm_ways_i),
+      .sram_impl_i   (sram_impl_i),
       .areq_i        (areq_i),
       .areq_o        (areq_o),
       .dreq_i        (dreq_i),

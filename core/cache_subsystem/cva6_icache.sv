@@ -39,7 +39,8 @@ module cva6_icache
     parameter type dcache_req_i_t = logic,
     parameter type dcache_req_o_t = logic,
     /// ID to be used for read transactions
-    parameter logic [CVA6Cfg.MEM_TID_WIDTH-1:0] RdTxId = 0
+    parameter logic [CVA6Cfg.MEM_TID_WIDTH-1:0] RdTxId = 0,
+    parameter type impl_in_t = logic
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -54,6 +55,7 @@ module cva6_icache
     input  logic         stall_i,
     input  logic         init_ni,         // do not init after enabling
     input  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_i,
+    input  impl_in_t [CVA6Cfg.ICACHE_SET_ASSOC-1:0] sram_impl_i,
     // address translation requests
     input  icache_areq_t areq_i,
     output icache_arsp_t areq_o,
@@ -641,10 +643,12 @@ module cva6_icache
       .USER_EN     ( CVA6Cfg.FETCH_USER_EN          ),
       .NUM_WORDS   ( ICACHE_NUM_WORDS               ),
       .TECHNO_CUT  ( CVA6Cfg.TechnoCut              ),
-      .BYTE_ACCESS ( 1                              )
+      .BYTE_ACCESS ( 1                              ),
+      .impl_in_t   ( impl_in_t                      )
     ) icache_sram (
       .clk_i     ( clk_i            ),
       .rst_ni    ( rst_ni           ),
+      .impl_i    ( sram_impl_i[i]   ),
       .req_i     ( ram_req[i]       ),
       .we_i      ( ram_we[i]        ),
       .addr_i    ( ram_addr[i]      ),

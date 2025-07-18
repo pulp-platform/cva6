@@ -23,7 +23,8 @@ module std_nbdcache
     parameter type dcache_req_o_t = logic,
     parameter int unsigned NumPorts = 4,
     parameter type axi_req_t = logic,
-    parameter type axi_rsp_t = logic
+    parameter type axi_rsp_t = logic,
+    parameter type impl_in_t = logic
 ) (
     input logic clk_i,  // Clock
     input logic rst_ni,  // Asynchronous reset active low
@@ -36,6 +37,7 @@ module std_nbdcache
     input logic stall_i,  // stall new memory requests
     input logic init_ni,
     input logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_i,
+    input impl_in_t [CVA6Cfg.DCACHE_SET_ASSOC:0] sram_impl_i,
     // AMOs
     input amo_req_t amo_req_i,
     output amo_resp_t amo_resp_o,
@@ -617,10 +619,12 @@ module std_nbdcache
 
       sram #(
         .DATA_WIDTH(DCACHE_MEMORY_WIDTH),
-        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
+        .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS),
+        .impl_in_t (impl_in_t)
       ) i_cachline_sram (
         .req_i  (req_ram[i]),
         .rst_ni (rst_ni),
+        .impl_i (sram_impl_i[i]),
         .we_i   (we_ram[i]),
         .addr_i (addr_ram[i][CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
         .wuser_i('0),
@@ -653,10 +657,12 @@ module std_nbdcache
       .USER_WIDTH(1),
       .DATA_WIDTH(CVA6Cfg.DCACHE_SET_ASSOC * $bits(vldrty_t)),
       .BYTE_WIDTH(1),
-      .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS)
+      .NUM_WORDS (CVA6Cfg.DCACHE_NUM_WORDS),
+      .impl_in_t (impl_in_t)
   ) valid_dirty_sram (
       .clk_i  (clk_i),
       .rst_ni (rst_ni),
+      .impl_i (sram_impl_i[CVA6Cfg.DCACHE_SET_ASSOC]),
       .req_i  (|req_cache),
       .we_i   (we_cache),
       .addr_i (addr_cache[CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_OFFSET_WIDTH]),
