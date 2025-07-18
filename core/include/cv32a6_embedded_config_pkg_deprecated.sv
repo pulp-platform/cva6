@@ -47,6 +47,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheLineWidth = 128;
 
   localparam CVA6ConfigICacheSpmAddrBase = 56'h01A0_0000;
+  localparam CVA6ConfigDCacheSpmAddrBase = 56'h0180_0000;
 
   localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
@@ -155,6 +156,8 @@ package cva6_config_pkg;
       IcacheLineWidth: unsigned'(CVA6ConfigIcacheLineWidth),
       ICacheSpmAddrBase: 56'(CVA6ConfigICacheSpmAddrBase),
       ICacheSpmLength: 56'(CVA6ConfigIcacheByteSize),
+      DCacheSpmAddrBase: 56'(CVA6ConfigDCacheSpmAddrBase),
+      DCacheSpmLength: 56'(CVA6ConfigDcacheByteSize),
       DCacheType: CVA6ConfigDcacheType,
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
