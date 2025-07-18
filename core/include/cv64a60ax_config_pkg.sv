@@ -138,6 +138,8 @@ localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
    FetchUserEn: unsigned'(0),
    InstrTlbEntries: int'(16),
    DataTlbEntries: int'(16),
+   TlbColoring: bit'(0),
+   NumTlbColors: int'(1),
    UseSharedTlb: bit'(0),
    SvnapotEn: bit'(0),
    SharedTlbDepth: int'(64),
