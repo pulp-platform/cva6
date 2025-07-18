@@ -49,6 +49,9 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
 
+  localparam CVA6ConfigICacheSpmAddrBase = 56'h01A0_0000;
+  localparam CVA6ConfigDCacheSpmAddrBase = 56'h0180_0000;
+
   localparam CVA6ConfigDcacheFlushOnFence = 1'b1;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0; // Only for HPDCache
   localparam CVA6ConfigMaxOutstandingStores = 7;
@@ -72,7 +75,9 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigInstrTlbEntries = 16;
   localparam CVA6ConfigDataTlbEntries = 64;
-  localparam CVA6ConfigUseSharedTlb = 1;
+  localparam CVA6ConfigLockableTlbWays = 8;
+  localparam CVA6ConfigNumTlbColors = 16;
+  localparam CVA6ConfigUseSharedTlb = 0;
   localparam CVA6ConfigSharedTlbDepth = 64;
 
   localparam CVA6ConfigTvalEn = 1;
@@ -150,9 +155,9 @@ package cva6_config_pkg;
       NrNonIdempotentRules: unsigned'(2),
       NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
       NonIdempotentLength: 1024'({64'b0, 64'b0}),
-      NrExecuteRegionRules: unsigned'(3),
-      ExecuteRegionAddrBase: 1024'({64'h8000_0000, 64'h1_0000, 64'h0}),
-      ExecuteRegionLength: 1024'({64'h40000000, 64'h10000, 64'h1000}),
+      NrExecuteRegionRules: unsigned'(4),
+      ExecuteRegionAddrBase: 1024'({64'h8000_0000, 64'(CVA6ConfigICacheSpmAddrBase), 64'h1_0000, 64'h0}),
+      ExecuteRegionLength: 1024'({64'h40000000, 64'(CVA6ConfigIcacheByteSize), 64'h10000, 64'h1000}),
       NrCachedRegionRules: unsigned'(1),
       CachedRegionAddrBase: 1024'({64'h8000_0000}),
       CachedRegionLength: 1024'({64'h40000000}),
@@ -162,6 +167,10 @@ package cva6_config_pkg;
       IcacheByteSize: unsigned'(CVA6ConfigIcacheByteSize),
       IcacheSetAssoc: unsigned'(CVA6ConfigIcacheSetAssoc),
       IcacheLineWidth: unsigned'(CVA6ConfigIcacheLineWidth),
+      ICacheSpmAddrBase: 56'(CVA6ConfigICacheSpmAddrBase),
+      ICacheSpmLength: 56'(CVA6ConfigIcacheByteSize),
+      DCacheSpmAddrBase: 56'(CVA6ConfigDCacheSpmAddrBase),
+      DCacheSpmLength: 56'(CVA6ConfigDcacheByteSize),
       DCacheType: CVA6ConfigDcacheType,
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
@@ -174,6 +183,8 @@ package cva6_config_pkg;
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
       InstrTlbEntries: int'(CVA6ConfigInstrTlbEntries),
       DataTlbEntries: int'(CVA6ConfigDataTlbEntries),
+      LockableTlbWays: int'(CVA6ConfigLockableTlbWays),
+      NumTlbColors: int'(CVA6ConfigNumTlbColors),
       UseSharedTlb: bit'(CVA6ConfigUseSharedTlb),
       SharedTlbDepth: int'(CVA6ConfigSharedTlbDepth),
       NrLoadPipeRegs: int'(CVA6ConfigNrLoadPipeRegs),
