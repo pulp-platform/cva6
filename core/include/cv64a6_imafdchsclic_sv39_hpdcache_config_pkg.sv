@@ -178,6 +178,7 @@ package cva6_config_pkg;
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
       InstrTlbEntries: int'(16),
       DataTlbEntries: int'(16),
+      LockableTlbWays: int'(8),
       NumTlbColors: int'(4),
       UseSharedTlb: bit'(0),
       SharedTlbDepth: int'(64),
