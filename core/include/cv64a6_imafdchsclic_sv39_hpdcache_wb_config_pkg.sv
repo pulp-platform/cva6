@@ -6,12 +6,6 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/
 //
 // Original Author: Jean-Roch COULON - Thales
-//
-// Copyright 2023 Commissariat a l'Energie Atomique et aux Energies
-//                Alternatives (CEA)
-//
-// Author: Cesar Fuguet - CEA
-// Date: August, 2023
 // Description: CVA6 configuration package using the HPDcache as cache subsystem (CLIC variant)
 
 
@@ -54,13 +48,13 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
 
-  localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
+  localparam CVA6ConfigDcacheFlushOnFence = 1'b1;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
 
   localparam CVA6ConfigDcacheIdWidth = 3;
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
 
-  localparam CVA6ConfigWtDcacheWbufDepth = 8;
+  localparam CVA6ConfigWtDcacheWbufDepth = 7;
 
   localparam CVA6ConfigNrScoreboardEntries = 8;
 
@@ -163,8 +157,8 @@ package cva6_config_pkg;
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
       DcacheLineWidth: unsigned'(CVA6ConfigDcacheLineWidth),
-      DcacheFlushOnFence: unsigned'(CVA6ConfigDcacheFlushOnFence),
-      DcacheInvalidateOnFlush: unsigned'(CVA6ConfigDcacheInvalidateOnFlush),
+      DcacheFlushOnFence: bit'(CVA6ConfigDcacheFlushOnFence),
+      DcacheInvalidateOnFlush: bit'(CVA6ConfigDcacheInvalidateOnFlush),
       DataUserEn: unsigned'(CVA6ConfigDataUserEn),
       WtDcacheWbufDepth: int'(CVA6ConfigWtDcacheWbufDepth),
       FetchUserWidth: unsigned'(CVA6ConfigFetchUserWidth),

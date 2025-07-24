@@ -6,12 +6,6 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/
 //
 // Original Author: Jean-Roch COULON - Thales
-//
-// Copyright 2023 Commissariat a l'Energie Atomique et aux Energies
-//                Alternatives (CEA)
-//
-// Author: Cesar Fuguet - CEA
-// Date: August, 2023
 // Description: CVA6 configuration package using the HPDcache as cache subsystem (CLIC variant)
 
 
