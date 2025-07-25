@@ -128,11 +128,11 @@ module cva6_hpdcache_wrapper
   hpdcache_rsp_t               dcache_rsp      [HPDCACHE_NREQUESTERS];
   logic dcache_read_miss, dcache_write_miss;
 
-  logic                                   [                2:0] snoop_valid;
-  logic                                   [                2:0] snoop_abort;
-  hpdcache_req_offset_t                   [                2:0] snoop_addr_offset;
-  hpdcache_tag_t                          [                2:0] snoop_addr_tag;
-  logic                                   [                2:0] snoop_phys_indexed;
+  logic                                   [                2:0] hwpf_snoop_valid;
+  logic                                   [                2:0] hwpf_snoop_abort;
+  hpdcache_req_offset_t                   [                2:0] hwpf_snoop_addr_offset;
+  hpdcache_tag_t                          [                2:0] hwpf_snoop_addr_tag;
+  logic                                   [                2:0] hwpf_snoop_phys_indexed;
 
   logic                                                         dcache_cmo_req_is_prefetch;
 
@@ -252,38 +252,38 @@ module cva6_hpdcache_wrapper
 `endif
   endgenerate
 
-  //  Snoop load port
-  assign snoop_valid[0] = dcache_req_valid[1] & dcache_req_ready[1],
-      snoop_abort[0] = dcache_req_abort[1],
-      snoop_addr_offset[0] = dcache_req[1].addr_offset,
-      snoop_addr_tag[0] = dcache_req_tag[1],
-      snoop_phys_indexed[0] = dcache_req[1].phys_indexed;
+  //  HWPF snoop load port
+  assign hwpf_snoop_valid[0] = dcache_req_valid[1] & dcache_req_ready[1],
+      hwpf_snoop_abort[0] = dcache_req_abort[1],
+      hwpf_snoop_addr_offset[0] = dcache_req[1].addr_offset,
+      hwpf_snoop_addr_tag[0] = dcache_req_tag[1],
+      hwpf_snoop_phys_indexed[0] = dcache_req[1].phys_indexed;
 
-  //  Snoop Store/AMO port
-  assign snoop_valid[1] = dcache_req_valid[NumPorts-1] & dcache_req_ready[NumPorts-1],
-      snoop_abort[1] = dcache_req_abort[NumPorts-1],
-      snoop_addr_offset[1] = dcache_req[NumPorts-1].addr_offset,
-      snoop_addr_tag[1] = dcache_req_tag[NumPorts-1],
-      snoop_phys_indexed[1] = dcache_req[NumPorts-1].phys_indexed;
+  //  HWPF snoop Store/AMO port
+  assign hwpf_snoop_valid[1] = dcache_req_valid[NumPorts-1] & dcache_req_ready[NumPorts-1],
+      hwpf_snoop_abort[1] = dcache_req_abort[NumPorts-1],
+      hwpf_snoop_addr_offset[1] = dcache_req[NumPorts-1].addr_offset,
+      hwpf_snoop_addr_tag[1] = dcache_req_tag[NumPorts-1],
+      hwpf_snoop_phys_indexed[1] = dcache_req[NumPorts-1].phys_indexed;
 
 `ifdef HPDCACHE_ENABLE_CMO
-  //  Snoop CMO port (in case of read prefetch accesses)
+  //  HWPF snoop CMO port (in case of read prefetch accesses)
   assign dcache_cmo_req_is_prefetch = hpdcache_pkg::is_cmo_prefetch(
       dcache_req[NumPorts].op, dcache_req[NumPorts].size
   );
-  assign snoop_valid[2]        = dcache_req_valid[NumPorts]
+  assign hwpf_snoop_valid[2]   = dcache_req_valid[NumPorts]
                                & dcache_req_ready[NumPorts]
                                & dcache_cmo_req_is_prefetch,
-      snoop_abort[2] = dcache_req_abort[NumPorts],
-      snoop_addr_offset[2] = dcache_req[NumPorts].addr_offset,
-      snoop_addr_tag[2] = dcache_req_tag[NumPorts],
-      snoop_phys_indexed[2] = dcache_req[NumPorts].phys_indexed;
+      hwpf_snoop_abort[2] = dcache_req_abort[NumPorts],
+      hwpf_snoop_addr_offset[2] = dcache_req[NumPorts].addr_offset,
+      hwpf_snoop_addr_tag[2] = dcache_req_tag[NumPorts],
+      hwpf_snoop_phys_indexed[2] = dcache_req[NumPorts].phys_indexed;
 `else
-  assign snoop_valid[2] = 1'b0,
-      snoop_abort[2] = 1'b0,
-      snoop_addr_offset[2] = '0,
-      snoop_addr_tag[2] = '0,
-      snoop_phys_indexed[2] = 1'b0;
+  assign hwpf_snoop_valid[2] = 1'b0,
+      hwpf_snoop_abort[2] = 1'b0,
+      hwpf_snoop_addr_offset[2] = '0,
+      hwpf_snoop_addr_tag[2] = '0,
+      hwpf_snoop_phys_indexed[2] = 1'b0;
 `endif
 
   generate
@@ -320,11 +320,11 @@ module cva6_hpdcache_wrapper
       .hwpf_stride_throttle_o    (hwpf_throttle_out),
       .hwpf_stride_status_o      (hwpf_status_o),
 
-      .snoop_valid_i       (snoop_valid),
-      .snoop_abort_i       (snoop_abort),
-      .snoop_addr_offset_i (snoop_addr_offset),
-      .snoop_addr_tag_i    (snoop_addr_tag),
-      .snoop_phys_indexed_i(snoop_phys_indexed),
+      .snoop_valid_i       (hwpf_snoop_valid),
+      .snoop_abort_i       (hwpf_snoop_abort),
+      .snoop_addr_offset_i (hwpf_snoop_addr_offset),
+      .snoop_addr_tag_i    (hwpf_snoop_addr_tag),
+      .snoop_phys_indexed_i(hwpf_snoop_phys_indexed),
 
       .hpdcache_req_sid_i(hpdcache_req_sid_t'(NumPorts + 1)),
 
