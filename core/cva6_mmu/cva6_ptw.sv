@@ -157,6 +157,8 @@ module cva6_ptw
   assign req_port_o.data_wdata = '0;
   // we only issue one single request at a time
   assign req_port_o.data_id = '0;
+  // user field not used
+  assign req_port_o.data_wuser = '0;
 
   // -----------
   // TLB Update
