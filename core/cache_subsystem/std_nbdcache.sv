@@ -194,24 +194,24 @@ module std_nbdcache
   };
 
   // This uses 2'b11 as "no current request" state
-  logic [1:0] ispm_port_next, ispm_port_d, ispm_port_q;
+  logic [2:0] ispm_port_next, ispm_port_d, ispm_port_q;
 
   // Icache SPM arbitration
   // This handles which port gets forwarded to the ISPM
   always_comb begin
     ispm_port_d    = ispm_port_q;
-    ispm_port_next = 2'b11;
+    ispm_port_next = 3'b111;
     ispm_req_o     = '{default: 0};
     ispm_ports_in  = '{default: 0};
     // Lower indices are prioritized
     for(int unsigned i = 0; i < NumPorts; i++) begin
       if(ispm_ports_out[i].data_req) begin
-        ispm_port_next = 2'(i);
+        ispm_port_next = 3'(i);
         break;
       end
     end
     // Not serving a request => take the next one
-    if(ispm_port_q == 2'b11) begin
+    if(ispm_port_q == 3'b111) begin
       if(!(&ispm_port_next)) begin
         ispm_port_d = ispm_port_next;
         ispm_req_o = ispm_ports_out[ispm_port_next];
@@ -223,12 +223,12 @@ module std_nbdcache
       ispm_req_o = ispm_ports_out[ispm_port_q];
       ispm_ports_in[ispm_port_q] = ispm_req_i;
       if(ispm_ports_in[ispm_port_q].data_rvalid || ispm_ports_in[ispm_port_q].data_gnt) begin
-        ispm_port_d = 2'b11;
+        ispm_port_d = 3'b111;
       end
     end
   end
 
-  `FF(ispm_port_q, ispm_port_d, 2'b11, clk_i, rst_ni)
+  `FF(ispm_port_q, ispm_port_d, 3'b111, clk_i, rst_ni)
 
   // Address decoding logic
   // One for each port
