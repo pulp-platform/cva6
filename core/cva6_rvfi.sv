@@ -370,8 +370,7 @@ module cva6_rvfi
   // CSR
   //----------------------------------------------------------------------------------------------------------
 
-  `define CONNECT_RVFI_FULL(CSR_ENABLE_COND, CSR_NAME,
-                            CSR_SOURCE_NAME) \
+  `define CONNECT_RVFI_FULL(CSR_ENABLE_COND, CSR_NAME, CSR_SOURCE_NAME) \
     always_ff @(posedge clk_i) begin \
         if (CSR_ENABLE_COND) begin \
             rvfi_csr_o.``CSR_NAME``.rdata <= {{CVA6Cfg.XLEN - $bits(CSR_SOURCE_NAME)}, CSR_SOURCE_NAME}; \

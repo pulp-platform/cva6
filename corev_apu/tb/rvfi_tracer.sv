@@ -14,9 +14,10 @@ import "DPI-C" function byte read_symbol (input string symbol_name, inout longin
 
 `ifndef READ_ELF_T
 `define READ_ELF_T
-import "DPI-C" function void read_elf(input string filename);
+import "DPI-C" function byte read_elf(input string filename);
+import "DPI-C" function byte get_entry(output longint entry);
 import "DPI-C" function byte get_section(output longint address, output longint len);
-import "DPI-C" context function void read_section_sv(input longint address, inout byte buffer[]);
+import "DPI-C" context function byte read_section(input longint address, inout byte buffer[], input longint len);
 `endif
 
 
@@ -43,7 +44,7 @@ module rvfi_tracer #(
   initial begin
     TOHOST_ADDR = '0;
     f = $fopen($sformatf("trace_rvfi_hart_%h.dasm", HART_ID), "w");
-    if (!$value$plusargs("time_out=%d", SIM_FINISH)) SIM_FINISH = 2000000;
+    if (!$value$plusargs("time_out=%d", SIM_FINISH)) SIM_FINISH = 32'hFFFFFFFF;
     if (!$value$plusargs("tohost_addr=%h", TOHOST_ADDR)) TOHOST_ADDR = '0;
     if (TOHOST_ADDR == '0) begin
         if (!$value$plusargs("elf_file=%s", binary)) binary = "";
@@ -83,8 +84,8 @@ module rvfi_tracer #(
              pc64, rvfi_i[i].insn, rvfi_i[i].insn);
         end
         else begin
-           $fwrite(f, "core   0: 0x%h (0x%h) DASM(%h)\n",
-             pc64, rvfi_i[i].insn, rvfi_i[i].insn);
+           $fwrite(f, "core   0: 0x%h (0x%h) @%d DASM(%h)\n",
+             pc64, rvfi_i[i].insn, cycles, rvfi_i[i].insn);
         end
         // Destination register information
         if (rvfi_i[i].insn[1:0] != 2'b11) begin
