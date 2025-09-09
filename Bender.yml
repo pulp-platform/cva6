@@ -8,6 +8,7 @@ package:
 # WT_DCACHE
 dependencies:
   axi: { git: "https://github.com/pulp-platform/axi.git", version: 0.31.0 }
+  ace: { git: "https://github.com/pulp-platform/ace.git", rev: bd99a72    } # branch: multicore/devel
   common_cells:
     { git: "https://github.com/pulp-platform/common_cells", version: 1.23.0 }
   fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 58ca3c3 } # branch: develop
@@ -173,6 +174,7 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_resp_demux.sv
       - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_to_axi_read.sv
       - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_snoop_to_ace_snoop.sv
       - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_req_read_arbiter.sv
       - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_req_write_arbiter.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_demux.sv
@@ -214,6 +216,8 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_sel.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_wbuf.sv
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_flush.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cbuf.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_snoop.sv
       # HPDCache integration
       - core/cache_subsystem/cva6_hpdcache_if_adapter.sv
       - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
