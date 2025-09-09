@@ -213,6 +213,8 @@ package config_pkg;
     bit          DcacheFlushOnFence;
     bit          DcacheFlushOnFenceI;
     bit          DcacheInvalidateOnFlush;
+    // Enable hardware cache coherency (ACE) in the HPDCache subsystem
+    bit          DcacheCoherent;
     // User field on data bus enable
     int unsigned DataUserEn;
     // Write-through data cache write buffer depth
@@ -404,6 +406,7 @@ package config_pkg;
     bit DcacheFlushOnFence;
     bit DcacheFlushOnFenceI;
     bit DcacheInvalidateOnFlush;
+    bit DcacheCoherent;
 
     int unsigned DATA_USER_EN;
     int unsigned WtDcacheWbufDepth;

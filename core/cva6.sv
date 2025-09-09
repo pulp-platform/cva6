@@ -244,6 +244,9 @@ module cva6
       axi_pkg::qos_t                   qos;
       axi_pkg::region_t                region;
       logic [CVA6Cfg.AxiUserWidth-1:0] user;
+      ace_pkg::arsnoop_t               snoop;
+      ace_pkg::axbar_t                 bar;
+      ace_pkg::axdomain_t              domain;
     },
     parameter type axi_aw_chan_t = struct packed {
       logic [CVA6Cfg.AxiIdWidth-1:0]   id;
@@ -258,6 +261,10 @@ module cva6
       axi_pkg::region_t                region;
       axi_pkg::atop_t                  atop;
       logic [CVA6Cfg.AxiUserWidth-1:0] user;
+      ace_pkg::awsnoop_t               snoop;
+      ace_pkg::axbar_t                 bar;
+      ace_pkg::axdomain_t              domain;
+      ace_pkg::awunique_t              awunique;
     },
     parameter type axi_w_chan_t = struct packed {
       logic [CVA6Cfg.AxiDataWidth-1:0]     data;
@@ -273,9 +280,32 @@ module cva6
     parameter type r_chan_t = struct packed {
       logic [CVA6Cfg.AxiIdWidth-1:0]   id;
       logic [CVA6Cfg.AxiDataWidth-1:0] data;
-      axi_pkg::resp_t                  resp;
+      ace_pkg::rresp_t                 resp;
       logic                            last;
       logic [CVA6Cfg.AxiUserWidth-1:0] user;
+    },
+    parameter type snoop_ac_chan_t = struct packed {
+      logic [CVA6Cfg.AxiAddrWidth-1:0] addr;
+      ace_pkg::acsnoop_t snoop;
+      ace_pkg::acprot_t prot;
+    },
+    parameter type snoop_cr_chan_t = ace_pkg::crresp_t,
+    parameter type snoop_cd_chan_t = struct packed {
+      logic [CVA6Cfg.AxiDataWidth-1:0] data;
+      logic                            last;
+    },
+    parameter type snoop_req_t = struct packed {
+      logic           ac_valid;
+      logic           cd_ready;
+      snoop_ac_chan_t ac;
+      logic           cr_ready;
+    },
+    parameter type snoop_resp_t = struct packed {
+      logic           ac_ready;
+      logic           cd_valid;
+      snoop_cd_chan_t cd;
+      logic           cr_valid;
+      snoop_cr_chan_t cr_resp;
     },
     parameter type noc_req_t = struct packed {
       axi_aw_chan_t aw;
@@ -338,10 +368,17 @@ module cva6
     output cvxif_req_t cvxif_req_o,
     // CVXIF response - SUBSYSTEM
     input cvxif_resp_t cvxif_resp_i,
-    // noc request, can be AXI or OpenPiton - SUBSYSTEM
+    // snoop request (ACE) - SUBSYSTEM
+    input snoop_req_t snoop_req_i,
+    // snoop response (ACE) - SUBSYSTEM
+    output snoop_resp_t snoop_resp_o,
+    // noc request, can be AXI, ACE or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
-    // noc response, can be AXI or OpenPiton - SUBSYSTEM
-    input noc_resp_t noc_resp_i
+    // noc response, can be AXI, ACE or OpenPiton - SUBSYSTEM
+    input noc_resp_t noc_resp_i,
+    // ACE-specific read and write acknowledgments
+    output logic     noc_rack_o,
+    output logic     noc_wack_o
 );
 
   localparam type interrupts_t = struct packed {
@@ -1465,6 +1502,11 @@ module cva6
         .axi_w_chan_t (axi_w_chan_t),
         .axi_b_chan_t (b_chan_t),
         .axi_r_chan_t (r_chan_t),
+        .snoop_ac_chan_t (snoop_ac_chan_t),
+        .snoop_cr_chan_t (snoop_cr_chan_t),
+        .snoop_cd_chan_t (snoop_cd_chan_t),
+        .snoop_req_t  (snoop_req_t),
+        .snoop_resp_t (snoop_resp_t),
         .noc_req_t (noc_req_t),
         .noc_resp_t(noc_resp_t),
         .cmo_req_t (logic  /*FIXME*/),
@@ -1509,8 +1551,13 @@ module cva6
         .hwpf_throttle_o    (  /*FIXME*/),
         .hwpf_status_o      (  /*FIXME*/),
 
+        .snoop_req_i (snoop_req_i),
+        .snoop_resp_o(snoop_resp_o),
+
         .noc_req_o (noc_req_o),
-        .noc_resp_i(noc_resp_i)
+        .noc_resp_i(noc_resp_i),
+        .noc_rack_o(noc_rack_o),
+        .noc_wack_o(noc_wack_o)
     );
     assign inval_ready   = 1'b1;
     assign miss_vld_bits = '0;

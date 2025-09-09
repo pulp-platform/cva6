@@ -163,6 +163,7 @@ package build_config_pkg;
     cfg.DcacheFlushOnFence = CVA6Cfg.DcacheFlushOnFence;
     cfg.DcacheFlushOnFenceI = CVA6Cfg.DcacheFlushOnFenceI;
     cfg.DcacheInvalidateOnFlush = CVA6Cfg.DcacheInvalidateOnFlush;
+    cfg.DcacheCoherent = CVA6Cfg.DcacheCoherent;
 
     cfg.DATA_USER_EN = CVA6Cfg.DataUserEn;
     cfg.WtDcacheWbufDepth = CVA6Cfg.WtDcacheWbufDepth;

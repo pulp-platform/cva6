@@ -84,7 +84,13 @@ module cva6_hpdcache_subsystem_axi_arbiter
     //  AXI port to upstream memory/peripherals
     //  {{{
     output axi_req_t axi_req_o,
-    input  axi_rsp_t axi_resp_i
+    input  axi_rsp_t axi_resp_i,
+    //  }}}
+
+    //  ACE specific read and write acknowledgments
+    //  {{{
+    output logic ace_rack_o,
+    output logic ace_wack_o
     //  }}}
 );
   //  }}}
@@ -151,6 +157,7 @@ module cva6_hpdcache_subsystem_axi_arbiter
   assign icache_miss_req_wdata.mem_req_command = hpdcache_pkg::HPDCACHE_MEM_READ;
   assign icache_miss_req_wdata.mem_req_atomic = hpdcache_pkg::hpdcache_mem_atomic_e'(0);
   assign icache_miss_req_wdata.mem_req_cacheable = ~icache_miss_i.nc;
+  assign icache_miss_req_wdata.mem_req_coherence = icache_miss_i.nc ? hpdcache_pkg::HPDCACHE_MEM_COHERENCE_READ_NO_SNOOP : hpdcache_pkg::HPDCACHE_MEM_COHERENCE_READ_CLEAN;
 
 
   //    I$ response
@@ -287,15 +294,15 @@ module cva6_hpdcache_subsystem_axi_arbiter
 
   //  Read response demultiplexor
   //  {{{
-  logic                 mem_resp_read_ready;
-  logic                 mem_resp_read_valid;
-  hpdcache_mem_resp_r_t mem_resp_read;
+  logic                       mem_resp_read_ready;
+  logic                       mem_resp_read_valid;
+  hpdcache_mem_resp_r_t       mem_resp_read;
 
-  logic                 mem_resp_read_ready_arb[1:0];
-  logic                 mem_resp_read_valid_arb[1:0];
-  hpdcache_mem_resp_r_t mem_resp_read_arb      [1:0];
+  logic                       mem_resp_read_ready_arb    [1:0];
+  logic                       mem_resp_read_valid_arb    [1:0];
+  hpdcache_mem_resp_r_t       mem_resp_read_arb          [1:0];
 
-  mem_resp_rt_t         mem_resp_read_rt;
+  mem_resp_rt_t               mem_resp_read_rt;
 
   always_comb begin
     for (int i = 0; i < MEM_RESP_RT_DEPTH; i++) begin
@@ -330,6 +337,16 @@ module cva6_hpdcache_subsystem_axi_arbiter
   assign dcache_read_resp_valid_o = mem_resp_read_valid_arb[1];
   assign dcache_read_resp_o = mem_resp_read_arb[1];
   assign mem_resp_read_ready_arb[1] = dcache_read_resp_ready_i;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) ace_rack_o <= 1'b0;
+    else         ace_rack_o <= (mem_resp_read_valid && mem_resp_read_ready && mem_resp_read.mem_resp_r_last);
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) ace_wack_o <= 1'b0;
+    else         ace_wack_o <= (dcache_write_resp_valid_o && dcache_write_resp_ready_i);
+  end
   //  }}}
 
   //  I$ miss pending
@@ -348,6 +365,7 @@ module cva6_hpdcache_subsystem_axi_arbiter
   //  {{{
 
   hpdcache_mem_to_axi_write #(
+      .aceEn                (CVA6Cfg.DcacheCoherent),
       .hpdcache_mem_req_t   (hpdcache_mem_req_t),
       .hpdcache_mem_req_w_t (hpdcache_mem_req_w_t),
       .hpdcache_mem_resp_w_t(hpdcache_mem_resp_w_t),
@@ -381,6 +399,7 @@ module cva6_hpdcache_subsystem_axi_arbiter
   );
 
   hpdcache_mem_to_axi_read #(
+      .aceEn                (CVA6Cfg.DcacheCoherent),
       .hpdcache_mem_req_t   (hpdcache_mem_req_t),
       .hpdcache_mem_resp_r_t(hpdcache_mem_resp_r_t),
       .ar_chan_t            (axi_ar_chan_t),

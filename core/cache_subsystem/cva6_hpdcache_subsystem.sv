@@ -33,6 +33,11 @@ module cva6_hpdcache_subsystem
     parameter type axi_w_chan_t = logic,
     parameter type axi_b_chan_t = logic,
     parameter type axi_r_chan_t = logic,
+    parameter type snoop_ac_chan_t = logic,
+    parameter type snoop_cr_chan_t = logic,
+    parameter type snoop_cd_chan_t = logic,
+    parameter type snoop_req_t = logic,
+    parameter type snoop_resp_t = logic,
     parameter type noc_req_t = logic,
     parameter type noc_resp_t = logic,
     parameter type cmo_req_t = logic,
@@ -55,6 +60,20 @@ module cva6_hpdcache_subsystem
     output noc_req_t  noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
     input  noc_resp_t noc_resp_i,
+    //  }}}
+
+    //  ACE specific read and write acknowledgments
+    //  {{{
+    output logic noc_rack_o,
+    output logic noc_wack_o,
+    //  }}}
+
+    //  ACE snoop port from coherent interconnect
+    //  {{{
+    // snoop request (ACE)
+    input  snoop_req_t  snoop_req_i,
+    // snoop response (ACE)
+    output snoop_resp_t snoop_resp_o,
     //  }}}
 
     //  I$
@@ -211,6 +230,10 @@ module cva6_hpdcache_subsystem
     userCfg.mshrSetsPerRam = CVA6Cfg.NrLoadBufEntries < 16 ? 1 : CVA6Cfg.NrLoadBufEntries / 2;
     userCfg.mshrRamByteEnable = 1'b1;
     userCfg.mshrUseRegbank = (CVA6Cfg.NrLoadBufEntries < 16);
+    /*FIXME we should add additional CVA6 config parameters (cbufEntries)*/
+    userCfg.cbufEntries = 4;
+    /*FIXME we should add additional CVA6 config parameters (snoopFifoDepth)*/
+    userCfg.snoopFifoDepth = CVA6Cfg.WtDcacheWbufDepth;
     userCfg.refillCoreRspFeedthrough = 1'b1;
     userCfg.refillFifoDepth = 2 * (CVA6Cfg.DCACHE_LINE_WIDTH / CVA6Cfg.AxiDataWidth);
     userCfg.wbufDirEntries = CVA6Cfg.WtDcacheWbufDepth;
@@ -231,6 +254,8 @@ module cva6_hpdcache_subsystem
     userCfg.wbEn =
         (CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WB) ||
         (CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WT_WB);
+    userCfg.lowLatency = 1'b1;
+    userCfg.coherenceEn = CVA6Cfg.DcacheCoherent;
     return userCfg;
   endfunction
 
@@ -255,27 +280,44 @@ module cva6_hpdcache_subsystem
   `HPDCACHE_TYPEDEF_RSP_T(hpdcache_rsp_t, hpdcache_req_data_t, hpdcache_req_sid_t,
                           hpdcache_req_tid_t);
 
+  localparam type hpdcache_nline_t = logic [HPDcacheCfg.nlineWidth-1:0];
+
+  `HPDCACHE_TYPEDEF_SNOOP_REQ_T(hpdcache_snoop_req_t, hpdcache_nline_t);
+  `HPDCACHE_TYPEDEF_SNOOP_RESP_DATA_T(hpdcache_snoop_resp_data_t, hpdcache_mem_data_t);
+
   typedef logic [HPDcacheCfg.u.wbufTimecntWidth-1:0] hpdcache_wbuf_timecnt_t;
 
-  logic                 dcache_read_ready;
-  logic                 dcache_read_valid;
-  hpdcache_mem_req_t    dcache_read;
+  logic                               dcache_read_ready;
+  logic                               dcache_read_valid;
+  hpdcache_mem_req_t                  dcache_read;
 
-  logic                 dcache_read_resp_ready;
-  logic                 dcache_read_resp_valid;
-  hpdcache_mem_resp_r_t dcache_read_resp;
+  logic                               dcache_read_resp_ready;
+  logic                               dcache_read_resp_valid;
+  hpdcache_mem_resp_r_t               dcache_read_resp;
 
-  logic                 dcache_write_ready;
-  logic                 dcache_write_valid;
-  hpdcache_mem_req_t    dcache_write;
+  logic                               dcache_write_ready;
+  logic                               dcache_write_valid;
+  hpdcache_mem_req_t                  dcache_write;
 
-  logic                 dcache_write_data_ready;
-  logic                 dcache_write_data_valid;
-  hpdcache_mem_req_w_t  dcache_write_data;
+  logic                               dcache_write_data_ready;
+  logic                               dcache_write_data_valid;
+  hpdcache_mem_req_w_t                dcache_write_data;
 
-  logic                 dcache_write_resp_ready;
-  logic                 dcache_write_resp_valid;
-  hpdcache_mem_resp_w_t dcache_write_resp;
+  logic                               dcache_write_resp_ready;
+  logic                               dcache_write_resp_valid;
+  hpdcache_mem_resp_w_t               dcache_write_resp;
+
+  logic                               dcache_snoop_ready;
+  logic                               dcache_snoop_valid;
+  hpdcache_snoop_req_t                dcache_snoop;
+
+  logic                               dcache_snoop_resp_meta_ready;
+  logic                               dcache_snoop_resp_meta_valid;
+  hpdcache_pkg::hpdcache_snoop_meta_t dcache_snoop_resp_meta;
+
+  logic                               dcache_snoop_resp_data_ready;
+  logic                               dcache_snoop_resp_data_valid;
+  hpdcache_snoop_resp_data_t          dcache_snoop_resp_data;
 
   cva6_hpdcache_wrapper #(
       .CVA6Cfg(CVA6Cfg),
@@ -304,7 +346,9 @@ module cva6_hpdcache_subsystem
       .hpdcache_req_t(hpdcache_req_t),
       .hpdcache_rsp_t(hpdcache_rsp_t),
       .hpdcache_wbuf_timecnt_t(hpdcache_wbuf_timecnt_t),
-      .hpdcache_data_be_t(hpdcache_data_be_t)
+      .hpdcache_data_be_t(hpdcache_data_be_t),
+      .hpdcache_snoop_req_t(hpdcache_snoop_req_t),
+      .hpdcache_snoop_resp_data_t(hpdcache_snoop_resp_data_t)
   ) i_dcache (
       .clk_i(clk_i),
       .rst_ni(rst_ni),
@@ -330,6 +374,18 @@ module cva6_hpdcache_subsystem
       .hwpf_throttle_i(hwpf_throttle_i),
       .hwpf_throttle_o(hwpf_throttle_o),
       .hwpf_status_o(hwpf_status_o),
+
+      .dcache_snoop_req_valid_i(dcache_snoop_valid),
+      .dcache_snoop_req_ready_o(dcache_snoop_ready),
+      .dcache_snoop_req_i(dcache_snoop),
+
+      .dcache_snoop_resp_meta_valid_o(dcache_snoop_resp_meta_valid),
+      .dcache_snoop_resp_meta_ready_i(dcache_snoop_resp_meta_ready),
+      .dcache_snoop_resp_meta_o(dcache_snoop_resp_meta),
+
+      .dcache_snoop_resp_data_ready_i(dcache_snoop_resp_data_ready),
+      .dcache_snoop_resp_data_valid_o(dcache_snoop_resp_data_valid),
+      .dcache_snoop_resp_data_o(dcache_snoop_resp_data),
 
       .dcache_mem_req_read_ready_i(dcache_read_ready),
       .dcache_mem_req_read_valid_o(dcache_read_valid),
@@ -408,8 +464,50 @@ module cva6_hpdcache_subsystem
       .dcache_write_resp_o      (dcache_write_resp),
 
       .axi_req_o (noc_req_o),
-      .axi_resp_i(noc_resp_i)
+      .axi_resp_i(noc_resp_i),
+      .ace_rack_o(noc_rack_o),
+      .ace_wack_o(noc_wack_o)
   );
+  //  }}}
+
+  //  Snoop port adapter
+  //  {{{
+
+  if (HPDcacheCfg.u.coherenceEn) begin : gen_snoop_adapter
+    hpdcache_snoop_to_ace_snoop #(
+        .HPDcacheCfg(HPDcacheCfg),
+        .hpdcache_snoop_req_t(hpdcache_snoop_req_t),
+        .hpdcache_snoop_resp_data_t(hpdcache_snoop_resp_data_t),
+        .ac_chan_t(snoop_ac_chan_t),
+        .cr_chan_t(snoop_cr_chan_t),
+        .cd_chan_t(snoop_cd_chan_t)
+    ) i_snoop_adapter (
+        .snoop_req_valid_o(dcache_snoop_valid),
+        .snoop_req_ready_i(dcache_snoop_ready),
+        .snoop_req_o(dcache_snoop),
+        .snoop_rsp_meta_valid_i(dcache_snoop_resp_meta_valid),
+        .snoop_rsp_meta_ready_o(dcache_snoop_resp_meta_ready),
+        .snoop_rsp_meta_i(dcache_snoop_resp_meta),
+        .snoop_rsp_data_valid_i(dcache_snoop_resp_data_valid),
+        .snoop_rsp_data_ready_o(dcache_snoop_resp_data_ready),
+        .snoop_rsp_data_i(dcache_snoop_resp_data),
+        .ace_ac_valid_i(snoop_req_i.ac_valid),
+        .ace_ac_ready_o(snoop_resp_o.ac_ready),
+        .ace_ac_i(snoop_req_i.ac),
+        .ace_cr_valid_o(snoop_resp_o.cr_valid),
+        .ace_cr_ready_i(snoop_req_i.cr_ready),
+        .ace_cr_o(snoop_resp_o.cr),
+        .ace_cd_valid_o(snoop_resp_o.cd_valid),
+        .ace_cd_ready_i(snoop_req_i.cd_ready),
+        .ace_cd_o(snoop_resp_o.cd)
+    );
+  end else begin : gen_no_snoop_adapter
+    assign dcache_snoop_valid           = 1'b0;
+    assign dcache_snoop                 = '0;
+    assign dcache_snoop_resp_meta_ready = 1'b0;
+    assign dcache_snoop_resp_data_ready = 1'b0;
+    assign snoop_resp_o                 = '0;
+  end
   //  }}}
 
   //  Assertions

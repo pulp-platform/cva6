@@ -43,7 +43,9 @@ module cva6_hpdcache_wrapper
     parameter type hpdcache_req_t = logic,
     parameter type hpdcache_rsp_t = logic,
     parameter type hpdcache_wbuf_timecnt_t = logic,
-    parameter type hpdcache_data_be_t = logic
+    parameter type hpdcache_data_be_t = logic,
+    parameter type hpdcache_snoop_req_t = logic,
+    parameter type hpdcache_snoop_resp_data_t = logic
 )
 //  }}}
 
@@ -92,6 +94,18 @@ module cva6_hpdcache_wrapper
     input  logic [NrHwPrefetchers-1:0][63:0] hwpf_throttle_i,
     output logic [NrHwPrefetchers-1:0][63:0] hwpf_throttle_o,
     output logic [               63:0]       hwpf_status_o,
+
+    input  logic                dcache_snoop_req_valid_i,
+    output logic                dcache_snoop_req_ready_o,
+    input  hpdcache_snoop_req_t dcache_snoop_req_i,
+
+    output logic                               dcache_snoop_resp_meta_valid_o,
+    input  logic                               dcache_snoop_resp_meta_ready_i,
+    output hpdcache_pkg::hpdcache_snoop_meta_t dcache_snoop_resp_meta_o,
+
+    input  logic                      dcache_snoop_resp_data_ready_i,
+    output logic                      dcache_snoop_resp_data_valid_o,
+    output hpdcache_snoop_resp_data_t dcache_snoop_resp_data_o,
 
     input  logic              dcache_mem_req_read_ready_i,
     output logic              dcache_mem_req_read_valid_o,
@@ -339,26 +353,28 @@ module cva6_hpdcache_wrapper
   );
 
   hpdcache #(
-      .HPDcacheCfg          (HPDcacheCfg),
-      .wbuf_timecnt_t       (hpdcache_wbuf_timecnt_t),
-      .hpdcache_tag_t       (hpdcache_tag_t),
-      .hpdcache_data_word_t (hpdcache_data_word_t),
-      .hpdcache_data_be_t   (hpdcache_data_be_t),
-      .hpdcache_req_offset_t(hpdcache_req_offset_t),
-      .hpdcache_req_data_t  (hpdcache_req_data_t),
-      .hpdcache_req_be_t    (hpdcache_req_be_t),
-      .hpdcache_req_sid_t   (hpdcache_req_sid_t),
-      .hpdcache_req_tid_t   (hpdcache_req_tid_t),
-      .hpdcache_req_t       (hpdcache_req_t),
-      .hpdcache_rsp_t       (hpdcache_rsp_t),
-      .hpdcache_mem_addr_t  (hpdcache_mem_addr_t),
-      .hpdcache_mem_id_t    (hpdcache_mem_id_t),
-      .hpdcache_mem_data_t  (hpdcache_mem_data_t),
-      .hpdcache_mem_be_t    (hpdcache_mem_be_t),
-      .hpdcache_mem_req_t   (hpdcache_mem_req_t),
-      .hpdcache_mem_req_w_t (hpdcache_mem_req_w_t),
-      .hpdcache_mem_resp_r_t(hpdcache_mem_resp_r_t),
-      .hpdcache_mem_resp_w_t(hpdcache_mem_resp_w_t)
+      .HPDcacheCfg               (HPDcacheCfg),
+      .wbuf_timecnt_t            (hpdcache_wbuf_timecnt_t),
+      .hpdcache_tag_t            (hpdcache_tag_t),
+      .hpdcache_data_word_t      (hpdcache_data_word_t),
+      .hpdcache_data_be_t        (hpdcache_data_be_t),
+      .hpdcache_req_offset_t     (hpdcache_req_offset_t),
+      .hpdcache_req_data_t       (hpdcache_req_data_t),
+      .hpdcache_req_be_t         (hpdcache_req_be_t),
+      .hpdcache_req_sid_t        (hpdcache_req_sid_t),
+      .hpdcache_req_tid_t        (hpdcache_req_tid_t),
+      .hpdcache_req_t            (hpdcache_req_t),
+      .hpdcache_rsp_t            (hpdcache_rsp_t),
+      .hpdcache_snoop_req_t      (hpdcache_snoop_req_t),
+      .hpdcache_snoop_resp_data_t(hpdcache_snoop_resp_data_t),
+      .hpdcache_mem_addr_t       (hpdcache_mem_addr_t),
+      .hpdcache_mem_id_t         (hpdcache_mem_id_t),
+      .hpdcache_mem_data_t       (hpdcache_mem_data_t),
+      .hpdcache_mem_be_t         (hpdcache_mem_be_t),
+      .hpdcache_mem_req_t        (hpdcache_mem_req_t),
+      .hpdcache_mem_req_w_t      (hpdcache_mem_req_w_t),
+      .hpdcache_mem_resp_r_t     (hpdcache_mem_resp_r_t),
+      .hpdcache_mem_resp_w_t     (hpdcache_mem_resp_w_t)
   ) i_hpdcache (
       .clk_i,
       .rst_ni,
@@ -375,6 +391,18 @@ module cva6_hpdcache_wrapper
       .core_rsp_valid_o(dcache_rsp_valid),
       .core_rsp_o      (dcache_rsp),
 
+      .snoop_req_valid_i(dcache_snoop_req_valid_i),
+      .snoop_req_ready_o(dcache_snoop_req_ready_o),
+      .snoop_req_i      (dcache_snoop_req_i),
+
+      .snoop_rsp_meta_valid_o(dcache_snoop_resp_meta_valid_o),
+      .snoop_rsp_meta_ready_i(dcache_snoop_resp_meta_ready_i),
+      .snoop_rsp_meta_o      (dcache_snoop_resp_meta_o),
+
+      .snoop_rsp_data_ready_i(dcache_snoop_resp_data_ready_i),
+      .snoop_rsp_data_valid_o(dcache_snoop_resp_data_valid_o),
+      .snoop_rsp_data_o      (dcache_snoop_resp_data_o),
+
       .mem_req_read_ready_i(dcache_mem_req_read_ready_i),
       .mem_req_read_valid_o(dcache_mem_req_read_valid_o),
       .mem_req_read_o      (dcache_mem_req_read_o),
@@ -382,6 +410,9 @@ module cva6_hpdcache_wrapper
       .mem_resp_read_ready_o(dcache_mem_resp_read_ready_o),
       .mem_resp_read_valid_i(dcache_mem_resp_read_valid_i),
       .mem_resp_read_i      (dcache_mem_resp_read_i),
+
+      .mem_resp_read_inval_i      (1'b0),
+      .mem_resp_read_inval_nline_i('0),
 
       .mem_req_write_ready_i(dcache_mem_req_write_ready_i),
       .mem_req_write_valid_o(dcache_mem_req_write_valid_o),
