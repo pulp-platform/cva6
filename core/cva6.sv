@@ -385,7 +385,9 @@ module cva6
     // noc request, can be AXI or OpenPiton - SUBSYSTEM
     output noc_req_t noc_req_o,
     // noc response, can be AXI or OpenPiton - SUBSYSTEM
-    input noc_resp_t noc_resp_i
+    input noc_resp_t noc_resp_i,
+    output logic clr_soc_o,
+    input logic clr_soc_ack_i
 );
 
   localparam type interrupts_t = struct packed {
@@ -1463,7 +1465,9 @@ module cva6
       .hfence_vvma_i         (hfence_vvma_commit_controller),
       .hfence_gvma_i         (hfence_gvma_commit_controller),
       .flush_commit_i        (flush_commit),
-      .flush_acc_i           (flush_acc)
+      .flush_acc_i           (flush_acc),
+      .clr_soc_o             (clr_soc_o),
+      .clr_soc_ack_i         (clr_soc_ack_i)
   );
 
   // -------------------
