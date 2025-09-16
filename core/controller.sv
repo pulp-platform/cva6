@@ -103,7 +103,9 @@ module controller
     // Flush request from commit stage - COMMIT_STAGE
     input logic flush_commit_i,
     // Flush request from accelerator - ACC_DISPATCHER
-    input logic flush_acc_i
+    input logic flush_acc_i,
+    output logic clr_soc_o,
+    input logic clr_soc_ack_i
 );
 
   // active fence - high if we are currently flushing the dcache
@@ -131,6 +133,7 @@ module controller
     FLUSH_DCACHE,
     DRAIN_REQS,
     PAD,
+    CLR_SOC,
     RST_UARCH
   } fence_t_state_e;
   fence_t_state_e fence_t_state_d, fence_t_state_q;
@@ -255,9 +258,9 @@ module controller
     // FENCE.T
     // ---------------------------------
     if (fence_t_i) begin
-      flush_icache_o = 1'b1;
-      flush_dcache   = 1'b1;
-      fence_active_d = 1'b1;
+      //flush_icache_o = 1'b1;
+      //flush_dcache   = 1'b1;
+      //fence_active_d = 1'b1;
 
       // Save PC to continue from after coming out of reset
       rst_addr_d     = pc_commit_i + {{riscv::VLEN - 3{1'b0}}, 3'b100};
@@ -316,11 +319,12 @@ module controller
     rst_uarch_no    = 1'b1;
     fence_t_ceil_o  = '0;
     cache_init_d[0] = 1'b0;
+    clr_soc_o       = 1'b0;
 
     unique case (fence_t_state_q)
       // Idle
       IDLE: begin
-        if (fence_t_i) fence_t_state_d = FLUSH_DCACHE;
+        if (fence_t_i) fence_t_state_d = DRAIN_REQS;
       end
 
       // Wait for dcache to acknowledge flush
@@ -341,7 +345,13 @@ module controller
 
       // Wait for the padding to complete.
       PAD: begin
-        if (pad_cnt == '0) fence_t_state_d = RST_UARCH;
+        if (pad_cnt == '0) fence_t_state_d = CLR_SOC;
+      end
+
+      // Clear SoC state
+      CLR_SOC: begin
+        clr_soc_o = 1'b1;
+        if (clr_soc_ack_i) fence_t_state_d = RST_UARCH;
       end
 
       // Reset microarchitecture
