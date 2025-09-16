@@ -228,7 +228,7 @@ module cva6_icache
       // wait for an incoming request
       IDLE: begin
         // only enable tag comparison if cache is enabled
-        cmp_en_d = cache_en_q;
+        cmp_en_d = cache_en_d;
 
         // handle pending flushes, or perform cache clear upon enable
         if (flush_d || (en_i && !cache_en_q && !init_ni)) begin
@@ -458,7 +458,7 @@ module cva6_icache
         .NUM_WORDS (ICACHE_NUM_WORDS)
     ) tag_sram (
         .clk_i  (clk_i),
-        .rst_ni (rst_ni),
+        .rst_ni (rst_ni | init_ni),
         .req_i  (vld_req[i]),
         .we_i   (vld_we),
         .addr_i (vld_addr),
@@ -482,7 +482,7 @@ module cva6_icache
         .NUM_WORDS (ICACHE_NUM_WORDS)
     ) data_sram (
         .clk_i  (clk_i),
-        .rst_ni (rst_ni),
+        .rst_ni (rst_ni | init_ni),
         .req_i  (cl_req[i]),
         .we_i   (cl_we),
         .addr_i (cl_index),
@@ -503,7 +503,7 @@ module cva6_icache
       cmp_en_q      <= '0;
       cache_en_q    <= '0;
       flush_q       <= '0;
-      state_q       <= FLUSH;
+      state_q       <= IDLE;
       cl_offset_q   <= '0;
       repl_way_oh_q <= '0;
       inv_q         <= '0;
