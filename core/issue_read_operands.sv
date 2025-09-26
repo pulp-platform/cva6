@@ -91,6 +91,10 @@ module issue_read_operands
     output logic [CVA6Cfg.NrIssuePorts-1:0] alu2_valid_o,
     // CSR is valid - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] csr_valid_o,
+    // CMO FU is ready - EX_STAGE
+    input logic cmo_ready_i,
+    // CMO output is valid - EX_STAGE
+    output logic [CVA6Cfg.NrIssuePorts-1:0] cmo_valid_o,
     // CVXIF FU is valid - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] cvxif_valid_o,
     // CVXIF is FU ready - EX_STAGE
@@ -137,7 +141,7 @@ module issue_read_operands
   localparam OPERANDS_PER_INSTR = CVA6Cfg.NrRgprPorts / CVA6Cfg.NrIssuePorts;
 
   typedef struct packed {
-    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, accel, aes;
+    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, accel, aes, cmo;
   } fus_busy_t;
 
   logic [CVA6Cfg.NrIssuePorts-1:0] stall_raw, stall_rs1, stall_rs2, stall_rs3;
@@ -165,6 +169,7 @@ module issue_read_operands
   logic [CVA6Cfg.NrIssuePorts-1:0] alu2_valid_n, alu2_valid_q;
   logic [CVA6Cfg.NrIssuePorts-1:0] lsu_valid_n, lsu_valid_q;
   logic [CVA6Cfg.NrIssuePorts-1:0] csr_valid_n, csr_valid_q;
+  logic [CVA6Cfg.NrIssuePorts-1:0] cmo_valid_n, cmo_valid_q;
   logic [CVA6Cfg.NrIssuePorts-1:0] branch_valid_n, branch_valid_q;
   logic [CVA6Cfg.NrIssuePorts-1:0] cvxif_valid_n, cvxif_valid_q;
   logic [31:0] cvxif_off_instr_n, cvxif_off_instr_q;
@@ -280,6 +285,7 @@ module issue_read_operands
   assign branch_valid_o = branch_valid_q;
   assign lsu_valid_o = lsu_valid_q;
   assign csr_valid_o = csr_valid_q;
+  assign cmo_valid_o = cmo_valid_q;
   assign mult_valid_o = mult_valid_q;
   assign fpu_valid_o = fpu_valid_q;
   assign fpu_fmt_o = fpu_fmt_q;
@@ -324,6 +330,10 @@ module issue_read_operands
     if (!lsu_ready_i) begin
       fus_busy[0].load  = 1'b1;
       fus_busy[0].store = 1'b1;
+    end
+
+    if (!cmo_ready_i) begin
+      fus_busy[0].cmo = 1'b1;
     end
 
     if (CVA6Cfg.SuperscalarEn) begin
@@ -385,6 +395,7 @@ module issue_read_operands
           fus_busy[1].store = 1'b1;
         end
         CVXIF: ;
+        CMO: ;
         default: ;
       endcase
     end
@@ -410,6 +421,7 @@ module issue_read_operands
         STORE: fu_busy[i] = fus_busy[i].store;
         CVXIF: fu_busy[i] = fus_busy[i].cvxif;
         AES: fu_busy[i] = fus_busy[i].aes;
+        CMO: fu_busy[i] = fus_busy[i].cmo;
         default:
         if (CVA6Cfg.FpPresent) begin
           unique case (issue_instr_i[i].fu)
@@ -690,6 +702,7 @@ module issue_read_operands
     fpu_rm_n       = '0;
     alu2_valid_n   = '0;
     csr_valid_n    = '0;
+    cmo_valid_n    = '0;
     branch_valid_n = '0;
     for (int unsigned i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
       if (!issue_instr_i[i].ex.valid && issue_instr_valid_i[i] && issue_ack_o[i]) begin
@@ -716,6 +729,9 @@ module issue_read_operands
           AES: begin
             aes_valid_n[i] = 1'b1;
           end
+          CMO: begin
+            cmo_valid_n[i] = 1'b1;
+          end
           default: begin
             if (issue_instr_i[i].fu == FPU && CVA6Cfg.FpPresent) begin
               fpu_valid_n[i] = 1'b1;
@@ -740,6 +756,7 @@ module issue_read_operands
       fpu_valid_n    = '0;
       alu2_valid_n   = '0;
       csr_valid_n    = '0;
+      cmo_valid_n    = '0;
       branch_valid_n = '0;
     end
   end
@@ -756,6 +773,7 @@ module issue_read_operands
       fpu_rm_q       <= '0;
       alu2_valid_q   <= '0;
       csr_valid_q    <= '0;
+      cmo_valid_q    <= '0;
       branch_valid_q <= '0;
     end else begin
       alu_valid_q    <= alu_valid_n;
@@ -767,6 +785,7 @@ module issue_read_operands
       fpu_rm_q       <= fpu_rm_n;
       alu2_valid_q   <= alu2_valid_n;
       csr_valid_q    <= csr_valid_n;
+      cmo_valid_q    <= cmo_valid_n;
       branch_valid_q <= branch_valid_n;
     end
   end
@@ -844,7 +863,7 @@ module issue_read_operands
   logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.XLEN-1:0] wdata_pack;
   logic [CVA6Cfg.NrCommitPorts-1:0]                   we_pack;
 
-  //adjust address to read from register file (when synchronous RAM is used reads take one cycle, so we advance the address)   
+  //adjust address to read from register file (when synchronous RAM is used reads take one cycle, so we advance the address)
   for (genvar i = 0; i <= CVA6Cfg.NrIssuePorts - 1; i++) begin
     assign raddr_pack[i*OPERANDS_PER_INSTR+0] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs1[4:0] : issue_instr_i[i].rs1[4:0];
     assign raddr_pack[i*OPERANDS_PER_INSTR+1] = CVA6Cfg.FpgaEn && CVA6Cfg.FpgaAlteraEn ? issue_instr_i_prev[i].rs2[4:0] : issue_instr_i[i].rs2[4:0];

@@ -27,7 +27,6 @@
 /// *Note*: There are some parameters here as well which will eventually be
 /// moved out to favour a fully parameterizable core.
 package ariane_pkg;
-
   // TODO: Slowly move those parameters to the new system.
   localparam BITS_SATURATION_COUNTER = 2;
 
@@ -200,7 +199,8 @@ package ariane_pkg;
     FPU_VEC,    // 8
     CVXIF,      // 9
     ACCEL,      // 10
-    AES         // 11
+    AES,        // 11
+    CMO         // 12
   } fu_t;
 
   // Index of writeback ports
@@ -317,6 +317,17 @@ package ariane_pkg;
     CSR_SET,
     CSR_CLEAR,
     FENCE_T,
+    // CMO functions
+    FU_CMO_CLEAN,
+    FU_CMO_FLUSH,
+    FU_CMO_INVAL,
+    FU_CMO_ZERO,
+    FU_CMO_CLEAN_ALL,
+    FU_CMO_FLUSH_ALL,
+    FU_CMO_INVAL_ALL,
+    FU_CMO_PREFETCH_I,
+    FU_CMO_PREFETCH_R,
+    FU_CMO_PREFETCH_W,
     // LSU functions
     LD,
     SD,
@@ -694,6 +705,35 @@ package ariane_pkg;
   } amo_resp_t;
 
   localparam RVFI = cva6_config_pkg::CVA6ConfigRvfiTrace;
+
+  // CMO request to cache.
+  typedef enum logic [3:0] {
+      CMO_NONE       = 4'b0000,
+      CMO_CLEAN      = 4'b0001,
+      CMO_FLUSH      = 4'b0010,
+      CMO_INVAL      = 4'b0011,
+      CMO_ZERO       = 4'b0100,
+      CMO_PREFETCH_I = 4'b0101,
+      CMO_PREFETCH_R = 4'b0110,
+      CMO_PREFETCH_W = 4'b0111,
+      CMO_CLEAN_ALL  = 4'b1100, // not part of riscv spec
+      CMO_INVAL_ALL  = 4'b1101, // not part of riscv spec
+      CMO_FLUSH_ALL  = 4'b1110  // not part of riscv spec
+  } cmo_t;
+
+  typedef struct packed {
+      logic        req;                   // this request is valid
+      cmo_t        cmo_op;                // Cache Management Operation to perform
+      logic [7:0] trans_id; // index of the scoreboard entry FIXME: Use TRANS_ID_BITS for logic width
+      logic [63:0] address;               // target address
+  } cmo_req_t;
+
+  // CMO response from cache.
+  typedef struct packed {
+      logic        req_ready;  // target cache accepts the request
+      logic [7:0] trans_id; // index of the scoreboard entry FIXME: Use TRANS_ID_BITS for logic width
+      logic        ack;    // response is valid
+  } cmo_resp_t;
 
   // ----------------------
   // Arithmetic Functions

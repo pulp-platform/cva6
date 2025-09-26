@@ -83,6 +83,9 @@ ${CVA6_REPO_DIR}/core/cvxif_example/instr_decoder.sv
 ${CVA6_REPO_DIR}/core/cvxif_example/compressed_instr_decoder.sv
 ${CVA6_REPO_DIR}/core/cvxif_example/copro_alu.sv
 
+// CMO
+${CVA6_REPO_DIR}/core/cmo_fu.sv
+
 // Common Cells
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/cf_math_pkg.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/fifo_v3.sv

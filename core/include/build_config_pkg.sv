@@ -21,7 +21,7 @@ package build_config_pkg;
     bit XF8ALTVec  = CVA6Cfg.XF8ALT  & CVA6Cfg.XFVec & FLen>8;  // FP8ALT vectors available if vectors and larger fmt enabled
 
     bit EnableAccelerator = CVA6Cfg.RVV;  // Currently only used by V extension (Ara)
-    int unsigned NrWbPorts = (CVA6Cfg.CvxifEn || EnableAccelerator) ? 5 : 4;
+    int unsigned NrWbPorts = ((CVA6Cfg.CvxifEn || EnableAccelerator) ? 5 : 4) + (CVA6Cfg.CMOEn ? 1 : 0);
 
     int unsigned ICACHE_INDEX_WIDTH = $clog2(CVA6Cfg.IcacheByteSize / CVA6Cfg.IcacheSetAssoc);
     int unsigned DCACHE_INDEX_WIDTH = $clog2(CVA6Cfg.DcacheByteSize / CVA6Cfg.DcacheSetAssoc);
@@ -79,6 +79,7 @@ package build_config_pkg;
     cfg.RVXHCLIC = CVA6Cfg.RVXHCLIC;
     cfg.XFVec = CVA6Cfg.XFVec;
     cfg.CvxifEn = CVA6Cfg.CvxifEn;
+    cfg.CMOEn = CVA6Cfg.CMOEn;
     cfg.CoproType = CVA6Cfg.CoproType;
     cfg.RVZiCond = CVA6Cfg.RVZiCond;
     cfg.RVZicntr = CVA6Cfg.RVZicntr;

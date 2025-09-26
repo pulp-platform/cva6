@@ -156,6 +156,8 @@ package config_pkg;
     logic [NrMaxRules-1:0][63:0] CachedRegionAddrBase;
     // PMA cache region rules
     logic [NrMaxRules-1:0][63:0] CachedRegionLength;
+    // Cache Management Operations (CMOs) enable
+    bit                          CMOEn;
     // CV-X-IF coprocessor interface enable
     bit                          CvxifEn;
     // Coprocessor type
@@ -292,6 +294,7 @@ package config_pkg;
     bit          RVXHCLIC;
     bit          XFVec;
     bit          CvxifEn;
+    bit          CMOEn;
     copro_type_t CoproType;
     bit          RVZiCond;
     bit          RVZicntr;

@@ -504,6 +504,17 @@ module cva6
   // CSR
   logic [CVA6Cfg.NrIssuePorts-1:0] csr_valid_id_ex;
   logic csr_hs_ld_st_inst_ex;
+  // CMO
+  logic                     cmo_valid_id_ex;
+  logic                     cmo_ready_ex_id;
+  logic [CVA6Cfg.TRANS_ID_BITS-1:0] cmo_trans_id_ex_id;
+  logic [CVA6Cfg.XLEN-1:0]  cmo_result_ex_id;
+  logic                     cmo_valid_ex_id;
+  exception_t               cmo_exception_ex_id;
+  cmo_req_t                 cmo_ic_req;
+  cmo_resp_t                cmo_ic_resp;
+  cmo_req_t                 cmo_dc_req;
+  cmo_resp_t                cmo_dc_resp;
   // CVXIF
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_trans_id_ex_id;
   logic [CVA6Cfg.XLEN-1:0] x_result_ex_id;
@@ -862,6 +873,14 @@ module cva6
     assign cvxif_req = '0;
   end
 
+  if (CVA6Cfg.CMOEn) begin
+    localparam int CMO_WB = X_WB + ((CVA6Cfg.CvxifEn || CVA6Cfg.EnableAccelerator) ? 1 : 0); // FIXME: Move to other port configurations (as X_WB)
+    assign trans_id_ex_id[CMO_WB] = cmo_trans_id_ex_id;
+    assign wbdata_ex_id[CMO_WB] = cmo_result_ex_id;
+    assign ex_ex_ex_id[CMO_WB] = cmo_exception_ex_id;
+    assign wt_valid_ex_id[CMO_WB] = cmo_valid_ex_id;
+  end
+
   if (CVA6Cfg.CvxifEn && CVA6Cfg.EnableAccelerator) begin : gen_err_xif_and_acc
     $error("X-interface and accelerator port cannot be enabled at the same time.");
   end
@@ -927,6 +946,9 @@ module cva6
       .alu2_valid_o            (alu2_valid_id_ex),
       // CSR
       .csr_valid_o             (csr_valid_id_ex),
+      // CMO
+      .cmo_ready_i              (cmo_ready_ex_id),
+      .cmo_valid_o              (cmo_valid_id_ex),
       // CVXIF
       .xfu_valid_o             (x_issue_valid_id_ex),
       .xfu_ready_i             (x_issue_ready_ex_id),
@@ -1022,6 +1044,17 @@ module cva6
       .csr_addr_o(csr_addr_ex_csr),
       .csr_commit_i(csr_commit_commit_ex),  // from commit
       .csr_hs_ld_st_inst_o(csr_hs_ld_st_inst_ex),  // signals a Hypervisor Load/Store Instruction
+      // CMO
+      .cmo_ready_o            (cmo_ready_ex_id),
+      .cmo_valid_i            (cmo_valid_id_ex),
+      .cmo_trans_id_o         (cmo_trans_id_ex_id),
+      .cmo_exception_o        (cmo_exception_ex_id),
+      .cmo_result_o           (cmo_result_ex_id),
+      .cmo_valid_o            (cmo_valid_ex_id),
+      .cmo_dc_req_o           (cmo_dc_req),
+      .cmo_dc_resp_i          (cmo_dc_resp),
+      .cmo_ic_req_o           (cmo_ic_req),
+      .cmo_ic_resp_i          (cmo_ic_resp),
       // MULT
       .mult_valid_i(mult_valid_id_ex),
       // LSU
@@ -1383,7 +1416,7 @@ module cva6
   dcache_req_o_t [NumPorts-1:0] dcache_req_from_cache;
 
   // D$ request
-  // Since ZCMT is only enable for embdeed class so MMU should be disable. 
+  // Since ZCMT is only enable for embdeed class so MMU should be disable.
   // Cache port 0 is being ultilize in implicit read access in ZCMT extension.
   if (CVA6Cfg.RVZCMT & ~(CVA6Cfg.MmuPresent)) begin
     assign dcache_req_to_cache[0] = dcache_req_ports_id_cache;
@@ -1468,6 +1501,10 @@ module cva6
         .inval_valid_i     (inval_valid),
         .inval_ready_o     (inval_ready)
     );
+
+    assign cmo_dc_resp = '0,
+        cmo_ic_resp = '0;
+
   end else if (
         CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WT ||
         CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WB ||
@@ -1492,8 +1529,8 @@ module cva6
         .axi_r_chan_t (r_chan_t),
         .noc_req_t (noc_req_t),
         .noc_resp_t(noc_resp_t),
-        .cmo_req_t (logic  /*FIXME*/),
-        .cmo_rsp_t (logic  /*FIXME*/)
+        .cmo_req_t (cmo_req_t),
+        .cmo_rsp_t (cmo_resp_t)
     ) i_cache_subsystem (
         .clk_i (clk_i),
         .rst_ni(rst_ni),
@@ -1514,8 +1551,8 @@ module cva6
         .dcache_amo_req_i (amo_req),
         .dcache_amo_resp_o(amo_resp),
 
-        .dcache_cmo_req_i ('0  /*FIXME*/),
-        .dcache_cmo_resp_o(  /*FIXME*/),
+        .dcache_cmo_req_i (cmo_dc_req),
+        .dcache_cmo_resp_o(cmo_dc_resp),
 
         .dcache_req_ports_i(dcache_req_to_cache),
         .dcache_req_ports_o(dcache_req_from_cache),
@@ -1538,6 +1575,7 @@ module cva6
         .noc_resp_i(noc_resp_i)
     );
     assign inval_ready = 1'b1;
+    assign cmo_ic_resp = '0;
   end else begin : gen_cache_wb
     std_cache_subsystem #(
         // note: this only works with one cacheable region
@@ -1593,6 +1631,8 @@ module cva6
     );
     assign dcache_commit_wbuffer_not_ni = 1'b1;
     assign inval_ready                  = 1'b1;
+    assign cmo_dc_resp = '0,
+           cmo_ic_resp = '0;
   end
 
   // ----------------

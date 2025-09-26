@@ -43,6 +43,18 @@ sources:
         files:
           - core/include/cv64a6_imafdc_sv39_hpdcache_config_pkg.sv
 
+      - target: cv64a6_imafdc_sv39_hpdcache_cmo
+        defines:
+          HPDCACHE_ENABLE_CMO: ~
+        files:
+          - core/include/cv64a6_imafdc_sv39_hpdcache_cmo_config_pkg.sv
+
+      - target: cv64a6_imafdc_sv39_hpdcache_wb_cmo
+        defines:
+          HPDCACHE_ENABLE_CMO: ~
+        files:
+          - core/include/cv64a6_imafdc_sv39_hpdcache_wb_cmo_config_pkg.sv
+
       - target: cv64a6_imafdchsclic_sv39_hpdcache
         files:
           - core/include/cv64a6_imafdchsclic_sv39_hpdcache_config_pkg.sv
@@ -94,7 +106,7 @@ sources:
           - core/cva6_clic_controller.sv
 
       # MMU
-      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdchsclic_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdchsclic_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdchsclic_sv39_hpdcache_wb, cv64a6_imafdc_sv39_wb, cv64a6_imafdchsclic_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdch_sv39_wb, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32)
+      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdchsclic_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdchsclic_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdchsclic_sv39_hpdcache_wb, cv64a6_imafdc_sv39_wb, cv64a6_imafdchsclic_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdch_sv39_wb, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv64a6_imafdc_sv39_hpdcache_cmo, cv64a6_imafdc_sv39_hpdcache_wb_cmo)
         files:
           - core/cva6_mmu/cva6_tlb.sv
           - core/cva6_mmu/cva6_shared_tlb.sv
@@ -150,6 +162,7 @@ sources:
       - core/store_unit.sv
       - core/commit_stage.sv
       - core/axi_shim.sv
+      - core/cmo_fu.sv
 
       # Frontend (i.e., fetch, decode, dispatch)
       - core/frontend/btb.sv
@@ -227,6 +240,7 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cbuf.sv
       # HPDCache integration
       - core/cache_subsystem/cva6_hpdcache_if_adapter.sv
+      - core/cache_subsystem/cva6_hpdcache_cmo_if_adapter.sv
       - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
       - core/cache_subsystem/cva6_hpdcache_subsystem.sv
       - core/cache_subsystem/cva6_hpdcache_wrapper.sv

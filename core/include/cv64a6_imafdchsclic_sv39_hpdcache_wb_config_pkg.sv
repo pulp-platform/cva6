@@ -21,6 +21,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigF8AltEn = 0;
   localparam CVA6ConfigFVecEn = 0;
 
+  localparam CVA6ConfigCMOEn = 0;
   localparam CVA6ConfigCvxifEn = 0;
   localparam CVA6ConfigCExtEn = 1;
   localparam CVA6ConfigZcbExtEn = 1;
@@ -108,6 +109,7 @@ package cva6_config_pkg;
       RVZCMT: bit'(0),
       RVZCMP: bit'(CVA6ConfigZcmpExtEn),
       XFVec: bit'(CVA6ConfigFVecEn),
+      CMOEn: bit'(CVA6ConfigCMOEn),
       CvxifEn: bit'(CVA6ConfigCvxifEn),
       CoproType: config_pkg::COPRO_NONE,
       RVZiCond: bit'(CVA6ConfigRVZiCond),

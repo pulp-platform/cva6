@@ -83,6 +83,26 @@ module ex_stage
     output logic [11:0] csr_addr_o,
     // CSR commit - COMMIT_STAGE
     input logic csr_commit_i,
+    // CMO functional unit is ready
+    output logic cmo_ready_o,
+    // CMO input is valid
+    input logic cmo_valid_i,
+    // CMO transaction id
+    output logic [CVA6Cfg.TRANS_ID_BITS-1:0] cmo_trans_id_o,
+    // CMO
+    output logic [CVA6Cfg.XLEN-1:0] cmo_result_o,
+    // CMO output is valid
+    output logic cmo_valid_o,
+    // CMO exception occurred
+    output exception_t cmo_exception_o,
+    // CMO request to D$ - interface to caches for CMOs
+    output cmo_req_t cmo_dc_req_o,
+    // CMO response from D$ - interface to caches for CMOs
+    input  cmo_resp_t cmo_dc_resp_i,
+    // CMO request to I$ - interface to caches for CMOs
+    output cmo_req_t cmo_ic_req_o,
+    // CMO response from I$ - interface to caches for CMOs
+    input  cmo_resp_t cmo_ic_resp_i,
     // MULT instruction is valid - ISSUE_STAGE
     input logic [CVA6Cfg.NrIssuePorts-1:0] mult_valid_i,
     // LSU is ready - ISSUE_STAGE
@@ -649,6 +669,40 @@ module ex_stage
     assign x_exception_o    = '0;
     assign x_result_o       = '0;
     assign x_valid_o        = '0;
+  end
+
+  if (CVA6Cfg.CMOEn) begin : gen_cmo
+    // FIXME
+    // Relocate into the load_store_unit and perform address translation.
+    // Currently, target addresses must be already physical
+    fu_data_t cmo_data;
+    assign cmo_data  = cmo_valid_i ? fu_data_i  : '0;
+    cmo_fu #(
+        .CVA6Cfg(CVA6Cfg),
+        .exception_t(exception_t),
+        .fu_data_t(fu_data_t)
+    ) cmo_fu_i (
+        .clk_i,
+        .rst_ni,
+        .fu_data_i(cmo_data),
+        .cmo_valid_i,
+        .cmo_ready_o,
+        .cmo_trans_id_o,
+        .cmo_exception_o,
+        .cmo_result_o,
+        .cmo_valid_o,
+        .cmo_ic_req_o,
+        .cmo_ic_resp_i,
+        .cmo_dc_req_o,
+        .cmo_dc_resp_i
+    );
+  end else begin : gen_no_cmo
+    assign cmo_trans_id_o  = '0,
+            cmo_exception_o = '0,
+            cmo_result_o    = '0,
+            cmo_valid_o     = '0,
+            cmo_ic_req_o    = '0,
+            cmo_dc_req_o    = '0;
   end
 
   if (CVA6Cfg.RVS) begin
