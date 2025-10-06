@@ -13,6 +13,8 @@
 // Description: Instruction tracer single exception item
 
 `ifndef VERILATOR
+`ifndef EX_TRACER_ITEM_SV
+`define EX_TRACER_ITEM_SV
 class ex_trace_item;
     // contains a human readable form of the cause value
     string                  cause_s;
@@ -73,4 +75,5 @@ class ex_trace_item;
     endfunction
 
 endclass : ex_trace_item
+`endif
 `endif

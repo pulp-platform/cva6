@@ -13,6 +13,8 @@
 // Description: Instruction tracer single instruction item
 
 `ifndef VERILATOR
+`ifndef INSTR_TRACER_ITEM_SV
+`define INSTR_TRACER_ITEM_SV
 function string printPCexpr(input logic [63:0] imm);
   // check if the sign bit is set
   if ($signed(imm) > 0) begin
@@ -719,4 +721,5 @@ class instr_trace_item;
         return this.printRInstr(s);
     endfunction
   endclass
+`endif
 `endif
