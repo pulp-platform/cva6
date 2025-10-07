@@ -459,36 +459,36 @@ module decoder
             // FENCE
             // Currently implemented as a whole DCache flush boldly ignoring other things
             3'b000: begin
-                instruction_o.fu = CSR;
-                instruction_o.op = ariane_pkg::FENCE;
-                if (instr.stype.rs1 != '0 || instr.stype.imm0 != '0 || instr.instr[31:28] != '0)
-                    illegal_instr = 1'b1;
+              instruction_o.fu = CSR;
+              instruction_o.op = ariane_pkg::FENCE;
+              if (instr.stype.rs1 != '0 || instr.stype.imm0 != '0 || instr.instr[31:28] != '0)
+                illegal_instr = 1'b1;
             end
             // FENCE.I
             3'b001: begin
-                instruction_o.fu = CSR;
-                instruction_o.op = ariane_pkg::FENCE_I;
-                if (instr.stype.rs1 != '0 || instr.stype.imm0 != '0 || instr.instr[31:28] != '0)
-                    illegal_instr = 1'b1;
+              instruction_o.fu = CSR;
+              instruction_o.op = ariane_pkg::FENCE_I;
+              if (instr.stype.rs1 != '0 || instr.stype.imm0 != '0 || instr.instr[31:28] != '0)
+                illegal_instr = 1'b1;
             end
             // CBO
             3'b010: begin
-                if (CVA6Cfg.CMOEn) begin
-                    instruction_o.fu = CMO;
-                    instruction_o.rs1 = instr.itype.rs1;
-                    case (instr.itype.imm)
-                        12'b000000000000: instruction_o.op = ariane_pkg::FU_CMO_INVAL;
-                        12'b000000000001: instruction_o.op = ariane_pkg::FU_CMO_CLEAN;
-                        12'b000000000010: instruction_o.op = ariane_pkg::FU_CMO_FLUSH;
-                        12'b000000000100: instruction_o.op = ariane_pkg::FU_CMO_ZERO;
-                        12'b100000000000: instruction_o.op = ariane_pkg::FU_CMO_INVAL_ALL;
-                        12'b100000000001: instruction_o.op = ariane_pkg::FU_CMO_CLEAN_ALL;
-                        12'b100000000010: instruction_o.op = ariane_pkg::FU_CMO_FLUSH_ALL;
-                        default: illegal_instr = 1'b1;
-                    endcase
-                end else begin
-                    illegal_instr = 1'b1;
-                end
+              if (CVA6Cfg.CMOEn) begin
+                instruction_o.fu  = CMO;
+                instruction_o.rs1 = instr.itype.rs1;
+                case (instr.itype.imm)
+                  12'b000000000000: instruction_o.op = ariane_pkg::FU_CMO_INVAL;
+                  12'b000000000001: instruction_o.op = ariane_pkg::FU_CMO_CLEAN;
+                  12'b000000000010: instruction_o.op = ariane_pkg::FU_CMO_FLUSH;
+                  12'b000000000100: instruction_o.op = ariane_pkg::FU_CMO_ZERO;
+                  12'b100000000000: instruction_o.op = ariane_pkg::FU_CMO_INVAL_ALL;
+                  12'b100000000001: instruction_o.op = ariane_pkg::FU_CMO_CLEAN_ALL;
+                  12'b100000000010: instruction_o.op = ariane_pkg::FU_CMO_FLUSH_ALL;
+                  default: illegal_instr = 1'b1;
+                endcase
+              end else begin
+                illegal_instr = 1'b1;
+              end
             end
 
             default: illegal_instr = 1'b1;
@@ -1087,19 +1087,19 @@ module decoder
             instruction_o.op = ariane_pkg::SLTU;  // Set to one if Lower Than Immediate Unsigned
             3'b100: instruction_o.op = ariane_pkg::XORL;  // Exclusive Or with Immediate
             3'b110: begin
-                if (CVA6Cfg.CMOEn && (instr.itype.rd == 5'b0)) begin
-                    instruction_o.fu = CMO;
-                    instruction_o.rd = '0;
-                    imm_select = SIMM;
-                    case (instr.stype.rs2)
-                        5'b00000: instruction_o.op = ariane_pkg::FU_CMO_PREFETCH_I;
-                        5'b00001: instruction_o.op = ariane_pkg::FU_CMO_PREFETCH_R;
-                        5'b00011: instruction_o.op = ariane_pkg::FU_CMO_PREFETCH_W;
-                        default: illegal_instr = 1'b1;
-                    endcase
-                end else begin
-                    instruction_o.op = ariane_pkg::ORL;   // Or with Immediate
-                end
+              if (CVA6Cfg.CMOEn && (instr.itype.rd == 5'b0)) begin
+                instruction_o.fu = CMO;
+                instruction_o.rd = '0;
+                imm_select = SIMM;
+                case (instr.stype.rs2)
+                  5'b00000: instruction_o.op = ariane_pkg::FU_CMO_PREFETCH_I;
+                  5'b00001: instruction_o.op = ariane_pkg::FU_CMO_PREFETCH_R;
+                  5'b00011: instruction_o.op = ariane_pkg::FU_CMO_PREFETCH_W;
+                  default:  illegal_instr = 1'b1;
+                endcase
+              end else begin
+                instruction_o.op = ariane_pkg::ORL;  // Or with Immediate
+              end
             end
             3'b111: instruction_o.op = ariane_pkg::ANDL;  // And with Immediate
 

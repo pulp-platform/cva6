@@ -505,16 +505,16 @@ module cva6
   logic [CVA6Cfg.NrIssuePorts-1:0] csr_valid_id_ex;
   logic csr_hs_ld_st_inst_ex;
   // CMO
-  logic                     cmo_valid_id_ex;
-  logic                     cmo_ready_ex_id;
+  logic cmo_valid_id_ex;
+  logic cmo_ready_ex_id;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] cmo_trans_id_ex_id;
-  logic [CVA6Cfg.XLEN-1:0]  cmo_result_ex_id;
-  logic                     cmo_valid_ex_id;
-  exception_t               cmo_exception_ex_id;
-  cmo_req_t                 cmo_ic_req;
-  cmo_resp_t                cmo_ic_resp;
-  cmo_req_t                 cmo_dc_req;
-  cmo_resp_t                cmo_dc_resp;
+  logic [CVA6Cfg.XLEN-1:0] cmo_result_ex_id;
+  logic cmo_valid_ex_id;
+  exception_t cmo_exception_ex_id;
+  cmo_req_t cmo_ic_req;
+  cmo_resp_t cmo_ic_resp;
+  cmo_req_t cmo_dc_req;
+  cmo_resp_t cmo_dc_resp;
   // CVXIF
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_trans_id_ex_id;
   logic [CVA6Cfg.XLEN-1:0] x_result_ex_id;
@@ -947,8 +947,8 @@ module cva6
       // CSR
       .csr_valid_o             (csr_valid_id_ex),
       // CMO
-      .cmo_ready_i              (cmo_ready_ex_id),
-      .cmo_valid_o              (cmo_valid_id_ex),
+      .cmo_ready_i             (cmo_ready_ex_id),
+      .cmo_valid_o             (cmo_valid_id_ex),
       // CVXIF
       .xfu_valid_o             (x_issue_valid_id_ex),
       .xfu_ready_i             (x_issue_ready_ex_id),
@@ -1045,16 +1045,16 @@ module cva6
       .csr_commit_i(csr_commit_commit_ex),  // from commit
       .csr_hs_ld_st_inst_o(csr_hs_ld_st_inst_ex),  // signals a Hypervisor Load/Store Instruction
       // CMO
-      .cmo_ready_o            (cmo_ready_ex_id),
-      .cmo_valid_i            (cmo_valid_id_ex),
-      .cmo_trans_id_o         (cmo_trans_id_ex_id),
-      .cmo_exception_o        (cmo_exception_ex_id),
-      .cmo_result_o           (cmo_result_ex_id),
-      .cmo_valid_o            (cmo_valid_ex_id),
-      .cmo_dc_req_o           (cmo_dc_req),
-      .cmo_dc_resp_i          (cmo_dc_resp),
-      .cmo_ic_req_o           (cmo_ic_req),
-      .cmo_ic_resp_i          (cmo_ic_resp),
+      .cmo_ready_o(cmo_ready_ex_id),
+      .cmo_valid_i(cmo_valid_id_ex),
+      .cmo_trans_id_o(cmo_trans_id_ex_id),
+      .cmo_exception_o(cmo_exception_ex_id),
+      .cmo_result_o(cmo_result_ex_id),
+      .cmo_valid_o(cmo_valid_ex_id),
+      .cmo_dc_req_o(cmo_dc_req),
+      .cmo_dc_resp_i(cmo_dc_resp),
+      .cmo_ic_req_o(cmo_ic_req),
+      .cmo_ic_resp_i(cmo_ic_resp),
       // MULT
       .mult_valid_i(mult_valid_id_ex),
       // LSU
@@ -1502,8 +1502,7 @@ module cva6
         .inval_ready_o     (inval_ready)
     );
 
-    assign cmo_dc_resp = '0,
-        cmo_ic_resp = '0;
+    assign cmo_dc_resp = '0, cmo_ic_resp = '0;
 
   end else if (
         CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WT ||
@@ -1631,8 +1630,7 @@ module cva6
     );
     assign dcache_commit_wbuffer_not_ni = 1'b1;
     assign inval_ready                  = 1'b1;
-    assign cmo_dc_resp = '0,
-           cmo_ic_resp = '0;
+    assign cmo_dc_resp                  = '0,   cmo_ic_resp = '0;
   end
 
   // ----------------

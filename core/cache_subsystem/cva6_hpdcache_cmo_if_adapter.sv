@@ -24,7 +24,7 @@
  *  History       :
  */
 module cva6_hpdcache_cmo_if_adapter
-import hpdcache_pkg::*;
+  import hpdcache_pkg::*;
 
 //  Parameters
 //  {{{
@@ -45,30 +45,30 @@ import hpdcache_pkg::*;
 //  Ports
 //  {{{
 (
-  //  Clock and active-low reset pins
-  input  logic                            clk_i,
-  input  logic                            rst_ni,
+    //  Clock and active-low reset pins
+    input logic clk_i,
+    input logic rst_ni,
 
-  //  Port ID
-  input hpdcache_req_sid_t dcache_req_sid_i,
+    //  Port ID
+    input hpdcache_req_sid_t dcache_req_sid_i,
 
-  //  Request/response ports from/to the CVA6 core
-  input  cmo_req_t                        cva6_cmo_req_i,
-  output cmo_rsp_t                        cva6_cmo_resp_o,
+    //  Request/response ports from/to the CVA6 core
+    input  cmo_req_t cva6_cmo_req_i,
+    output cmo_rsp_t cva6_cmo_resp_o,
 
-  //  Request port to the L1 Dcache
-  output logic                            dcache_req_valid_o,
-  input  logic                            dcache_req_ready_i,
-  output hpdcache_req_t                   dcache_req_o,
-  output logic                            dcache_req_abort_o,
-  output hpdcache_tag_t                   dcache_req_tag_o,
-  output hpdcache_pma_t                   dcache_req_pma_o,
+    //  Request port to the L1 Dcache
+    output logic          dcache_req_valid_o,
+    input  logic          dcache_req_ready_i,
+    output hpdcache_req_t dcache_req_o,
+    output logic          dcache_req_abort_o,
+    output hpdcache_tag_t dcache_req_tag_o,
+    output hpdcache_pma_t dcache_req_pma_o,
 
-  //  Response port from the L1 Dcache
-  input  logic                            dcache_rsp_valid_i,
-  input  hpdcache_rsp_t                   dcache_rsp_i
+    //  Response port from the L1 Dcache
+    input logic          dcache_rsp_valid_i,
+    input hpdcache_rsp_t dcache_rsp_i
 );
-//  }}}
+  //  }}}
 
   //  Internal nets and registers
   //  {{{
@@ -76,7 +76,8 @@ import hpdcache_pkg::*;
     FORWARD_IDLE,
     FORWARD_CMO,
     FORWARD_CMO_ACK
-  } forward_state_q, forward_state_d;
+  }
+      forward_state_q, forward_state_d;
 
   logic forward_cmo;
   hpdcache_req_t dcache_req_cmo;
@@ -89,8 +90,7 @@ import hpdcache_pkg::*;
 
   //  Request forwarding
   //  {{{
-  always_comb
-  begin : req_forward_comb
+  always_comb begin : req_forward_comb
     forward_state_d = forward_state_q;
     forward_cmo     = 1'b0;
     cmo_tid_d       = cmo_tid_q;
@@ -138,8 +138,7 @@ import hpdcache_pkg::*;
     endcase
   end
 
-  always_ff @(posedge clk_i or negedge rst_ni)
-  begin : forward_ff
+  always_ff @(posedge clk_i or negedge rst_ni) begin : forward_ff
     if (!rst_ni) begin
       forward_state_q <= FORWARD_IDLE;
       cmo_tid_q <= '0;
@@ -151,20 +150,19 @@ import hpdcache_pkg::*;
 
   //  CMO request
   //  {{{
-  always_comb
-  begin : cmo_req
-    dcache_req_cmo.addr_offset  = cva6_cmo_req_i.address[0+:HPDcacheCfg.reqOffsetWidth];
-    dcache_req_cmo.wdata        = '0;
-    dcache_req_cmo.be           = '0;
-    dcache_req_cmo.size         = hpdcache_req_size_t'(0);
-    dcache_req_cmo.sid          = dcache_req_sid_i;
-    dcache_req_cmo.tid          = cva6_cmo_req_i.trans_id;
-    dcache_req_cmo.need_rsp     = 1'b0;
+  always_comb begin : cmo_req
+    dcache_req_cmo.addr_offset = cva6_cmo_req_i.address[0+:HPDcacheCfg.reqOffsetWidth];
+    dcache_req_cmo.wdata = '0;
+    dcache_req_cmo.be = '0;
+    dcache_req_cmo.size = hpdcache_req_size_t'(0);
+    dcache_req_cmo.sid = dcache_req_sid_i;
+    dcache_req_cmo.tid = cva6_cmo_req_i.trans_id;
+    dcache_req_cmo.need_rsp = 1'b0;
     dcache_req_cmo.phys_indexed = 1'b0;
-    dcache_req_cmo.addr_tag     = hpdcache_tag_t'(0);
-    dcache_req_cmo.pma          = hpdcache_pma_t'(0);
-    dcache_req_tag              = cva6_cmo_req_i.address[HPDcacheCfg.reqOffsetWidth+:HPDcacheCfg.tagWidth];
-    dcache_req_pma              = hpdcache_pma_t'(0);
+    dcache_req_cmo.addr_tag = hpdcache_tag_t'(0);
+    dcache_req_cmo.pma = hpdcache_pma_t'(0);
+    dcache_req_tag = cva6_cmo_req_i.address[HPDcacheCfg.reqOffsetWidth+:HPDcacheCfg.tagWidth];
+    dcache_req_pma = hpdcache_pma_t'(0);
 
     case (cva6_cmo_req_i.cmo_op)
       ariane_pkg::CMO_NONE: ;
@@ -183,17 +181,16 @@ import hpdcache_pkg::*;
   end
   //  }}}
 
-  assign dcache_req_valid_o        = forward_cmo,
-         dcache_req_o              = dcache_req_cmo,
-         dcache_req_tag_o          = dcache_req_tag,
-         dcache_req_pma_o          = dcache_req_pma,
-         cva6_cmo_resp_o.req_ready = ~stall;
+  assign dcache_req_valid_o = forward_cmo,
+      dcache_req_o = dcache_req_cmo,
+      dcache_req_tag_o = dcache_req_tag,
+      dcache_req_pma_o = dcache_req_pma,
+      cva6_cmo_resp_o.req_ready = ~stall;
   //  }}}
 
   //  Response forwarding
   //  {{{
-  assign cva6_cmo_resp_o.ack       = cmo_ack,
-         cva6_cmo_resp_o.trans_id  = cmo_tid_q;
+  assign cva6_cmo_resp_o.ack = cmo_ack, cva6_cmo_resp_o.trans_id = cmo_tid_q;
   //  }}}
 
 endmodule

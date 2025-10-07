@@ -222,15 +222,15 @@ module cva6_hpdcache_wrapper
 
 `ifdef HPDCACHE_ENABLE_CMO
     cva6_hpdcache_cmo_if_adapter #(
-        .CVA6Cfg                (CVA6Cfg),
-        .HPDcacheCfg          (HPDcacheCfg),
-        .cmo_req_t              (cmo_req_t),
-        .cmo_rsp_t              (cmo_rsp_t),
-        .hpdcache_req_sid_t     (hpdcache_req_sid_t),
-        .hpdcache_req_t         (hpdcache_req_t),
-        .hpdcache_rsp_t         (hpdcache_rsp_t),
-        .hpdcache_tag_t         (hpdcache_tag_t),
-        .hpdcache_pma_t         (hpdcache_pkg::hpdcache_pma_t)
+        .CVA6Cfg           (CVA6Cfg),
+        .HPDcacheCfg       (HPDcacheCfg),
+        .cmo_req_t         (cmo_req_t),
+        .cmo_rsp_t         (cmo_rsp_t),
+        .hpdcache_req_sid_t(hpdcache_req_sid_t),
+        .hpdcache_req_t    (hpdcache_req_t),
+        .hpdcache_rsp_t    (hpdcache_rsp_t),
+        .hpdcache_tag_t    (hpdcache_tag_t),
+        .hpdcache_pma_t    (hpdcache_pkg::hpdcache_pma_t)
     ) i_cva6_hpdcache_cmo_if_adapter (
         .clk_i,
         .rst_ni,
@@ -275,8 +275,7 @@ module cva6_hpdcache_wrapper
 
 `ifdef HPDCACHE_ENABLE_CMO
   //  Snoop CMO port (in case of read prefetch accesses)
-  assign dcache_cmo_req_is_prefetch = hpdcache_pkg::is_cmo_prefetch(
-      dcache_req[NumPorts].op);
+  assign dcache_cmo_req_is_prefetch = hpdcache_pkg::is_cmo_prefetch(dcache_req[NumPorts].op);
   assign snoop_valid[2]        = dcache_req_valid[NumPorts]
                                & dcache_req_ready[NumPorts]
                                & dcache_cmo_req_is_prefetch,

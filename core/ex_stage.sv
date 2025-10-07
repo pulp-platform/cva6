@@ -98,11 +98,11 @@ module ex_stage
     // CMO request to D$ - interface to caches for CMOs
     output cmo_req_t cmo_dc_req_o,
     // CMO response from D$ - interface to caches for CMOs
-    input  cmo_resp_t cmo_dc_resp_i,
+    input cmo_resp_t cmo_dc_resp_i,
     // CMO request to I$ - interface to caches for CMOs
     output cmo_req_t cmo_ic_req_o,
     // CMO response from I$ - interface to caches for CMOs
-    input  cmo_resp_t cmo_ic_resp_i,
+    input cmo_resp_t cmo_ic_resp_i,
     // MULT instruction is valid - ISSUE_STAGE
     input logic [CVA6Cfg.NrIssuePorts-1:0] mult_valid_i,
     // LSU is ready - ISSUE_STAGE
@@ -676,7 +676,7 @@ module ex_stage
     // Relocate into the load_store_unit and perform address translation.
     // Currently, target addresses must be already physical
     fu_data_t cmo_data;
-    assign cmo_data  = cmo_valid_i ? fu_data_i  : '0;
+    assign cmo_data = cmo_valid_i ? fu_data_i : '0;
     cmo_fu #(
         .CVA6Cfg(CVA6Cfg),
         .exception_t(exception_t),
@@ -697,12 +697,12 @@ module ex_stage
         .cmo_dc_resp_i
     );
   end else begin : gen_no_cmo
-    assign cmo_trans_id_o  = '0,
-            cmo_exception_o = '0,
-            cmo_result_o    = '0,
-            cmo_valid_o     = '0,
-            cmo_ic_req_o    = '0,
-            cmo_dc_req_o    = '0;
+    assign cmo_trans_id_o = '0,
+        cmo_exception_o = '0,
+        cmo_result_o = '0,
+        cmo_valid_o = '0,
+        cmo_ic_req_o = '0,
+        cmo_dc_req_o = '0;
   end
 
   if (CVA6Cfg.RVS) begin
