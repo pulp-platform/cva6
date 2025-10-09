@@ -21,6 +21,7 @@ export_include_dirs:
 sources:
   - include_dirs:
       - core/include
+      - common/local/util
     files:
       - core/include/config_pkg.sv
       # Pick the right configuration by passing the right bender flag.
@@ -123,6 +124,7 @@ sources:
       - core/cva6_rvfi_probes.sv
       - core/cva6_fifo_v3.sv
       # Top-level source files (not necessarily instantiated at the top of the cva6).
+      # - corev_apu/tb/ariane.sv
       - core/cva6.sv
       - core/aes.sv
       - core/alu.sv
@@ -137,6 +139,7 @@ sources:
       - core/ex_stage.sv
       - core/acc_dispatcher.sv
       - core/instr_realign.sv
+      - core/macro_decoder.sv
       - core/id_stage.sv
       - core/issue_read_operands.sv
       - core/issue_stage.sv
@@ -175,11 +178,13 @@ sources:
       - core/cache_subsystem/wt_axi_adapter.sv
       - core/cache_subsystem/cva6_icache.sv
       - core/cache_subsystem/tag_cmp.sv
-      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
+      - core/cache_subsystem/cache_ctrl.sv
+      - core/cache_subsystem/amo_alu.sv
+      # - core/cache_subsystem/wt_l15_adapter.sv
       - core/cache_subsystem/axi_adapter.sv
       - core/cache_subsystem/miss_handler.sv
-      - core/cache_subsystem/cache_ctrl.sv
       - core/cache_subsystem/std_nbdcache.sv
+      - core/cache_subsystem/cva6_icache_axi_wrapper.sv
       - core/cache_subsystem/std_cache_subsystem.sv
       # HPDCache sources
       - core/cache_subsystem/hpdcache/rtl/src/hpdcache_pkg.sv
@@ -242,10 +247,6 @@ sources:
       - core/pmp/src/pmp_entry.sv
       - core/pmp/src/pmp_data_if.sv
 
-      - include_dirs:
-        - common/local/util
-        files:
-          - common/local/util/sram.sv
 
       # SRAM Wrappers stay tech-independent; we leave technology mapping to tc_sram
       - common/local/util/tc_sram_wrapper.sv
@@ -254,10 +255,9 @@ sources:
       - common/local/util/sram_cache.sv
 
       - target: not(synthesis)
-        include_dirs:
-          - core/include
-          - common/local/util
         files:
           # Tracer (behavioral code, not RTL)
           - core/include/instr_tracer_pkg.sv
           - common/local/util/instr_tracer.sv
+          - common/local/util/instr_trace_item.svh
+          - common/local/util/ex_trace_item.svh
