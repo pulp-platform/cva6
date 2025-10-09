@@ -173,6 +173,8 @@ module csr_regfile
     // TO_BE_COMPLETED - CLIC_CTRL
     output logic [7:0] sintthresh_o,
     // TO_BE_COMPLETED - CLIC_CTRL
+    output logic [7:0] vsintthresh_o,
+    // TO_BE_COMPLETED - CLIC_CTRL
     output logic clic_irq_ready_o,
     // we are in single-step mode - COMMIT_STAGE
     output logic single_step_o,
@@ -308,10 +310,12 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] htval_q, htval_d;
 
   logic [CVA6Cfg.XLEN-1:0] vstvec_q, vstvec_d;
+  logic [CVA6Cfg.XLEN-1:0] vstvt_q, vstvt_d;
   logic [CVA6Cfg.XLEN-1:0] vsscratch_q, vsscratch_d;
   logic [CVA6Cfg.XLEN-1:0] vsepc_q, vsepc_d;
   logic [CVA6Cfg.XLEN-1:0] vscause_q, vscause_d;
   logic [CVA6Cfg.XLEN-1:0] vstval_q, vstval_d;
+  riscv::intthresh_rv_t vsintthresh_q, vsintthresh_d;
 
   logic [CVA6Cfg.XLEN-1:0] dcache_q, dcache_d;
   logic [CVA6Cfg.XLEN-1:0] icache_q, icache_d;
@@ -409,6 +413,12 @@ module csr_regfile
     assign clic_irq_ready_o = 1'b0;
   end
 
+  if (CVA6Cfg.RVXHCLIC) begin : gen_clic_vsintthresh_signal
+    assign vsintthresh_o = vsintthresh_q.th;
+  end else begin : gen_dummy_clic_vsintthresh_signal
+    assign vsintthresh_o = '0;
+  end
+
   always_comb begin : csr_read_process
     // a read access exception can only occur if we attempt to read a CSR which does not exist
     read_access_exception = 1'b0;
@@ -497,14 +507,18 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_VSIE:
         if (CVA6Cfg.RVH)
-          csr_rdata = (mie_q & VS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0] & hideleg_q) >> 1;
+          csr_rdata = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? '0 : ((mie_q & VS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0] & hideleg_q) >> 1);
         else read_access_exception = 1'b1;
         riscv::CSR_VSIP:
         if (CVA6Cfg.RVH)
-          csr_rdata = (mip_q & VS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0] & hideleg_q) >> 1;
+          csr_rdata = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? '0 : ((mip_q & VS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0] & hideleg_q) >> 1);
         else read_access_exception = 1'b1;
         riscv::CSR_VSTVEC:
         if (CVA6Cfg.RVH) csr_rdata = vstvec_q;
+        else read_access_exception = 1'b1;
+        riscv::CSR_VSTVT:
+        if (CVA6Cfg.RVXHCLIC)
+          csr_rdata = clic_mode_o ? {vstvt_q, 8'b0} : '0;  // vstvt reads 0 in CLINT mode
         else read_access_exception = 1'b1;
         riscv::CSR_VSSCRATCH:
         if (CVA6Cfg.RVH) csr_rdata = vsscratch_q;
@@ -527,6 +541,10 @@ module csr_regfile
         end else begin
           read_access_exception = 1'b1;
         end
+        riscv::CSR_VSINTTHRESH:
+        if (CVA6Cfg.RVXHCLIC)
+          csr_rdata = clic_mode_o ? {{CVA6Cfg.XLEN - 8{1'b0}}, vsintthresh_q} : '0; // vsintthresh reads 0 in CLINT mode
+        else read_access_exception = 1'b1;
         // supervisor registers
         riscv::CSR_SSTATUS: begin
           if (CVA6Cfg.RVS) csr_rdata = mstatus_extended & SMODE_STATUS_READ_MASK[CVA6Cfg.XLEN-1:0];
@@ -627,13 +645,16 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = hideleg_q;
         else read_access_exception = 1'b1;
         riscv::CSR_HIE:
-        if (CVA6Cfg.RVH) csr_rdata = mie_q & HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0];
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? (mie_q & riscv::MIP_SGEIP) : (mie_q & HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0]);
         else read_access_exception = 1'b1;
         riscv::CSR_HIP:
-        if (CVA6Cfg.RVH) csr_rdata = mip_q & HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0];
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? '0 : (mip_q & HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0]);
         else read_access_exception = 1'b1;
         riscv::CSR_HVIP:
-        if (CVA6Cfg.RVH) csr_rdata = mip_q & VS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0];
+        if (CVA6Cfg.RVH)
+          csr_rdata = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? '0 : (mip_q & VS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0]);
         else read_access_exception = 1'b1;
         riscv::CSR_HCOUNTEREN:
         if (CVA6Cfg.RVH) csr_rdata = hcounteren_q;
@@ -645,7 +666,7 @@ module csr_regfile
         if (CVA6Cfg.RVH) csr_rdata = htinst_q;
         else read_access_exception = 1'b1;
         riscv::CSR_HGEIE:
-        if (CVA6Cfg.RVH) csr_rdata = '0;
+        if (CVA6Cfg.RVH) csr_rdata = {hgeie_q[CVA6Cfg.XLEN-1:1], 1'b0};
         else read_access_exception = 1'b1;
         riscv::CSR_HGEIP:
         if (CVA6Cfg.RVH) csr_rdata = '0;
@@ -1191,6 +1212,11 @@ module csr_regfile
       en_ld_st_g_translation_d = en_ld_st_g_translation_q;
     end
 
+    if (CVA6Cfg.RVXHCLIC) begin
+      vstvt_d       = vstvt_q;
+      vsintthresh_d = vsintthresh_q;
+    end
+
     if (CVA6Cfg.RVS) begin
       sepc_d       = sepc_q;
       scause_d     = scause_q;
@@ -1360,13 +1386,19 @@ module csr_regfile
           end
         end
         riscv::CSR_VSIE:
-        if (CVA6Cfg.RVH) mie_d = (mie_q & ~hideleg_q) | ((csr_wdata << 1) & hideleg_q);
-        else update_access_exception = 1'b1;
+        if (CVA6Cfg.RVH) begin
+          // Writes are legal but ignored in CLIC mode
+          if (!(CVA6Cfg.RVXHCLIC && clic_mode_o))
+            mie_d = (mie_q & ~hideleg_q) | ((csr_wdata << 1) & hideleg_q);
+        end else update_access_exception = 1'b1;
         riscv::CSR_VSIP: begin
           if (CVA6Cfg.RVH) begin
-            // only the virtual supervisor software interrupt is write-able, iff delegated
-            mask  = CVA6Cfg.XLEN'(riscv::MIP_VSSIP) & hideleg_q;
-            mip_d = (mip_q & ~mask) | ((csr_wdata << 1) & mask);
+            // Writes are legal but ignored in CLIC mode
+            if (!(CVA6Cfg.RVXHCLIC && clic_mode_o)) begin
+              // only the virtual supervisor software interrupt is write-able, iff delegated
+              mask  = CVA6Cfg.XLEN'(riscv::MIP_VSSIP) & hideleg_q;
+              mip_d = (mip_q & ~mask) | ((csr_wdata << 1) & mask);
+            end
           end else begin
             update_access_exception = 1'b1;
           end
@@ -1377,6 +1409,12 @@ module csr_regfile
           end else begin
             update_access_exception = 1'b1;
           end
+        end
+        riscv::CSR_VSTVT: begin
+          if (CVA6Cfg.RVXHCLIC) begin
+            // Writes are legal but ignored in CLINT mode
+            if (clic_mode_o) vstvt_d = csr_wdata[CVA6Cfg.XLEN-1:8];
+          end else update_access_exception = 1'b1;
         end
         riscv::CSR_VSSCRATCH:
         if (CVA6Cfg.RVH) vsscratch_d = csr_wdata;
@@ -1410,6 +1448,12 @@ module csr_regfile
           end else begin
             update_access_exception = 1'b1;
           end
+        end
+        riscv::CSR_VSINTTHRESH: begin
+          if (CVA6Cfg.RVXHCLIC) begin
+            // Writes are legal but ignored in CLINT mode
+            if (clic_mode_o) vsintthresh_d.th = csr_wdata[7:0];
+          end else update_access_exception = 1'b1;
         end
         // sstatus is a subset of mstatus - mask it accordingly
         riscv::CSR_SSTATUS: begin
@@ -1577,7 +1621,8 @@ module csr_regfile
         end
         riscv::CSR_HIE: begin
           if (CVA6Cfg.RVH) begin
-            mask  = HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0];
+            // In CLIC mode only SGEIE bit is writable
+            mask  = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? CVA6Cfg.XLEN'(riscv::MIP_SGEIP) : HS_DELEG_INTERRUPTS[CVA6Cfg.XLEN-1:0];
             mie_d = (mie_q & ~mask) | (csr_wdata & mask);
           end else begin
             update_access_exception = 1'b1;
@@ -1585,8 +1630,11 @@ module csr_regfile
         end
         riscv::CSR_HIP: begin
           if (CVA6Cfg.RVH) begin
-            mask  = CVA6Cfg.XLEN'(riscv::MIP_VSSIP);
-            mip_d = (mip_q & ~mask) | (csr_wdata & mask);
+            // Writes are legal but ignored in CLIC mode
+            if (!(CVA6Cfg.RVXHCLIC && clic_mode_o)) begin
+              mask  = CVA6Cfg.XLEN'(riscv::MIP_VSSIP);
+              mip_d = (mip_q & ~mask) | (csr_wdata & mask);
+            end
           end else begin
             update_access_exception = 1'b1;
           end
@@ -1620,12 +1668,9 @@ module csr_regfile
             update_access_exception = 1'b1;
           end
         end
-        //TODO Hyp: implement hgeie write
-        riscv::CSR_HGEIE: begin
-          if (!CVA6Cfg.RVH) begin
-            update_access_exception = 1'b1;
-          end
-        end
+        riscv::CSR_HGEIE:
+        if (CVA6Cfg.RVH) hgeie_d = {csr_wdata[CVA6Cfg.XLEN-1:1], 1'b0};
+        else update_access_exception = 1'b1;
         riscv::CSR_HGATP: begin
           if (CVA6Cfg.RVH) begin
             // intercept HGATP writes if in HS-Mode and TVM is enabled
@@ -2207,6 +2252,9 @@ module csr_regfile
               trap_to_v = v_q;
             end
           end
+        end else if (ex_i.cause[CVA6Cfg.XLEN-1] && clic_mode_o) begin
+          trap_to_priv_lvl = riscv::priv_lvl_t'(ex_i.cause[25:24]);
+          if (CVA6Cfg.RVXHCLIC) trap_to_v = ex_i.cause[26];
         end
       end
 
@@ -2219,7 +2267,12 @@ module csr_regfile
           // this can either be user or supervisor mode
           vsstatus_d.spp = priv_lvl_q[0];
           // set cause
-          vscause_d = ex_i.cause[CVA6Cfg.XLEN-1] ? {ex_i.cause[CVA6Cfg.XLEN-1:2], 2'b01} : ex_i.cause;
+          vscause_d = (~clic_mode_o && ex_i.cause[CVA6Cfg.XLEN-1]) ? {ex_i.cause[CVA6Cfg.XLEN-1:2], 2'b01} : ex_i.cause;
+          // update the current and previous interrupt level
+          if (CVA6Cfg.RVXHCLIC && clic_mode_o && ex_i.cause[CVA6Cfg.XLEN-1]) begin
+            mintstatus_d.vsil = ex_i.cause[23:16];
+            vscause_d[23:16]  = mintstatus_q.vsil;
+          end
           // set epc
           vsepc_d = {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{pc_i[CVA6Cfg.VLEN-1]}}, pc_i};
           // set vstval
@@ -2549,6 +2602,9 @@ module csr_regfile
         vsstatus_d.spp  = 1'b0;
         // set spie to 1
         vsstatus_d.spie = 1'b1;
+        // restore vsintstatus
+        if (CVA6Cfg.RVXHCLIC && clic_mode_o && vscause_q[CVA6Cfg.XLEN-1])
+          mintstatus_d.vsil = vscause_q[23:16];
       end
     end
 
@@ -2628,6 +2684,8 @@ module csr_regfile
   end
   assign irq_ctrl_o.mideleg = (CVA6Cfg.RVS) ? mideleg_q : '0;
   assign irq_ctrl_o.hideleg = (CVA6Cfg.RVH) ? hideleg_q : '0;
+  assign irq_ctrl_o.hgeie = (CVA6Cfg.RVH) ? hgeie_q : '0;
+  assign irq_ctrl_o.vgein = (CVA6Cfg.RVH) ? hstatus_q.vgein : '0;
   assign irq_ctrl_o.global_enable = ~(CVA6Cfg.DebugEn & debug_mode_q)
       // interrupts are enabled during single step or we are not stepping
       // No need to check interrupts during single step if we don't support DEBUG mode
@@ -2797,7 +2855,11 @@ module csr_regfile
     // output user mode stvec
     if (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S) begin
       if (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) begin
-        trap_vector_base_o = {stvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+        if (CVA6Cfg.RVSCLIC && trap_to_v) begin
+          trap_vector_base_o = {vstvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+        end else begin
+          trap_vector_base_o = {stvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+        end
       end else if (CVA6Cfg.RVH && trap_to_v) begin
         trap_vector_base_o = {vstvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
       end else begin
@@ -3045,6 +3107,10 @@ module csr_regfile
           hcbie_q  <= riscv::CBIE_INVAL;
           hcbcfe_q <= 1'b1;
         end
+        if (CVA6Cfg.RVXHCLIC) begin
+          vstvt_q       <= {CVA6Cfg.XLEN{1'b0}};
+          vsintthresh_q <= 8'b0;
+        end
       end
       if (CVA6Cfg.SDTRIG) begin
         scontext_q <= '0;
@@ -3152,6 +3218,10 @@ module csr_regfile
         if (CVA6Cfg.RVZiCbom) begin
           hcbie_q  <= hcbie_d;
           hcbcfe_q <= hcbcfe_d;
+        end
+        if (CVA6Cfg.RVXHCLIC) begin
+          vstvt_q       <= vstvt_d;
+          vsintthresh_q <= vsintthresh_d;
         end
       end
       if (CVA6Cfg.SDTRIG) begin
