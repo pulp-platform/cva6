@@ -247,6 +247,8 @@ sources:
       - core/pmp/src/pmp_entry.sv
       - core/pmp/src/pmp_data_if.sv
 
+      # FPGA support stubs: these should never be instantiated (and will throw assertions)
+      - vendor/pulp-platform/fpga-support/fpga-support-stubs.sv
 
       # SRAM Wrappers stay tech-independent; we leave technology mapping to tc_sram
       - common/local/util/tc_sram_wrapper.sv
