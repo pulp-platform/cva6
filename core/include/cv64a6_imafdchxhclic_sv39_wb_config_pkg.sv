@@ -24,12 +24,12 @@ package cva6_config_pkg;
   localparam CVA6ConfigZcbExtEn = 1;
   localparam CVA6ConfigZcmpExtEn = 0;
   localparam CVA6ConfigAExtEn = 1;
-  localparam CVA6ConfigBExtEn = 1;
+  localparam CVA6ConfigHExtEn = 1;
+  localparam CVA6ConfigBExtEn = 0;
   localparam CVA6ConfigVExtEn = 0;
-  localparam CVA6ConfigHExtEn = 0;
   localparam CVA6ConfigRVZiCond = 1;
-  localparam CVA6ConfigSclicExtEn = 0;
-  localparam CVA6ConfigXhclicExtEn = 0;
+  localparam CVA6ConfigSclicExtEn = 1;
+  localparam CVA6ConfigXhclicExtEn = 1;
 
   localparam CVA6ConfigAxiIdWidth = 4;
   localparam CVA6ConfigAxiAddrWidth = 64;
@@ -37,7 +37,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigFetchUserEn = 0;
   localparam CVA6ConfigFetchUserWidth = CVA6ConfigXlen;
   localparam CVA6ConfigDataUserEn = 0;
-  localparam CVA6ConfigDataUserWidth = CVA6ConfigXlen;
+  localparam CVA6ConfigDataUserWidth = 1;
 
   localparam CVA6ConfigIcacheByteSize = 16384;
   localparam CVA6ConfigIcacheSetAssoc = 4;
@@ -46,7 +46,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
 
-  localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
+  localparam CVA6ConfigDcacheFlushOnFence = 1'b1;
   localparam CVA6ConfigDcacheFlushOnFenceI = 1'b1;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
 
@@ -162,9 +162,9 @@ package cva6_config_pkg;
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
       DcacheLineWidth: unsigned'(CVA6ConfigDcacheLineWidth),
-      DcacheFlushOnFence: unsigned'(CVA6ConfigDcacheFlushOnFence),
-      DcacheFlushOnFenceI: unsigned'(CVA6ConfigDcacheFlushOnFenceI),
-      DcacheInvalidateOnFlush: unsigned'(CVA6ConfigDcacheInvalidateOnFlush),
+      DcacheFlushOnFence: bit'(CVA6ConfigDcacheFlushOnFence),
+      DcacheFlushOnFenceI: bit'(CVA6ConfigDcacheFlushOnFenceI),
+      DcacheInvalidateOnFlush: bit'(CVA6ConfigDcacheInvalidateOnFlush),
       DataUserEn: unsigned'(CVA6ConfigDataUserEn),
       WtDcacheWbufDepth: int'(CVA6ConfigWtDcacheWbufDepth),
       FetchUserWidth: unsigned'(CVA6ConfigFetchUserWidth),
