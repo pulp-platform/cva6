@@ -168,6 +168,7 @@ package cva6_config_pkg;
       DataTlbEntries: int'(2),
       TlbColoring: bit'(0),
       NumTlbColors: int'(1),
+      LockableTlbWays: int'(0),
       UseSharedTlb: bit'(1),
       SvnapotEn: bit'(0),
       SharedTlbDepth: int'(64),
