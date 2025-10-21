@@ -101,57 +101,57 @@ module load_store_unit
     output icache_areq_t icache_areq_o,
 
     // Current privilege mode - CSR_REGFILE
-    input  riscv::priv_lvl_t                          priv_lvl_i,
+    input  riscv::priv_lvl_t                                   priv_lvl_i,
     // Data Endian mode - CSR_REGFILE
-    input  logic                                      mbe_i,
+    input  logic                                               mbe_i,
     // Current virtualization mode - CSR_REGFILE
-    input  logic                                      v_i,
+    input  logic                                               v_i,
     // Privilege level at which load and stores should happen - CSR_REGFILE
-    input  riscv::priv_lvl_t                          ld_st_priv_lvl_i,
+    input  riscv::priv_lvl_t                                   ld_st_priv_lvl_i,
     // Virtualization mode at which load and stores should happen - CSR_REGFILE
-    input  logic                                      ld_st_v_i,
+    input  logic                                               ld_st_v_i,
     // Instruction is a hyp load/store - CSR_REGFILE
-    output logic                                      csr_hs_ld_st_inst_o,
+    output logic                                               csr_hs_ld_st_inst_o,
     // Supervisor User Memory - CSR_REGFILE
-    input  logic                                      sum_i,
+    input  logic                                               sum_i,
     // Virtual Supervisor User Memory - CSR_REGFILE
-    input  logic                                      vs_sum_i,
+    input  logic                                               vs_sum_i,
     // Make Executable Readable - CSR_REGFILE
-    input  logic                                      mxr_i,
+    input  logic                                               mxr_i,
     // Make Executable Readable Virtual Supervisor - CSR_REGFILE
-    input  logic                                      vmxr_i,
+    input  logic                                               vmxr_i,
     // TLB partitioning: currently allowed colors - CSR_REGFILE
-    input logic            [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
+    input  logic              [      CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,
     // TLB locking: locked TLB entries - CSR_REGFILE
-    input locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_i,
+    input  locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [      CVA6Cfg.PPNW-1:0] satp_ppn_i,
+    input  logic              [              CVA6Cfg.PPNW-1:0] satp_ppn_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [CVA6Cfg.ASID_WIDTH-1:0] asid_i,
+    input  logic              [        CVA6Cfg.ASID_WIDTH-1:0] asid_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [      CVA6Cfg.PPNW-1:0] vsatp_ppn_i,
+    input  logic              [              CVA6Cfg.PPNW-1:0] vsatp_ppn_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [CVA6Cfg.ASID_WIDTH-1:0] vs_asid_i,
+    input  logic              [        CVA6Cfg.ASID_WIDTH-1:0] vs_asid_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [      CVA6Cfg.PPNW-1:0] hgatp_ppn_i,
+    input  logic              [              CVA6Cfg.PPNW-1:0] hgatp_ppn_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [CVA6Cfg.VMID_WIDTH-1:0] vmid_i,
+    input  logic              [        CVA6Cfg.VMID_WIDTH-1:0] vmid_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [CVA6Cfg.ASID_WIDTH-1:0] asid_to_be_flushed_i,
+    input  logic              [        CVA6Cfg.ASID_WIDTH-1:0] asid_to_be_flushed_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [CVA6Cfg.VMID_WIDTH-1:0] vmid_to_be_flushed_i,
+    input  logic              [        CVA6Cfg.VMID_WIDTH-1:0] vmid_to_be_flushed_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [      CVA6Cfg.VLEN-1:0] vaddr_to_be_flushed_i,
+    input  logic              [              CVA6Cfg.VLEN-1:0] vaddr_to_be_flushed_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
-    input  logic             [     CVA6Cfg.GPLEN-1:0] gpaddr_to_be_flushed_i,
+    input  logic              [             CVA6Cfg.GPLEN-1:0] gpaddr_to_be_flushed_i,
     // TLB flush - CONTROLLER
-    input  logic                                      flush_tlb_i,
-    input  logic                                      flush_tlb_vvma_i,
-    input  logic                                      flush_tlb_gvma_i,
+    input  logic                                               flush_tlb_i,
+    input  logic                                               flush_tlb_vvma_i,
+    input  logic                                               flush_tlb_gvma_i,
     // Instruction TLB miss - PERF_COUNTERS
-    output logic                                      itlb_miss_o,
+    output logic                                               itlb_miss_o,
     // Data TLB miss - PERF_COUNTERS
-    output logic                                      dtlb_miss_o,
+    output logic                                               dtlb_miss_o,
 
     // Data cache request output - CACHES
     input  dcache_req_o_t [2:0] dcache_req_ports_i,
@@ -264,17 +264,17 @@ module load_store_unit
     localparam HYP_EXT = CVA6Cfg.RVH ? 1 : 0;
 
     cva6_mmu #(
-        .CVA6Cfg       (CVA6Cfg),
-        .exception_t   (exception_t),
-        .icache_areq_t (icache_areq_t),
-        .icache_arsp_t (icache_arsp_t),
-        .icache_dreq_t (icache_dreq_t),
-        .icache_drsp_t (icache_drsp_t),
-        .dcache_req_i_t(dcache_req_i_t),
-        .dcache_req_o_t(dcache_req_o_t),
-        .pte_cva6_t    (pte_cva6_t),
+        .CVA6Cfg           (CVA6Cfg),
+        .exception_t       (exception_t),
+        .icache_areq_t     (icache_areq_t),
+        .icache_arsp_t     (icache_arsp_t),
+        .icache_dreq_t     (icache_dreq_t),
+        .icache_drsp_t     (icache_drsp_t),
+        .dcache_req_i_t    (dcache_req_i_t),
+        .dcache_req_o_t    (dcache_req_o_t),
+        .pte_cva6_t        (pte_cva6_t),
         .locked_tlb_entry_t(locked_tlb_entry_t),
-        .HYP_EXT       (HYP_EXT)
+        .HYP_EXT           (HYP_EXT)
     ) i_cva6_mmu (
         .clk_i(clk_i),
         .rst_ni(rst_ni),
