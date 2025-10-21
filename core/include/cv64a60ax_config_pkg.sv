@@ -25,6 +25,9 @@ package cva6_config_pkg;
   localparam CVA6ConfigAxiDataWidth = 128;
   localparam CVA6ConfigDataUserWidth = 12;
 
+  localparam CVA6ConfigICacheSpmAddrBase = 56'h01A0_0000;
+  localparam CVA6ConfigDCacheSpmAddrBase = 56'h0180_0000;
+
 
 `ifndef __UVMA_AXI_MACROS_SV__
   `define __UVMA_AXI_MACROS_SV__
@@ -108,9 +111,9 @@ localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
    NrNonIdempotentRules: unsigned'(2),
    NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
    NonIdempotentLength: 1024'({64'b0, 64'b0}),
-   NrExecuteRegionRules: unsigned'(6),
-   ExecuteRegionAddrBase: 1024'({64'h1_0000_0000, 64'h8000_0000, 64'h300_0000, 64'h0, 64'h2000_0000, 64'h8_0000_0000}),
-   ExecuteRegionLength: 1024'({64'h2_0000_0000, 64'h1_0000, 64'h1000, 64'h1_0000, 64'h2000_0000, 64'h7_FFFF_FFFF}),
+   NrExecuteRegionRules: unsigned'(7),
+   ExecuteRegionAddrBase: 1024'({64'h1_0000_0000, 64'h8000_0000, 64'(CVA6ConfigICacheSpmAddrBase), 64'h300_0000, 64'h0, 64'h2000_0000, 64'h8_0000_0000}),
+   ExecuteRegionLength: 1024'({64'h2_0000_0000, 64'h1_0000, 64'(CVA6ConfigIcacheByteSize), 64'h1000, 64'h1_0000, 64'h2000_0000, 64'h7_FFFF_FFFF}),
    NrCachedRegionRules: unsigned'(2),
    CachedRegionAddrBase: 1024'({64'h1_0000_0000, 64'h8000_0000}),
    CachedRegionLength: 1024'({64'h2_0000_0000, 64'h1_0000}),
@@ -125,6 +128,10 @@ localparam config_pkg::cva6_user_cfg_t cva6_cfg = '{
    IcacheByteSize: unsigned'(32768),
    IcacheSetAssoc: unsigned'(8),
    IcacheLineWidth: unsigned'(512),
+   ICacheSpmAddrBase: 56'(CVA6ConfigICacheSpmAddrBase),
+   ICacheSpmLength: 56'(CVA6ConfigIcacheByteSize),
+   DCacheSpmAddrBase: 56'(CVA6ConfigDCacheSpmAddrBase),
+   DCacheSpmLength: 56'(CVA6ConfigDcacheByteSize),
    DCacheType: config_pkg::HPDCACHE_WT,
    DcacheByteSize: unsigned'(32768),
    DcacheSetAssoc: unsigned'(8),

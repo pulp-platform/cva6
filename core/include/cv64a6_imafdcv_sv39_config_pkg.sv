@@ -48,6 +48,9 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheSetAssoc = 4;
   localparam CVA6ConfigDcacheLineWidth = 256;
 
+  localparam CVA6ConfigICacheSpmAddrBase = 56'h01A0_0000;
+  localparam CVA6ConfigDCacheSpmAddrBase = 56'h0180_0000;
+
   localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
   localparam CVA6ConfigDcacheFlushOnFenceI = 1'b0;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
@@ -143,9 +146,9 @@ package cva6_config_pkg;
       NrNonIdempotentRules: unsigned'(2),
       NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
       NonIdempotentLength: 1024'({64'b0, 64'b0}),
-      NrExecuteRegionRules: unsigned'(3),
-      ExecuteRegionAddrBase: 1024'({64'h8000_0000, 64'h1_0000, 64'h0}),
-      ExecuteRegionLength: 1024'({64'h40000000, 64'h10000, 64'h1000}),
+      NrExecuteRegionRules: unsigned'(4),
+      ExecuteRegionAddrBase: 1024'({64'h8000_0000, 64'(CVA6ConfigICacheSpmAddrBase), 64'h1_0000, 64'h0}),
+      ExecuteRegionLength: 1024'({64'h40000000, 64'(CVA6ConfigIcacheByteSize), 64'h10000, 64'h1000}),
       NrCachedRegionRules: unsigned'(1),
       CachedRegionAddrBase: 1024'({64'h8000_0000}),
       CachedRegionLength: 1024'({64'h40000000}),
@@ -160,6 +163,10 @@ package cva6_config_pkg;
       IcacheByteSize: unsigned'(CVA6ConfigIcacheByteSize),
       IcacheSetAssoc: unsigned'(CVA6ConfigIcacheSetAssoc),
       IcacheLineWidth: unsigned'(CVA6ConfigIcacheLineWidth),
+      ICacheSpmAddrBase: 56'(CVA6ConfigICacheSpmAddrBase),
+      ICacheSpmLength: 56'(CVA6ConfigIcacheByteSize),
+      DCacheSpmAddrBase: 56'(CVA6ConfigDCacheSpmAddrBase),
+      DCacheSpmLength: 56'(CVA6ConfigDcacheByteSize),
       DcacheByteSize: unsigned'(CVA6ConfigDcacheByteSize),
       DcacheSetAssoc: unsigned'(CVA6ConfigDcacheSetAssoc),
       DcacheLineWidth: unsigned'(CVA6ConfigDcacheLineWidth),
