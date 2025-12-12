@@ -8,7 +8,7 @@ package:
 # WT_DCACHE
 dependencies:
   axi: { git: "https://github.com/pulp-platform/axi.git", version: 0.31.0 }
-  ace: { git: "https://github.com/pulp-platform/ace.git", rev: bd99a72    } # branch: multicore/devel
+  ace: { git: "https://github.com/pulp-platform/ace.git", rev: 083073e    } # branch: multicore/main
   common_cells:
     { git: "https://github.com/pulp-platform/common_cells", version: 1.23.0 }
   fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 58ca3c3 } # branch: develop
