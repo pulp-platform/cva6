@@ -166,7 +166,7 @@ module cva6_tlb
           assign vpage_match[i_gen][z_gen][x_gen] = x_gen == 0 ? 1 : tags_q[i_gen].is_page[CVA6Cfg.PtLevels-1-x_gen][z_gen];
           assign vaddr_level_match[i_gen][z_gen][x_gen] = &vaddr_vpn_match[i_gen][z_gen][CVA6Cfg.PtLevels-1:x_gen] && vpage_match[i_gen][z_gen][x_gen];
         end
-        //identify if virtual address vpn matches at all PT levels for all TLB entries 
+        //identify if virtual address vpn matches at all PT levels for all TLB entries
         assign vaddr_vpn_match[i_gen][0][x_gen]  = vaddr_to_be_flushed_i[12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*(x_gen+1))-1:12+((CVA6Cfg.VpnLen/CVA6Cfg.PtLevels)*x_gen)] == tags_q[i_gen].vpn[x_gen];
 
       end
@@ -174,14 +174,6 @@ module cva6_tlb
       // Identify if the input virtual address matches a stored NAPOT tag
       assign vpn0_napot_match[i_gen] = lu_vaddr_i[12 + (CVA6Cfg.VpnLen / CVA6Cfg.PtLevels) - 1 : 16] == tags_q[i_gen].vpn[0][(CVA6Cfg.VpnLen / CVA6Cfg.PtLevels)-1 : 4];
       assign napot_tag_match[i_gen] = (CVA6Cfg.SvnapotEn && tags_q[i_gen].is_napot_64k) ? vpn_match[i_gen][2] && vpn_match[i_gen][1] && vpn0_napot_match[i_gen] : 1'b0;
-
-      if (CVA6Cfg.RVH) begin
-        //identify if GPADDR matches the GPPN
-        assign vaddr_vpn_match[i_gen][HYP_EXT][0] = (gpaddr_to_be_flushed_i[20:12] == gppn[i_gen][8:0]);
-        assign vaddr_vpn_match[i_gen][HYP_EXT][HYP_EXT] = (gpaddr_to_be_flushed_i[29:21] == gppn[i_gen][17:9]);
-        assign vaddr_vpn_match[i_gen][HYP_EXT][HYP_EXT*2] = (gpaddr_to_be_flushed_i[30+GPPN2:30] == gppn[i_gen][18+GPPN2:18]);
-
-      end
 
       // Reorganise the output structure to match `is_page` tag order: [1G, 2M]
       for (w_gen = 0; w_gen < CVA6Cfg.PtLevels - 1; w_gen++) begin
