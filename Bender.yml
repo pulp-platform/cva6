@@ -77,6 +77,10 @@ sources:
         files:
           - core/include/cv64a6_splus_config_pkg.sv
 
+      - target: cv64a6_imafdchsclic_sv39_hpdcache_wb
+        files:
+          - core/include/cv64a6_imafdchsclic_sv39_hpdcache_wb_config_pkg.sv
+
       - target: cv32a6_imac_sv0
         files:
           - core/include/cv32a6_imac_sv0_config_pkg.sv
