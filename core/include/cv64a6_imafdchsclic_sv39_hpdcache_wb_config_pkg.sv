@@ -12,7 +12,7 @@
 //
 // Author: Cesar Fuguet - CEA
 // Date: August, 2023
-// Description: CVA6 configuration package using the HPDcache as cache subsystem (CLIC variant)
+// Description: CVA6 configuration package using the HPDcache as cache subsystem
 
 
 package cva6_config_pkg;
@@ -52,15 +52,17 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheByteSize = 32768;
   localparam CVA6ConfigDcacheSetAssoc = 8;
   localparam CVA6ConfigDcacheLineWidth = 128;
-
+  // do not flush Dcache for EVERY fence - dramatic performance impact
+  // use RVZiCbom to synchronize caches with DMA devices instead
+  // CAUTION - a configuration with CVA6ConfigDcacheFlushOnFence might be required for different SoCs, e.g., cache-coherent SMP configurations
   localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
-  localparam CVA6ConfigDcacheFlushOnFenceI = 1'b0;
+  localparam CVA6ConfigDcacheFlushOnFenceI = 1'b1;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
 
   localparam CVA6ConfigDcacheIdWidth = 3;
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
 
-  localparam CVA6ConfigWtDcacheWbufDepth = 8;
+  localparam CVA6ConfigWtDcacheWbufDepth = 7;
 
   localparam CVA6ConfigNrScoreboardEntries = 8;
 
@@ -78,7 +80,7 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigPerfCounterEn = 1;
 
-  localparam config_pkg::cache_type_t CVA6ConfigDcacheType = config_pkg::HPDCACHE_WT;
+  localparam config_pkg::cache_type_t CVA6ConfigDcacheType = config_pkg::HPDCACHE_WB;
 
   localparam CVA6ConfigMmuPresent = 1;
 
