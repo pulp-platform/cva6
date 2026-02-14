@@ -291,7 +291,9 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] mtval_q, mtval_d;
   logic [CVA6Cfg.XLEN-1:0] mtinst_q, mtinst_d;
   logic [CVA6Cfg.XLEN-1:0] mtval2_q, mtval2_d;
-  logic fiom_d, fiom_q;
+  logic mfiom_d, mfiom_q;
+  logic sfiom_d, sfiom_q;
+  logic hfiom_d, hfiom_q;
 
   logic [CVA6Cfg.XLEN-1:0] stvec_q, stvec_d;
   riscv::intthresh_rv_t sintthresh_q, sintthresh_d;
@@ -625,7 +627,7 @@ module csr_regfile
         end
         riscv::CSR_SENVCFG: begin
           if (CVA6Cfg.RVS) begin
-            csr_rdata = '0 | fiom_q;
+            csr_rdata = '0 | sfiom_q;
             if (CVA6Cfg.RVZiCbom) begin
               csr_rdata[5:4] = scbie_q;
               csr_rdata[6]   = scbcfe_q;
@@ -673,7 +675,7 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_HENVCFG: begin
           if (CVA6Cfg.RVH) begin
-            csr_rdata = '0 | {{CVA6Cfg.XLEN - 1{1'b0}}, fiom_q};
+            csr_rdata = '0 | {{CVA6Cfg.XLEN - 1{1'b0}}, hfiom_q};
             if (CVA6Cfg.RVZiCbom) begin
               csr_rdata[5:4] = hcbie_q;
               csr_rdata[6]   = hcbcfe_q;
@@ -752,7 +754,7 @@ module csr_regfile
         riscv::CSR_MENVCFG: begin
           csr_rdata = '0;
           if (CVA6Cfg.RVU) begin
-            csr_rdata = '0 | fiom_q;
+            csr_rdata = '0 | mfiom_q;
           end
           if (CVA6Cfg.RVZiCbom) begin
             csr_rdata[5:4] = mcbie_q;
@@ -1190,7 +1192,9 @@ module csr_regfile
     fence_t_sel_d = fence_t_sel_q;
     fence_t_ceil_d = fence_t_ceil_q;
 
-    fiom_d = fiom_q;
+    mfiom_d = mfiom_q;
+    sfiom_d = sfiom_q;
+    hfiom_d = hfiom_q;
     dcache_d = dcache_q;
     icache_d = icache_q;
     acc_cons_d = acc_cons_q;
@@ -1568,7 +1572,7 @@ module csr_regfile
         end
         riscv::CSR_SENVCFG: begin
           if (CVA6Cfg.RVS) begin
-            fiom_d = csr_wdata[0];
+            sfiom_d = csr_wdata[0];
             if (CVA6Cfg.RVZiCbom) begin
               unique case (csr_wdata[5:4])
                 2'b00:   scbie_d = riscv::CBIE_ILLEGAL;
@@ -1696,7 +1700,7 @@ module csr_regfile
         end
         riscv::CSR_HENVCFG: begin
           if (CVA6Cfg.RVH) begin
-            fiom_d = csr_wdata[0];
+            hfiom_d = csr_wdata[0];
             if (CVA6Cfg.RVZiCbom) begin
               unique case (csr_wdata[5:4])
                 2'b00:   hcbie_d = riscv::CBIE_ILLEGAL;
@@ -1897,7 +1901,7 @@ module csr_regfile
         end
         riscv::CSR_MENVCFG: begin
           if (CVA6Cfg.RVU) begin
-            fiom_d = csr_wdata[0];
+            mfiom_d = csr_wdata[0];
           end
           if (CVA6Cfg.RVZiCbom) begin
             unique case (csr_wdata[5:4])
@@ -3049,7 +3053,9 @@ module csr_regfile
       mtvt_q           <= {CVA6Cfg.XLEN{1'b0}};
       mscratch_q       <= {CVA6Cfg.XLEN{1'b0}};
       if (CVA6Cfg.TvalEn) mtval_q <= {CVA6Cfg.XLEN{1'b0}};
-      fiom_q          <= '0;
+      mfiom_q         <= 1'b0;
+      sfiom_q         <= 1'b0;
+      hfiom_q         <= 1'b0;
       dcache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       icache_q        <= {{CVA6Cfg.XLEN - 1{1'b0}}, 1'b1};
       mcountinhibit_q <= '0;
@@ -3161,7 +3167,9 @@ module csr_regfile
       mtvt_q           <= mtvt_d;
       mscratch_q       <= mscratch_d;
       if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
-      fiom_q          <= fiom_d;
+      mfiom_q         <= mfiom_d;
+      sfiom_q         <= sfiom_d;
+      hfiom_q         <= hfiom_d;
       dcache_q        <= dcache_d;
       icache_q        <= icache_d;
       mcountinhibit_q <= mcountinhibit_d;
@@ -3369,7 +3377,8 @@ module csr_regfile
   assign rvfi_csr_o.mepc_q = mepc_q;
   assign rvfi_csr_o.mcause_q = mcause_q;
   assign rvfi_csr_o.mtval_q = CVA6Cfg.TvalEn ? mtval_q : '0;
-  assign rvfi_csr_o.fiom_q = fiom_q;
+  // RVFI historically exposed a single FIOM bit; expose MENVCFG.FIOM.
+  assign rvfi_csr_o.fiom_q = mfiom_q;
   assign rvfi_csr_o.mcountinhibit_q = mcountinhibit_q;
   assign rvfi_csr_o.cycle_q = cycle_q;
   assign rvfi_csr_o.instret_q = instret_q;
