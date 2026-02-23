@@ -219,36 +219,22 @@ sources:
       - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
       - core/cache_subsystem/cva6_hpdcache_subsystem.sv
       - core/cache_subsystem/cva6_hpdcache_wrapper.sv
-      # HPDCache SRAM models
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_1rw.sv
+      # `tc_sram` wrappers for HPDCache macros
+      - core/cache_subsystem/hpdcache_tc_sram.sv
 
       # Physical Memory Protection
       - core/pmp/src/pmp.sv
       - core/pmp/src/pmp_entry.sv
       - core/pmp/src/pmp_data_if.sv
 
-      - include_dirs:
-        - common/local/util
-        files:
-          - common/local/util/sram.sv
+      # FPGA support stubs: these should never be instantiated (and will throw assertions)
+      - vendor/pulp-platform/fpga-support/fpga-support-stubs.sv
 
-      - target: not(all(fpga, xilinx))
-        include_dirs:
-          - common/local/util
-        files:
-          - common/local/util/tc_sram_wrapper.sv
-          - common/local/util/sram_cache.sv
-          - common/local/util/tc_sram_wrapper_cache_techno.sv
-
-      - target: all(fpga, xilinx)
-        include_dirs:
-          - common/local/util
-        files:
-          - common/local/util/sram_cache.sv
-          - common/local/util/tc_sram_fpga_wrapper.sv
-          - vendor/pulp-platform/fpga-support/rtl/SyncSpRamBeNx64.sv
+      # SRAM Wrappers stay tech-independent; we leave technology mapping to tc_sram
+      - common/local/util/tc_sram_wrapper.sv
+      - common/local/util/tc_sram_wrapper_cache_techno.sv
+      - common/local/util/sram_pulp.sv
+      - common/local/util/sram_cache.sv
 
       - target: not(synthesis)
         include_dirs:
