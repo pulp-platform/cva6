@@ -309,14 +309,15 @@ module cache_ctrl
         // two memory look-ups on a single-ported SRAM and therefore is non-atomic
         if (!mshr_index_matches_i) begin
           // store data, write dirty bit
-          req_o                                      = hit_way_q;
-          addr_o                                     = mem_req_q.index;
-          we_o                                       = 1'b1;
-
-          be_o.vldrty                                = hit_way_q;
+          req_o                                   = hit_way_q;
+          addr_o                                  = mem_req_q.index;
+          we_o                                    = 1'b1;
 
           // set the correct byte enable
-          be_o.data[cl_offset>>3+:CVA6Cfg.XLEN/8]    = mem_req_q.be;
+          be_o.data[cl_offset>>3+:CVA6Cfg.XLEN/8] = mem_req_q.be;
+          for (int unsigned i = 0; i < CVA6Cfg.DCACHE_SET_ASSOC; i++) begin
+            if (hit_way_q[i]) be_o.vldrty[i] = '{valid: 1, dirty: be_o.data};
+          end
           data_o.data[cl_offset+:CVA6Cfg.XLEN]       = mem_req_q.wdata;
           data_o.tag                                 = mem_req_d.tag;
           // ~> change the state
