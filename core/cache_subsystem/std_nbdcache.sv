@@ -242,26 +242,26 @@ module std_nbdcache
       // Decode the address (rather, the address tag)
       // of an incoming request
       addr_decode #(
-          .NoIndices ( 3       ),
-          .NoRules   ( 4       ),
-          .addr_t    ( paddr_t ),
-          .rule_t    ( rule_t  )
+          .NoIndices(3),
+          .NoRules  (4),
+          .addr_t   (paddr_t),
+          .rule_t   (rule_t)
           // .Napot     ( 0       )
       ) i_addr_dec (
-          .addr_i           ( {req_ports_i[i].address_tag, {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}}  ),
-          .addr_map_i       ( dcache_spm_map    ),
-          .idx_o            ( cur_idx           ),
-          .dec_valid_o      (                   ),
-          .dec_error_o      (                   ),
-          .en_default_idx_i ( 1'b1              ),
-          .default_idx_i    ( CACHE_REQ         )
+          .addr_i          ({req_ports_i[i].address_tag, {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}}),
+          .addr_map_i      (dcache_spm_map),
+          .idx_o           (cur_idx),
+          .dec_valid_o     (),
+          .dec_error_o     (),
+          .en_default_idx_i(1'b1),
+          .default_idx_i   (CACHE_REQ)
       );
 
       always_comb begin
-        addr_idx_d   = addr_idx_q;
-        addr_tag_d   = addr_tag_q;
-        adec_state_d = adec_state_q;
-        req_dest_d   = req_dest_q;
+        addr_idx_d                  = addr_idx_q;
+        addr_tag_d                  = addr_tag_q;
+        adec_state_d                = adec_state_q;
+        req_dest_d                  = req_dest_q;
 
         // By default we forward all communication to
         // all targets, but without the valid and kill signals

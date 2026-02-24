@@ -45,29 +45,29 @@ module cva6_icache
     input logic rst_ni,
 
     /// flush the icache, flush and kill have to be asserted together
-    input  logic         flush_i,
+    input logic flush_i,
     /// enable icache
-    input  logic         en_i,
+    input logic en_i,
     /// to performance counter
-    output logic         miss_o,
-    output logic         busy_o,
-    input  logic         stall_i,
-    input  logic         init_ni,         // do not init after enabling
-    input  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_i,
+    output logic miss_o,
+    output logic busy_o,
+    input logic stall_i,
+    input logic init_ni,  // do not init after enabling
+    input logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_i,
     // address translation requests
-    input  icache_areq_t areq_i,
+    input icache_areq_t areq_i,
     output icache_arsp_t areq_o,
     // data requests
-    input  icache_dreq_t dreq_i,
+    input icache_dreq_t dreq_i,
     output icache_drsp_t dreq_o,
-    input  dcache_req_i_t ispm_req_i,
+    input dcache_req_i_t ispm_req_i,
     output dcache_req_o_t ispm_req_o,
     // refill port
-    input  logic         mem_rtrn_vld_i,
-    input  icache_rtrn_t mem_rtrn_i,
-    output logic         mem_data_req_o,
-    input  logic         mem_data_ack_i,
-    output icache_req_t  mem_data_o
+    input logic mem_rtrn_vld_i,
+    input icache_rtrn_t mem_rtrn_i,
+    output logic mem_data_req_o,
+    input logic mem_data_ack_i,
+    output icache_req_t mem_data_o
 );
 
   localparam ICACHE_OFFSET_WIDTH = $clog2(CVA6Cfg.ICACHE_LINE_WIDTH / 8);
@@ -222,19 +222,19 @@ module cva6_icache
   logic cur_idx;
 
   addr_decode #(
-      .NoIndices  ( 2       ),
-      .NoRules    ( 3       ),
-      .addr_t     ( paddr_t ),
-      .rule_t     ( rule_t  )
+      .NoIndices(2),
+      .NoRules  (3),
+      .addr_t   (paddr_t),
+      .rule_t   (rule_t)
       // .Napot      ( 0       )
   ) i_addr_dec (
-      .addr_i           ( areq_i.fetch_paddr ),
-      .addr_map_i       ( icache_spm_map     ),
-      .idx_o            ( cur_idx            ),
-      .dec_valid_o      (                    ),
-      .dec_error_o      (                    ),
-      .en_default_idx_i ( 1'b1               ),
-      .default_idx_i    ( '0                 )
+      .addr_i          (areq_i.fetch_paddr),
+      .addr_map_i      (icache_spm_map),
+      .idx_o           (cur_idx),
+      .dec_valid_o     (),
+      .dec_error_o     (),
+      .en_default_idx_i(1'b1),
+      .default_idx_i   ('0)
   );
 
   ///////////////////////////////////////////////////////
