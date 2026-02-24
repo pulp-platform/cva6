@@ -61,7 +61,7 @@ module std_cache_subsystem
     input logic dcache_flush_i,  // high until acknowledged
     output logic                           dcache_flush_ack_o,     // send a single cycle acknowledge signal when the cache is flushed
     output logic dcache_miss_o,  // we missed on a ld/st
-    input [CVA6Cfg.DCACHE_SET_ASSOC-1:0]   dcache_spm_ways_i,      // dcache ways configured as SPM
+    input [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_i,  // dcache ways configured as SPM
     output logic                           wbuffer_empty_o,        // statically set to 1, as there is no wbuffer in this cache system
     // Request ports
     input dcache_req_i_t [NumPorts-1:0] dcache_req_ports_i,  // to/from LSU
@@ -73,18 +73,18 @@ module std_cache_subsystem
 
   assign wbuffer_empty_o = 1'b1;
 
-  axi_req_t axi_req_icache;
-  axi_rsp_t axi_resp_icache;
-  axi_req_t axi_req_bypass;
-  axi_rsp_t axi_resp_bypass;
-  axi_req_t axi_req_data;
-  axi_rsp_t axi_resp_data;
+  axi_req_t      axi_req_icache;
+  axi_rsp_t      axi_resp_icache;
+  axi_req_t      axi_req_bypass;
+  axi_rsp_t      axi_resp_bypass;
+  axi_req_t      axi_req_data;
+  axi_rsp_t      axi_resp_data;
 
   dcache_req_o_t d2i_cache_req_in;
   dcache_req_i_t d2i_cache_req_out;
 
-  logic     icache_busy;
-  logic     dcache_busy;
+  logic          icache_busy;
+  logic          dcache_busy;
 
   assign busy_o = icache_busy | dcache_busy;
 
@@ -101,24 +101,24 @@ module std_cache_subsystem
       .axi_req_t(axi_req_t),
       .axi_rsp_t(axi_rsp_t)
   ) i_cva6_icache_axi_wrapper (
-      .clk_i     (clk_i),
-      .rst_ni    (rst_ni),
-      .priv_lvl_i(priv_lvl_i),
-      .flush_i   (icache_flush_i),
-      .en_i      (icache_en_i),
-      .miss_o    (icache_miss_o),
-      .busy_o    (icache_busy),
-      .stall_i   (stall_i),
-      .init_ni   (init_ni),
-      .icache_spm_ways_i (icache_spm_ways_i),
-      .areq_i    (icache_areq_i),
-      .areq_o    (icache_areq_o),
-      .dreq_i    (icache_dreq_i),
-      .dreq_o    (icache_dreq_o),
-      .ispm_req_i (d2i_cache_req_out),
-      .ispm_req_o (d2i_cache_req_in),
-      .axi_req_o (axi_req_icache),
-      .axi_resp_i(axi_resp_icache)
+      .clk_i            (clk_i),
+      .rst_ni           (rst_ni),
+      .priv_lvl_i       (priv_lvl_i),
+      .flush_i          (icache_flush_i),
+      .en_i             (icache_en_i),
+      .miss_o           (icache_miss_o),
+      .busy_o           (icache_busy),
+      .stall_i          (stall_i),
+      .init_ni          (init_ni),
+      .icache_spm_ways_i(icache_spm_ways_i),
+      .areq_i           (icache_areq_i),
+      .areq_o           (icache_areq_o),
+      .dreq_i           (icache_dreq_i),
+      .dreq_o           (icache_dreq_o),
+      .ispm_req_i       (d2i_cache_req_out),
+      .ispm_req_o       (d2i_cache_req_in),
+      .axi_req_o        (axi_req_icache),
+      .axi_resp_i       (axi_resp_icache)
   );
 
   // decreasing priority
@@ -136,22 +136,22 @@ module std_cache_subsystem
   ) i_nbdcache (
       .clk_i,
       .rst_ni,
-      .enable_i    (dcache_enable_i),
-      .flush_i     (dcache_flush_i),
-      .flush_ack_o (dcache_flush_ack_o),
-      .miss_o      (dcache_miss_o),
-      .busy_o      (dcache_busy),
-      .stall_i     (stall_i),
-      .init_ni     (init_ni),
+      .enable_i         (dcache_enable_i),
+      .flush_i          (dcache_flush_i),
+      .flush_ack_o      (dcache_flush_ack_o),
+      .miss_o           (dcache_miss_o),
+      .busy_o           (dcache_busy),
+      .stall_i          (stall_i),
+      .init_ni          (init_ni),
       .dcache_spm_ways_i(dcache_spm_ways_i),
-      .axi_bypass_o(axi_req_bypass),
-      .axi_bypass_i(axi_resp_bypass),
-      .axi_data_o  (axi_req_data),
-      .axi_data_i  (axi_resp_data),
-      .req_ports_i (dcache_req_ports_i),
-      .req_ports_o (dcache_req_ports_o),
-      .ispm_req_i  (d2i_cache_req_in),
-      .ispm_req_o  (d2i_cache_req_out),
+      .axi_bypass_o     (axi_req_bypass),
+      .axi_bypass_i     (axi_resp_bypass),
+      .axi_data_o       (axi_req_data),
+      .axi_data_i       (axi_resp_data),
+      .req_ports_i      (dcache_req_ports_i),
+      .req_ports_o      (dcache_req_ports_o),
+      .ispm_req_i       (d2i_cache_req_in),
+      .ispm_req_o       (d2i_cache_req_out),
       .amo_req_i,
       .amo_resp_o
   );
