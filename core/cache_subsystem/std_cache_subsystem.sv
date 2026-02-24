@@ -72,18 +72,18 @@ module std_cache_subsystem
 
   assign wbuffer_empty_o = 1'b1;
 
-  axi_req_t axi_req_icache;
-  axi_rsp_t axi_resp_icache;
-  axi_req_t axi_req_bypass;
-  axi_rsp_t axi_resp_bypass;
-  axi_req_t axi_req_data;
-  axi_rsp_t axi_resp_data;
+  axi_req_t      axi_req_icache;
+  axi_rsp_t      axi_resp_icache;
+  axi_req_t      axi_req_bypass;
+  axi_rsp_t      axi_resp_bypass;
+  axi_req_t      axi_req_data;
+  axi_rsp_t      axi_resp_data;
 
   dcache_req_o_t d2i_cache_req_in;
   dcache_req_i_t d2i_cache_req_out;
 
-  logic     icache_busy;
-  logic     dcache_busy;
+  logic          icache_busy;
+  logic          dcache_busy;
 
   assign busy_o = icache_busy | dcache_busy;
 
@@ -100,24 +100,24 @@ module std_cache_subsystem
       .axi_req_t(axi_req_t),
       .axi_rsp_t(axi_rsp_t)
   ) i_cva6_icache_axi_wrapper (
-      .clk_i     (clk_i),
-      .rst_ni    (rst_ni),
-      .priv_lvl_i(priv_lvl_i),
-      .flush_i   (icache_flush_i),
-      .en_i      (icache_en_i),
-      .miss_o    (icache_miss_o),
-      .busy_o    (icache_busy),
-      .stall_i   (stall_i),
-      .init_ni   (init_ni),
-      .icache_spm_ways_i (icache_spm_ways_i),
-      .areq_i    (icache_areq_i),
-      .areq_o    (icache_areq_o),
-      .dreq_i    (icache_dreq_i),
-      .dreq_o    (icache_dreq_o),
-      .ispm_req_i (d2i_cache_req_out),
-      .ispm_req_o (d2i_cache_req_in),
-      .axi_req_o (axi_req_icache),
-      .axi_resp_i(axi_resp_icache)
+      .clk_i            (clk_i),
+      .rst_ni           (rst_ni),
+      .priv_lvl_i       (priv_lvl_i),
+      .flush_i          (icache_flush_i),
+      .en_i             (icache_en_i),
+      .miss_o           (icache_miss_o),
+      .busy_o           (icache_busy),
+      .stall_i          (stall_i),
+      .init_ni          (init_ni),
+      .icache_spm_ways_i(icache_spm_ways_i),
+      .areq_i           (icache_areq_i),
+      .areq_o           (icache_areq_o),
+      .dreq_i           (icache_dreq_i),
+      .dreq_o           (icache_dreq_o),
+      .ispm_req_i       (d2i_cache_req_out),
+      .ispm_req_o       (d2i_cache_req_in),
+      .axi_req_o        (axi_req_icache),
+      .axi_resp_i       (axi_resp_icache)
   );
 
   // decreasing priority
