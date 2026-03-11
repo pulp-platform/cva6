@@ -43,8 +43,19 @@ TEST_HEXES  := $(TEST_ELFS:.elf=.hex)
 default: all
 
 $(DEPS_DIR)/printf:
-	@mkdir -p $(DEPS_DIR)
 	git clone -b v4.0.0 https://github.com/mpaland/printf.git $(DEPS_DIR)/printf
+
+$(DEPS_DIR)/riscv-tests/: $(DEPS_DIR)/patches/riscv-tests.patch $(DEPS_DIR)/patches/riscv-tests-env.patch
+	git clone https://github.com/riscv-software-src/riscv-tests.git $(DEPS_DIR)/riscv-tests
+	cd $(DEPS_DIR)/riscv-tests && git submodule update --init --recursive
+	cd $(DEPS_DIR)/riscv-tests && git apply $(DEPS_DIR)/patches/riscv-tests.patch
+	cd $(DEPS_DIR)/riscv-tests && git apply $(DEPS_DIR)/patches/riscv-tests-fencet.patch
+	cd $(DEPS_DIR)/riscv-tests/env && git apply $(DEPS_DIR)/patches/riscv-tests-env.patch
+
+.PHONY: riscv-tests
+riscv-tests: | $(DEPS_DIR)/riscv-tests/
+	@mkdir -p $(DEPS_DIR)/riscv-tests/build
+	cd $(DEPS_DIR)/riscv-tests/build && ../configure && make isa
 
 .PHONY: deps
 deps: $(DEPS_DIR)/printf
