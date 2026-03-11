@@ -1,0 +1,5 @@
+*.flist
+*.fst
+*.vcd
+*.dasm
+build/
