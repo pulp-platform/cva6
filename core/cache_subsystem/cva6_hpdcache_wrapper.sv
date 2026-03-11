@@ -383,6 +383,9 @@ module cva6_hpdcache_wrapper
       .mem_resp_read_valid_i(dcache_mem_resp_read_valid_i),
       .mem_resp_read_i      (dcache_mem_resp_read_i),
 
+      .mem_resp_read_inval_i('0),
+      .mem_resp_read_inval_nline_i('0),
+
       .mem_req_write_ready_i(dcache_mem_req_write_ready_i),
       .mem_req_write_valid_o(dcache_mem_req_write_valid_o),
       .mem_req_write_o      (dcache_mem_req_write_o),
