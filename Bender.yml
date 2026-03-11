@@ -13,6 +13,10 @@ dependencies:
   fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: a74d99a32b } # branch: develop
   tech_cells_generic:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
+  axi_riscv_atomics: { git: "https://github.com/pulp-platform/axi_riscv_atomics.git", version: 0.8.3 }
+  clic: { git: "https://github.com/pulp-platform/clic.git", version: 3.0.0 }
+  common_verification: { git: "https://github.com/pulp-platform/common_verification", version: 0.2.5 }
+  register_interface: { git: https://github.com/pulp-platform/register_interface.git, version: 0.4.7 }
 
 export_include_dirs:
   - core/include
@@ -289,3 +293,14 @@ sources:
           # Tracer (behavioral code, not RTL)
           - core/include/instr_tracer_pkg.sv
           - common/local/util/instr_tracer.sv
+
+      - target: cva6tb
+        files:
+          - test/hw/cva6tb_pkg.sv
+          - test/hw/cva6tb_regs.sv
+          - test/hw/cva6tb_sim_console.sv
+          - test/hw/cva6tb_soc.sv
+
+      - target: all(cva6tb, test_simple)
+        files:
+          - test/hw/cva6tb_test_simple.sv
