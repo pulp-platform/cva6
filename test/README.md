@@ -15,12 +15,12 @@ those who have access to it.
 | [hw/](hw/) | Testbench SoC and its peripherals (SystemVerilog) |
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
-| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`) |
+| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
-| [util/](util/) | Boot ROM generator, regression runner for the tests in `sw/` |
+| [util/](util/) | Boot ROM generator, regression runners for the tests in `sw/` and `riscv-tests` |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory, simulation logs and wave scripts |
 
@@ -194,6 +194,27 @@ in `<simulator>/logs/pulp-tests/` and writes a summary there:
 ./util/run-pulp-tests.sh vsim hello zicbom interrupts
 ./util/run-pulp-tests.sh verilator hello zicbom interrupts
 ```
+
+## External test suites
+
+`riscv-tests` is cloned into `sw/deps/` and patched for this platform on first build:
+
+```sh
+make -C sw riscv-tests           # clone, patch and build the ISA tests
+```
+
+The ISA regression is driven by [util/run-riscv-tests.sh](util/run-riscv-tests.sh), which runs
+the selected tests in parallel on the Verilator binary and summarises the results. It expects a
+model with zero-initialised memory, which the `-v` (virtual memory) variants need, and one thread
+per simulation since they run in parallel:
+
+```sh
+make verilator-build ZERO_SIM_MEM=1 THREADS=1
+cd verilator && NJOBS=8 ../util/run-riscv-tests.sh
+```
+
+Per-test logs are written to `verilator/logs/`. Note that the suite uses `+RetCodeSuccess=1`,
+matching the `riscv-tests` convention.
 
 ## Waveforms
 
