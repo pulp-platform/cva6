@@ -188,6 +188,7 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_decoder.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_1hot_to_binary.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_1hot_encoder.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_bin_encoder.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
       - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wmask.sv
