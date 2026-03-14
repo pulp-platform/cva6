@@ -15,7 +15,7 @@ those who have access to it.
 | [hw/](hw/) | Testbench SoC and its peripherals (SystemVerilog) |
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
-| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`) and their patches |
+| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
@@ -197,10 +197,12 @@ in `<simulator>/logs/pulp-tests/` and writes a summary there:
 
 ## External test suites
 
-`riscv-tests` is cloned into `sw/deps/` and patched for this platform on first build:
+`riscv-tests` and `riscv-hyp-tests` are cloned into `sw/deps/` and patched for this platform
+on first build:
 
 ```sh
 make -C sw riscv-tests           # clone, patch and build the ISA tests
+make -C sw riscv-hyp-tests       # clone, patch and build the hypervisor tests
 ```
 
 The ISA regression is driven by [util/run-riscv-tests.sh](util/run-riscv-tests.sh), which runs
@@ -215,6 +217,12 @@ cd verilator && NJOBS=8 ../util/run-riscv-tests.sh
 
 Per-test logs are written to `verilator/logs/`. Note that the suite uses `+RetCodeSuccess=1`,
 matching the `riscv-tests` convention.
+
+The hypervisor tests produce a single image that can be run directly:
+
+```sh
+make verilator-run HEXFILE=sw/deps/riscv-hyp-tests/build/cva6/rvh_test.hex MAX_CYCLES=2200000
+```
 
 ## Waveforms
 
