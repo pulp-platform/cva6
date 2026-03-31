@@ -40,7 +40,9 @@ module cva6_tlb
     input logic g_st_enbl_i,  // G-stage enabled
     input logic v_i,  // virtualization mode
     input logic [CVA6Cfg.NumTlbColors-1:0] cur_clrs_i,  // Currently active colors
-    input locked_tlb_entry_t [msb(CVA6Cfg.LockableTlbWays):0] locked_tlb_entries_i,  // Locked TLB entries
+    input locked_tlb_entry_t [msb(
+CVA6Cfg.LockableTlbWays
+):0] locked_tlb_entries_i,  // Locked TLB entries
     // Update TLB
     input tlb_update_cva6_t update_i,
     // Lookup signals
@@ -382,92 +384,92 @@ module cva6_tlb
         end
       end else begin
 
-      if (tags_q[i].is_napot_64k && CVA6Cfg.SvnapotEn) begin
-        temp_stored_vpn = {tags_q[i].vpn[2], tags_q[i].vpn[1], tags_q[i].vpn[0]};
-        // Mask the lower 4 bits of the VPN (addr[15:12]) for comparison
-        flush_vpn_masked = vaddr_to_be_flushed_i[CVA6Cfg.VpnLen+11:12] & ~'hF;
-        stored_vpn_masked = temp_stored_vpn & ~'hF;
-        flush_addr_napot_match = (flush_vpn_masked == stored_vpn_masked);
-      end else begin
-        flush_addr_napot_match = 1'b0;
-      end
-      flush_addr_matches = |vaddr_level_match[i][0] || flush_addr_napot_match;
+        if (tags_q[i].is_napot_64k && CVA6Cfg.SvnapotEn) begin
+          temp_stored_vpn = {tags_q[i].vpn[2], tags_q[i].vpn[1], tags_q[i].vpn[0]};
+          // Mask the lower 4 bits of the VPN (addr[15:12]) for comparison
+          flush_vpn_masked = vaddr_to_be_flushed_i[CVA6Cfg.VpnLen+11:12] & ~'hF;
+          stored_vpn_masked = temp_stored_vpn & ~'hF;
+          flush_addr_napot_match = (flush_vpn_masked == stored_vpn_masked);
+        end else begin
+          flush_addr_napot_match = 1'b0;
+        end
+        flush_addr_matches = |vaddr_level_match[i][0] || flush_addr_napot_match;
 
-      if (flush_i) begin
-        if (!tags_q[i].v_st_enbl[HYP_EXT*2] || HYP_EXT == 0) begin
-          // invalidate logic
-          // flush everything if ASID is 0 and vaddr is 0 ("SFENCE.VMA x0 x0" case)
-          if (asid_to_be_flushed_is0 && vaddr_to_be_flushed_is0) tags_n[i].valid = 1'b0;
-          // flush vaddr in all addressing space ("SFENCE.VMA vaddr x0" case), it should happen only for leaf pages
-          else if (asid_to_be_flushed_is0 && (flush_addr_matches) && (~vaddr_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-          // the entry is flushed if it's not global and asid and vaddr both matches with the entry to be flushed ("SFENCE.VMA vaddr asid" case)
-          else if ((!content_q[i].pte.g) && (flush_addr_matches) && (asid_to_be_flushed_i == tags_q[i].asid ) && (!vaddr_to_be_flushed_is0) && (!asid_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-          // the entry is flushed if it's not global, and the asid matches and vaddr is 0. ("SFENCE.VMA 0 asid" case)
-          else if ((!content_q[i].pte.g) && (vaddr_to_be_flushed_is0) && (asid_to_be_flushed_i  == tags_q[i].asid ) && (!asid_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
+        if (flush_i) begin
+          if (!tags_q[i].v_st_enbl[HYP_EXT*2] || HYP_EXT == 0) begin
+            // invalidate logic
+            // flush everything if ASID is 0 and vaddr is 0 ("SFENCE.VMA x0 x0" case)
+            if (asid_to_be_flushed_is0 && vaddr_to_be_flushed_is0) tags_n[i].valid = 1'b0;
+            // flush vaddr in all addressing space ("SFENCE.VMA vaddr x0" case), it should happen only for leaf pages
+            else if (asid_to_be_flushed_is0 && (flush_addr_matches) && (~vaddr_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+            // the entry is flushed if it's not global and asid and vaddr both matches with the entry to be flushed ("SFENCE.VMA vaddr asid" case)
+            else if ((!content_q[i].pte.g) && (flush_addr_matches) && (asid_to_be_flushed_i == tags_q[i].asid ) && (!vaddr_to_be_flushed_is0) && (!asid_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+            // the entry is flushed if it's not global, and the asid matches and vaddr is 0. ("SFENCE.VMA 0 asid" case)
+            else if ((!content_q[i].pte.g) && (vaddr_to_be_flushed_is0) && (asid_to_be_flushed_i  == tags_q[i].asid ) && (!asid_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+          end
+        end else if (flush_vvma_i && CVA6Cfg.RVH) begin
+          if (tags_q[i].v_st_enbl[HYP_EXT*2] && tags_q[i].v_st_enbl[0]) begin
+            // invalidate logic
+            // flush everything if current VMID matches and ASID is 0 and vaddr is 0 ("SFENCE.VMA/HFENCE.VVMA x0 x0" case)
+            if (asid_to_be_flushed_is0 && vaddr_to_be_flushed_is0 && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT]))
+              tags_n[i].valid = 1'b0;
+            // flush vaddr in all addressing space if current VMID matches ("SFENCE.VMA/HFENCE.VVMA vaddr x0" case), it should happen only for leaf pages
+            else if (asid_to_be_flushed_is0 && (flush_addr_matches) && (~vaddr_to_be_flushed_is0) && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT]))
+              tags_n[i].valid = 1'b0;
+            // the entry is flushed if it's not global and asid and vaddr and current VMID matches with the entry to be flushed ("SFENCE.VMA/HFENCE.VVMA vaddr asid" case)
+            else if ((!content_q[i].pte.g) && (flush_addr_matches) && (asid_to_be_flushed_i  == tags_q[i].asid  && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT])) && (!vaddr_to_be_flushed_is0) && (!asid_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+            // the entry is flushed if it's not global, and the asid and the current VMID matches and vaddr is 0. ("SFENCE.VMA/HFENCE.VVMA 0 asid" case)
+            else if ((!content_q[i].pte.g) && (vaddr_to_be_flushed_is0) && (asid_to_be_flushed_i  == tags_q[i].asid  && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT])) && (!asid_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+          end
+        end else if (flush_gvma_i && CVA6Cfg.RVH) begin
+          if (tags_q[i].v_st_enbl[HYP_EXT]) begin
+            // invalidate logic
+            // flush everything if vmid is 0 and addr is 0 ("HFENCE.GVMA x0 x0" case)
+            if (vmid_to_be_flushed_is0 && gpaddr_to_be_flushed_is0) tags_n[i].valid = 1'b0;
+            // flush gpaddr in all addressing space ("HFENCE.GVMA gpaddr x0" case), it should happen only for leaf pages
+            else if (vmid_to_be_flushed_is0 && (|vaddr_level_match[i][HYP_EXT]) && (~gpaddr_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+            // the entry vmid and gpaddr both match with the entry to be flushed ("HFENCE.GVMA gpaddr vmid" case)
+            else if ((|vaddr_level_match[i][HYP_EXT]) && (vmid_to_be_flushed_i == tags_q[i].vmid) && (~gpaddr_to_be_flushed_is0) && (~vmid_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+            // the entry is flushed if the vmid matches and gpaddr is 0. ("HFENCE.GVMA 0 vmid" case)
+            else if ((gpaddr_to_be_flushed_is0) && (vmid_to_be_flushed_i == tags_q[i].vmid) && (!vmid_to_be_flushed_is0))
+              tags_n[i].valid = 1'b0;
+          end
+          // normal replacement
+        end else if (update_i.valid & replace_en[i] & !lu_hit_o) begin
+          vpn_to_store = update_i.vpn;
+          if (update_i.is_napot_64k && CVA6Cfg.SvnapotEn) begin
+            // Svnapot: For a NAPOT entry, normalize the VPN by clearing the lower bits before storage
+            // This ensures that any address within the 64KiB range will match the same stored tag
+            vpn_to_store[3:0] = 4'b0;
+          end
+          //update tag
+          tags_n[i] = {
+            update_i.asid,
+            update_i.vmid,
+            // Zero-extended VPN to fit the tag width
+            ((CVA6Cfg.PtLevels + HYP_EXT) * (CVA6Cfg.VpnLen / CVA6Cfg.PtLevels))'(vpn_to_store),
+            update_i.is_page,
+            update_i.v_st_enbl,
+            1'b0,
+            1'b1,
+            CVA6Cfg.SvnapotEn ? update_i.is_napot_64k : 1'b0  // Svnapot: Propagate the NAPOT flag into the TLB entry
+          };
+          // update content as well
+          content_n[i].pte = update_i.content;
+          if (CVA6Cfg.RVH) content_n[i].gpte = update_i.g_content;
+          // If we reach here, the respective CSR TLB lock entry was set to not valid
+          // so also invalidate the actual TLB entry
+        end else if (tags_q[i].locked) begin
+          tags_n[i].locked = 1'b0;
+          tags_n[i].valid  = 1'b0;
         end
-      end else if (flush_vvma_i && CVA6Cfg.RVH) begin
-        if (tags_q[i].v_st_enbl[HYP_EXT*2] && tags_q[i].v_st_enbl[0]) begin
-          // invalidate logic
-          // flush everything if current VMID matches and ASID is 0 and vaddr is 0 ("SFENCE.VMA/HFENCE.VVMA x0 x0" case)
-          if (asid_to_be_flushed_is0 && vaddr_to_be_flushed_is0 && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT]))
-            tags_n[i].valid = 1'b0;
-          // flush vaddr in all addressing space if current VMID matches ("SFENCE.VMA/HFENCE.VVMA vaddr x0" case), it should happen only for leaf pages
-          else if (asid_to_be_flushed_is0 && (flush_addr_matches) && (~vaddr_to_be_flushed_is0) && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT]))
-            tags_n[i].valid = 1'b0;
-          // the entry is flushed if it's not global and asid and vaddr and current VMID matches with the entry to be flushed ("SFENCE.VMA/HFENCE.VVMA vaddr asid" case)
-          else if ((!content_q[i].pte.g) && (flush_addr_matches) && (asid_to_be_flushed_i  == tags_q[i].asid  && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT])) && (!vaddr_to_be_flushed_is0) && (!asid_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-          // the entry is flushed if it's not global, and the asid and the current VMID matches and vaddr is 0. ("SFENCE.VMA/HFENCE.VVMA 0 asid" case)
-          else if ((!content_q[i].pte.g) && (vaddr_to_be_flushed_is0) && (asid_to_be_flushed_i  == tags_q[i].asid  && ((tags_q[i].v_st_enbl[HYP_EXT] && lu_vmid_i == tags_q[i].vmid) || !tags_q[i].v_st_enbl[HYP_EXT])) && (!asid_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-        end
-      end else if (flush_gvma_i && CVA6Cfg.RVH) begin
-        if (tags_q[i].v_st_enbl[HYP_EXT]) begin
-          // invalidate logic
-          // flush everything if vmid is 0 and addr is 0 ("HFENCE.GVMA x0 x0" case)
-          if (vmid_to_be_flushed_is0 && gpaddr_to_be_flushed_is0) tags_n[i].valid = 1'b0;
-          // flush gpaddr in all addressing space ("HFENCE.GVMA gpaddr x0" case), it should happen only for leaf pages
-          else if (vmid_to_be_flushed_is0 && (|vaddr_level_match[i][HYP_EXT]) && (~gpaddr_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-          // the entry vmid and gpaddr both match with the entry to be flushed ("HFENCE.GVMA gpaddr vmid" case)
-          else if ((|vaddr_level_match[i][HYP_EXT]) && (vmid_to_be_flushed_i == tags_q[i].vmid) && (~gpaddr_to_be_flushed_is0) && (~vmid_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-          // the entry is flushed if the vmid matches and gpaddr is 0. ("HFENCE.GVMA 0 vmid" case)
-          else if ((gpaddr_to_be_flushed_is0) && (vmid_to_be_flushed_i == tags_q[i].vmid) && (!vmid_to_be_flushed_is0))
-            tags_n[i].valid = 1'b0;
-        end
-        // normal replacement
-      end else if (update_i.valid & replace_en[i] & !lu_hit_o) begin
-        vpn_to_store = update_i.vpn;
-        if (update_i.is_napot_64k && CVA6Cfg.SvnapotEn) begin
-          // Svnapot: For a NAPOT entry, normalize the VPN by clearing the lower bits before storage
-          // This ensures that any address within the 64KiB range will match the same stored tag
-          vpn_to_store[3:0] = 4'b0;
-        end
-        //update tag
-        tags_n[i] = {
-          update_i.asid,
-          update_i.vmid,
-          // Zero-extended VPN to fit the tag width
-          ((CVA6Cfg.PtLevels + HYP_EXT) * (CVA6Cfg.VpnLen / CVA6Cfg.PtLevels))'(vpn_to_store),
-          update_i.is_page,
-          update_i.v_st_enbl,
-          1'b0,
-          1'b1,
-          CVA6Cfg.SvnapotEn ? update_i.is_napot_64k : 1'b0  // Svnapot: Propagate the NAPOT flag into the TLB entry
-        };
-        // update content as well
-        content_n[i].pte = update_i.content;
-        if (CVA6Cfg.RVH) content_n[i].gpte = update_i.g_content;
-        // If we reach here, the respective CSR TLB lock entry was set to not valid
-        // so also invalidate the actual TLB entry
-      end else if (tags_q[i].locked) begin
-        tags_n[i].locked = 1'b0;
-        tags_n[i].valid  = 1'b0;
-      end
       end
     end
   end
