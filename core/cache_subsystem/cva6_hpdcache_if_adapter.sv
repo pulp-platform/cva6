@@ -69,6 +69,8 @@ module cva6_hpdcache_if_adapter
   } flush_fsm_t;
 
   logic hpdcache_req_is_uncacheable;
+  logic hpdcache_req_is_ispm;
+  logic hpdcache_req_is_dspm;
   hpdcache_req_t hpdcache_req;
   //  }}}
 
@@ -79,6 +81,22 @@ module cva6_hpdcache_if_adapter
     //  {{{
     if (IsLoadPort == 1'b1) begin : load_port_gen
       assign hpdcache_req_is_uncacheable = !config_pkg::is_inside_cacheable_regions(
+          CVA6Cfg,
+          {
+            {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}
+            , cva6_req_i.address_tag
+            , {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}
+          }
+      ) && !hpdcache_req_is_ispm && !hpdcache_req_is_dspm;
+      assign hpdcache_req_is_ispm = config_pkg::is_inside_ispm_regions(
+          CVA6Cfg,
+          {
+            {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}
+            , cva6_req_i.address_tag
+            , {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}
+          }
+      );
+      assign hpdcache_req_is_dspm = config_pkg::is_inside_dspm_regions(
           CVA6Cfg,
           {
             {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}
@@ -102,12 +120,16 @@ module cva6_hpdcache_if_adapter
       assign hpdcache_req.pma.uncacheable = 1'b0;
       assign hpdcache_req.pma.io = 1'b0;
       assign hpdcache_req.pma.wr_policy_hint = hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO;
+      assign hpdcache_req.pma.ispm = 1'b0;
+      assign hpdcache_req.pma.dspm = 1'b0;
 
       assign hpdcache_req_abort_o = cva6_req_i.kill_req;
       assign hpdcache_req_tag_o = cva6_req_i.address_tag;
       assign hpdcache_req_pma_o.uncacheable = hpdcache_req_is_uncacheable;
       assign hpdcache_req_pma_o.io = 1'b0;
       assign hpdcache_req_pma_o.wr_policy_hint = hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO;
+      assign hpdcache_req_pma_o.ispm = hpdcache_req_is_ispm;
+      assign hpdcache_req_pma_o.dspm = hpdcache_req_is_dspm;
 
       //    Response forwarding
       assign cva6_req_o.data_rvalid = hpdcache_rsp_valid_i;
@@ -146,6 +168,7 @@ module cva6_hpdcache_if_adapter
       flush_fsm_t flush_fsm_q, flush_fsm_d;
 
       logic forward_store, forward_amo, forward_flush;
+      logic amo_is_uncacheable;
       hpdcache_pkg::hpdcache_req_op_t store_op;
 
       //  DCACHE flush request
@@ -233,8 +256,32 @@ module cva6_hpdcache_if_adapter
           CVA6Cfg,
           {
             {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}
-            , hpdcache_req.addr_tag,
+            , cva6_req_i.address_tag,
             {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}
+          }
+      ) && !hpdcache_req_is_ispm && !hpdcache_req_is_dspm;
+      // An AMO's attributes come from its own address; the SPMs do not implement
+      // AMOs, so on an SPM address it is uncacheable as on any other
+      assign amo_is_uncacheable = !config_pkg::is_inside_cacheable_regions(
+          CVA6Cfg,
+          {
+            {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}, amo_tag, {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}
+          }
+      );
+      assign hpdcache_req_is_ispm = config_pkg::is_inside_ispm_regions(
+          CVA6Cfg,
+          {
+            {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}
+            , cva6_req_i.address_tag
+            , {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}
+          }
+      );
+      assign hpdcache_req_is_dspm = config_pkg::is_inside_dspm_regions(
+          CVA6Cfg,
+          {
+            {64 - CVA6Cfg.DCACHE_TAG_WIDTH{1'b0}}
+            , cva6_req_i.address_tag
+            , {CVA6Cfg.DCACHE_INDEX_WIDTH{1'b0}}
           }
       );
 
@@ -260,9 +307,11 @@ module cva6_hpdcache_if_adapter
               phys_indexed: 1'b1,
               addr_tag: amo_tag,
               pma: '{
-                  uncacheable: hpdcache_req_is_uncacheable,
+                  uncacheable: amo_is_uncacheable,
                   io: 1'b0,
-                  wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO
+                  wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO,
+                  ispm: 1'b0,  // the SPMs do not implement AMOs
+                  dspm: 1'b0
               }
           };
 
@@ -283,7 +332,9 @@ module cva6_hpdcache_if_adapter
               pma: '{
                   uncacheable: hpdcache_req_is_uncacheable,
                   io: 1'b0,
-                  wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO
+                  wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO,
+                  ispm: hpdcache_req_is_ispm,
+                  dspm: hpdcache_req_is_dspm
               }
           };
 
@@ -306,7 +357,9 @@ module cva6_hpdcache_if_adapter
               pma: '{
                   uncacheable: 1'b0,
                   io: 1'b0,
-                  wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO
+                  wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO,
+                  ispm: 1'b0,
+                  dspm: 1'b0
               }
           };
 
@@ -323,6 +376,8 @@ module cva6_hpdcache_if_adapter
       assign hpdcache_req_pma_o.uncacheable = 1'b0;
       assign hpdcache_req_pma_o.io = 1'b0;
       assign hpdcache_req_pma_o.wr_policy_hint = hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO;
+      assign hpdcache_req_pma_o.ispm = 1'b0;
+      assign hpdcache_req_pma_o.dspm = 1'b0;
       //  }}}
 
       //  Response forwarding
