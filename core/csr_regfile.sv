@@ -1123,7 +1123,7 @@ module csr_regfile
         else read_access_exception = 1'b1;
 
         riscv::CSR_ICACHE_SPM_WAYS: begin
-          if (!v_q) begin
+          if (!(v_q && CVA6Cfg.RVH)) begin
             csr_rdata = icache_spm_ways_q;
           end else begin
             read_access_exception = 1'b1;
@@ -1131,7 +1131,7 @@ module csr_regfile
         end
 
         riscv::CSR_DCACHE_SPM_WAYS: begin
-          if (!v_q) begin
+          if (!(v_q && CVA6Cfg.RVH)) begin
             csr_rdata = dcache_spm_ways_q;
           end else begin
             read_access_exception = 1'b1;
@@ -2328,7 +2328,7 @@ module csr_regfile
         else update_access_exception = 1'b1;
 
         riscv::CSR_ICACHE_SPM_WAYS: begin
-          if (!v_q) begin
+          if (!(v_q && CVA6Cfg.RVH)) begin
             icache_spm_ways_d = csr_wdata & ((2 ** CVA6Cfg.ICACHE_SET_ASSOC) - 1);
           end else begin
             update_access_exception = 1'b1;
@@ -2336,7 +2336,7 @@ module csr_regfile
         end
 
         riscv::CSR_DCACHE_SPM_WAYS: begin
-          if (!v_q) begin
+          if (!(v_q && CVA6Cfg.RVH)) begin
             dcache_spm_ways_d = csr_wdata & ((2 ** CVA6Cfg.DCACHE_SET_ASSOC) - 1);
           end else begin
             update_access_exception = 1'b1;
