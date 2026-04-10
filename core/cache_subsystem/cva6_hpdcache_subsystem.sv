@@ -63,6 +63,8 @@ module cva6_hpdcache_subsystem
     input logic icache_flush_i,
     // instruction cache miss - PERF_COUNTERS
     output logic icache_miss_o,
+    // I-cache ways configured as SPM - CSR_REGFILE
+    input logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0] icache_spm_ways_i,
     // Input address translation request - EX_STAGE
     input icache_areq_t icache_areq_i,
     // Output address translation request - EX_STAGE
@@ -77,13 +79,15 @@ module cva6_hpdcache_subsystem
     //  {{{
     //    Cache management
     // Data cache enable - CSR_REGFILE
-    input  logic dcache_enable_i,
+    input logic dcache_enable_i,
     // Data cache flush - CONTROLLER
-    input  logic dcache_flush_i,
+    input logic dcache_flush_i,
     // Flush acknowledge - CONTROLLER
     output logic dcache_flush_ack_o,
     // Load or store miss - PERF_COUNTERS
     output logic dcache_miss_o,
+    // D-cache ways configured as SPM - CSR_REGFILE
+    input logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_i,
 
     // AMO request - EX_STAGE
     input  ariane_pkg::amo_req_t                 dcache_amo_req_i,
@@ -144,6 +148,10 @@ module cva6_hpdcache_subsystem
   // SupportOutstandingKillReq stays disabled below and this never fires
   logic icache_mem_kill_req;
 
+  //  D-cache <-> I-cache SPM signals
+  dcache_req_o_t d2i_cache_req_in;
+  dcache_req_i_t d2i_cache_req_out;
+
   localparam int ICACHE_RDTXID = 1 << (CVA6Cfg.MEM_TID_WIDTH - 1);
 
   cva6_icache #(
@@ -154,6 +162,8 @@ module cva6_hpdcache_subsystem
       .icache_drsp_t(icache_drsp_t),
       .icache_req_t(icache_req_t),
       .icache_rtrn_t(icache_rtrn_t),
+      .dcache_req_i_t(dcache_req_i_t),
+      .dcache_req_o_t(dcache_req_o_t),
       .RdTxId(ICACHE_RDTXID)
   ) i_cva6_icache (
       .clk_i            (clk_i),
@@ -164,13 +174,13 @@ module cva6_hpdcache_subsystem
       .busy_o           (),
       .stall_i          (1'b0),
       .init_ni          (1'b0),
-      .icache_spm_ways_i('0),
+      .icache_spm_ways_i(icache_spm_ways_i),
       .areq_i           (icache_areq_i),
       .areq_o           (icache_areq_o),
       .dreq_i           (icache_dreq_i),
       .dreq_o           (icache_dreq_o),
-      .ispm_req_i       ('0),
-      .ispm_req_o       (),
+      .ispm_req_i       (d2i_cache_req_out),
+      .ispm_req_o       (d2i_cache_req_in),
       .mem_rtrn_vld_i   (icache_miss_resp_valid),
       .mem_rtrn_i       (icache_miss_resp),
       .mem_data_req_o   (icache_miss_valid),
@@ -332,6 +342,9 @@ module cva6_hpdcache_subsystem
       .dcache_req_ports_o(dcache_req_ports_o),
       .wbuffer_empty_o(wbuffer_empty_o),
       .wbuffer_not_ni_o(wbuffer_not_ni_o),
+      .dcache_spm_ways_i(dcache_spm_ways_i),
+      .ispm_req_o(d2i_cache_req_out),
+      .ispm_req_i(d2i_cache_req_in),
       .hwpf_base_set_i(hwpf_base_set_i),
       .hwpf_base_i(hwpf_base_i),
       .hwpf_base_o(hwpf_base_o),
