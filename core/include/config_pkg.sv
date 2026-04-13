@@ -540,7 +540,7 @@ package config_pkg;
   endfunction : is_inside_ispm_regions
 
   function automatic logic is_inside_dspm_regions(cva6_cfg_t Cfg, logic [63:0] address);
-    return  range_check(Cfg.DCacheSpmAddrBase, Cfg.DCacheSpmLength, address);
+    return range_check(Cfg.DCacheSpmAddrBase, Cfg.DCacheSpmLength, address);
   endfunction : is_inside_dspm_regions
 
 endpackage

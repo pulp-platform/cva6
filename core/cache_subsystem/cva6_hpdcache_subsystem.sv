@@ -81,9 +81,9 @@ module cva6_hpdcache_subsystem
     //  {{{
     //    Cache management
     // Data cache enable - CSR_REGFILE
-    input  logic dcache_enable_i,
+    input logic dcache_enable_i,
     // Data cache flush - CONTROLLER
-    input  logic dcache_flush_i,
+    input logic dcache_flush_i,
     // Flush acknowledge - CONTROLLER
     output logic dcache_flush_ack_o,
     // Load or store miss - PERF_COUNTERS

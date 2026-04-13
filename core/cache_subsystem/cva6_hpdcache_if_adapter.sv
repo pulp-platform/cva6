@@ -300,7 +300,7 @@ module cva6_hpdcache_if_adapter
                   uncacheable: hpdcache_req_is_uncacheable,
                   io: 1'b0,
                   wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO,
-                  ispm: 1'b0, // TODO: SPM AMOs support
+                  ispm: 1'b0,  // TODO: SPM AMOs support
                   dspm: 1'b0  // TODO: SPM AMOs support
               }
           };

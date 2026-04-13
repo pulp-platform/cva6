@@ -82,11 +82,11 @@ module cva6_hpdcache_wrapper
     output logic                                 wbuffer_not_ni_o,
 
     //  SPM ways configuration
-    input  logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_i,
+    input logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] dcache_spm_ways_i,
 
     //  ISPM interface (request to i-cache scratchpad / response from i-cache scratchpad)
-    output dcache_req_i_t                        ispm_req_o,
-    input  dcache_req_o_t                        ispm_req_i,
+    output dcache_req_i_t ispm_req_o,
+    input  dcache_req_o_t ispm_req_i,
 
     //  Hardware memory prefetcher configuration
     input  logic [NrHwPrefetchers-1:0]       hwpf_base_set_i,
@@ -145,27 +145,27 @@ module cva6_hpdcache_wrapper
   hpdcache_rsp_t               dcache_ispm_rsp;
 
   //  ISPM request conversion: hpdcache -> i-cache ISPM controller
-  assign ispm_req_o.data_req      = dcache_ispm_req_valid;
+  assign ispm_req_o.data_req = dcache_ispm_req_valid;
   assign ispm_req_o.address_index = dcache_ispm_req.addr_offset;
-  assign ispm_req_o.address_tag   = dcache_ispm_req_tag;
-  assign ispm_req_o.data_wdata    = dcache_ispm_req.wdata;
-  assign ispm_req_o.data_wuser    = '0;
-  assign ispm_req_o.data_we       = (dcache_ispm_req.op != hpdcache_pkg::HPDCACHE_REQ_LOAD);
-  assign ispm_req_o.data_be       = dcache_ispm_req.be;
-  assign ispm_req_o.data_size     = dcache_ispm_req.size;
-  assign ispm_req_o.data_id       = dcache_ispm_req.tid;
-  assign ispm_req_o.kill_req      = dcache_ispm_req_abort;
-  assign ispm_req_o.tag_valid     = dcache_ispm_req_valid;
-  assign ispm_req_o.cbo_op        = '0;
+  assign ispm_req_o.address_tag = dcache_ispm_req_tag;
+  assign ispm_req_o.data_wdata = dcache_ispm_req.wdata;
+  assign ispm_req_o.data_wuser = '0;
+  assign ispm_req_o.data_we = (dcache_ispm_req.op != hpdcache_pkg::HPDCACHE_REQ_LOAD);
+  assign ispm_req_o.data_be = dcache_ispm_req.be;
+  assign ispm_req_o.data_size = dcache_ispm_req.size;
+  assign ispm_req_o.data_id = dcache_ispm_req.tid;
+  assign ispm_req_o.kill_req = dcache_ispm_req_abort;
+  assign ispm_req_o.tag_valid = dcache_ispm_req_valid;
+  assign ispm_req_o.cbo_op = '0;
 
   //  ISPM response conversion: i-cache ISPM controller -> hpdcache
   //  sid/tid are echoed from the still-valid outgoing request
   assign dcache_ispm_rsp_valid    = ispm_req_i.data_rvalid || ispm_req_i.data_gnt; // TODO: is this correct?
-  assign dcache_ispm_rsp.rdata    = ispm_req_i.data_rdata;
-  assign dcache_ispm_rsp.sid      = dcache_ispm_req.sid;
-  assign dcache_ispm_rsp.tid      = dcache_ispm_req.tid;
-  assign dcache_ispm_rsp.error    = 1'b0;
-  assign dcache_ispm_rsp.aborted  = 1'b0;
+  assign dcache_ispm_rsp.rdata = ispm_req_i.data_rdata;
+  assign dcache_ispm_rsp.sid = dcache_ispm_req.sid;
+  assign dcache_ispm_rsp.tid = dcache_ispm_req.tid;
+  assign dcache_ispm_rsp.error = 1'b0;
+  assign dcache_ispm_rsp.aborted = 1'b0;
 
   logic                                   [                2:0] snoop_valid;
   logic                                   [                2:0] snoop_abort;
@@ -445,22 +445,22 @@ module cva6_hpdcache_wrapper
       .ispm_rsp_valid_i(dcache_ispm_rsp_valid),
       .ispm_rsp_i      (dcache_ispm_rsp),
 
-      .evt_cache_write_miss_o(dcache_write_miss),
-      .evt_cache_read_miss_o (dcache_read_miss),
+      .evt_cache_write_miss_o (dcache_write_miss),
+      .evt_cache_read_miss_o  (dcache_read_miss),
       .evt_cache_dir_unc_err_o(  /* unused */),
       .evt_cache_dir_cor_err_o(  /* unused */),
       .evt_cache_dat_unc_err_o(  /* unused */),
       .evt_cache_dat_cor_err_o(  /* unused */),
       .evt_scrub_complete_o   (  /* unused */),
-      .evt_uncached_req_o    (  /* unused */),
-      .evt_cmo_req_o         (  /* unused */),
-      .evt_write_req_o       (  /* unused */),
-      .evt_read_req_o        (  /* unused */),
-      .evt_prefetch_req_o    (  /* unused */),
-      .evt_req_on_hold_o     (  /* unused */),
-      .evt_rtab_rollback_o   (  /* unused */),
-      .evt_stall_refill_o    (  /* unused */),
-      .evt_stall_o           (  /* unused */),
+      .evt_uncached_req_o     (  /* unused */),
+      .evt_cmo_req_o          (  /* unused */),
+      .evt_write_req_o        (  /* unused */),
+      .evt_read_req_o         (  /* unused */),
+      .evt_prefetch_req_o     (  /* unused */),
+      .evt_req_on_hold_o      (  /* unused */),
+      .evt_rtab_rollback_o    (  /* unused */),
+      .evt_stall_refill_o     (  /* unused */),
+      .evt_stall_o            (  /* unused */),
 
       .wbuf_empty_o(wbuffer_empty_o),
 

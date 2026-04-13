@@ -13,13 +13,13 @@ module hpdcache_sram_1rw #(
     parameter int unsigned DEPTH = 2 ** ADDR_SIZE,
     parameter int unsigned NDATA = 1
 ) (
-    input  logic                            clk,
-    input  logic                            rst_n,
-    input  logic                            cs,
-    input  logic                            we,
-    input  logic [ADDR_SIZE-1:0]            addr,
-    input  logic [NDATA-1:0][DATA_SIZE-1:0] wdata,
-    output logic [NDATA-1:0][DATA_SIZE-1:0] rdata
+    input  logic                                clk,
+    input  logic                                rst_n,
+    input  logic                                cs,
+    input  logic                                we,
+    input  logic [ADDR_SIZE-1:0]                addr,
+    input  logic [    NDATA-1:0][DATA_SIZE-1:0] wdata,
+    output logic [    NDATA-1:0][DATA_SIZE-1:0] rdata
 );
   tc_sram #(
       .NumWords (DEPTH),
@@ -46,14 +46,14 @@ module hpdcache_sram_wbyteenable_1rw #(
     parameter int unsigned DEPTH = 2 ** ADDR_SIZE,
     parameter int unsigned NDATA = 1
 ) (
-    input  logic                              clk,
-    input  logic                              rst_n,
-    input  logic                              cs,
-    input  logic                              we,
-    input  logic [  ADDR_SIZE-1:0]            addr,
-    input  logic [NDATA-1:0][DATA_SIZE-1:0]   wdata,
-    input  logic [NDATA-1:0][DATA_SIZE/8-1:0] wbyteenable,
-    output logic [NDATA-1:0][DATA_SIZE-1:0]   rdata
+    input  logic                                  clk,
+    input  logic                                  rst_n,
+    input  logic                                  cs,
+    input  logic                                  we,
+    input  logic [ADDR_SIZE-1:0]                  addr,
+    input  logic [    NDATA-1:0][  DATA_SIZE-1:0] wdata,
+    input  logic [    NDATA-1:0][DATA_SIZE/8-1:0] wbyteenable,
+    output logic [    NDATA-1:0][  DATA_SIZE-1:0] rdata
 );
   tc_sram #(
       .NumWords (DEPTH),
@@ -80,14 +80,14 @@ module hpdcache_sram_wmask_1rw #(
     parameter int unsigned DEPTH = 2 ** ADDR_SIZE,
     parameter int unsigned NDATA = 1
 ) (
-    input  logic                            clk,
-    input  logic                            rst_n,
-    input  logic                            cs,
-    input  logic                            we,
-    input  logic [ADDR_SIZE-1:0]            addr,
-    input  logic [NDATA-1:0][DATA_SIZE-1:0] wdata,
-    input  logic [NDATA-1:0][DATA_SIZE-1:0] wmask,
-    output logic [NDATA-1:0][DATA_SIZE-1:0] rdata
+    input  logic                                clk,
+    input  logic                                rst_n,
+    input  logic                                cs,
+    input  logic                                we,
+    input  logic [ADDR_SIZE-1:0]                addr,
+    input  logic [    NDATA-1:0][DATA_SIZE-1:0] wdata,
+    input  logic [    NDATA-1:0][DATA_SIZE-1:0] wmask,
+    output logic [    NDATA-1:0][DATA_SIZE-1:0] rdata
 );
   tc_sram #(
       .NumWords (DEPTH),
