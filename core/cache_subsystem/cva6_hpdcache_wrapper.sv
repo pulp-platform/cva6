@@ -160,7 +160,7 @@ module cva6_hpdcache_wrapper
 
   //  ISPM response conversion: i-cache ISPM controller -> hpdcache
   //  sid/tid are echoed from the still-valid outgoing request
-  assign dcache_ispm_rsp_valid    = ispm_req_i.data_rvalid;
+  assign dcache_ispm_rsp_valid    = ispm_req_i.data_rvalid || ispm_req_i.data_gnt; // TODO: is this correct?
   assign dcache_ispm_rsp.rdata    = ispm_req_i.data_rdata;
   assign dcache_ispm_rsp.sid      = dcache_ispm_req.sid;
   assign dcache_ispm_rsp.tid      = dcache_ispm_req.tid;
