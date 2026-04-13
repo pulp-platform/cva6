@@ -23,7 +23,7 @@ int main(void) {
     // Disable D-cache
     asm volatile ("csrwi 0x7C1, 0");
     // Flush the D-cache
-    asm volatile ("fence");
+    asm volatile ("fence.i");
     // Configure all ways as scratchpad
     uint32_t way_mask = (1 << DCACHE_NUM_WAYS) - 1;
     asm volatile ("csrw 0x5E0, %0" : : "r"(way_mask));

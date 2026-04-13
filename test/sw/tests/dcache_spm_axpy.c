@@ -44,7 +44,7 @@ void enable_dspm (uint32_t num_ways) {
     // Disable D-cache
     asm volatile ("csrwi 0x7C1, 0");
     // Flush the D-cache
-    asm volatile ("fence");
+    asm volatile ("fence.i");
     // Configure four ways as scratchpad
     uint32_t way_mask = (1 << num_ways) - 1;
     asm volatile ("csrw 0x5E0, %0" : : "r"(way_mask));
