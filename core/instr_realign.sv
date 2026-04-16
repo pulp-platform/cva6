@@ -34,6 +34,8 @@ module instr_realign
     input logic valid_i,
     // Instruction is unaligned - FRONTEND
     output logic serving_unaligned_o,
+    // Address of the instruction whose lower half is held while serving_unaligned_o - FRONTEND
+    output logic [CVA6Cfg.VLEN-1:0] unaligned_address_o,
     // 32-bit block address - CACHE
     input logic [CVA6Cfg.VLEN-1:0] address_i,
     // 32-bit block - CACHE
@@ -61,6 +63,7 @@ module instr_realign
   logic [CVA6Cfg.VLEN-1:0] unaligned_address_d, unaligned_address_q;
   // we have an unaligned instruction
   assign serving_unaligned_o = unaligned_q;
+  assign unaligned_address_o = unaligned_address_q;
 
   // Instruction re-alignment
   if (CVA6Cfg.FETCH_WIDTH == 32) begin : realign_bp_32

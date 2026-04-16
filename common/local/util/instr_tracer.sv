@@ -38,6 +38,7 @@ module instr_tracer #(
   input logic [CVA6Cfg.NrCommitPorts-1:0][63:0]        wdata,
   input logic [CVA6Cfg.NrCommitPorts-1:0]              we_gpr,
   input logic [CVA6Cfg.NrCommitPorts-1:0]              we_fpr,
+  input logic [CVA6Cfg.VLEN-1:0]                       exception_pc,
   input scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr, // commit instruction
   input logic [CVA6Cfg.NrCommitPorts-1:0]              commit_ack,
   input logic [CVA6Cfg.NrCommitPorts-1:0]              commit_drop,
@@ -210,7 +211,7 @@ module instr_tracer #(
         // --------------
         if (i == 0 && commit_exception.valid && !(debug_mode && commit_exception.cause == riscv::BREAKPOINT)) begin
           // print exception
-          printException(commit_instr[0].pc, commit_exception.cause, commit_exception.tval);
+          printException(exception_pc, commit_exception.cause, commit_exception.tval);
         end
         // ----------------------
         // Commit Registers

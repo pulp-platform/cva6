@@ -65,7 +65,9 @@ module frontend
     // Handshake's valid between fetch and decode - ID_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] fetch_entry_valid_o,
     // Handshake's ready between fetch and decode - ID_STAGE
-    input logic [CVA6Cfg.NrIssuePorts-1:0] fetch_entry_ready_i
+    input logic [CVA6Cfg.NrIssuePorts-1:0] fetch_entry_ready_i,
+    // PC of the next instruction coming out of the frontend - COMMIT_STAGE
+    output [CVA6Cfg.VLEN-1:0] next_instruction_pc_o
 );
 
   localparam type bht_update_t = struct packed {
@@ -122,6 +124,35 @@ module frontend
     assign shamt = 1'b0;
   end
 
+  logic [CVA6Cfg.VLEN-1:0] last_fetch_address_d;
+  logic [CVA6Cfg.VLEN-1:0] last_fetch_address_q;
+
+  logic [1:0] inflight_requests_count_d;
+  logic [1:0] inflight_requests_count_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      last_fetch_address_q      <= '0;
+      inflight_requests_count_q <= '0;
+    end else begin
+      last_fetch_address_q      <= last_fetch_address_d;
+      inflight_requests_count_q <= inflight_requests_count_d;
+    end
+  end
+
+  always_comb begin
+    last_fetch_address_d = last_fetch_address_q;
+    inflight_requests_count_d = inflight_requests_count_q;
+    if (icache_dreq_o.req & icache_dreq_i.ready & ~icache_dreq_o.kill_s1) begin
+      inflight_requests_count_d += 1;
+      last_fetch_address_d = icache_dreq_o.vaddr;
+    end
+    if (|inflight_requests_count_q & (icache_dreq_o.kill_s2 | icache_dreq_i.valid)) begin
+      inflight_requests_count_d -= 1;
+    end
+  end
+
+
   // -----------------------
   // Ctrl Flow Speculation
   // -----------------------
@@ -157,6 +188,7 @@ module frontend
   logic [CVA6Cfg.INSTR_PER_FETCH-1:0] taken_rvc_cf;
 
   logic                               serving_unaligned;
+  logic [           CVA6Cfg.VLEN-1:0] unaligned_address;
   // Re-align instructions
   instr_realign #(
       .CVA6Cfg(CVA6Cfg)
@@ -166,12 +198,26 @@ module frontend
       .flush_i            (icache_dreq_o.kill_s2),
       .valid_i            (icache_valid_q),
       .serving_unaligned_o(serving_unaligned),
+      .unaligned_address_o(unaligned_address),
       .address_i          (icache_vaddr_q),
       .data_i             (icache_data_q),
       .valid_o            (instruction_valid),
       .addr_o             (addr),
       .instr_o            (instr)
   );
+
+  // Address of the next instruction to leave the frontend. The commit stage uses
+  // it as the return address of a CLIC interrupt taken with an empty pipeline.
+  // While the realigner holds the lower half of a 32-bit instruction whose upper
+  // half is still being fetched, that instruction is the next one: the fetch
+  // address points 2 bytes into it, and returning there resumes mid-instruction.
+  assign next_instruction_pc_o = fetch_entry_valid_o[0] ? fetch_entry_o[0].address : (
+                                    serving_unaligned ? unaligned_address : (
+                                      icache_valid_q ? icache_vaddr_q : (
+                                        (|inflight_requests_count_q) ? last_fetch_address_q : icache_dreq_o.vaddr
+                                      )
+                                    )
+                                  );
   // --------------------
   // Branch Prediction
   // --------------------
