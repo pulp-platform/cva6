@@ -120,6 +120,8 @@ module ex_stage
     output logic no_st_pending_o,
     // Shared TLB is busy processing a multi-cycle flush
     output logic shared_tlb_flush_busy_o,
+    // The committing instruction's non-idempotent load went to memory - COMMIT_STAGE
+    output logic ni_load_sent_o,
     // Atomic result is valid - COMMIT_STAGE
     input logic amo_valid_commit_i,
     // FU is ready - ISSUE_STAGE
@@ -231,6 +233,8 @@ module ex_stage
     input logic dcache_wbuffer_empty_i,
     // TO_BE_COMPLETED - CACHE
     input logic dcache_wbuffer_not_ni_i,
+    // D$ has transactions in progress - CACHE
+    input logic dcache_busy_i,
     // AMO request - CACHE
     output amo_req_t amo_req_o,
     // AMO response - CACHE
@@ -565,6 +569,7 @@ module ex_stage
       .stall_st_pending_i,
       .no_st_pending_o,
       .shared_tlb_flush_busy_o(shared_tlb_flush_busy_o),
+      .ni_load_sent_o,
       .fu_data_i              (lsu_data),
       .lsu_ready_o,
       .lsu_valid_i            (|lsu_valid_i),
@@ -618,6 +623,7 @@ module ex_stage
       .dcache_req_ports_o,
       .dcache_wbuffer_empty_i,
       .dcache_wbuffer_not_ni_i,
+      .dcache_busy_i,
       .amo_valid_commit_i,
       .amo_req_o,
       .amo_resp_i,

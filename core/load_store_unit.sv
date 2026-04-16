@@ -43,6 +43,8 @@ module load_store_unit
     output logic no_st_pending_o,
     // Shared TLB is busy processing a multi-cycle flush
     output logic shared_tlb_flush_busy_o,
+    // The committing instruction's non-idempotent load went to memory - COMMIT_STAGE
+    output logic ni_load_sent_o,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input logic amo_valid_commit_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
@@ -157,6 +159,8 @@ module load_store_unit
     input  logic                dcache_wbuffer_empty_i,
     // TO_BE_COMPLETED - TO_BE_COMPLETED
     input  logic                dcache_wbuffer_not_ni_i,
+    // D$ has transactions in progress - CACHE
+    input  logic                dcache_busy_i,
     // AMO request - CACHE
     output amo_req_t            amo_req_o,
     // AMO response - CACHE
@@ -640,10 +644,12 @@ module load_store_unit
       .page_offset_matches_i(page_offset_matches),
       .store_buffer_empty_i (store_buffer_empty),
       .commit_tran_id_i,
+      .ni_load_sent_o,
       // to memory arbiter
       .req_port_i           (dcache_req_ports_i[1]),
       .req_port_o           (dcache_req_ports_o[1]),
       .dcache_wbuffer_not_ni_i,
+      .dcache_busy_i,
       //sdtrig
       .sdtrig_load_stall_i  (sdtrig_load_stall_i),
       .sdtrig_load_cancel_i (sdtrig_load_cancel_i),

@@ -543,6 +543,7 @@ module cva6
   logic no_st_pending_ex;
   logic no_st_pending_commit;
   logic shared_tlb_flush_busy_ex;
+  logic ni_load_sent_ex;
   logic amo_valid_commit;
   // ACCEL Commit
   logic acc_valid_acc_ex;
@@ -693,8 +694,12 @@ module cva6
   logic rst_uarch_controller_n;
   logic [CVA6Cfg.VLEN-1:0] rst_addr_ctrl_if;
   logic busy_cache_ctrl;
+  logic busy_cache_ex;
   logic stall_ctrl_cache;
   logic init_ctrl_cache_n;
+  // The fence.t FSM runs, or its micro-reset, registered below, still holds the pipeline
+  logic fence_t_active;
+  assign fence_t_active = stall_ctrl_cache || !rst_uarch_n;
 
   icache_areq_t icache_areq_ex_cache;
   icache_arsp_t icache_areq_cache_ex;
@@ -742,6 +747,17 @@ module cva6
   logic                    clic_irq_req_id;
   logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_id;
 
+
+  // --------------------
+  // Next commit PC logic
+  // --------------------
+  logic                    scoreboard_empty;
+  logic [CVA6Cfg.VLEN-1:0] frontend_next_pc;
+  logic [CVA6Cfg.VLEN-1:0] issue_next_pc;
+  logic [CVA6Cfg.VLEN-1:0] next_commit_pc;
+
+  assign next_commit_pc = ~scoreboard_empty ? issue_next_pc : (issue_entry_valid_id_issue ? issue_entry_id_issue[0].pc : frontend_next_pc);
+
   // --------------
   // Frontend
   // --------------
@@ -753,27 +769,30 @@ module cva6
       .icache_drsp_t(icache_drsp_t)
   ) i_frontend (
       .clk_i,
-      .rst_ni             (rst_uarch_n),
-      .boot_addr_i        (rst_addr_ctrl_if),
-      .flush_bp_i         ((CVA6Cfg.RVU || CVA6Cfg.RVS) ? flush_ctrl_bp : 1'b0),
+      .rst_ni               (rst_uarch_n),
+      .boot_addr_i          (rst_addr_ctrl_if),
+      .flush_bp_i           ((CVA6Cfg.RVU || CVA6Cfg.RVS) ? flush_ctrl_bp : 1'b0),
       // below line is not entirely correct
-      .flush_i            (flush_ctrl_if),
-      .halt_i             (halt_ctrl),
-      .halt_frontend_i    (halt_frontend),
-      .set_pc_commit_i    (set_pc_ctrl_pcgen),
-      .pc_commit_i        (pc_commit),
-      .ex_valid_i         (ex_commit.valid),
-      .resolved_branch_i  (resolved_branch),
-      .eret_i             (eret),
-      .epc_i              (epc_commit_pcgen),
-      .trap_vector_base_i (trap_vector_base_commit_pcgen),
-      .set_debug_pc_i     (set_debug_pc),
-      .debug_mode_i       (debug_mode),
-      .icache_dreq_o      (icache_dreq_if_cache),
-      .icache_dreq_i      (icache_dreq_cache_if),
-      .fetch_entry_o      (fetch_entry_if_id),
-      .fetch_entry_valid_o(fetch_valid_if_id),
-      .fetch_entry_ready_i(fetch_ready_id_if)
+      .flush_i              (flush_ctrl_if),
+      .halt_i               (halt_ctrl),
+      .halt_frontend_i      (halt_frontend),
+      .set_pc_commit_i      (set_pc_ctrl_pcgen),
+      .pc_commit_i          (pc_commit),
+      .ex_valid_i           (ex_commit.valid),
+      .resolved_branch_i    (resolved_branch),
+      .eret_i               (eret),
+      .epc_i                (epc_commit_pcgen),
+      .trap_vector_base_i   (trap_vector_base_commit_pcgen),
+      .ctrl_set_pc_i        (ctrl_set_pc),
+      .ctrl_next_pc_i       (ctrl_next_pc),
+      .set_debug_pc_i       (set_debug_pc),
+      .debug_mode_i         (debug_mode),
+      .icache_dreq_o        (icache_dreq_if_cache),
+      .icache_dreq_i        (icache_dreq_cache_if),
+      .fetch_entry_o        (fetch_entry_if_id),
+      .fetch_entry_valid_o  (fetch_valid_if_id),
+      .fetch_entry_ready_i  (fetch_ready_id_if),
+      .next_instruction_pc_o(frontend_next_pc)
   );
 
   // ---------
@@ -821,8 +840,6 @@ module cva6
       .irq_i                  (irq_i),
       .irq_ctrl_i             (irq_ctrl_csr_id),
       .clic_mode_i            (clic_mode),
-      .clic_irq_req_i         (clic_irq_req_id),
-      .clic_irq_cause_i       (clic_irq_cause_id),
       .debug_mode_i           (debug_mode),
       .tvm_i                  (tvm_csr_id),
       .tw_i                   (tw_csr_id),
@@ -1024,7 +1041,9 @@ module cva6
       .rvfi_commit_pointer_o(rvfi_commit_pointer),
       .rvfi_rs1_o           (rvfi_rs1),
       .rvfi_rs2_o           (rvfi_rs2),
-      .orig_instr_aes_bits  (orig_instr_aes)
+      .orig_instr_aes_bits  (orig_instr_aes),
+      .issue_next_pc_o      (issue_next_pc),
+      .scoreboard_empty_o   (scoreboard_empty)
   );
 
   // ---------
@@ -1101,6 +1120,7 @@ module cva6
       .commit_tran_id_i             (lsu_commit_trans_id),            // from commit
       .stall_st_pending_i           (stall_st_pending_ex),
       .shared_tlb_flush_busy_o      (shared_tlb_flush_busy_ex),
+      .ni_load_sent_o               (ni_load_sent_ex),
       .no_st_pending_o              (no_st_pending_ex),
       // FPU
       .fpu_ready_o                  (fpu_ready_ex_id),
@@ -1171,6 +1191,7 @@ module cva6
       .dcache_req_ports_o           (dcache_req_ports_ex_cache),
       .dcache_wbuffer_empty_i       (dcache_commit_wbuffer_empty),
       .dcache_wbuffer_not_ni_i      (dcache_commit_wbuffer_not_ni),
+      .dcache_busy_i                (busy_cache_ex),
       // PMP
       .pmpcfg_i                     (pmpcfg),
       .pmpaddr_i                    (pmpaddr),
@@ -1209,6 +1230,9 @@ module cva6
       .exception_o                        (ex_commit),
       .dirty_fp_state_o                   (dirty_fp_state),
       .single_step_i                      (single_step_csr_commit || single_step_acc_commit),
+      .clic_mode_i                        (clic_mode),
+      .clic_irq_req_i                     (clic_irq_req_id),
+      .clic_irq_cause_i                   (clic_irq_cause_id),
       .commit_instr_i                     (commit_instr_id_commit),
       .commit_drop_i                      (commit_drop_id_commit),
       .commit_ack_o                       (commit_ack_commit_id),
@@ -1217,6 +1241,8 @@ module cva6
       .wdata_o                            (wdata_commit_id),
       .we_gpr_o                           (we_gpr_commit_id),
       .we_fpr_o                           (we_fpr_commit_id),
+      .amo_req_valid_i                    (amo_req.req),
+      .dcache_busy_i                      (busy_cache_ex),
       .amo_resp_i                         (amo_resp),
       .pc_o                               (pc_commit),
       .csr_op_o                           (csr_op_commit_csr),
@@ -1230,6 +1256,8 @@ module cva6
       .amo_valid_commit_o                 (amo_valid_commit),
       .no_st_pending_i                    (no_st_pending_commit),
       .shared_tlb_flush_busy_i            (shared_tlb_flush_busy_ex),
+      .ni_load_sent_i                     (ni_load_sent_ex),
+      .fence_t_active_i                   (fence_t_active),
       .commit_csr_o                       (csr_commit_commit_ex),
       .fence_t_o                          (fence_t_commit_controller),
       .fence_i_o                          (fence_i_commit_controller),
@@ -1241,7 +1269,8 @@ module cva6
       .sdtrig_commit_std_exception_valid_i(sdtrig_commit_std_exception_valid),
       .sdtrig_commit_icount_valid_i       (sdtrig_commit_icount_valid),
       .sdtrig_commit_action_i             (sdtrig_commit_action),
-      .sdtrig_commit_icount_nr_instr_i    (sdtrig_commit_icount_nr_instr)
+      .sdtrig_commit_icount_nr_instr_i    (sdtrig_commit_icount_nr_instr),
+      .next_commit_pc_i                   (next_commit_pc)
   );
 
   assign commit_ack = commit_macro_ack & ~commit_drop_id_commit;
@@ -1538,6 +1567,7 @@ module cva6
   end
 
   if (CVA6Cfg.DCacheType == config_pkg::WT) begin : gen_cache_wt
+    assign busy_cache_ex = 1'b0;
     // this is a cache subsystem that is compatible with OpenPiton
     wt_cache_subsystem #(
         .CVA6Cfg   (CVA6Cfg),
@@ -1601,6 +1631,8 @@ module cva6
         CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WT_WB
   )
   begin : gen_cache_hpd
+    // Non-idempotent loads wait for the HPDcache to have nothing in progress
+    assign busy_cache_ex = busy_cache_ctrl;
     cva6_hpdcache_subsystem #(
         .CVA6Cfg   (CVA6Cfg),
         .icache_areq_t(icache_areq_t),
@@ -1670,6 +1702,7 @@ module cva6
     assign inval_ready   = 1'b1;
     assign miss_vld_bits = '0;
   end else begin : gen_cache_wb
+    assign busy_cache_ex = 1'b0;
     std_cache_subsystem #(
         // note: this only works with one cacheable region
         // not as important since this cache subsystem is about to be
@@ -1834,8 +1867,6 @@ module cva6
         .CVA6Cfg(CVA6Cfg),
         .irq_ctrl_t(irq_ctrl_t)
     ) i_clic_controller (
-        .clk_i           (clk_i),
-        .rst_ni          (rst_ni),
         // from CSR file
         .priv_lvl_i      (priv_lvl),
         .v_i             (v),
@@ -1962,6 +1993,7 @@ module cva6
       .wdata(wdata_commit_id_padded),
       .we_gpr(we_gpr_commit_id),
       .we_fpr(we_fpr_commit_id),
+      .exception_pc(pc_commit),
       .commit_instr(commit_instr_id_commit),
       .commit_ack(commit_ack_commit_id),
       .commit_drop(commit_drop_id_commit),

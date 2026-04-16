@@ -34,6 +34,12 @@ module commit_stage
     output logic dirty_fp_state_o,
     // TO_BE_COMPLETED - CSR_REGFILE
     input logic single_step_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic clic_mode_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic clic_irq_req_i,
+    // TO_BE_COMPLETED - CLIC_CTRL
+    input logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_i,
     // The instruction we want to commit - ISSUE_STAGE
     input scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_i,
     // The instruction is cancelled - ISSUE_STAGE
@@ -50,6 +56,10 @@ module commit_stage
     output logic [CVA6Cfg.NrCommitPorts-1:0] we_gpr_o,
     // Floating point register enable - ISSUE_STAGE
     output logic [CVA6Cfg.NrCommitPorts-1:0] we_fpr_o,
+    // AMO request to the data cache - EX_STAGE
+    input logic amo_req_valid_i,
+    // D$ has transactions in progress - CACHE
+    input logic dcache_busy_i,
     // Result of AMO operation - CACHE
     input amo_resp_t amo_resp_i,
     // TO_BE_COMPLETED - FRONTEND_CSR_REGFILE
@@ -92,11 +102,17 @@ module commit_stage
     output logic hfence_gvma_o,
     // Shared TLB is still processing a multi-cycle flush
     input logic shared_tlb_flush_busy_i,
+    // The committing instruction's non-idempotent load went to memory - EX_STAGE
+    input logic ni_load_sent_i,
+    // A fence.t sequence is in progress - CONTROLLER
+    input logic fence_t_active_i,
     // Trigger module
     input logic sdtrig_commit_icount_valid_i,
     input logic [$clog2(CVA6Cfg.NrCommitPorts)-1:0] sdtrig_commit_icount_nr_instr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_commit_action_i,
-    input logic sdtrig_commit_std_exception_valid_i
+    input logic sdtrig_commit_std_exception_valid_i,
+    // Next PC to commit (used for CLIC interrupts)
+    input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i
 );
 
   // ila_0 i_ila_commit (
@@ -113,31 +129,62 @@ module commit_stage
   //     .probe9(1'b0) // input wire [0:0]  probe9
   // );
 
-  for (genvar i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin : gen_waddr
-    assign waddr_o[i] = commit_instr_i[i].rd;
+  // An AMO sends its request from the head once older stores have drained and
+  // the D$ is idle, and must then complete: flag it from request to response.
+  logic amo_sent_d, amo_sent_q;
+  assign amo_sent_d = (amo_sent_q || amo_req_valid_i) && !amo_resp_i.ack;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      amo_sent_q <= 1'b0;
+    end else begin
+      amo_sent_q <= amo_sent_d;
+    end
   end
 
-  assign pc_o = commit_instr_i[0].pc;
+  // A CLIC interrupt is taken here by turning the instruction at the head into
+  // the trap. It waits while the head has a memory access under way that a
+  // replay would repeat, an AMO or a non-idempotent load, and while a fence.t
+  // sequence runs, whose micro-reset would discard the trap's redirect.
+  logic clic_take;
+  assign clic_take = clic_mode_i && clic_irq_req_i && !ni_load_sent_i && !fence_t_active_i
+                   && !(CVA6Cfg.RVA && amo_sent_q);
+
+  scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_int;
+  always_comb begin
+    for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
+      commit_instr_int[i] = commit_instr_i[i];
+    end
+    if (clic_take) begin
+      commit_instr_int[0].ex.valid = 1'b1;
+      commit_instr_int[0].ex.cause = clic_irq_cause_i;
+    end
+  end
+
+  for (genvar i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin : gen_waddr
+    assign waddr_o[i] = commit_instr_int[i].rd;
+  end
+
   // Dirty the FP state if we are committing anything related to the FPU
   always_comb begin : dirty_fp_state
     dirty_fp_state_o = 1'b0;
     for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
-      dirty_fp_state_o |= commit_ack_o[i] & ((commit_instr_i[i].fu inside {FPU, FPU_VEC} & CVA6Cfg.FpPresent & ariane_pkg::fd_changes_rd_state(
-          commit_instr_i[i].op
+      dirty_fp_state_o |= commit_ack_o[i] & ((commit_instr_int[i].fu inside {FPU, FPU_VEC} & CVA6Cfg.FpPresent & ariane_pkg::fd_changes_rd_state(
+          commit_instr_int[i].op
       )) || (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(
-          commit_instr_i[i].op
+          commit_instr_int[i].op
           // Check if we issued a vector floating-point instruction to the accelerator
-      ))) | (commit_instr_i[i].fu == ACCEL && commit_instr_i[i].vfp);
+      ))) | (commit_instr_int[i].fu == ACCEL && commit_instr_int[i].vfp);
     end
   end
 
-  assign commit_tran_id_o = commit_instr_i[0].trans_id;
+  assign commit_tran_id_o = commit_instr_int[0].trans_id;
 
   exception_t ex_next_instr_d, ex_next_instr_q;
 
   logic instr_0_is_amo;
   logic [CVA6Cfg.NrCommitPorts-1:0] commit_macro_ack;
-  assign instr_0_is_amo = is_amo(commit_instr_i[0].op);
+  assign instr_0_is_amo = is_amo(commit_instr_int[0].op);
   // -------------------
   // Commit Instruction
   // -------------------
@@ -156,7 +203,7 @@ module commit_stage
     commit_lsu_o = 1'b0;
     commit_csr_o = 1'b0;
     // amos will commit on port 0
-    wdata_o[0] = (CVA6Cfg.RVA && amo_resp_i.ack) ? amo_resp_i.result[CVA6Cfg.XLEN-1:0] : commit_instr_i[0].result;
+    wdata_o[0] = (CVA6Cfg.RVA && amo_resp_i.ack) ? amo_resp_i.result[CVA6Cfg.XLEN-1:0] : commit_instr_int[0].result;
     csr_op_o = ADD;  // this corresponds to a CSR NOP
     csr_wdata_o = {CVA6Cfg.XLEN{1'b0}};
     fence_i_o = 1'b0;
@@ -169,9 +216,9 @@ module commit_stage
     flush_commit_o = 1'b0;
 
     // we do not commit the instruction yet if we requested a halt
-    if (commit_instr_i[0].valid && !halt_i) begin
+    if (commit_instr_int[0].valid && !halt_i) begin
       // we will not commit the instruction if we took an exception
-      if (commit_instr_i[0].ex.valid
+      if (commit_instr_int[0].ex.valid
       || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i || (CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == 0))) begin
         // However we can drop it (with its exception)
         if (commit_drop_i[0]) begin
@@ -180,14 +227,14 @@ module commit_stage
       end else begin
         commit_ack_o[0] = 1'b1;
 
-        if (CVA6Cfg.RVZCMP && commit_instr_i[0].is_macro_instr && commit_instr_i[0].is_last_macro_instr)
+        if (CVA6Cfg.RVZCMP && commit_instr_int[0].is_macro_instr && commit_instr_int[0].is_last_macro_instr)
           commit_macro_ack[0] = 1'b1;
         else commit_macro_ack[0] = 1'b0;
 
         if (!commit_drop_i[0]) begin
           // we can definitely write the register file
           // if the instruction is not committing anything the destination
-          if (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_i[0].op)) begin
+          if (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_int[0].op)) begin
             we_fpr_o[0] = 1'b1;
           end else begin
             we_gpr_o[0] = 1'b1;
@@ -195,7 +242,7 @@ module commit_stage
         end
 
         // check whether the instruction we retire was a store
-        if (commit_instr_i[0].fu == STORE && !(CVA6Cfg.RVA && instr_0_is_amo)) begin
+        if (commit_instr_int[0].fu == STORE && !(CVA6Cfg.RVA && instr_0_is_amo)) begin
           // check if the LSU is ready to accept another commit entry (e.g.: a non-speculative store)
           if (commit_lsu_ready_i) begin
             commit_lsu_o = 1'b1;
@@ -208,10 +255,10 @@ module commit_stage
         // FPU Flags
         // ---------
         if (CVA6Cfg.FpPresent) begin
-          if (commit_instr_i[0].fu inside {FPU, FPU_VEC}) begin
+          if (commit_instr_int[0].fu inside {FPU, FPU_VEC}) begin
             if (!commit_drop_i[0]) begin
               // write the CSR with potential exception flags from retiring floating point instruction
-              csr_wdata_o = {{CVA6Cfg.XLEN - 5{1'b0}}, commit_instr_i[0].ex.cause[4:0]};
+              csr_wdata_o = {{CVA6Cfg.XLEN - 5{1'b0}}, commit_instr_int[0].ex.cause[4:0]};
               csr_write_fflags_o = 1'b1;
             end
           end
@@ -221,10 +268,10 @@ module commit_stage
         // ---------
         // check whether the instruction we retire was a CSR instruction and it did not
         // throw an exception
-        if (commit_instr_i[0].fu == CSR) begin
+        if (commit_instr_int[0].fu == CSR) begin
           // write the CSR file
-          csr_op_o    = commit_instr_i[0].op;
-          csr_wdata_o = commit_instr_i[0].result;
+          csr_op_o    = commit_instr_int[0].op;
+          csr_wdata_o = commit_instr_int[0].result;
           if (!commit_drop_i[0]) begin
             if (!csr_exception_i.valid) begin
               commit_csr_o = 1'b1;
@@ -240,7 +287,7 @@ module commit_stage
         // ------------------
         // fence.t is idempotent so we can safely re-execute it after returning
         // from interrupt service routine
-        if (commit_instr_i[0].op == FENCE_T) begin
+        if (commit_instr_int[0].op == FENCE_T) begin
           if (!commit_drop_i[0]) begin
             commit_ack_o[0] = no_st_pending_i;
             // tell the controller to flush the D$
@@ -253,7 +300,7 @@ module commit_stage
         // sfence.vma is idempotent so we can safely re-execute it after returning
         // from interrupt service routine
         // check if this instruction was a SFENCE_VMA
-        if (CVA6Cfg.RVS && commit_instr_i[0].op == SFENCE_VMA) begin
+        if (CVA6Cfg.RVS && commit_instr_int[0].op == SFENCE_VMA) begin
           if (!commit_drop_i[0]) begin
             // no store pending so we can flush the TLBs and pipeline
             sfence_vma_o = tlb_flush_can_commit; //Only retire the fence when stores are drained and the shared TLB
@@ -267,7 +314,7 @@ module commit_stage
         // hfence.vvma is idempotent so we can safely re-execute it after returning
         // from interrupt service routine
         // check if this instruction was a HFENCE_VVMA
-        if (CVA6Cfg.RVH && commit_instr_i[0].op == HFENCE_VVMA) begin
+        if (CVA6Cfg.RVH && commit_instr_int[0].op == HFENCE_VVMA) begin
           if (!commit_drop_i[0]) begin
             // no store pending so we can flush the TLBs and pipeline
             hfence_vvma_o   = tlb_flush_can_commit;
@@ -281,7 +328,7 @@ module commit_stage
         // hfence.gvma is idempotent so we can safely re-execute it after returning
         // from interrupt service routine
         // check if this instruction was a HFENCE_GVMA
-        if (CVA6Cfg.RVH && commit_instr_i[0].op == HFENCE_GVMA) begin
+        if (CVA6Cfg.RVH && commit_instr_int[0].op == HFENCE_GVMA) begin
           if (!commit_drop_i[0]) begin
             // no store pending so we can flush the TLBs and pipeline
             hfence_gvma_o   = tlb_flush_can_commit;
@@ -296,7 +343,7 @@ module commit_stage
         // from interrupt service routine
         // Fence synchronizes data and instruction streams. That means that we need to flush the private icache
         // and the private dcache. This is the most expensive instruction.
-        if (commit_instr_i[0].op == FENCE_I || (flush_dcache_i && CVA6Cfg.DCacheType == config_pkg::WB && commit_instr_i[0].fu != STORE)) begin
+        if (commit_instr_int[0].op == FENCE_I || (flush_dcache_i && CVA6Cfg.DCacheType == config_pkg::WB && commit_instr_int[0].fu != STORE)) begin
           if (!commit_drop_i[0]) begin
             commit_ack_o[0] = no_st_pending_i;
             // tell the controller to flush the I$
@@ -308,7 +355,7 @@ module commit_stage
         // ------------------
         // fence is idempotent so we can safely re-execute it after returning
         // from interrupt service routine
-        if (commit_instr_i[0].op == FENCE) begin
+        if (commit_instr_int[0].op == FENCE) begin
           if (!commit_drop_i[0]) begin
             commit_ack_o[0] = no_st_pending_i;
             // tell the controller to flush the D$
@@ -323,7 +370,8 @@ module commit_stage
           commit_ack_o[0] = amo_resp_i.ack;
           // flush the pipeline
           flush_commit_o = amo_resp_i.ack;
-          amo_valid_commit_o = 1'b1;
+          // release the request on an idle D$; once sent it stays up
+          amo_valid_commit_o = amo_sent_q || !dcache_busy_i;
           we_gpr_o[0] = amo_resp_i.ack;
         end
       end
@@ -333,47 +381,47 @@ module commit_stage
       commit_macro_ack[1] = 1'b0;
       commit_ack_o[1]     = 1'b0;
       we_gpr_o[1]         = 1'b0;
-      wdata_o[1]          = commit_instr_i[1].result;
+      wdata_o[1]          = commit_instr_int[1].result;
 
       // -----------------
       // Commit Port 2
       // -----------------
       // check if the second instruction can be committed as well and the first wasn't a CSR instruction
       // also if we are in single step mode don't retire the second instruction
-      if (commit_ack_o[0] && commit_instr_i[1].valid
+      if (commit_ack_o[0] && commit_instr_int[1].valid
                                 && !halt_i
-                                && !(commit_instr_i[0].fu inside {CSR})
-                                && (commit_instr_i[0].op != FENCE_T)
+                                && !(commit_instr_int[0].fu inside {CSR})
+                                && (commit_instr_int[0].op != FENCE_T)
                                 && !flush_dcache_i
                                 && !(CVA6Cfg.RVA && instr_0_is_amo)
                                 && !single_step_i
                                 && !(CVA6Cfg.Sdtrig && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i < CVA6Cfg.NrCommitPorts)
-                                && (CVA6Cfg.SdtrigMcontrol6LoadData ? !commit_instr_i[0].ex.timing : !CVA6Cfg.SdtrigMcontrol6LoadData)) begin
+                                && (CVA6Cfg.SdtrigMcontrol6LoadData ? !commit_instr_int[0].ex.timing : !CVA6Cfg.SdtrigMcontrol6LoadData)) begin
         // only if the first instruction didn't throw an exception and this instruction won't throw an exception
         // and the functional unit is of type ALU, LOAD, CTRL_FLOW, MULT, FPU or FPU_VEC
-        if (!commit_instr_i[1].ex.valid && (commit_instr_i[1].fu inside {ALU, LOAD, CTRL_FLOW, MULT, FPU, FPU_VEC})) begin
+        if (!commit_instr_int[1].ex.valid && (commit_instr_int[1].fu inside {ALU, LOAD, CTRL_FLOW, MULT, FPU, FPU_VEC})) begin
 
-          if (CVA6Cfg.RVZCMP && commit_instr_i[1].is_macro_instr && commit_instr_i[1].is_last_macro_instr)
+          if (CVA6Cfg.RVZCMP && commit_instr_int[1].is_macro_instr && commit_instr_int[1].is_last_macro_instr)
             commit_macro_ack[1] = 1'b1;
           else commit_macro_ack[1] = 1'b0;
 
           commit_ack_o[1] = 1'b1;
 
           if (!commit_drop_i[1]) begin
-            if (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_i[1].op))
+            if (CVA6Cfg.FpPresent && ariane_pkg::is_rd_fpr(commit_instr_int[1].op))
               we_fpr_o[1] = 1'b1;
             else we_gpr_o[1] = 1'b1;
 
             // additionally check if we are retiring an FPU instruction because we need to make sure that we write all
             // exception flags
             if (CVA6Cfg.FpPresent) begin
-              if (commit_instr_i[1].fu inside {FPU, FPU_VEC}) begin
+              if (commit_instr_int[1].fu inside {FPU, FPU_VEC}) begin
                 if (csr_write_fflags_o)
                   csr_wdata_o = {
                     {CVA6Cfg.XLEN - 5{1'b0}},
-                    (commit_instr_i[0].ex.cause[4:0] | commit_instr_i[1].ex.cause[4:0])
+                    (commit_instr_int[0].ex.cause[4:0] | commit_instr_int[1].ex.cause[4:0])
                   };
-                else csr_wdata_o = {{CVA6Cfg.XLEN - 5{1'b0}}, commit_instr_i[1].ex.cause[4:0]};
+                else csr_wdata_o = {{CVA6Cfg.XLEN - 5{1'b0}}, commit_instr_int[1].ex.cause[4:0]};
                 csr_write_fflags_o = 1'b1;
               end
             end
@@ -383,7 +431,7 @@ module commit_stage
     end
     if (CVA6Cfg.RVZCMP) begin
       for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
-        commit_macro_ack_o[i] = commit_instr_i[i].is_macro_instr ? commit_macro_ack[i] : commit_ack_o[i];
+        commit_macro_ack_o[i] = commit_instr_int[i].is_macro_instr ? commit_macro_ack[i] : commit_ack_o[i];
       end
     end else commit_macro_ack_o = commit_ack_o;
   end
@@ -406,10 +454,10 @@ module commit_stage
 
     if (CVA6Cfg.SdtrigMcontrol6LoadData) begin
       if (commit_ack_o[0]) begin
-        if(commit_instr_i[0].ex.timing && commit_ack_o[0]) begin //save exception if timing is set, with priority to port 0
-          ex_next_instr_d = commit_instr_i[0].ex;
-        end else if (CVA6Cfg.NrCommitPorts > 1 && commit_instr_i[1].ex.timing && commit_ack_o[1]) begin
-          ex_next_instr_d = commit_instr_i[1].ex;
+        if(commit_instr_int[0].ex.timing && commit_ack_o[0]) begin //save exception if timing is set, with priority to port 0
+          ex_next_instr_d = commit_instr_int[0].ex;
+        end else if (CVA6Cfg.NrCommitPorts > 1 && commit_instr_int[1].ex.timing && commit_ack_o[1]) begin
+          ex_next_instr_d = commit_instr_int[1].ex;
         end else begin
           ex_next_instr_d = ex_next_instr_q;
         end
@@ -418,8 +466,10 @@ module commit_stage
       ex_next_instr_d = '0;
     end
 
+    pc_o = commit_instr_int[0].pc;
+
     // we need a valid instruction in the commit stage
-    if (commit_instr_i[0].valid && !commit_drop_i[0]) begin
+    if (commit_instr_int[0].valid && !commit_drop_i[0]) begin
       // ------------------------
       // check for CSR exception
       // ------------------------
@@ -428,11 +478,11 @@ module commit_stage
         // if no earlier exception happened the commit instruction will still contain
         // the instruction bits from the ID stage. If a earlier exception happened we don't care
         // as we will overwrite it anyway in the next IF bl
-        exception_o.tval = (CVA6Cfg.TvalEn) ? commit_instr_i[0].ex.tval : '0;
+        exception_o.tval = (CVA6Cfg.TvalEn) ? commit_instr_int[0].ex.tval : '0;
         if (CVA6Cfg.RVH) begin
-          exception_o.tinst = commit_instr_i[0].ex.tinst;
-          exception_o.tval2 = commit_instr_i[0].ex.tval2;
-          exception_o.gva   = commit_instr_i[0].ex.gva;
+          exception_o.tinst = commit_instr_int[0].ex.tinst;
+          exception_o.tval2 = commit_instr_int[0].ex.tval2;
+          exception_o.gva   = commit_instr_int[0].ex.gva;
         end
       end
       // ------------------------
@@ -440,8 +490,8 @@ module commit_stage
       // ------------------------
       // but we give precedence to exceptions which happened earlier e.g.: instruction page
       // faults for example
-      if (commit_instr_i[0].ex.valid) begin
-        exception_o = commit_instr_i[0].ex;
+      if (commit_instr_int[0].ex.valid) begin
+        exception_o = commit_instr_int[0].ex;
       end
     end
     // Don't take any exceptions iff:
@@ -451,18 +501,24 @@ module commit_stage
     end
 
     if ((CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == 'd0)
-    || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i && commit_instr_i[0].valid)) begin
+    || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i && commit_instr_int[0].valid)) begin
       exception_o.valid = 1'b1;
       exception_o.cause = sdtrig_commit_action_i;
-      exception_o.tval  = (CVA6Cfg.TvalEn) ? commit_instr_i[0].pc : '0;
+      exception_o.tval  = (CVA6Cfg.TvalEn) ? commit_instr_int[0].pc : '0;
     end
 
-    if(CVA6Cfg.SdtrigMcontrol6LoadData && ex_next_instr_q.timing && !commit_instr_i[0].ex.timing) begin
+    if(CVA6Cfg.SdtrigMcontrol6LoadData && ex_next_instr_q.timing && !commit_instr_int[0].ex.timing) begin
       //there should never be 2 timing bits set one after the other (port 1 and 2) because LSU can only make one mem access at a time
       exception_o = ex_next_instr_q;
       exception_o.timing = 1'b0;
       exception_o.valid = 1'b1;
       ex_next_instr_d = '0;
+    end
+
+    if (clic_take) begin
+      exception_o.valid = 1'b1;
+      exception_o.cause = clic_irq_cause_i;
+      pc_o = next_commit_pc_i;
     end
   end
 
@@ -483,4 +539,15 @@ module commit_stage
   end else begin
     assign ex_next_instr_q = '0;
   end
+
+  //pragma translate_off
+  // check that commit port 1 is not used if commit port 0 is not valid
+  // assert property (@(posedge clk_i) disable iff (!rst_ni !== '0) !(commit_instr_i[1].valid && !commit_instr_i[0].valid))
+  assert property (@(posedge clk_i) disable iff (!rst_ni !== '0) !(commit_instr_i[1].valid && commit_ack_o[1] && !commit_instr_i[0].valid))
+  else begin
+    $error("commit_stage.sv: commit port 1 is valid while commit port 0 is not valid");
+    $stop();
+  end
+  //pragma translate_on
+
 endmodule

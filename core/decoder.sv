@@ -62,10 +62,6 @@ module decoder
     input irq_ctrl_t irq_ctrl_i,
     // TO_BE_COMPLETED - CLIC_CTRL
     input logic clic_mode_i,
-    // TO_BE_COMPLETED - CLIC_CTRL
-    input logic clic_irq_req_i,
-    // TO_BE_COMPLETED - CLIC_CTRL
-    input logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_i,
     // Current privilege level - CSR_REGFILE
     input riscv::priv_lvl_t priv_lvl_i,
     // Current virtualization mode - CSR_REGFILE
@@ -1923,16 +1919,12 @@ module decoder
       irq_sel = '0;
     end
 
-    // In CLIC mode the CLIC controller selects the interrupt, and xideleg ceases
-    // to have effect. Otherwise, the highest-priority cause among the selected
-    // interrupts, in decreasing order MEI, MSI, MTI, SEI, SSI, STI, SGEI, VSEI,
-    // VSSI, VSTI: a later match overrides an earlier one.
+    // In CLIC mode the commit stage takes the interrupt the CLIC controller
+    // selects, and xideleg ceases to have effect. Otherwise, the highest-priority
+    // cause among the selected interrupts, in decreasing order MEI, MSI, MTI, SEI,
+    // SSI, STI, SGEI, VSEI, VSSI, VSTI: a later match overrides an earlier one.
     interrupt_cause = '0;
-    if (CVA6Cfg.RVSCLIC && clic_mode_i) begin
-      if (clic_irq_req_i) begin
-        interrupt_cause = clic_irq_cause_i;
-      end
-    end else begin
+    if (!(CVA6Cfg.RVSCLIC && clic_mode_i)) begin
       // Virtual Supervisor Timer Interrupt
       if (irq_sel[riscv::IRQ_VS_TIMER]) begin
         interrupt_cause = INTERRUPTS.VS_TIMER;

@@ -75,12 +75,16 @@ module load_unit
     input logic store_buffer_empty_i,
     // Transaction ID of the committing instruction - COMMIT_STAGE
     input logic [CVA6Cfg.TRANS_ID_BITS-1:0] commit_tran_id_i,
+    // The committing instruction's non-idempotent load went to memory - COMMIT_STAGE
+    output logic ni_load_sent_o,
     // Data cache request out - CACHES
     input dcache_req_o_t req_port_i,
     // Data cache request in - CACHES
     output dcache_req_i_t req_port_o,
     // Presence of non-idempotent operations in the D$ write buffer - CACHES
     input logic dcache_wbuffer_not_ni_i,
+    // D$ has transactions in progress - CACHES
+    input logic dcache_busy_i,
 
     //Trigger module
     input logic sdtrig_load_stall_i,
@@ -234,7 +238,27 @@ module load_unit
   );
   assign not_commit_time = commit_tran_id_i != lsu_ctrl_i.trans_id;
   assign inflight_stores = (!dcache_wbuffer_not_ni_i || !store_buffer_empty_i);
-  assign stall_ni = (inflight_stores || not_commit_time) && (paddr_ni && CVA6Cfg.NonIdemPotenceEn) || sdtrig_load_stall_i;
+  // The D$ executes a non-idempotent load only once it has nothing else in
+  // progress: send it only then, so that the drain precedes its tag.
+  assign stall_ni = (inflight_stores || dcache_busy_i || not_commit_time) && (paddr_ni && CVA6Cfg.NonIdemPotenceEn) || sdtrig_load_stall_i;
+
+  // A non-idempotent load sends its tag only at commit time and must then
+  // complete: flag it until the commit stage moves past it.
+  logic ni_load_sent_d, ni_load_sent_q;
+  logic [CVA6Cfg.TRANS_ID_BITS-1:0] ni_load_id_d, ni_load_id_q;
+  assign ni_load_sent_o = ni_load_sent_q && (commit_tran_id_i == ni_load_id_q);
+
+  always_comb begin : ni_load_sent
+    ni_load_sent_d = ni_load_sent_o;
+    ni_load_id_d   = ni_load_id_q;
+    if (state_d == SEND_TAG && paddr_ni && CVA6Cfg.NonIdemPotenceEn) begin
+      ni_load_sent_d = 1'b1;
+      ni_load_id_d   = lsu_ctrl_i.trans_id;
+    end
+    if (flush_i) begin
+      ni_load_sent_d = 1'b0;
+    end
+  end
 
   // ---------------
   // Load Control
@@ -435,7 +459,7 @@ module load_unit
             req_port_o.tag_valid = 1'b1;
             // re-do the request
             state_d = WAIT_WB_EMPTY;
-          end else if (state_q == WAIT_WB_EMPTY && CVA6Cfg.NonIdemPotenceEn && dcache_wbuffer_not_ni_i) begin
+          end else if (state_q == WAIT_WB_EMPTY && CVA6Cfg.NonIdemPotenceEn && dcache_wbuffer_not_ni_i && !dcache_busy_i) begin
             // Wait until the write-back buffer is empty in the data cache.
             // the write buffer is empty, so let's go and re-do the translation.
             state_d = WAIT_TRANSLATION;
@@ -535,9 +559,13 @@ module load_unit
   // latch physical address for the tag cycle (one cycle after applying the index)
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      state_q <= IDLE;
+      state_q        <= IDLE;
+      ni_load_sent_q <= 1'b0;
+      ni_load_id_q   <= '0;
     end else begin
-      state_q <= state_d;
+      state_q        <= state_d;
+      ni_load_sent_q <= ni_load_sent_d;
+      ni_load_id_q   <= ni_load_id_d;
     end
   end
 
