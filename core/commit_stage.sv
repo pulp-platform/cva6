@@ -106,6 +106,8 @@ module commit_stage
     input logic ni_load_sent_i,
     // A fence.t sequence is in progress - CONTROLLER
     input logic fence_t_active_i,
+    // The handler address of a vectored interrupt is being fetched - CONTROLLER
+    input logic vec_irq_busy_i,
     // Trigger module
     input logic sdtrig_commit_icount_valid_i,
     input logic [$clog2(CVA6Cfg.NrCommitPorts)-1:0] sdtrig_commit_icount_nr_instr_i,
@@ -145,10 +147,11 @@ module commit_stage
   // A CLIC interrupt is taken here by turning the instruction at the head into
   // the trap. It waits while the head has a memory access under way that a
   // replay would repeat, an AMO or a non-idempotent load, and while a fence.t
-  // sequence runs, whose micro-reset would discard the trap's redirect.
+  // sequence or the handler address fetch of a vectored interrupt runs, whose
+  // micro-reset or redirect would override the trap's redirect.
   logic clic_take;
   assign clic_take = clic_mode_i && clic_irq_req_i && !ni_load_sent_i && !fence_t_active_i
-                   && !(CVA6Cfg.RVA && amo_sent_q);
+                   && !vec_irq_busy_i && !(CVA6Cfg.RVA && amo_sent_q);
 
   scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_int;
   always_comb begin

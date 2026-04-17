@@ -171,6 +171,7 @@ module cva6
       logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id;
       logic                             is_speculative_load;
       logic                             is_speculative_load_miss;
+      logic                             vec_ld;
     },
 
 
@@ -700,6 +701,10 @@ module cva6
   // The fence.t FSM runs, or its micro-reset, registered below, still holds the pipeline
   logic fence_t_active;
   assign fence_t_active = stall_ctrl_cache || !rst_uarch_n;
+  logic vec_irq_busy;
+  // Vector table load of a hardware-vectored interrupt
+  logic vec_ld_req, vec_ld_gnt, vec_ld_valid;
+  logic [CVA6Cfg.VLEN-1:0] vec_ld_addr;
 
   icache_areq_t icache_areq_ex_cache;
   icache_arsp_t icache_areq_cache_ex;
@@ -721,6 +726,11 @@ module cva6
   dcache_req_o_t [1:0] dcache_req_ports_cache_acc;
   logic dcache_commit_wbuffer_empty;
   logic dcache_commit_wbuffer_not_ni;
+
+  // Interrupt control for CLIC vectored mode
+  logic clic_vec_irq;
+  logic ctrl_set_pc;
+  logic [CVA6Cfg.VLEN-1:0] ctrl_next_pc;
 
   //RVFI
   lsu_ctrl_t rvfi_lsu_ctrl;
@@ -1109,6 +1119,10 @@ module cva6
       .load_trans_id_o (load_trans_id_ex_id),
       .load_valid_o    (load_valid_ex_id),
       .load_exception_o(load_exception_ex_id),
+      .vec_ld_req_i    (vec_ld_req),
+      .vec_ld_addr_i   (vec_ld_addr),
+      .vec_ld_gnt_o    (vec_ld_gnt),
+      .vec_ld_valid_o  (vec_ld_valid),
 
       .store_result_o   (store_result_ex_id),
       .store_trans_id_o (store_trans_id_ex_id),
@@ -1258,6 +1272,7 @@ module cva6
       .shared_tlb_flush_busy_i            (shared_tlb_flush_busy_ex),
       .ni_load_sent_i                     (ni_load_sent_ex),
       .fence_t_active_i                   (fence_t_active),
+      .vec_irq_busy_i                     (vec_irq_busy),
       .commit_csr_o                       (csr_commit_commit_ex),
       .fence_t_o                          (fence_t_commit_controller),
       .fence_i_o                          (fence_i_commit_controller),
@@ -1317,6 +1332,7 @@ module cva6
       .csr_exception_o                    (csr_exception_csr_commit),
       .epc_o                              (epc_commit_pcgen),
       .eret_o                             (eret),
+      .clic_vec_irq_o                     (clic_vec_irq),
       .trap_vector_base_o                 (trap_vector_base_commit_pcgen),
       .priv_lvl_o                         (priv_lvl),
       .mbe_o                              (mbe),
@@ -1510,6 +1526,16 @@ module cva6
       .pc_commit_i           (pc_commit),
       .eret_i                (eret),
       .ex_valid_i            (ex_commit.valid),
+      .clic_vec_irq_i        (clic_vec_irq),
+      .trap_vector_base_i    (trap_vector_base_commit_pcgen),
+      .frontend_set_pc_o     (ctrl_set_pc),
+      .vec_irq_busy_o        (vec_irq_busy),
+      .frontend_next_pc_o    (ctrl_next_pc),
+      .vec_ld_req_o          (vec_ld_req),
+      .vec_ld_addr_o         (vec_ld_addr),
+      .vec_ld_gnt_i          (vec_ld_gnt),
+      .vec_ld_valid_i        (vec_ld_valid),
+      .vec_ld_data_i         (load_result_ex_id),
       .set_debug_pc_i        (set_debug_pc),
       .resolved_branch_i     (resolved_branch),
       .flush_csr_i           (flush_csr_ctrl),

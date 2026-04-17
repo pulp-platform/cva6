@@ -66,6 +66,14 @@ module load_store_unit
     output logic load_valid_o,
     // Load exception - ISSUE_STAGE
     output exception_t load_exception_o,
+    // Load the vector table entry of a hardware-vectored interrupt - CONTROLLER
+    input logic vec_ld_req_i,
+    // Vector table entry address - CONTROLLER
+    input logic [CVA6Cfg.VLEN-1:0] vec_ld_addr_i,
+    // The vector table load is accepted - CONTROLLER
+    output logic vec_ld_gnt_o,
+    // The vector table load returns, on load_result_o - CONTROLLER
+    output logic vec_ld_valid_o,
 
     // Store transaction ID - ISSUE_STAGE
     output logic [CVA6Cfg.TRANS_ID_BITS-1:0] store_trans_id_o,
@@ -263,6 +271,7 @@ module load_store_unit
   logic [CVA6Cfg.PPNW-1:0] dtlb_ppn, cva6_dtlb_ppn, acc_dtlb_ppn;
 
   logic                             ld_valid;
+  logic                             ld_vec_ld_valid;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] ld_trans_id;
   logic [         CVA6Cfg.XLEN-1:0] ld_result;
   logic                             st_valid;
@@ -628,6 +637,7 @@ module load_store_unit
       .trans_id_o           (ld_trans_id),
       .result_o             (ld_result),
       .ex_o                 (ld_ex),
+      .vec_ld_valid_o       (ld_vec_ld_valid),
       .mbe_i                (mbe_i),
       // MMU port
       .translation_req_o    (ld_translation_req),
@@ -664,13 +674,23 @@ module load_store_unit
   // can be tuned to trade-off IPC vs. cycle time
 
   shift_reg #(
-      .dtype(logic [$bits(ld_valid) + $bits(ld_trans_id) + $bits(ld_result) + $bits(ld_ex) - 1:0]),
+      .dtype(logic [$bits(
+ld_valid
+) + $bits(
+ld_vec_ld_valid
+) + $bits(
+ld_trans_id
+) + $bits(
+ld_result
+) + $bits(
+ld_ex
+) - 1:0]),
       .Depth(CVA6Cfg.NrLoadPipeRegs)
   ) i_pipe_reg_load (
       .clk_i,
       .rst_ni,
-      .d_i({ld_valid, ld_trans_id, ld_result, ld_ex}),
-      .d_o({load_valid_o, load_trans_id_o, load_result_o, load_exception_o})
+      .d_i({ld_valid, ld_vec_ld_valid, ld_trans_id, ld_result, ld_ex}),
+      .d_o({load_valid_o, vec_ld_valid_o, load_trans_id_o, load_result_o, load_exception_o})
   );
 
   shift_reg #(
@@ -915,22 +935,44 @@ module load_store_unit
   // new data arrives here
   lsu_ctrl_t lsu_req_i;
 
-  assign lsu_req_i = {
-    lsu_valid_i,
-    vaddr_i,
-    tinst_i,
-    hs_ld_st_inst,
-    hlvx_inst,
-    overflow,
-    g_overflow,
-    fu_data_i.operand_b,
-    be_i,
-    fu_data_i.fu,
-    fu_data_i.operation,
-    fu_data_i.trans_id,
-    speculative_load_i,
-    1'b0
-  };
+  // The vector table load of a hardware-vectored interrupt is a plain load, sent
+  // while no instruction is in flight
+  assign vec_ld_gnt_o = vec_ld_req_i && lsu_ready_o;
+
+  always_comb begin : lsu_req
+    lsu_req_i = {
+      lsu_valid_i,
+      vaddr_i,
+      tinst_i,
+      hs_ld_st_inst,
+      hlvx_inst,
+      overflow,
+      g_overflow,
+      fu_data_i.operand_b,
+      be_i,
+      fu_data_i.fu,
+      fu_data_i.operation,
+      fu_data_i.trans_id,
+      speculative_load_i,
+      1'b0,
+      1'b0
+    };
+    if (vec_ld_req_i) begin
+      lsu_req_i           = '0;
+      lsu_req_i.valid     = vec_ld_gnt_o;
+      lsu_req_i.vaddr     = vec_ld_addr_i;
+      lsu_req_i.be        = '1;
+      lsu_req_i.fu        = LOAD;
+      lsu_req_i.operation = (CVA6Cfg.XLEN == 64) ? LD : LW;
+      lsu_req_i.vec_ld    = 1'b1;
+    end
+  end
+
+  //pragma translate_off
+  vec_ld_alone :
+  assert property (@(posedge clk_i) disable iff (~rst_ni) vec_ld_req_i |-> !lsu_valid_i)
+  else $error("[lsu] an instruction enters the LSU during a vector table load");
+  //pragma translate_on
 
   lsu_bypass #(
       .CVA6Cfg(CVA6Cfg),
@@ -941,7 +983,7 @@ module load_store_unit
       .rst_ni,
       .flush_i,
       .lsu_req_i      (lsu_req_i),
-      .lsu_req_valid_i(lsu_valid_i),
+      .lsu_req_valid_i(lsu_valid_i || vec_ld_gnt_o),
       .pop_ld_i       (pop_ld),
       .pop_st_i       (pop_st),
       .resolved_branch_i,
@@ -950,7 +992,13 @@ module load_store_unit
       .ready_o   (lsu_ready_o)
   );
 
-  assign rvfi_lsu_ctrl_o  = lsu_ctrl;
+  // The vector table load belongs to no instruction
+  always_comb begin : rvfi_lsu_ctrl
+    rvfi_lsu_ctrl_o = lsu_ctrl;
+    if (lsu_ctrl.vec_ld) begin
+      rvfi_lsu_ctrl_o.fu = NONE;
+    end
+  end
 
   // Physical address of the access being translated. It belongs to
   // the lsu_ctrl that was presented one cycle earlier.

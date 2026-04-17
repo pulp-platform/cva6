@@ -85,6 +85,26 @@ module controller
     input logic eret_i,
     // We got an exception, flush the pipeline - FRONTEND
     input logic ex_valid_i,
+    // Exception is CLIC vectored interrupt - CSR_REGFILE
+    input logic clic_vec_irq_i,
+    // Address of trap vector table entry - CSR
+    input logic [CVA6Cfg.VLEN-1:0] trap_vector_base_i,
+    // Set PC - FRONTEND
+    output logic frontend_set_pc_o,
+    // The handler address of a vectored interrupt is being fetched - COMMIT_STAGE
+    output logic vec_irq_busy_o,
+    // PC to be set - FRONTEND
+    output logic [CVA6Cfg.VLEN-1:0] frontend_next_pc_o,
+    // Load the vector table entry of a hardware-vectored interrupt - EX_STAGE
+    output logic vec_ld_req_o,
+    // Vector table entry address - EX_STAGE
+    output logic [CVA6Cfg.VLEN-1:0] vec_ld_addr_o,
+    // The vector table load is accepted - EX_STAGE
+    input logic vec_ld_gnt_i,
+    // The vector table load returns - EX_STAGE
+    input logic vec_ld_valid_i,
+    // Vector table entry - EX_STAGE
+    input logic [CVA6Cfg.XLEN-1:0] vec_ld_data_i,
     // set the debug pc from CSR - FRONTEND
     input logic set_debug_pc_i,
     // We got a resolved branch, check if we need to flush the front-end - EX_STAGE
@@ -140,6 +160,74 @@ module controller
   } fence_t_state_e;
   fence_t_state_e fence_t_state_d, fence_t_state_q;
   logic [3:0] rst_uarch_cnt_d, rst_uarch_cnt_q;
+
+  // Vectored interrupt control FSM
+  typedef enum logic [1:0] {
+    VEC_IRQ_IDLE,
+    VEC_IRQ_REQ,
+    VEC_IRQ_WAIT_DATA
+  } vec_irq_state_e;
+
+  logic vec_irq_halt_frontend;
+  vec_irq_state_e vec_irq_state_d, vec_irq_state_q;
+  logic [CVA6Cfg.VLEN-1:0] vec_irq_address;
+  logic [CVA6Cfg.VLEN-1:0] trap_vector_base_d, trap_vector_base_q;
+
+  assign trap_vector_base_d = vec_irq_address;
+  assign vec_ld_addr_o      = trap_vector_base_q;
+
+  // The handler address is the table entry with its low bit cleared
+  assign frontend_next_pc_o = {vec_ld_data_i[CVA6Cfg.VLEN-1:1], 1'b0};
+  assign vec_irq_busy_o     = (vec_irq_state_q != VEC_IRQ_IDLE);
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      vec_irq_state_q    <= VEC_IRQ_IDLE;
+      trap_vector_base_q <= '0;
+    end else begin
+      vec_irq_state_q    <= vec_irq_state_d;
+      trap_vector_base_q <= trap_vector_base_d;
+    end
+  end
+
+  // -----------------------------
+  // CLIC vectored interrupt logic
+  // -----------------------------
+  always_comb begin : vec_irq_fsm
+    // Default assignments
+    vec_ld_req_o          = 1'b0;
+    frontend_set_pc_o     = 1'b0;
+    vec_irq_halt_frontend = 1'b0;
+    vec_irq_address       = trap_vector_base_i;
+    vec_irq_state_d       = vec_irq_state_q;
+    unique case (vec_irq_state_q)
+      VEC_IRQ_IDLE: begin
+        if (ex_valid_i && clic_vec_irq_i) begin
+          // The trap flushes the LSU: load the table entry from the next cycle
+          vec_irq_halt_frontend = 1'b1;
+          vec_irq_state_d = VEC_IRQ_REQ;
+        end
+      end
+      VEC_IRQ_REQ: begin
+        vec_ld_req_o          = 1'b1;
+        vec_irq_halt_frontend = 1'b1;
+        vec_irq_address       = trap_vector_base_q;
+        if (vec_ld_gnt_i) begin
+          vec_irq_state_d = VEC_IRQ_WAIT_DATA;
+        end
+      end
+      VEC_IRQ_WAIT_DATA: begin
+        vec_irq_halt_frontend = 1'b1;
+        if (vec_ld_valid_i) begin
+          frontend_set_pc_o = 1'b1;
+          vec_irq_state_d   = VEC_IRQ_IDLE;
+        end
+      end
+      default: begin
+        vec_irq_state_d = VEC_IRQ_IDLE;
+      end
+    endcase
+  end
 
   // ------------
   // Flush CTRL
@@ -321,7 +409,7 @@ module controller
     // halt the core if the fence is active
     halt_o = halt_csr_i || halt_acc_i || ((CVA6Cfg.DcacheFlushOnFence || CVA6Cfg.DcacheFlushOnFenceI) && fence_active_q) || (fence_t_state_q != IDLE);
     // Halt frontend during fence.i to synchronize ICache/DCache flushes
-    halt_frontend_o = fence_i_active_q;
+    halt_frontend_o = fence_i_active_q | vec_irq_halt_frontend;
   end
 
   // ----------------------
@@ -449,4 +537,11 @@ module controller
       cache_init_q     <= cache_init_d;
     end
   end
+
+  //pragma translate_off
+  vec_irq_no_flush :
+  assert property (@(posedge clk_i) disable iff (~rst_ni)
+        (vec_irq_state_q != VEC_IRQ_IDLE) |-> !flush_ex_o)
+  else $error("[controller] the LSU is flushed during a vector table load");
+  //pragma translate_on
 endmodule

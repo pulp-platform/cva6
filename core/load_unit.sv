@@ -47,6 +47,8 @@ module load_unit
     output logic [CVA6Cfg.XLEN-1:0] result_o,
     // Load exception - ISSUE_STAGE
     output exception_t ex_o,
+    // The response, on result_o, is the vector table load's - CONTROLLER
+    output logic vec_ld_valid_o,
     // Data Endian mode - CSR_REGFILE
     input logic mbe_i,
     // Request address translation - MMU
@@ -111,6 +113,7 @@ module load_unit
     logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id;   // scoreboard identifier
     logic [CVA6Cfg.VLEN-1:0]          vaddr;      // virtual address
     fu_op                             operation;  // type of load
+    logic                             vec_ld;     // vector table load
   } ldbuf_t;
 
 
@@ -215,7 +218,9 @@ module load_unit
   assign req_port_o.data_wdata = '0;
   assign req_port_o.cbo_op = ariane_pkg::CBO_NONE;
   // compose the load buffer write data, control is handled in the FSM
-  assign ldbuf_wdata = {lsu_ctrl_i.trans_id, lsu_ctrl_i.vaddr, lsu_ctrl_i.operation};
+  assign ldbuf_wdata = {
+    lsu_ctrl_i.trans_id, lsu_ctrl_i.vaddr, lsu_ctrl_i.operation, lsu_ctrl_i.vec_ld
+  };
   // output address
   // we can now output the lower 12 bit as the index to the cache
   assign req_port_o.address_index = lsu_ctrl_i.vaddr[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
@@ -236,7 +241,8 @@ module load_unit
   assign paddr_ni = config_pkg::is_inside_nonidempotent_regions(
       CVA6Cfg, {{52 - CVA6Cfg.PPNW{1'b0}}, dtlb_ppn_i, 12'd0}
   );
-  assign not_commit_time = commit_tran_id_i != lsu_ctrl_i.trans_id;
+  // The vector table load belongs to no instruction and goes at once
+  assign not_commit_time = (commit_tran_id_i != lsu_ctrl_i.trans_id) && !lsu_ctrl_i.vec_ld;
   assign inflight_stores = (!dcache_wbuffer_not_ni_i || !store_buffer_empty_i);
   // The D$ executes a non-idempotent load only once it has nothing else in
   // progress: send it only then, so that the drain precedes its tag.
@@ -251,7 +257,7 @@ module load_unit
   always_comb begin : ni_load_sent
     ni_load_sent_d = ni_load_sent_o;
     ni_load_id_d   = ni_load_id_q;
-    if (state_d == SEND_TAG && paddr_ni && CVA6Cfg.NonIdemPotenceEn) begin
+    if (state_d == SEND_TAG && paddr_ni && CVA6Cfg.NonIdemPotenceEn && !lsu_ctrl_i.vec_ld) begin
       ni_load_sent_d = 1'b1;
       ni_load_id_d   = lsu_ctrl_i.trans_id;
     end
@@ -498,11 +504,14 @@ module load_unit
   assign ldbuf_rdata = ldbuf_q[ldbuf_rindex];
 
   // decoupled rvalid process
+  // The response of the vector table load goes to the controller, not to the scoreboard
+  logic rsp_valid, rsp_vec_ld;
   always_comb begin : rvalid_output
     //  read the pending load buffer
     ldbuf_r = req_port_i.data_rvalid;
     trans_id_o = ldbuf_q[ldbuf_rindex].trans_id;
-    valid_o = 1'b0;
+    rsp_valid = 1'b0;
+    rsp_vec_ld = ldbuf_rdata.vec_ld;
 
     // directly forward exception fields (valid bit is set below)
     ex_o.valid = 1'b0;
@@ -517,7 +526,7 @@ module load_unit
     if (req_port_i.data_rvalid && !ldbuf_flushed_q[ldbuf_rindex]) begin
       // if the response corresponds to the last request, check that we are not killing it
       if ((ldbuf_last_id_q != ldbuf_rindex) || !req_port_o.kill_req) begin
-        valid_o = 1'b1;
+        rsp_valid  = 1'b1;
         ex_o.valid = req_port_i.data_error;
         ex_o.cause = riscv::HARDWARE_ERROR;
         if (CVA6Cfg.TvalEn) begin
@@ -528,7 +537,7 @@ module load_unit
       // dtlb_hit_i is asserted, i.e. when we are in SEND_TAG. Otherwise, the exception
       // corresponds to the next request that is already being translated (see below).
       if ((state_q == SEND_TAG) && (ex_i.valid || req_port_i.data_error)) begin
-        valid_o    = 1'b1;
+        rsp_valid  = 1'b1;
         ex_o.valid = 1'b1;
         ex_o.cause = req_port_i.data_error ? riscv::HARDWARE_ERROR : ex_i.cause;
         if (CVA6Cfg.TvalEn && req_port_i.data_error) begin
@@ -543,16 +552,21 @@ module load_unit
     // round in the load FSM
     if (sdtrig_load_cancel_i || (CVA6Cfg.MmuPresent || CVA6Cfg.NonIdemPotenceEn) && (state_q == WAIT_TRANSLATION) && !req_port_i.data_rvalid && ex_i.valid && valid_i) begin
       trans_id_o = lsu_ctrl_i.trans_id;
-      valid_o = 1'b1;
+      rsp_valid  = 1'b1;
+      rsp_vec_ld = lsu_ctrl_i.vec_ld;
       ex_o.valid = 1'b1;
     end
 
     // raise valid when removing a misspredicted speculative load
     if (CVA6Cfg.SpeculativeSb && (state_q == WAIT_SPEC_LOAD) && lsu_ctrl_i.is_speculative_load_miss && !req_port_i.data_rvalid && valid_i) begin
       trans_id_o = lsu_ctrl_i.trans_id;
-      valid_o = 1'b1;
+      rsp_valid  = 1'b1;
+      rsp_vec_ld = lsu_ctrl_i.vec_ld;
       ex_o.valid = 1'b0;
     end
+
+    valid_o = rsp_valid && !rsp_vec_ld;
+    vec_ld_valid_o = rsp_valid && rsp_vec_ld;
   end
 
 
