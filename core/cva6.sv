@@ -711,6 +711,10 @@ module cva6
   icache_arsp_t icache_areq_cache_ex;
   icache_dreq_t icache_dreq_if_cache;
   icache_drsp_t icache_dreq_cache_if;
+  icache_dreq_t icache_dreq_ctrl_cache;
+  icache_drsp_t icache_drsp_cache_ctrl;
+  icache_dreq_t icache_dreq;
+  icache_drsp_t icache_drsp;
 
   amo_req_t amo_req;
   amo_resp_t amo_resp;
@@ -727,6 +731,11 @@ module cva6
   dcache_req_o_t [1:0] dcache_req_ports_cache_acc;
   logic dcache_commit_wbuffer_empty;
   logic dcache_commit_wbuffer_not_ni;
+
+  // Interrupt control for CLIC vectored mode
+  logic clic_vec_irq;
+  logic ctrl_set_pc;
+  logic [CVA6Cfg.VLEN-1:0] ctrl_next_pc;
 
   //RVFI
   lsu_ctrl_t rvfi_lsu_ctrl;
@@ -789,6 +798,8 @@ module cva6
       .eret_i             (eret),
       .epc_i              (epc_commit_pcgen),
       .trap_vector_base_i (trap_vector_base_commit_pcgen),
+      .ctrl_set_pc_i      (ctrl_set_pc),
+      .ctrl_next_pc_i     (ctrl_next_pc),
       .set_debug_pc_i     (set_debug_pc),
       .debug_mode_i       (debug_mode),
       .icache_dreq_o      (icache_dreq_if_cache),
@@ -1298,6 +1309,7 @@ module cva6
       .csr_exception_o         (csr_exception_csr_commit),
       .epc_o                   (epc_commit_pcgen),
       .eret_o                  (eret),
+      .clic_vec_irq_o          (clic_vec_irq),
       .trap_vector_base_o      (trap_vector_base_commit_pcgen),
       .priv_lvl_o              (priv_lvl),
       .mbe_o                   (mbe),
@@ -1434,7 +1446,9 @@ module cva6
   // ------------
   controller #(
       .CVA6Cfg(CVA6Cfg),
-      .bp_resolve_t(bp_resolve_t)
+      .bp_resolve_t(bp_resolve_t),
+      .icache_dreq_t(icache_dreq_t),
+      .icache_drsp_t(icache_drsp_t)
   ) controller_i (
       .clk_i,
       .rst_ni,
@@ -1472,6 +1486,12 @@ module cva6
       .pc_commit_i           (pc_commit),
       .eret_i                (eret),
       .ex_valid_i            (ex_commit.valid),
+      .clic_vec_irq_i        (clic_vec_irq),
+      .trap_vector_base_i    (trap_vector_base_commit_pcgen),
+      .frontend_set_pc_o     (ctrl_set_pc),
+      .frontend_next_pc_o    (ctrl_next_pc),
+      .icache_dreq_o         (icache_dreq_ctrl_cache),
+      .icache_drsp_i         (icache_drsp_cache_ctrl),
       .set_debug_pc_i        (set_debug_pc),
       .resolved_branch_i     (resolved_branch),
       .flush_csr_i           (flush_csr_ctrl),
@@ -1488,6 +1508,10 @@ module cva6
   // -------------------
   // Cache Subsystem
   // -------------------
+
+  assign icache_dreq = icache_dreq_ctrl_cache.req ? icache_dreq_ctrl_cache : icache_dreq_if_cache;
+  assign icache_drsp_cache_ctrl = icache_drsp;
+  assign icache_dreq_cache_if   = icache_drsp;
 
   // Acc dispatcher and store buffer share a dcache request port.
   // Store buffer always has priority access over acc dispatcher.
@@ -1556,8 +1580,8 @@ module cva6
         .icache_miss_o     (icache_miss_cache_perf),
         .icache_areq_i     (icache_areq_ex_cache),
         .icache_areq_o     (icache_areq_cache_ex),
-        .icache_dreq_i     (icache_dreq_if_cache),
-        .icache_dreq_o     (icache_dreq_cache_if),
+        .icache_dreq_i     (icache_dreq),
+        .icache_dreq_o     (icache_drsp),
         // D$
         .dcache_enable_i   (dcache_en_csr_nbdcache),
         .dcache_flush_i    (dcache_flush_ctrl_cache),
@@ -1614,8 +1638,8 @@ module cva6
         .icache_miss_o (icache_miss_cache_perf),
         .icache_areq_i (icache_areq_ex_cache),
         .icache_areq_o (icache_areq_cache_ex),
-        .icache_dreq_i (icache_dreq_if_cache),
-        .icache_dreq_o (icache_dreq_cache_if),
+        .icache_dreq_i (icache_dreq),
+        .icache_dreq_o (icache_drsp),
 
         .dcache_enable_i   (dcache_en_csr_nbdcache),
         .dcache_flush_i    (dcache_flush_ctrl_cache),
@@ -1682,8 +1706,8 @@ module cva6
         .icache_spm_ways_i (icache_spm_ways_csr_cache),
         .icache_areq_i     (icache_areq_ex_cache),
         .icache_areq_o     (icache_areq_cache_ex),
-        .icache_dreq_i     (icache_dreq_if_cache),
-        .icache_dreq_o     (icache_dreq_cache_if),
+        .icache_dreq_i     (icache_dreq),
+        .icache_dreq_o     (icache_drsp),
         // D$
         .dcache_enable_i   (dcache_en_csr_nbdcache),
         .dcache_flush_i    (dcache_flush_ctrl_cache),
