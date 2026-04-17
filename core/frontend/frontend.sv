@@ -52,6 +52,10 @@ module frontend
     input logic [CVA6Cfg.VLEN-1:0] epc_i,
     // Next PC when jumping into exception - CSR
     input logic [CVA6Cfg.VLEN-1:0] trap_vector_base_i,
+    // Controller steers the next PC - CONTROLLER
+    input logic ctrl_set_pc_i,
+    // PC to be set from controller - CONTROLLER
+    input logic [CVA6Cfg.VLEN-1:0] ctrl_next_pc_i,
     // Debug event - CSR
     input logic set_debug_pc_i,
     // Debug mode state - CSR
@@ -431,6 +435,10 @@ module frontend
     if (ex_valid_i) begin
       npc_d = trap_vector_base_i;
     end
+    // 6. Controller PC set
+    if (ctrl_set_pc_i) begin
+      npc_d = ctrl_next_pc_i;
+    end
     // 6. Pipeline Flush because of CSR side effects
     // On a pipeline flush start fetching from the next address
     // of the instruction in the commit stage
@@ -472,7 +480,11 @@ module frontend
       npc_rst_load_q <= 1'b0;
       npc_q          <= npc_d;
       speculative_q  <= speculative_d;
-      icache_valid_q <= icache_dreq_i.valid;
+      if (flush_i | halt_frontend_i) begin
+        icache_valid_q <= '0;
+      end else begin
+        icache_valid_q <= icache_dreq_i.valid;
+      end
       if (icache_dreq_i.valid) begin
         icache_data_q  <= icache_data;
         icache_vaddr_q <= icache_dreq_i.vaddr;
