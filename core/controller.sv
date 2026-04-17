@@ -17,7 +17,9 @@ module controller
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter type bp_resolve_t = logic
+    parameter type bp_resolve_t = logic,
+    parameter type icache_dreq_t = logic,
+    parameter type icache_drsp_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -85,6 +87,18 @@ module controller
     input logic eret_i,
     // We got an exception, flush the pipeline - FRONTEND
     input logic ex_valid_i,
+    // Exception is CLIC vectored interrupt - CSR_REGFILE
+    input logic clic_vec_irq_i,
+    // Address of trap vector table entry - CSR
+    input logic [CVA6Cfg.VLEN-1:0] trap_vector_base_i,
+    // Set PC - FRONTEND
+    output logic frontend_set_pc_o,
+    // PC to be set - FRONTEND
+    output logic [CVA6Cfg.VLEN-1:0] frontend_next_pc_o,
+    // Handshake between CACHE and CONTROLLER (vectored irq handler address fetch) - CACHES
+    output icache_dreq_t icache_dreq_o,
+    // Handshake between CACHE and CONTROLLER (vectored irq handler address fetch) - CACHES
+    input icache_drsp_t icache_drsp_i,
     // set the debug pc from CSR - FRONTEND
     input logic set_debug_pc_i,
     // We got a resolved branch, check if we need to flush the front-end - EX_STAGE
@@ -140,6 +154,82 @@ module controller
   } fence_t_state_e;
   fence_t_state_e fence_t_state_d, fence_t_state_q;
   logic [3:0] rst_uarch_cnt_d, rst_uarch_cnt_q;
+
+  // Vectored interrupt control FSM
+  typedef enum logic [1:0] {
+    VEC_IRQ_IDLE,
+    VEC_IRQ_WAIT_GNT,
+    VEC_IRQ_WAIT_DATA
+  } vec_irq_state_e;
+
+  logic vec_irq_halt_frontend;
+  logic vec_irq_icache_req;
+  vec_irq_state_e vec_irq_state_d, vec_irq_state_q;
+  logic [CVA6Cfg.VLEN-1:0] vec_irq_address;
+  logic [CVA6Cfg.VLEN-1:0] trap_vector_base_d, trap_vector_base_q;
+
+  assign trap_vector_base_d = trap_vector_base_i;
+
+  assign icache_dreq_o.req     = vec_irq_icache_req;
+  assign icache_dreq_o.vaddr   = vec_irq_address;
+  assign icache_dreq_o.spec    = '0;
+  assign icache_dreq_o.kill_s1 = '0;
+  assign icache_dreq_o.kill_s2 = '0;
+
+  assign frontend_next_pc_o = icache_drsp_i.data;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      vec_irq_state_q    <= VEC_IRQ_IDLE;
+      trap_vector_base_q <= '0;
+    end else begin
+      vec_irq_state_q    <= vec_irq_state_d;
+      trap_vector_base_q <= trap_vector_base_d;
+    end
+  end
+
+  // -----------------------------
+  // CLIC vectored interrupt logic
+  // -----------------------------
+  always_comb begin : vec_irq_fsm
+    // Default assignments
+    frontend_set_pc_o     = 1'b0;
+    vec_irq_halt_frontend = 1'b0;
+    vec_irq_icache_req    = 1'b0;
+    vec_irq_address       = trap_vector_base_i;
+    vec_irq_state_d       = vec_irq_state_q;
+    unique case (vec_irq_state_q)
+      VEC_IRQ_IDLE: begin
+        if (ex_valid_i && clic_vec_irq_i) begin
+          vec_irq_icache_req    = 1'b1;
+          vec_irq_halt_frontend = 1'b1;
+          if (icache_drsp_i.ready) begin
+            vec_irq_state_d = VEC_IRQ_WAIT_DATA;
+          end else begin
+            vec_irq_state_d = VEC_IRQ_WAIT_GNT;
+          end
+        end
+      end
+      VEC_IRQ_WAIT_GNT: begin
+        vec_irq_icache_req    = 1'b1;
+        vec_irq_halt_frontend = 1'b1;
+        vec_irq_address       = trap_vector_base_q;
+        if (icache_drsp_i.ready) begin
+          vec_irq_state_d = VEC_IRQ_WAIT_DATA;
+        end
+      end
+      VEC_IRQ_WAIT_DATA: begin
+        vec_irq_halt_frontend = 1'b1;
+        if (icache_drsp_i.valid) begin
+          frontend_set_pc_o = 1'b1;
+          vec_irq_state_d   = VEC_IRQ_IDLE;
+        end
+      end
+      default: begin
+        vec_irq_state_d = VEC_IRQ_IDLE;
+      end
+    endcase
+  end
 
   // ------------
   // Flush CTRL
@@ -321,7 +411,7 @@ module controller
     // halt the core if the fence is active
     halt_o = halt_csr_i || halt_acc_i || ((CVA6Cfg.DcacheFlushOnFence || CVA6Cfg.DcacheFlushOnFenceI) && fence_active_q) || (fence_t_state_q != IDLE);
     // Halt frontend during fence.i to synchronize ICache/DCache flushes
-    halt_frontend_o = fence_i_active_q;
+    halt_frontend_o = fence_i_active_q | vec_irq_halt_frontend;
   end
 
   // ----------------------

@@ -70,6 +70,8 @@ module csr_regfile
     output logic [CVA6Cfg.VLEN-1:0] epc_o,
     // Return from exception, set the PC of epc_o - FRONTEND
     output logic eret_o,
+    // Exception is CLIC vectored interrupt - CONTROLLER
+    output logic clic_vec_irq_o,
     // Output base of exception vector, correct CSR is output (mtvec, stvec) - FRONTEND
     output logic [CVA6Cfg.VLEN-1:0] trap_vector_base_o,
     // Current privilege level the CPU is in - EX_STAGE
@@ -3162,6 +3164,8 @@ module csr_regfile
 
   // output assignments dependent on privilege mode
   always_comb begin : priv_output
+    clic_vec_irq_o = 1'b0;
+    // TODO: xtvt alignment now required to be 512B
     trap_vector_base_o = (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) ? {mtvt_q[CVA6Cfg.VLEN-1:8], 8'b0} : {mtvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
     // output user mode stvec
     if (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S) begin
@@ -3192,11 +3196,15 @@ module csr_regfile
     // stored at trap_vector_base. Since this would have significant HW implications and no
     // significant benefit, we conciously diverge from the spec here by jumping to
     // trap_vector_base instead.
-    if (ex_i.cause[CVA6Cfg.XLEN-1] &&
-                (((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0]))) && ~clic_mode_o)
-               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0] && ~clic_mode_o)
-               || (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i))) begin
+    if (ex_i.cause[CVA6Cfg.XLEN-1] && ~clic_mode_o &&
+                (((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0]))))
+               || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0]))) begin
       trap_vector_base_o[7:2] = ex_i.cause[5:0];
+    end
+    // Vectored interrupts in CLIC mode
+    if (ex_i.cause[CVA6Cfg.XLEN-1] && CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i) begin
+      clic_vec_irq_o = ex_i.valid;
+      trap_vector_base_o[8:3] = ex_i.cause[5:0];
     end
     if (ex_i.cause[CVA6Cfg.XLEN-1] &&
                 (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0]) && ~clic_mode_o) begin
