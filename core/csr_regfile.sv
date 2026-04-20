@@ -70,8 +70,12 @@ module csr_regfile
     output logic [CVA6Cfg.VLEN-1:0] epc_o,
     // Return from exception, set the PC of epc_o - FRONTEND
     output logic eret_o,
+    // Exception is CLIC interrupt - CONTROLLER
+    output logic clic_irq_o,
     // Exception is CLIC vectored interrupt - CONTROLLER
     output logic clic_vec_irq_o,
+    // Trap frame base address - CONTROLLER
+    output logic [CVA6Cfg.VLEN-1:0] trap_frame_base_o,
     // Output base of exception vector, correct CSR is output (mtvec, stvec) - FRONTEND
     output logic [CVA6Cfg.VLEN-1:0] trap_vector_base_o,
     // Current privilege level the CPU is in - EX_STAGE
@@ -348,6 +352,7 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] dscratch1_q, dscratch1_d;
   logic [CVA6Cfg.XLEN-1:0] mtvec_q, mtvec_d;
   logic [CVA6Cfg.XLEN-1:0] mtvt_q, mtvt_d;
+  logic [CVA6Cfg.XLEN-1:0] mtfa_q, mtfa_d;
   logic [CVA6Cfg.XLEN-1:0] medeleg_q, medeleg_d;
   logic [CVA6Cfg.XLEN-1:0] mideleg_q, mideleg_d;
   logic [CVA6Cfg.XLEN-1:0] mip_q, mip_d;
@@ -369,6 +374,7 @@ module csr_regfile
   riscv::intthresh_rv_t sintthresh_q, sintthresh_d;
   logic [CVA6Cfg.XLEN-1:0] scounteren_q, scounteren_d;
   logic [CVA6Cfg.XLEN-1:0] stvt_q, stvt_d;
+  logic [CVA6Cfg.XLEN-1:0] stfa_q, stfa_d;
   logic [CVA6Cfg.XLEN-1:0] sscratch_q, sscratch_d;
   logic [CVA6Cfg.XLEN-1:0] sepc_q, sepc_d;
   logic [CVA6Cfg.XLEN-1:0] scause_q, scause_d;
@@ -383,6 +389,7 @@ module csr_regfile
 
   logic [CVA6Cfg.XLEN-1:0] vstvec_q, vstvec_d;
   logic [CVA6Cfg.XLEN-1:0] vstvt_q, vstvt_d;
+  logic [CVA6Cfg.XLEN-1:0] vstfa_q, vstfa_d;
   logic [CVA6Cfg.XLEN-1:0] vsscratch_q, vsscratch_d;
   logic [CVA6Cfg.XLEN-1:0] vsepc_q, vsepc_d;
   logic [CVA6Cfg.XLEN-1:0] vscause_q, vscause_d;
@@ -638,6 +645,9 @@ module csr_regfile
         if (CVA6Cfg.RVXHCLIC)
           csr_rdata = clic_mode_o ? {vstvt_q, 8'b0} : '0;  // vstvt reads 0 in CLINT mode
         else read_access_exception = 1'b1;
+        riscv::CSR_VSTFA:
+        if (CVA6Cfg.RVH) csr_rdata = vstfa_q;
+        else read_access_exception = 1'b1;
         riscv::CSR_VSSCRATCH:
         if (CVA6Cfg.RVH) csr_rdata = vsscratch_q;
         else read_access_exception = 1'b1;
@@ -712,6 +722,13 @@ module csr_regfile
           if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
             // stvt reads 0 from CLINT mode
             csr_rdata = clic_mode_o ? stvt_q : '0;
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_STFA: begin
+          if (CVA6Cfg.RVS) begin
+            csr_rdata = stfa_q;
           end else begin
             read_access_exception = 1'b1;
           end
@@ -840,6 +857,7 @@ module csr_regfile
         if (CVA6Cfg.RVU) csr_rdata = mcounteren_q;
         else read_access_exception = 1'b1;
         riscv::CSR_MTVT: csr_rdata = mtvt_q;
+        riscv::CSR_MTFA: csr_rdata = mtfa_q;
         riscv::CSR_MSCRATCH: csr_rdata = mscratch_q;
         riscv::CSR_MEPC: csr_rdata = mepc_q;
         riscv::CSR_MCAUSE: begin
@@ -1423,6 +1441,7 @@ module csr_regfile
     mcause_d     = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mcause : mcause_q;
     mcounteren_d = mcounteren_q;
     mtvt_d = mtvt_q;
+    mtfa_d       = mtfa_q;
     mscratch_d = mscratch_q;
     if (CVA6Cfg.TvalEn)
       mtval_d = (CVA6Cfg.SdtrigEtrigger && sdtrig_etrigger_context_saved_valid && mret) ? sdtrig_etrigger_context_mtval : mtval_q;
@@ -1470,6 +1489,7 @@ module csr_regfile
 
     if (CVA6Cfg.RVXHCLIC) begin
       vstvt_d       = vstvt_q;
+      vstfa_d       = vstfa_q;
       vsintthresh_d = vsintthresh_q;
     end
 
@@ -1479,7 +1499,7 @@ module csr_regfile
       stvec_d      = stvec_q;
       sintthresh_d = sintthresh_q;
       scounteren_d = scounteren_q;
-      stvt_d       = stvt_q;
+      stfa_d       = stfa_q;
       sscratch_d   = sscratch_q;
       stval_d      = stval_q;
       satp_d       = satp_q;
@@ -1689,6 +1709,9 @@ module csr_regfile
             if (clic_mode_o) vstvt_d = csr_wdata[CVA6Cfg.XLEN-1:8];
           end else update_access_exception = 1'b1;
         end
+        riscv::CSR_VSTFA:
+        if (CVA6Cfg.RVH) vstfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+        else update_access_exception = 1'b1;
         riscv::CSR_VSSCRATCH:
         if (CVA6Cfg.RVH) vsscratch_d = csr_wdata;
         else update_access_exception = 1'b1;
@@ -1800,6 +1823,13 @@ module csr_regfile
             if (clic_mode_o) begin
               stvt_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
             end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_STFA: begin
+          if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
+            stfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
           end else begin
             update_access_exception = 1'b1;
           end
@@ -2155,6 +2185,14 @@ module csr_regfile
             if (clic_mode_o) begin
               mtvt_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
             end
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_MTFA: begin
+          if (CVA6Cfg.RVSCLIC) begin
+            mtfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
           end else begin
             update_access_exception = 1'b1;
           end
@@ -3291,7 +3329,9 @@ module csr_regfile
 
   // output assignments dependent on privilege mode
   always_comb begin : priv_output
+    clic_irq_o = ex_i.cause[CVA6Cfg.XLEN-1] && CVA6Cfg.RVSCLIC && clic_mode_o;
     clic_vec_irq_o = 1'b0;
+    trap_frame_base_o = mtfa_q;
     // TODO: xtvt alignment now required to be 512B
     trap_vector_base_o = (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) ? {mtvt_q[CVA6Cfg.VLEN-1:8], 8'b0} : {mtvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
     // output user mode stvec
@@ -3299,13 +3339,17 @@ module csr_regfile
       if (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) begin
         if (CVA6Cfg.RVSCLIC && trap_to_v) begin
           trap_vector_base_o = {vstvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+          trap_frame_base_o = vstfa_q;
         end else begin
           trap_vector_base_o = {stvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+          trap_frame_base_o = stfa_q;
         end
       end else if (CVA6Cfg.RVH && trap_to_v) begin
         trap_vector_base_o = {vstvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
+        trap_frame_base_o = vstfa_q;
       end else begin
         trap_vector_base_o = {stvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
+        trap_frame_base_o = stfa_q;
       end
     end
 
@@ -3495,6 +3539,7 @@ module csr_regfile
       mcause_q         <= {CVA6Cfg.XLEN{1'b0}};
       mcounteren_q     <= {CVA6Cfg.XLEN{1'b0}};
       mtvt_q           <= {CVA6Cfg.XLEN{1'b0}};
+      mtfa_q           <= {CVA6Cfg.XLEN{1'b0}};
       mscratch_q       <= {CVA6Cfg.XLEN{1'b0}};
       if (CVA6Cfg.TvalEn) mtval_q <= {CVA6Cfg.XLEN{1'b0}};
       mfiom_q           <= 1'b0;
@@ -3535,6 +3580,7 @@ module csr_regfile
         end
         if (CVA6Cfg.RVSCLIC) begin
           stvt_q       <= {CVA6Cfg.XLEN{1'b0}};
+          stfa_q       <= {CVA6Cfg.XLEN{1'b0}};
           sintthresh_q <= '0;
         end
       end
@@ -3566,6 +3612,7 @@ module csr_regfile
         end
         if (CVA6Cfg.RVXHCLIC) begin
           vstvt_q       <= {CVA6Cfg.XLEN{1'b0}};
+          vstfa_q       <= {CVA6Cfg.XLEN{1'b0}};
           vsintthresh_q <= 8'b0;
         end
       end
@@ -3616,6 +3663,7 @@ module csr_regfile
       mcause_q         <= mcause_d;
       mcounteren_q     <= mcounteren_d;
       mtvt_q           <= mtvt_d;
+      mtfa_q           <= mtfa_d;
       mscratch_q       <= mscratch_d;
       if (CVA6Cfg.TvalEn) mtval_q <= mtval_d;
       mfiom_q           <= mfiom_d;
@@ -3656,6 +3704,7 @@ module csr_regfile
         end
         if (CVA6Cfg.RVSCLIC) begin
           stvt_q       <= stvt_d;
+          stfa_q       <= stfa_d;
           sintthresh_q <= sintthresh_d;
         end
       end
@@ -3687,6 +3736,7 @@ module csr_regfile
         end
         if (CVA6Cfg.RVXHCLIC) begin
           vstvt_q       <= vstvt_d;
+          vstfa_q       <= vstfa_d;
           vsintthresh_q <= vsintthresh_d;
         end
       end
