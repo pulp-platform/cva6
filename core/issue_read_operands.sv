@@ -59,6 +59,10 @@ module issue_read_operands
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.VLEN-1:0] rs2_forwarding_o,
     // Program Counter - EX_STAGE
     output logic [CVA6Cfg.VLEN-1:0] pc_o,
+    // Integer Register File content - CONTROLLER
+    output logic [31:0] [CVA6Cfg.XLEN-1:0] regs_o,
+    // Floating Point Register File content - CONTROLLER
+    output logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs_o,
     // Is zcmt - EX_STAGE
     output logic is_zcmt_o,
     // Is compressed instruction - EX_STAGE
@@ -929,6 +933,7 @@ module issue_read_operands
         .wdata_i  (wdata_pack),
         .we_i     (we_pack)
     );
+    assign regs_o = '0;
   end else begin : gen_asic_regfile
     ariane_regfile #(
         .CVA6Cfg      (CVA6Cfg),
@@ -941,6 +946,7 @@ module issue_read_operands
         .test_en_i(1'b0),
         .raddr_i  (raddr_pack),
         .rdata_o  (rdata),
+        .regs_o   (regs_o),
         .waddr_i  (waddr_pack),
         .wdata_i  (wdata_pack),
         .we_i     (we_pack)
@@ -991,6 +997,7 @@ module issue_read_operands
             .wdata_i  (fp_wdata_pack),
             .we_i     (we_fpr_i)
         );
+        assign fp_regs_o = '0;
       end else begin : gen_asic_fp_regfile
         ariane_regfile #(
             .CVA6Cfg      (CVA6Cfg),
@@ -1003,6 +1010,7 @@ module issue_read_operands
             .test_en_i(1'b0),
             .raddr_i  (fp_raddr_pack),
             .rdata_o  (fprdata),
+            .regs_o   (fp_regs_o),
             .waddr_i  (waddr_pack),
             .wdata_i  (fp_wdata_pack),
             .we_i     (we_fpr_i)

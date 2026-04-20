@@ -153,6 +153,11 @@ module load_store_unit
     // Data TLB miss - PERF_COUNTERS
     output logic                                               dtlb_miss_o,
 
+    // Page offset for address aliasing checks - CONTROLLER
+    output logic [11:0] page_offset_o,
+    // Page offset matches - CONTROLLER
+    input  logic        page_offset_matches_i,
+
     // Data cache request output - CACHES
     input  dcache_req_o_t [2:0] dcache_req_ports_i,
     // Data cache request input - CACHES
@@ -244,6 +249,7 @@ module load_store_unit
 
   logic [                     11:0] page_offset;
   logic                             page_offset_matches;
+  logic                             page_offset_matches_store;
 
   exception_t misaligned_exception, cva6_misaligned_exception, acc_misaligned_exception;
   exception_t ld_ex;
@@ -255,6 +261,9 @@ module load_store_unit
   logic [CVA6Cfg.PPNW-1:0] satp_ppn[2:0];
   logic [CVA6Cfg.ASID_WIDTH-1:0] asid[2:0], asid_to_be_flushed[1:0];
   logic [CVA6Cfg.VLEN-1:0] vaddr_to_be_flushed[1:0];
+
+  assign page_offset_o = page_offset;
+  assign page_offset_matches = page_offset_matches_i | page_offset_matches_store;
 
   // -------------------
   // MMU e.g.: TLBs/PTW
@@ -558,7 +567,7 @@ module load_store_unit
       .dtlb_hit_i           (cva6_dtlb_hit),
       // Load Unit
       .page_offset_i        (page_offset),
-      .page_offset_matches_o(page_offset_matches),
+      .page_offset_matches_o(page_offset_matches_store),
       // AMOs
       .amo_req_o,
       .amo_resp_i,
