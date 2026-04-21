@@ -122,6 +122,8 @@ module commit_stage
     input logic sdtrig_commit_std_exception_valid_i,
     // Next PC to commit (used for CLIC interrupts)
     input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i,
+    // Hardware stacking is being performed - CONTROLLER
+    input logic hwstack_pushing_i,
     // Hardware stacking registers count - CONTROLLER
     input logic [4:0] hwstack_regs_count_i
 );
@@ -199,6 +201,13 @@ module commit_stage
   logic instr_0_is_amo;
   logic [CVA6Cfg.NrCommitPorts-1:0] commit_macro_ack;
   assign instr_0_is_amo = is_amo(commit_instr_int[0].op);
+
+  // An instruction that would write a register not yet stacked waits at the
+  // head, with none of its effects, until that register has been saved
+  logic instr_0_rd_fpr, hwstack_wait;
+  assign instr_0_rd_fpr = CVA6Cfg.FpPresent && is_rd_fpr(commit_instr_int[0].op);
+  assign hwstack_wait = hwstack_pushing_i && !commit_instr_int[0].ex.valid && !instr_0_rd_fpr &&
+                        |commit_instr_int[0].rd && (commit_instr_int[0].rd >= hwstack_regs_count_i);
   // -------------------
   // Commit Instruction
   // -------------------
@@ -232,7 +241,7 @@ module commit_stage
     flush_commit_o = 1'b0;
 
     // we do not commit the instruction yet if we requested a halt
-    if (commit_instr_int[0].valid && !halt_i) begin
+    if (commit_instr_int[0].valid && !halt_i && !hwstack_wait) begin
       // we will not commit the instruction if we took an exception
       if (commit_instr_int[0].ex.valid
       || ((CVA6Cfg.SdtrigEtrigger || CVA6Cfg.SdtrigItrigger) && sdtrig_commit_std_exception_valid_i || (CVA6Cfg.SdtrigIcount && sdtrig_commit_icount_valid_i && sdtrig_commit_icount_nr_instr_i == 0))) begin
@@ -390,12 +399,6 @@ module commit_stage
           amo_valid_commit_o = amo_sent_q || !dcache_busy_i;
           we_gpr_o[0] = amo_resp_i.ack;
         end
-        // Stall commit if the instruction would overwrite a register which is being saved on the stack
-        if (we_gpr_o[0] && |(waddr_o[0]) && (waddr_o[0] <= hwstack_regs_count_i)) begin
-          commit_stall[0] = 1'b1;
-          commit_ack_o[0] = 1'b0;
-          we_gpr_o[0]     = 1'b0;
-        end
       end
     end
 
@@ -450,7 +453,7 @@ module commit_stage
           end
         end
         // Stall commit if the instruction would overwrite a register which is being saved on the stack
-        if (we_gpr_o[1] && |(waddr_o[1]) && (waddr_o[1] <= hwstack_regs_count_i)) begin
+        if (hwstack_pushing_i && we_gpr_o[1] && |(waddr_o[1]) && (waddr_o[1] >= hwstack_regs_count_i)) begin
           commit_stall[1] = 1'b1;
           commit_ack_o[1] = 1'b0;
           we_gpr_o[1]     = 1'b0;
