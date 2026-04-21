@@ -714,6 +714,7 @@ module cva6
   logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs;
   logic [11:0] load_page_offset;
   logic load_page_offset_matches;
+  logic hwstack_pushing;
   logic [4:0] hwstack_regs_count;
 
   logic icache_dreq_sel;
@@ -1290,6 +1291,7 @@ module cva6
       .break_from_trigger_i   (break_from_trigger),
       .fence_t_o              (fence_t_commit_controller),
       .next_commit_pc_i       (next_commit_pc),
+      .hwstack_pushing_i      (hwstack_pushing),
       .hwstack_regs_count_i   (hwstack_regs_count)
   );
 
@@ -1506,6 +1508,7 @@ module cva6
       .halt_acc_i            (halt_acc_ctrl),
       .halt_frontend_o       (halt_frontend),
       .halt_o                (halt_ctrl),
+      .hwstack_pushing_o     (hwstack_pushing),
       .hwstack_regs_count_o  (hwstack_regs_count),
       // control ports
       .boot_addr_i           (boot_addr_i[CVA6Cfg.VLEN-1:0]),
