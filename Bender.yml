@@ -166,6 +166,7 @@ sources:
       - core/fpu_wrap.sv # depends on fpnew_pkg, above
       - core/branch_unit.sv
       - core/compressed_decoder.sv
+      - core/hwstack_fifo.sv
       - core/controller.sv
       - core/csr_buffer.sv
       - core/csr_regfile.sv
