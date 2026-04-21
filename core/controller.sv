@@ -17,6 +17,7 @@ module controller
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
+    parameter int unsigned HwstackFifoDepth = 8,
     parameter type bp_resolve_t = logic,
     parameter type icache_dreq_t = logic,
     parameter type icache_drsp_t = logic,
@@ -69,6 +70,8 @@ module controller
     output logic halt_frontend_o,
     // Halt signal to commit stage - COMMIT_STAGE
     output logic halt_o,
+    // Signal that hardware stacking is being performed - COMMIT_STAGE
+    output logic hwstack_pushing_o,
     // Hardware stacking counter - COMMIT_STAGE
     output logic [4:0] hwstack_regs_count_o,
     // Cache is busy - CACHE
@@ -255,103 +258,179 @@ module controller
   end
 
   // Hardware stacking FSM
-  typedef enum logic [1:0] {
-    HWSTACK_IDLE,
-    HWSTACK_SEND_REQ,
-    HWSTACK_WAIT_GNT
-  } hwstack_state_e;
+  typedef enum logic {
+    HWSTACK_FILL_IDLE,
+    HWSTACK_FILL_PUSH
+  } hwstack_fifo_fill_state_e;
 
-  hwstack_state_e hwstack_state_d, hwstack_state_q;
-  logic hwstack_dcache_req_valid, hwstack_dcache_tag_valid;
-  logic [4:0] hwstack_regs_count_d, hwstack_regs_count_q;
-  logic [CVA6Cfg.VLEN-1:0] hwstack_dcache_address;
-  logic [CVA6Cfg.XLEN-1:0] hwstack_dcache_wdata;
+  typedef enum logic [1:0] {
+    HWSTACK_DRAIN_IDLE,
+    HWSTACK_DRAIN_SEND_REQ,
+    HWSTACK_DRAIN_WAIT_GNT
+  } hwstack_fifo_drain_state_e;
+
+  // Hwstack fill FSM signals
+  hwstack_fifo_fill_state_e hwstack_fill_state_d, hwstack_fill_state_q;
+  logic               [4:0] hwstack_regs_count_d, hwstack_regs_count_q;
+
+  // Hwstack drain FSM signals
+  hwstack_fifo_drain_state_e hwstack_drain_state_d,   hwstack_drain_state_q;
+  logic   [CVA6Cfg.VLEN-1:0] hwstack_drain_address_d, hwstack_drain_address_q;
+
+  // Hwstack FIFO control signals
+  logic [HwstackFifoDepth-1:0] [CVA6Cfg.XLEN-1:0] hwstack_fifo_load_data;
+  logic                        [CVA6Cfg.XLEN-1:0] hwstack_fifo_wdata;
+  logic                        [CVA6Cfg.XLEN-1:0] hwstack_fifo_rdata;
+  logic                                           hwstack_fifo_load;
+  logic                                           hwstack_fifo_full;
+  logic                                           hwstack_fifo_empty;
+  logic                                           hwstack_fifo_push;
+  logic                                           hwstack_fifo_pop;
+
+  // Data cache request signals
+  logic hwstack_dcache_req_valid;
 
   assign dcache_req_o.data_req      = hwstack_dcache_req_valid;
-  assign dcache_req_o.tag_valid     = hwstack_dcache_tag_valid;
-  assign dcache_req_o.address_index = hwstack_dcache_address[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
-  assign dcache_req_o.address_tag   = hwstack_dcache_address[CVA6Cfg.DCACHE_TAG_WIDTH+CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_INDEX_WIDTH];
-  assign dcache_req_o.data_wdata    = hwstack_dcache_wdata;
+  assign dcache_req_o.address_index = hwstack_drain_address_q[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
+  assign dcache_req_o.address_tag   = hwstack_drain_address_q[CVA6Cfg.DCACHE_TAG_WIDTH+CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_INDEX_WIDTH];
+  assign dcache_req_o.data_wdata    = hwstack_fifo_rdata;
   assign dcache_req_o.data_wuser    = '0;
   assign dcache_req_o.data_we       = 1'b1;
   assign dcache_req_o.data_be       = '1;
   assign dcache_req_o.data_size     = '1;
   assign dcache_req_o.data_id       = '0;
+  assign dcache_req_o.tag_valid     = '0;
   assign dcache_req_o.kill_req      = '0;
   assign dcache_req_o.cbo_op        = '0;
 
-  assign hwstack_regs_count_o = (hwstack_state_q != HWSTACK_IDLE) ? hwstack_regs_count_q : '0;
+  assign hwstack_regs_count_o = (hwstack_fill_state_q != HWSTACK_FILL_IDLE) ? hwstack_regs_count_q : '0;
+
+  assign hwstack_fifo_wdata = int_regs_i[hwstack_regs_count_q];
+
+  generate
+    for (genvar i = 0; i < HwstackFifoDepth; i++) begin
+      assign hwstack_fifo_load_data[i] = int_regs_i[i];
+    end
+  endgenerate
+
+  hwstack_fifo #(
+    .CVA6Cfg      ( CVA6Cfg               ),
+    .Depth        ( HwstackFifoDepth      )
+  ) i_hwstack_fifo (
+    .clk_i       ( clk_i                  ),
+    .rst_ni      ( rst_ni                 ),
+    .load_i      ( hwstack_fifo_load      ),
+    .load_data_i ( hwstack_fifo_load_data ),
+    .data_i      ( hwstack_fifo_wdata     ),
+    .push_i      ( hwstack_fifo_push      ),
+    .pop_i       ( hwstack_fifo_pop       ),
+    .data_o      ( hwstack_fifo_rdata     ),
+    .empty_o     ( hwstack_fifo_empty     ),
+    .full_o      ( hwstack_fifo_full      )
+  );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      hwstack_state_q      <= HWSTACK_IDLE;
-      hwstack_regs_count_q <= '0;
+      hwstack_fill_state_q    <= HWSTACK_FILL_IDLE;
+      hwstack_drain_state_q   <= HWSTACK_DRAIN_IDLE;
+      hwstack_regs_count_q    <= '0;
+      hwstack_drain_address_q <= '0;
     end else begin
-      hwstack_state_q      <= hwstack_state_d;
-      hwstack_regs_count_q <= hwstack_regs_count_d;
+      hwstack_fill_state_q    <= hwstack_fill_state_d;
+      hwstack_drain_state_q   <= hwstack_drain_state_d;
+      hwstack_regs_count_q    <= hwstack_regs_count_d;
+      hwstack_drain_address_q <= hwstack_drain_address_d;
     end
   end
 
-  always_comb begin : hwstack_load_offset_check
-    page_offset_matches_o = 1'b0;
-    if (hwstack_state_q != HWSTACK_IDLE) begin
-      if ((page_offset_i >= trap_frame_base_i[11:0]) && (page_offset_i < hwstack_dcache_address[11:0])) begin
-        page_offset_matches_o = 1'b1;
-      end
-    end
-  end
-
-  always_comb begin : hwstack_logic
+  always_comb begin : hwstack_fifo_fill_logic
     // Default assignments
-    hwstack_state_d          = hwstack_state_q;
-    hwstack_regs_count_d     = hwstack_regs_count_q;
-    hwstack_dcache_address   = trap_frame_base_i + (hwstack_regs_count_q << 3);
-    hwstack_dcache_wdata     = int_regs_i[hwstack_regs_count_q];
-    hwstack_dcache_req_valid = 1'b0;
-    hwstack_dcache_tag_valid = 1'b0;
-    unique case (hwstack_state_q)
+    hwstack_fill_state_d = hwstack_fill_state_q;
+    hwstack_regs_count_d = hwstack_regs_count_q;
+    hwstack_fifo_load    = 1'b0;
+    hwstack_fifo_push    = 1'b0;
+    hwstack_pushing_o    = 1'b0;
+    unique case (hwstack_fill_state_q)
 
-      HWSTACK_IDLE: begin
-        hwstack_regs_count_d = 'd31;
+      HWSTACK_FILL_IDLE: begin
+        hwstack_regs_count_d = HwstackFifoDepth;
         if (ex_valid_i && clic_irq_i) begin
-          hwstack_dcache_req_valid = 1'b1;
-          hwstack_dcache_wdata     = int_regs_i[hwstack_regs_count_d];
-          if (dcache_rsp_i.data_gnt) begin
-            hwstack_state_d = HWSTACK_SEND_REQ;
-          end else begin
-            hwstack_state_d = HWSTACK_WAIT_GNT;
-          end
+          hwstack_fifo_load = 1'b1;
+          hwstack_fill_state_d = HWSTACK_FILL_PUSH;
         end
       end
 
-      HWSTACK_SEND_REQ: begin
-        hwstack_dcache_req_valid = 1'b1;
-        if (dcache_rsp_i.data_gnt) begin
-          if (hwstack_regs_count_q == '0) begin
-            hwstack_state_d = HWSTACK_IDLE;
+      HWSTACK_FILL_PUSH: begin
+        hwstack_pushing_o = 1'b1;
+        if (~hwstack_fifo_full) begin
+          hwstack_fifo_push = 1'b1;
+          if (hwstack_regs_count_q == 'd31) begin
+            hwstack_fill_state_d = HWSTACK_FILL_IDLE;
           end else begin
-            hwstack_regs_count_d = hwstack_regs_count_q - 1;
-            hwstack_state_d = HWSTACK_SEND_REQ;
-          end
-        end else begin
-          hwstack_state_d = HWSTACK_WAIT_GNT;
-        end
-      end
-
-      HWSTACK_WAIT_GNT: begin
-        hwstack_dcache_req_valid = 1'b1;
-        if (dcache_rsp_i.data_gnt) begin
-          if (hwstack_regs_count_q == '0) begin
-            hwstack_state_d = HWSTACK_IDLE;
-          end else begin
-            hwstack_regs_count_d = hwstack_regs_count_q - 1;
-            hwstack_state_d = HWSTACK_SEND_REQ;
+            hwstack_regs_count_d = hwstack_regs_count_q + 1;
           end
         end
       end
 
       default: begin
-        hwstack_state_d = HWSTACK_IDLE;
+        hwstack_fill_state_d = HWSTACK_FILL_IDLE;
+      end
+
+    endcase
+  end
+
+  always_comb begin : hwstack_load_offset_check
+    page_offset_matches_o = 1'b0;
+    if (hwstack_drain_state_q != HWSTACK_DRAIN_IDLE) begin
+      if ((page_offset_i >= trap_frame_base_i[11:0]) && (page_offset_i < hwstack_drain_address_q[11:0])) begin
+        page_offset_matches_o = 1'b1;
+      end
+    end
+  end
+
+  always_comb begin : hwstack_fifo_drain_logic
+    // Default assignments
+    hwstack_drain_state_d    = hwstack_drain_state_q;
+    hwstack_drain_address_d  = hwstack_drain_address_q;
+    hwstack_dcache_req_valid = 1'b0;
+    hwstack_fifo_pop         = 1'b0;
+    unique case (hwstack_drain_state_q)
+
+      HWSTACK_DRAIN_IDLE: begin
+        if (ex_valid_i && clic_irq_i) begin
+          hwstack_drain_address_d = trap_frame_base_i;
+          hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
+        end
+      end
+
+      HWSTACK_DRAIN_SEND_REQ: begin
+        if (hwstack_fifo_empty) begin
+          if (~hwstack_pushing_o) begin
+            hwstack_drain_state_d = HWSTACK_DRAIN_IDLE;
+          end
+        end else begin
+          hwstack_dcache_req_valid = 1'b1;
+          if (dcache_rsp_i.data_gnt) begin
+            hwstack_fifo_pop        = 1'b1;
+            hwstack_drain_address_d = hwstack_drain_address_q + (CVA6Cfg.XLEN/8);
+            hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
+          end else begin
+            hwstack_drain_state_d = HWSTACK_DRAIN_WAIT_GNT;
+          end
+        end
+      end
+
+      HWSTACK_DRAIN_WAIT_GNT: begin
+        hwstack_dcache_req_valid = 1'b1;
+        if (dcache_rsp_i.data_gnt) begin
+          hwstack_fifo_pop        = 1'b1;
+          hwstack_drain_address_d = hwstack_drain_address_q + (CVA6Cfg.XLEN/8);
+          hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
+        end
+      end
+
+      default: begin
+        hwstack_drain_state_d = HWSTACK_DRAIN_IDLE;
       end
 
     endcase

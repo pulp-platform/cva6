@@ -100,6 +100,8 @@ module commit_stage
     input logic break_from_trigger_i,
     // Next PC to commit (used for CLIC interrupts)
     input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i,
+    // Hardware stacking is being performed - CONTROLLER
+    input logic hwstack_pushing_i,
     // Hardware stacking registers count - CONTROLLER
     input logic [4:0] hwstack_regs_count_i
 );
@@ -339,7 +341,7 @@ module commit_stage
           we_gpr_o[0] = amo_resp_i.ack;
         end
         // Stall commit if the instruction would overwrite a register which is being saved on the stack
-        if (we_gpr_o[0] && |(waddr_o[0]) && (waddr_o[0] <= hwstack_regs_count_i)) begin
+        if (hwstack_pushing_i && we_gpr_o[0] && |(waddr_o[0]) && (waddr_o[0] >= hwstack_regs_count_i)) begin
           commit_stall[0] = 1'b1;
           commit_ack_o[0] = 1'b0;
           we_gpr_o[0]     = 1'b0;
@@ -396,7 +398,7 @@ module commit_stage
           end
         end
         // Stall commit if the instruction would overwrite a register which is being saved on the stack
-        if (we_gpr_o[1] && |(waddr_o[1]) && (waddr_o[1] <= hwstack_regs_count_i)) begin
+        if (hwstack_pushing_i && we_gpr_o[1] && |(waddr_o[1]) && (waddr_o[1] >= hwstack_regs_count_i)) begin
           commit_stall[1] = 1'b1;
           commit_ack_o[1] = 1'b0;
           we_gpr_o[1]     = 1'b0;
