@@ -180,6 +180,8 @@ package config_pkg;
     noc_type_e                   NOCType;
     // Number of interrupt signals from the CLIC.
     int unsigned                 CLICNumInterruptSrc;
+    // Depth of the hardware stack FIFO
+    int unsigned                 HwstackFifoDepth;
     // AXI address width
     int unsigned                 AxiAddrWidth;
     // AXI data width
@@ -402,6 +404,7 @@ package config_pkg;
     bit PMPNapotEn;
     noc_type_e NOCType;
     int unsigned CLICNumInterruptSrc;
+    int unsigned HwstackFifoDepth;
     int unsigned NrNonIdempotentRules;
     logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
     logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
@@ -511,6 +514,10 @@ package config_pkg;
     assert (Cfg.NumTlbColors > 0);
     assert ((Cfg.LockableTlbWays <= Cfg.InstrTlbEntries) && (Cfg.LockableTlbWays <= Cfg.DataTlbEntries) && (Cfg.LockableTlbWays <= 16));
     assert (Cfg.ICacheSpmLength > 0);
+    // With the CLIC, the stacking FIFO is preloaded with the first registers of
+    // a frame: at least up to sp, which the trap then replaces with the kernel
+    // sp, and at most all but the last of the 17 caller-saved registers
+    assert (!Cfg.RVSCLIC || (Cfg.HwstackFifoDepth >= 3 && Cfg.HwstackFifoDepth <= 16));
     // Stacking reads all GPRs at once, which the FPGA register file does not provide
     assert (!(Cfg.RVSCLIC && Cfg.FpgaEn));
     assert (Cfg.NrPMPEntries <= 64);

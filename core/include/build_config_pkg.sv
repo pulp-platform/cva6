@@ -122,6 +122,7 @@ package build_config_pkg;
     cfg.PMPNapotEn = CVA6Cfg.PMPNapotEn;
     cfg.NOCType = CVA6Cfg.NOCType;
     cfg.CLICNumInterruptSrc = CVA6Cfg.CLICNumInterruptSrc;
+    cfg.HwstackFifoDepth = CVA6Cfg.HwstackFifoDepth;
     cfg.NrNonIdempotentRules = CVA6Cfg.NrNonIdempotentRules;
     cfg.NonIdempotentAddrBase = CVA6Cfg.NonIdempotentAddrBase;
     cfg.NonIdempotentLength = CVA6Cfg.NonIdempotentLength;

@@ -149,6 +149,7 @@ package cva6_config_pkg;
       PMPNapotEn: bit'(1),
       NOCType: config_pkg::NOC_TYPE_AXI4_ATOP,
       CLICNumInterruptSrc: unsigned'(256),
+      HwstackFifoDepth: unsigned'(8),
       NrNonIdempotentRules: unsigned'(2),
       NonIdempotentAddrBase: 1024'({64'b0, 64'b0}),
       NonIdempotentLength: 1024'({64'b0, 64'b0}),
