@@ -17,7 +17,6 @@ module controller
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter int unsigned HwstackFifoDepth = 8,
     parameter type bp_resolve_t = logic,
     parameter type icache_dreq_t = logic,
     parameter type icache_drsp_t = logic,
@@ -278,14 +277,14 @@ module controller
   logic   [CVA6Cfg.VLEN-1:0] hwstack_drain_address_d, hwstack_drain_address_q;
 
   // Hwstack FIFO control signals
-  logic [HwstackFifoDepth-1:0] [CVA6Cfg.XLEN-1:0] hwstack_fifo_load_data;
-  logic                        [CVA6Cfg.XLEN-1:0] hwstack_fifo_wdata;
-  logic                        [CVA6Cfg.XLEN-1:0] hwstack_fifo_rdata;
-  logic                                           hwstack_fifo_load;
-  logic                                           hwstack_fifo_full;
-  logic                                           hwstack_fifo_empty;
-  logic                                           hwstack_fifo_push;
-  logic                                           hwstack_fifo_pop;
+  logic [CVA6Cfg.HwstackFifoDepth-1:0] [CVA6Cfg.XLEN-1:0] hwstack_fifo_load_data;
+  logic                                [CVA6Cfg.XLEN-1:0] hwstack_fifo_wdata;
+  logic                                [CVA6Cfg.XLEN-1:0] hwstack_fifo_rdata;
+  logic                                                   hwstack_fifo_load;
+  logic                                                   hwstack_fifo_full;
+  logic                                                   hwstack_fifo_empty;
+  logic                                                   hwstack_fifo_push;
+  logic                                                   hwstack_fifo_pop;
 
   // Data cache request signals
   logic hwstack_dcache_req_valid;
@@ -308,14 +307,13 @@ module controller
   assign hwstack_fifo_wdata = int_regs_i[hwstack_regs_count_q];
 
   generate
-    for (genvar i = 0; i < HwstackFifoDepth; i++) begin
+    for (genvar i = 0; i < CVA6Cfg.HwstackFifoDepth; i++) begin
       assign hwstack_fifo_load_data[i] = int_regs_i[i];
     end
   endgenerate
 
   hwstack_fifo #(
-    .CVA6Cfg      ( CVA6Cfg               ),
-    .Depth        ( HwstackFifoDepth      )
+    .CVA6Cfg      ( CVA6Cfg               )
   ) i_hwstack_fifo (
     .clk_i       ( clk_i                  ),
     .rst_ni      ( rst_ni                 ),
@@ -353,7 +351,7 @@ module controller
     unique case (hwstack_fill_state_q)
 
       HWSTACK_FILL_IDLE: begin
-        hwstack_regs_count_d = HwstackFifoDepth;
+        hwstack_regs_count_d = CVA6Cfg.HwstackFifoDepth;
         if (ex_valid_i && clic_irq_i) begin
           hwstack_fifo_load = 1'b1;
           hwstack_fill_state_d = HWSTACK_FILL_PUSH;
