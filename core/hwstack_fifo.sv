@@ -14,10 +14,10 @@
 
 module hwstack_fifo #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg   = config_pkg::cva6_cfg_empty,
-    parameter int unsigned           Depth     = 8,    // depth can be arbitrary from 0 to 2**32
     // DO NOT OVERWRITE THIS PARAMETER
+    parameter int unsigned           Depth     = CVA6Cfg.HwstackFifoDepth,
     parameter type                   dtype     = logic [CVA6Cfg.XLEN-1:0],
-    parameter int unsigned           AddrDepth = (Depth > 1) ? $clog2(Depth) : 1
+    parameter int unsigned           AddrDepth = (CVA6Cfg.HwstackFifoDepth > 1) ? $clog2(CVA6Cfg.HwstackFifoDepth) : 1
 )(
     input  logic             clk_i,
     input  logic             rst_ni,

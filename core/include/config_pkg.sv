@@ -170,6 +170,8 @@ package config_pkg;
     noc_type_e                   NOCType;
     // Number of interrupt signals from the CLIC.
     int unsigned                 CLICNumInterruptSrc;
+    // Depth of the hardware stack FIFO
+    int unsigned                 HwstackFifoDepth;
     // AXI address width
     int unsigned                 AxiAddrWidth;
     // AXI data width
@@ -388,6 +390,7 @@ package config_pkg;
     bit                          PMPNapotEn;
     noc_type_e                   NOCType;
     int unsigned                 CLICNumInterruptSrc;
+    int unsigned                 HwstackFifoDepth;
     int unsigned                 NrNonIdempotentRules;
     logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
     logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
