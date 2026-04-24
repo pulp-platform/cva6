@@ -78,6 +78,8 @@ module cva6tb_soc
   reg_rsp_t                          reg_bootrom_rsp;
   reg_req_t                          reg_rtc_timer_req;
   reg_rsp_t                          reg_rtc_timer_rsp;
+  reg_req_t                          reg_hwmon_req;
+  reg_rsp_t                          reg_hwmon_rsp;
   reg_req_t                          reg_err_req;
   reg_rsp_t                          reg_err_rsp;
   reg_req_t                          reg_in_req;
@@ -89,6 +91,15 @@ module cva6tb_soc
   reg_idx_t                          default_reg_idx;
 
   logic [63:0]                       rtc_timer_time;
+  logic l1_icache_miss;
+  logic l1_dcache_miss;
+  logic itlb_miss;
+  logic dtlb_miss;
+
+  assign l1_icache_miss = i_cva6.icache_miss_cache_perf;
+  assign l1_dcache_miss = i_cva6.dcache_miss_cache_perf;
+  assign itlb_miss      = i_cva6.itlb_miss_ex_perf;
+  assign dtlb_miss      = i_cva6.dtlb_miss_ex_perf;
 
   function automatic void load_sim_spm(string binary_path);
     log("Preloading AXI SPM");
@@ -181,6 +192,9 @@ module cva6tb_soc
 
   assign reg_rtc_timer_req = reg_out_reqs[RegbusRTCTimerId];
   assign reg_out_rsps[RegbusRTCTimerId] = reg_rtc_timer_rsp;
+
+  assign reg_hwmon_req = reg_out_reqs[RegbusHwmonId];
+  assign reg_out_rsps[RegbusHwmonId] = reg_hwmon_rsp;
 
   cva6 #(
     .CVA6Cfg             ( CVA6Cfg                           ),
@@ -474,6 +488,21 @@ module cva6tb_soc
     .req_i     ( bootrom_req  ),
     .addr_i    ( bootrom_addr ),
     .data_o    ( bootrom_data )
+  );
+
+  cva6tb_hwmon #(
+    .reg_req_t        ( reg_req_t        ),
+    .reg_rsp_t        ( reg_rsp_t        )
+  ) i_perf_mon (
+    .clk_i            ( clk              ),
+    .rst_ni           ( rst_n            ),
+    .reg_req_i        ( reg_hwmon_req    ),
+    .reg_rsp_o        ( reg_hwmon_rsp    ),
+    .l1_icache_miss_i ( l1_icache_miss   ),
+    .l1_dcache_miss_i ( l1_dcache_miss   ),
+    .itlb_miss_i      ( itlb_miss        ),
+    .dtlb_miss_i      ( dtlb_miss        ),
+    .time_i           ( rtc_timer_time )
   );
 
   // RISC-V atomics filter
