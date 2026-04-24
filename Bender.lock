@@ -32,6 +32,14 @@ packages:
     dependencies:
     - common_cells
     - register_interface
+  clint:
+    revision: d5390a805c20f9226758a152ba1645f61da73349
+    version: 0.2.0
+    source:
+      Git: https://github.com/pulp-platform/clint.git
+    dependencies:
+    - common_cells
+    - register_interface
   common_cells:
     revision: 9ca8a7655f741e7dd5736669a20a301325194c28
     version: 1.39.0
@@ -61,6 +69,15 @@ packages:
       Git: https://github.com/pulp-platform/fpu_div_sqrt_mvp.git
     dependencies:
     - common_cells
+  opentitan_peripherals:
+    revision: cd3153de2783abd3d03d0595e6c4b32413c62f14
+    version: 0.4.0
+    source:
+      Git: https://github.com/pulp-platform/opentitan_peripherals.git
+    dependencies:
+    - common_cells
+    - register_interface
+    - tech_cells_generic
   register_interface:
     revision: d6e1d4cdaab7870f4faf3f88a1c788eaf5ac129d
     version: 0.4.7
