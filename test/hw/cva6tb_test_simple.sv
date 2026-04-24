@@ -13,13 +13,18 @@ module test;
   import cva6tb_pkg::*;
   import cva6tb_regs_pkg::EOCRegOffset;
 
-  localparam time         ClkPeriod = 2ns;
-  localparam time         ApplDelay = ClkPeriod * 0.1;
-  localparam time         AcqDelay  = ClkPeriod * 0.9;
+  // localparam time         ClkPeriod = 1ns;
+  // localparam time         RtcPeriod = 1us;
+  localparam int unsigned ClkPeriodPs = 1000;
+  localparam int unsigned RtcPeriodPs = 1000000;
+  localparam time         ApplDelay = (ClkPeriodPs * 1ps) * 0.1;
+  localparam time         AcqDelay  = (ClkPeriodPs * 1ps) * 0.9;
   localparam int unsigned RstCycles = 10;
 
   int unsigned RetCodeSuccess;
   int unsigned MaxCycles;
+
+  logic bootmode;
 
   function automatic void parse_args();
     if (!$value$plusargs("RetCodeSccess=%d", RetCodeSuccess)) RetCodeSuccess = 0;
@@ -28,35 +33,83 @@ module test;
 
   logic        clk;
   logic        rst_n;
+  logic        rtc;
   logic        eoc;
   logic [30:0] retcode;
 
   assign eoc     = i_dut.i_regs.control_regs[EOCRegOffset][0];
   assign retcode = i_dut.i_regs.control_regs[EOCRegOffset][31:1];
 
-  clk_rst_gen #(
-    .ClkPeriod    ( ClkPeriod ),
-    .RstClkCycles ( RstCycles )
+  cva6tb_clk_rst_gen #(
+    .ClkPeriodPs  ( ClkPeriodPs ),
+    .RstClkCycles ( RstCycles   )
   ) i_clk_rst_gen (
-    .clk_o        ( clk       ),
-    .rst_no       ( rst_n     )
+    .clk_o        ( clk         ),
+    .rst_no       ( rst_n       )
+  );
+
+  cva6tb_clk_rst_gen #(
+    .ClkPeriodPs  ( RtcPeriodPs ),
+    .RstClkCycles ( 1           )
+  ) i_rtc_gen (
+    .clk_o        ( rtc         ),
+    .rst_no       (             )
   );
 
   cva6tb_soc #(
-    .ApplDelay   ( ApplDelay ),
-    .AcqDelay    ( AcqDelay  )
+    .ApplDelay       ( ApplDelay ),
+    .AcqDelay        ( AcqDelay  )
   ) i_dut (
-    .clk_i       ( clk       ),
-    .rst_ni      ( rst_n     ),
-    .clic_irqs_i ( '0        )
+    .clk_i           ( clk       ),
+    .rst_ni          ( rst_n     ),
+    .rtc_i           ( rtc       ),
+    .boot_mode_i     ( bootmode  ),
+    .clic_ext_irqs_i ( '0        ),
+    .plic_ext_irqs_i ( '0        )
   );
 
+  task automatic preload_hex();
+    string       binary_path;
+    int          fd;
+    string       line;
+    logic [31:0] first_addr;
+
+    if ($value$plusargs("binary=%s", binary_path)) begin
+      log($sformatf("Running program \"%s\"", binary_path));
+
+      fd = $fopen(binary_path, "r");
+      if (fd == 0) begin
+        log($sformatf("ERROR: cannot open \"%s\"", binary_path));
+        return;
+      end
+      void'($fgets(line, fd));
+      $fclose(fd);
+
+      if (line.len() > 0 && line[0] == "@") begin
+        void'($sscanf(line, "@%h", first_addr));
+      end else begin
+        first_addr = '0;
+      end
+
+      if (first_addr == 32'h2000_0000) begin
+        bootmode = 1'b1;
+        i_dut.load_sim_spm(binary_path);
+      end else begin
+        bootmode = 1'b0;
+        i_dut.load_sim_mem(binary_path);
+      end
+    end else begin
+      log("WARNING: no binary path provided");
+    end
+  endtask
+
   initial begin
+    bootmode = 1'b0;
     setup();
     // Parse command line arguments
     parse_args();
-    // Preload binary into simulation memory
-    i_dut.load_hex();
+    // Preload binary into simulation memory and set bootmode
+    preload_hex();
     // Wait for reset de-assertion
     wait(rst_n);
     // Poll EOC

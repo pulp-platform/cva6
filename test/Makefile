@@ -58,6 +58,63 @@ $(ROOT_DIR)/Bender.lock:
 	touch $@
 
 ##################################
+##### Hardware dependencies ######
+##################################
+
+ifeq ($(shell test -d $(ROOT_DIR)/.bender || echo 1),)
+CLINTROOT := $(shell $(BENDER) path clint)
+REGTOOL   := $(shell $(BENDER) path register_interface)/vendor/lowrisc_opentitan/util/regtool.py
+OTPROOT   := $(shell $(BENDER) path opentitan_peripherals)
+else
+CLINTROOT := $(ROOT_DIR)/clint
+REGTOOL   := regtool.py
+OTPROOT   := $(ROOT_DIR)/opentitan_peripherals
+endif
+
+CLINTCORES := 1
+include $(CLINTROOT)/clint.mk
+$(CLINTROOT)/.generated:
+	flock -x $@ $(MAKE) clint && touch $@
+
+include $(OTPROOT)/otp.mk
+$(OTPROOT)/.generated: $(TEST_DIR)/hw/rv_plic.cfg.hjson
+	flock -x $@ sh -c "cp $< $(dir $@)/src/rv_plic/; $(MAKE) -j1 otp" && touch $@ || rm $@
+
+HW_DEPS := $(CLINTROOT)/.generated $(OTPROOT)/.generated
+
+##################################
+########### Bootrom ##############
+##################################
+
+RV_BINROOT ?= $(dir $(shell which riscv64-unknown-elf-gcc))
+RV_AR      := $(RV_BINROOT)/riscv64-unknown-elf-ar
+RV_CC      := $(RV_BINROOT)/riscv64-unknown-elf-gcc
+RV_OBJCOPY := $(RV_BINROOT)/riscv64-unknown-elf-objcopy
+RV_OBJDUMP := $(RV_BINROOT)/riscv64-unknown-elf-objdump
+
+BROM_CC_FLAGS = -DOT_PLATFORM_RV32 -march=rv64gc_zifencei -mabi=lp64d \
+                -mstrict-align -O2 -Wall -Wextra -static -ffunction-sections \
+                -fdata-sections -frandom-seed=cheshire -fuse-linker-plugin \
+                -nostartfiles -Os -fno-zero-initialized-in-bss \
+                -fwhole-program -flto -Wl,-flto -Wl,--gc-sections
+
+$(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin: $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.ld $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.S
+	$(RV_CC) -T$< $(BROM_CC_FLAGS) -o $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.S
+	$(RV_OBJDUMP) -d $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf > $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.dump
+	$(RV_OBJCOPY) -O binary $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf $@
+
+$(TEST_DIR)/hw/bootrom/cva6tb_bootrom.sv: $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin $(TEST_DIR)/util/gen_bootrom.py
+	$(TEST_DIR)/util/gen_bootrom.py --sv-module cva6tb_bootrom $< > $@
+
+.PHONY: bootrom
+bootrom: $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.sv
+
+.PHONY: bootrom-clean
+bootrom-clean:
+	cd $(TEST_DIR)/hw/bootrom && rm -f *.sv *.elf *.bin *.dump
+
+
+##################################
 ########## QuestaSim #############
 ##################################
 
@@ -76,7 +133,7 @@ VOPT_FLAGS += +acc
 $(VSIM_BUILD_DIR):
 	@mkdir -p $(VSIM_BUILD_DIR)
 
-$(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock | $(VSIM_BUILD_DIR)
+$(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock $(HW_DEPS) | $(VSIM_BUILD_DIR)
 	$(BENDER) script vsim $(BENDER_FLAGS) --vlog-arg="$(VLOG_FLAGS)" > $@
 	@echo 'vopt $(VOPT_FLAGS) test -o test_opt' >> $@
 
@@ -117,7 +174,7 @@ VERILATOR_FLAGS     := --binary -j 0 --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_W
 $(VERILATOR_LOG_DIR):
 	@mkdir -p $(VERILATOR_LOG_DIR)
 
-$(VERILATOR_FLIST): $(ROOT_DIR)/Bender.lock
+$(VERILATOR_FLIST): $(ROOT_DIR)/Bender.lock $(HW_DEPS)
 	$(BENDER) script verilator $(BENDER_FLAGS) -t verilator > $@
 
 $(VERILATOR_BUILD_DIR)/Vtest: $(VERILATOR_FLIST) | $(VERILATOR_LOG_DIR)

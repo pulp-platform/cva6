@@ -11,7 +11,6 @@
 _start:
 
     // Clear all registers
-    li x1,  0
     li x2,  0
     li x3,  0
     li x4,  0
@@ -55,21 +54,10 @@ _start:
     csrw  mtvec, t0
 
     // Call main
-    jal main
+    tail main
 
-    j _exit
-
-// If main returns, we end up here
-.global _exit
-.align 4
-_exit:
-    // Save the return value to EOC register, then wait forever
-    slli a0, a0, 1
-    ori  a0, a0, 1
-    la t0, __base_regs
-    sw a0, 4(t0)
-1:  wfi
-    j 1b
+    // Should never get here
+    ret
 
 .weak main
 main:
