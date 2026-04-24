@@ -15,7 +15,9 @@ dependencies:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
   axi_riscv_atomics: { git: "https://github.com/pulp-platform/axi_riscv_atomics.git", version: 0.8.3 }
   clic: { git: "https://github.com/pulp-platform/clic.git", version: 3.0.0 }
+  clint: { git: "https://github.com/pulp-platform/clint.git", version: 0.2.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification", version: 0.2.5 }
+  opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0 }
   register_interface: { git: https://github.com/pulp-platform/register_interface.git, version: 0.4.7 }
 
 export_include_dirs:
@@ -301,7 +303,11 @@ sources:
       - target: cva6tb
         files:
           - test/hw/cva6tb_pkg.sv
+          - test/hw/bootrom/cva6tb_bootrom.sv
+          - test/hw/cva6tb_clk_rst_gen.sv
+          - test/hw/cva6tb_hwmon.sv
           - test/hw/cva6tb_regs.sv
+          - test/hw/cva6tb_rtc_timer.sv
           - test/hw/cva6tb_sim_console.sv
           - test/hw/cva6tb_soc.sv
 

@@ -13,15 +13,24 @@ module cva6tb_soc
   parameter time ApplDelay = 0ps,
   parameter time AcqDelay  = 0ps
 )(
-  input  logic                   clk_i,
-  input  logic                   rst_ni,
-  input  logic [NumClicIrqs-1:0] clic_irqs_i
+  input  logic                      clk_i,
+  input  logic                      rst_ni,
+  input  logic                      rtc_i,
+  input  logic                      boot_mode_i,
+  input  logic [NumClicExtIrqs-1:0] clic_ext_irqs_i,
+  input  logic [NumPlicExtIrqs-1:0] plic_ext_irqs_i
 );
 
   logic                              clk;
   logic                              rst_n;
-  logic                       [31:0] cva6_boot_addr;
   rvfi_probes_t                      rvfi_probes;
+
+  logic                              mtip;
+  logic                              msip;
+  logic                              rtc_timer_irq;
+  logic                        [1:0] xeip;
+  logic            [NumClicIrqs-1:0] clic_irqs;
+  logic            [NumPlicIrqs-1:0] plic_irqs;
 
   axi_mst_req_t                      axi_core_req;
   axi_mst_rsp_t                      axi_core_rsp;
@@ -31,10 +40,16 @@ module cva6tb_soc
   axi_slv_rsp_t                      axi_reg_rsp;
   axi_slv_req_t                      axi_amo_req;
   axi_slv_rsp_t                      axi_amo_rsp;
+  axi_slv_req_t                      axi_dly_req;
+  axi_slv_rsp_t                      axi_dly_rsp;
   axi_slv_req_t                      axi_mem_req;
   axi_slv_rsp_t                      axi_mem_rsp;
   axi_slv_req_t                      axi_rmp_req;
   axi_slv_rsp_t                      axi_rmp_rsp;
+  axi_slv_req_t                      axi_amo_spm_req;
+  axi_slv_rsp_t                      axi_amo_spm_rsp;
+  axi_slv_req_t                      axi_spm_req;
+  axi_slv_rsp_t                      axi_spm_rsp;
   axi_mst_req_t [AxiXbarMasters-1:0] axi_mst_reqs;
   axi_mst_rsp_t [AxiXbarMasters-1:0] axi_mst_rsps;
   axi_slv_req_t [ AxiXbarSlaves-1:0] axi_slv_reqs;
@@ -55,6 +70,16 @@ module cva6tb_soc
   reg_rsp_t                          reg_console_rsp;
   reg_req_t                          reg_clic_req;
   reg_rsp_t                          reg_clic_rsp;
+  reg_req_t                          reg_clint_req;
+  reg_rsp_t                          reg_clint_rsp;
+  reg_req_t                          reg_plic_req;
+  reg_rsp_t                          reg_plic_rsp;
+  reg_req_t                          reg_bootrom_req;
+  reg_rsp_t                          reg_bootrom_rsp;
+  reg_req_t                          reg_rtc_timer_req;
+  reg_rsp_t                          reg_rtc_timer_rsp;
+  reg_req_t                          reg_hwmon_req;
+  reg_rsp_t                          reg_hwmon_rsp;
   reg_req_t                          reg_err_req;
   reg_rsp_t                          reg_err_rsp;
   reg_req_t                          reg_in_req;
@@ -65,18 +90,67 @@ module cva6tb_soc
   reg_idx_t                          reg_select;
   reg_idx_t                          default_reg_idx;
 
-  function automatic void load_hex();
-    string binary_path;
-    if ($value$plusargs("binary=%s", binary_path)) begin
-      log($sformatf("Running program \"%s\"", binary_path));
-      $readmemh(binary_path, i_axi_sim_mem.mem);
-    end else begin
-      log("WARNING: no binary path provided");
-    end
+  logic [63:0]                       rtc_timer_time;
+  logic l1_icache_miss;
+  logic l1_dcache_miss;
+  logic itlb_miss;
+  logic dtlb_miss;
+
+  assign l1_icache_miss = i_cva6.icache_miss_cache_perf;
+  assign l1_dcache_miss = i_cva6.dcache_miss_cache_perf;
+  assign itlb_miss      = i_cva6.itlb_miss_ex_perf;
+  assign dtlb_miss      = i_cva6.dtlb_miss_ex_perf;
+
+  function automatic void load_sim_spm(string binary_path);
+    log("Preloading AXI SPM");
+    $readmemh(binary_path, i_axi_spm.mem);
+  endfunction
+
+  function automatic void load_sim_mem(string binary_path);
+    log("Preloading AXI sim mem");
+    $readmemh(binary_path, i_axi_sim_mem.mem);
   endfunction
 
   assign clk   = clk_i;
   assign rst_n = rst_ni;
+
+  assign clic_irqs[ 0] = 1'b0;
+  assign clic_irqs[ 1] = 1'b0;
+  assign clic_irqs[ 2] = 1'b0;
+  assign clic_irqs[ 3] = msip;
+  assign clic_irqs[ 4] = 1'b0;
+  assign clic_irqs[ 5] = 1'b0;
+  assign clic_irqs[ 6] = 1'b0;
+  assign clic_irqs[ 7] = mtip;
+  assign clic_irqs[ 8] = 1'b0;
+  assign clic_irqs[ 9] = 1'b0;
+  assign clic_irqs[10] = 1'b0;
+  assign clic_irqs[11] = 1'b0;
+  assign clic_irqs[12] = 1'b0;
+  assign clic_irqs[13] = 1'b0;
+  assign clic_irqs[14] = 1'b0;
+  assign clic_irqs[15] = 1'b0;
+  assign clic_irqs[16] = 1'b0;
+  assign clic_irqs[17] = rtc_timer_irq;
+  assign clic_irqs[NumClicIrqs-1:NumClicIntIrqs] = clic_ext_irqs_i;
+
+  assign plic_irqs[ 0] = 1'b0;
+  assign plic_irqs[ 1] = rtc_timer_irq;
+  assign plic_irqs[ 2] = 1'b0;
+  assign plic_irqs[ 3] = 1'b0;
+  assign plic_irqs[ 4] = 1'b0;
+  assign plic_irqs[ 5] = 1'b0;
+  assign plic_irqs[ 6] = 1'b0;
+  assign plic_irqs[ 7] = 1'b0;
+  assign plic_irqs[ 8] = 1'b0;
+  assign plic_irqs[ 9] = 1'b0;
+  assign plic_irqs[10] = 1'b0;
+  assign plic_irqs[11] = 1'b0;
+  assign plic_irqs[12] = 1'b0;
+  assign plic_irqs[13] = 1'b0;
+  assign plic_irqs[14] = 1'b0;
+  assign plic_irqs[15] = 1'b0;
+  assign plic_irqs[NumPlicIrqs-1:NumPlicIntIrqs] = plic_ext_irqs_i;
 
   assign default_reg_idx = (RegbusErrId);
 
@@ -92,6 +166,9 @@ module cva6tb_soc
   assign axi_amo_req = axi_slv_reqs[AxiSlvIdDram];
   assign axi_slv_rsps[AxiSlvIdDram] = axi_amo_rsp;
 
+  assign axi_amo_spm_req = axi_slv_reqs[AxiSlvIdSpm];
+  assign axi_slv_rsps[AxiSlvIdSpm] = axi_amo_spm_rsp;
+
   assign reg_err_req = reg_out_reqs[RegbusErrId];
   assign reg_out_rsps[RegbusErrId] = reg_err_rsp;
 
@@ -103,6 +180,21 @@ module cva6tb_soc
 
   assign reg_clic_req = reg_out_reqs[RegbusClicId];
   assign reg_out_rsps[RegbusClicId] = reg_clic_rsp;
+
+  assign reg_clint_req = reg_out_reqs[RegbusClintId];
+  assign reg_out_rsps[RegbusClintId] = reg_clint_rsp;
+
+  assign reg_plic_req = reg_out_reqs[RegbusPlicId];
+  assign reg_out_rsps[RegbusPlicId] = reg_plic_rsp;
+
+  assign reg_bootrom_req = reg_out_reqs[RegbusBootromId];
+  assign reg_out_rsps[RegbusBootromId] = reg_bootrom_rsp;
+
+  assign reg_rtc_timer_req = reg_out_reqs[RegbusRTCTimerId];
+  assign reg_out_rsps[RegbusRTCTimerId] = reg_rtc_timer_rsp;
+
+  assign reg_hwmon_req = reg_out_reqs[RegbusHwmonId];
+  assign reg_out_rsps[RegbusHwmonId] = reg_hwmon_rsp;
 
   cva6 #(
     .CVA6Cfg             ( CVA6Cfg                           ),
@@ -119,11 +211,11 @@ module cva6tb_soc
   ) i_cva6 (
     .clk_i               ( clk                               ),
     .rst_ni              ( rst_n                             ),
-    .boot_addr_i         ( {32'h0, cva6_boot_addr}           ),
+    .boot_addr_i         ( {32'h0, BootromBaseAddr}          ),
     .hart_id_i           ( 64'h0                             ),
-    .irq_i               ( '0                                ),
-    .ipi_i               ( '0                                ),
-    .time_irq_i          ( '0                                ),
+    .irq_i               ( xeip                              ),
+    .ipi_i               ( msip                              ),
+    .time_irq_i          ( mtip                              ),
     .debug_req_i         ( '0                                ),
     .clic_irq_valid_i    ( clic_irq_valid                    ),
     .clic_irq_id_i       ( clic_irq_id                       ),
@@ -159,7 +251,7 @@ module cva6tb_soc
     .rst_ni         ( rst_n             ),
     .reg_req_i      ( reg_clic_req      ),
     .reg_rsp_o      ( reg_clic_rsp      ),
-    .intr_src_i     ( clic_irqs_i       ),
+    .intr_src_i     ( clic_irqs         ),
     .irq_valid_o    ( clic_irq_valid    ),
     .irq_ready_i    ( clic_irq_ready    ),
     .irq_id_o       ( clic_irq_id       ),
@@ -170,6 +262,36 @@ module cva6tb_soc
     .irq_vsid_o     ( clic_irq_vsid     ),
     .irq_kill_req_o ( clic_irq_kill_req ),
     .irq_kill_ack_i ( clic_irq_kill_ack )
+  );
+
+  // CLINT interrupt controller
+  clint #(
+    .reg_req_t   ( reg_req_t     ),
+    .reg_rsp_t   ( reg_rsp_t     )
+  ) i_clint (
+    .clk_i       ( clk           ),
+    .rst_ni      ( rst_n         ),
+    .testmode_i  ( 1'b0          ),
+    .reg_req_i   ( reg_clint_req ),
+    .reg_rsp_o   ( reg_clint_rsp ),
+    .rtc_i       ( rtc_i         ),
+    .timer_irq_o ( mtip          ),
+    .ipi_o       ( msip          )
+  );
+
+  // PLIC interrupt controller
+  rv_plic #(
+    .reg_req_t  ( reg_req_t ),
+    .reg_rsp_t  ( reg_rsp_t )
+  ) i_plic (
+    .clk_i      ( clk          ),
+    .rst_ni     ( rst_n        ),
+    .reg_req_i  ( reg_plic_req ),
+    .reg_rsp_o  ( reg_plic_rsp ),
+    .intr_src_i ( plic_irqs    ),
+    .irq_o      ( xeip         ),
+    .irq_id_o   (              ),
+    .msip_o     (              )
   );
 
   // AXI interconnect
@@ -287,9 +409,9 @@ module cva6tb_soc
   ) i_regs (
     .clk_i       ( clk            ),
     .rst_ni      ( rst_n          ),
+    .boot_mode_i ( boot_mode_i    ),
     .reg_req_i   ( reg_pcr_req    ),
-    .reg_rsp_o   ( reg_pcr_rsp    ),
-    .boot_addr_o ( cva6_boot_addr )
+    .reg_rsp_o   ( reg_pcr_rsp    )
   );
 
   // Sim console
@@ -301,6 +423,86 @@ module cva6tb_soc
     .rst_ni      ( rst_n           ),
     .reg_req_i   ( reg_console_req ),
     .reg_rsp_o   ( reg_console_rsp )
+  );
+
+  // RTC timer
+  cva6tb_rtc_timer #(
+    .reg_req_t ( reg_req_t         ),
+    .reg_rsp_t ( reg_rsp_t         )
+  ) i_rtc_timer (
+    .clk_i     ( clk               ),
+    .rst_ni    ( rst_n             ),
+    .reg_req_i ( reg_rtc_timer_req ),
+    .reg_rsp_o ( reg_rtc_timer_rsp ),
+    .rtc_i     ( rtc_i             ),
+    .irq_o     ( rtc_timer_irq     ),
+    .time_o    ( rtc_timer_time    )
+  );
+
+  // Bootrom
+  logic [15:0]  bootrom_addr;
+  logic [31:0]  bootrom_data, bootrom_data_q;
+  logic         bootrom_req,  bootrom_req_q;
+  logic         bootrom_we,   bootrom_we_q;
+
+  // Delay response by one cycle to fulfill mem protocol
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (~rst_n) begin
+      bootrom_data_q <= '0;
+      bootrom_req_q  <= '0;
+      bootrom_we_q   <= '0;
+    end else begin
+      bootrom_data_q <= bootrom_data;
+      bootrom_req_q  <= bootrom_req;
+      bootrom_we_q   <= bootrom_we;
+    end
+  end
+
+  reg_to_mem #(
+    .AW        ( 16              ),
+    .DW        ( 32              ),
+    .req_t     ( reg_req_t       ),
+    .rsp_t     ( reg_rsp_t       )
+  ) i_reg_to_bootrom (
+    .clk_i     ( clk             ),
+    .rst_ni    ( rst_n           ),
+    .reg_req_i ( reg_bootrom_req ),
+    .reg_rsp_o ( reg_bootrom_rsp ),
+    .req_o     ( bootrom_req     ),
+    .gnt_i     ( bootrom_req     ),
+    .we_o      ( bootrom_we      ),
+    .addr_o    ( bootrom_addr    ),
+    .wdata_o   (                 ),
+    .wstrb_o   (                 ),
+    .rdata_i   ( bootrom_data_q  ),
+    .rvalid_i  ( bootrom_req_q   ),
+    .rerror_i  ( bootrom_we_q    )
+  );
+
+  cva6tb_bootrom #(
+    .AddrWidth ( 16           ),
+    .DataWidth ( 32           )
+  ) i_bootrom (
+    .clk_i     ( clk          ),
+    .rst_ni    ( rst_n        ),
+    .req_i     ( bootrom_req  ),
+    .addr_i    ( bootrom_addr ),
+    .data_o    ( bootrom_data )
+  );
+
+  cva6tb_hwmon #(
+    .reg_req_t        ( reg_req_t        ),
+    .reg_rsp_t        ( reg_rsp_t        )
+  ) i_perf_mon (
+    .clk_i            ( clk              ),
+    .rst_ni           ( rst_n            ),
+    .reg_req_i        ( reg_hwmon_req    ),
+    .reg_rsp_o        ( reg_hwmon_rsp    ),
+    .l1_icache_miss_i ( l1_icache_miss   ),
+    .l1_dcache_miss_i ( l1_dcache_miss   ),
+    .itlb_miss_i      ( itlb_miss        ),
+    .dtlb_miss_i      ( dtlb_miss        ),
+    .time_i           ( rtc_timer_time )
   );
 
   // RISC-V atomics filter
@@ -323,8 +525,38 @@ module cva6tb_soc
     .rst_ni           ( rst_n                    ),
     .axi_slv_req_i    ( axi_amo_req              ),
     .axi_slv_rsp_o    ( axi_amo_rsp              ),
-    .axi_mst_req_o    ( axi_mem_req              ),
-    .axi_mst_rsp_i    ( axi_mem_rsp              )
+    .axi_mst_req_o    ( axi_dly_req              ),
+    .axi_mst_rsp_i    ( axi_dly_rsp              )
+  );
+
+  // AXI delayer
+  // Simulates arbitrary memory latency without bandwidth throttling
+  axi_fifo_delay_dyn #(
+    .aw_chan_t  ( axi_slv_aw_chan_t ),
+    .w_chan_t   ( axi_slv_w_chan_t  ),
+    .b_chan_t   ( axi_slv_b_chan_t  ),
+    .ar_chan_t  ( axi_slv_ar_chan_t ),
+    .r_chan_t   ( axi_slv_r_chan_t  ),
+    .axi_req_t  ( axi_slv_req_t     ),
+    .axi_resp_t ( axi_slv_rsp_t     ),
+    .DepthAR    ( 16                ),
+    .DepthAW    ( 16                ),
+    .DepthR     ( 16                ),
+    .DepthW     ( 16                ),
+    .DepthB     ( 16                ),
+    .MaxDelay   ( 16                )
+  ) i_axi_mem_delayer (
+    .clk_i      ( clk               ),
+    .rst_ni     ( rst_n             ),
+    .aw_delay_i ( 5'hA              ),
+    .w_delay_i  ( 5'hA              ),
+    .b_delay_i  ( 5'hA              ),
+    .ar_delay_i ( 5'hA              ),
+    .r_delay_i  ( 5'hA              ),
+    .slv_req_i  ( axi_dly_req       ),
+    .slv_resp_o ( axi_dly_rsp       ),
+    .mst_req_o  ( axi_mem_req       ),
+    .mst_resp_i ( axi_mem_rsp       )
   );
 
   // Remap uncached memory accesses
@@ -352,7 +584,7 @@ module cva6tb_soc
   `ifdef ZERO_SIM_MEM
     .UninitializedData  ( "zeros"                  ),
   `else
-    .UninitializedData  ( "undefined"              ),
+    .UninitializedData  ( "random"                 ),
   `endif
     .ApplDelay          ( ApplDelay                ),
     .AcqDelay           ( AcqDelay                 )
@@ -361,6 +593,68 @@ module cva6tb_soc
     .rst_ni             ( rst_n                    ),
     .axi_req_i          ( axi_rmp_req              ),
     .axi_rsp_o          ( axi_rmp_rsp              ),
+    .mon_w_valid_o      ( /* Not connected */      ),
+    .mon_w_addr_o       ( /* Not connected */      ),
+    .mon_w_data_o       ( /* Not connected */      ),
+    .mon_w_id_o         ( /* Not connected */      ),
+    .mon_w_user_o       ( /* Not connected */      ),
+    .mon_w_beat_count_o ( /* Not connected */      ),
+    .mon_w_last_o       ( /* Not connected */      ),
+    .mon_r_valid_o      ( /* Not connected */      ),
+    .mon_r_addr_o       ( /* Not connected */      ),
+    .mon_r_data_o       ( /* Not connected */      ),
+    .mon_r_id_o         ( /* Not connected */      ),
+    .mon_r_user_o       ( /* Not connected */      ),
+    .mon_r_beat_count_o ( /* Not connected */      ),
+    .mon_r_last_o       ( /* Not connected */      )
+  );
+
+  // RISC-V atomics filter
+  axi_riscv_atomics_structs #(
+    .AxiAddrWidth     ( CVA6UserCfg.AxiAddrWidth ),
+    .AxiDataWidth     ( CVA6UserCfg.AxiDataWidth ),
+    .AxiIdWidth       ( AxiSlvIdWidth            ),
+    .AxiUserWidth     ( CVA6UserCfg.AxiUserWidth ),
+    .AxiMaxReadTxns   ( 24                       ),
+    .AxiMaxWriteTxns  ( 24                       ),
+    .AxiUserAsId      ( 1                        ),
+    .AxiUserIdMsb     ( 0                        ),
+    .AxiUserIdLsb     ( 0                        ),
+    .RiscvWordWidth   ( 64                       ),
+    .NAxiCuts         ( 0                        ),
+    .axi_req_t        ( axi_slv_req_t            ),
+    .axi_rsp_t        ( axi_slv_rsp_t            )
+  ) i_riscv_atomics_spm (
+    .clk_i            ( clk                      ),
+    .rst_ni           ( rst_n                    ),
+    .axi_slv_req_i    ( axi_amo_spm_req          ),
+    .axi_slv_rsp_o    ( axi_amo_spm_rsp          ),
+    .axi_mst_req_o    ( axi_spm_req              ),
+    .axi_mst_rsp_i    ( axi_spm_rsp              )
+  );
+
+  // AXI simulated memory
+  axi_sim_mem #(
+    .AddrWidth          ( CVA6UserCfg.AxiAddrWidth ),
+    .DataWidth          ( CVA6UserCfg.AxiDataWidth ),
+    .IdWidth            ( AxiSlvIdWidth            ),
+    .UserWidth          ( CVA6UserCfg.AxiUserWidth ),
+    .axi_req_t          ( axi_slv_req_t            ),
+    .axi_rsp_t          ( axi_slv_rsp_t            ),
+    .WarnUninitialized  ( 0                        ),
+    .ClearErrOnAccess   ( 1                        ),
+  `ifdef ZERO_SIM_MEM
+    .UninitializedData  ( "zeros"                  ),
+  `else
+    .UninitializedData  ( "random"                 ),
+  `endif
+    .ApplDelay          ( ApplDelay                ),
+    .AcqDelay           ( AcqDelay                 )
+  ) i_axi_spm (
+    .clk_i              ( clk                      ),
+    .rst_ni             ( rst_n                    ),
+    .axi_req_i          ( axi_spm_req              ),
+    .axi_rsp_o          ( axi_spm_rsp              ),
     .mon_w_valid_o      ( /* Not connected */      ),
     .mon_w_addr_o       ( /* Not connected */      ),
     .mon_w_data_o       ( /* Not connected */      ),

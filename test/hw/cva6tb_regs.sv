@@ -8,7 +8,7 @@ package cva6tb_regs_pkg;
   localparam int unsigned NumRegs      = 16;
   localparam int unsigned RegAddrWidth = $clog2(NumRegs);
 
-  localparam logic [RegAddrWidth-1:0] BootaddrRegOffset = 4'h0; // Boot address register
+  localparam logic [RegAddrWidth-1:0] BootmodeRegOffset = 4'h0; // Boot mode register
   localparam logic [RegAddrWidth-1:0] EOCRegOffset      = 4'h1; // End Of Computation register
 endpackage
 
@@ -18,9 +18,9 @@ module cva6tb_regs #(
 ) (
   input  logic            clk_i,
   input  logic            rst_ni,
+  input  logic            boot_mode_i,
   input  reg_req_t        reg_req_i,
-  output reg_rsp_t        reg_rsp_o,
-  output logic     [31:0] boot_addr_o
+  output reg_rsp_t        reg_rsp_o
 );
 
   import cva6tb_regs_pkg::*;
@@ -28,8 +28,6 @@ module cva6tb_regs #(
   logic        [31:0] control_regs [NumRegs];
   logic [NumRegs-1:0] reg_select;
   logic        [31:0] write_mask;
-
-  assign boot_addr_o = control_regs[BootaddrRegOffset];
 
   // Register selection logic
   genvar i;
@@ -58,6 +56,9 @@ module cva6tb_regs #(
         reg_rsp_o.rdata = control_regs[i];
       end
     end
+    if (reg_select[BootmodeRegOffset]) begin
+      reg_rsp_o.rdata = {31'h0, boot_mode_i};
+    end
   end
 
   // Register read/write logic
@@ -66,13 +67,13 @@ module cva6tb_regs #(
       for (int i = 0; i < NumRegs; i++) begin
         control_regs[i] <= 32'd0;
       end
-      control_regs[BootaddrRegOffset] <= 32'h8000_0000;
     end else begin
       for (int i = 0; i < NumRegs; i++) begin
         if (reg_req_i.valid && reg_req_i.write && reg_select[i]) begin
           control_regs[i] <= (control_regs[i] & ~write_mask) | (reg_req_i.wdata & write_mask);
         end
       end
+      control_regs[BootmodeRegOffset] <= {31'h0, boot_mode_i};
     end
   end
 
