@@ -36,6 +36,7 @@ TEST_SRCS_O := $(patsubst $(SRC_DIR)/%,$(OUT_DIR)/tests/%,$(TEST_SRCS_C:.c=.o) $
 TEST_ELFS   := $(patsubst $(SRC_DIR)/%,$(OUT_DIR)/%,$(TEST_SRCS_C:.c=.elf) $(TEST_SRCS_S:.S=.elf))
 TEST_DUMPS  := $(TEST_ELFS:.elf=.dump)
 TEST_HEXES  := $(TEST_ELFS:.elf=.hex)
+TEST_BINS   := $(TEST_ELFS:.elf=.bin)
 
 .PRECIOUS: $(OUT_DIR)/%.elf $(OUT_DIR)/tests/%.o
 
@@ -73,7 +74,7 @@ deps: $(DEPS_DIR)/printf
 lib: $(OUT_DIR)/libcva6.a
 
 .PHONY: all
-all: $(DEPS_DIR)/printf $(TEST_DUMPS) $(TEST_HEXES)
+all: $(DEPS_DIR)/printf $(TEST_DUMPS) $(TEST_HEXES) $(TEST_BINS)
 
 .PHONY: clean
 clean:
@@ -110,3 +111,6 @@ $(OUT_DIR)/%.dump: $(OUT_DIR)/%.elf
 
 $(OUT_DIR)/%.hex: $(OUT_DIR)/%.elf
 	$(RV_OBJCOPY) -O verilog $< $@
+
+$(OUT_DIR)/%.bin: $(OUT_DIR)/%.elf
+	$(RV_OBJCOPY) -O binary $< $@
