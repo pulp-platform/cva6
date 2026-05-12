@@ -261,7 +261,7 @@ module acc_dispatcher
           ],
           rs1     : acc_insn_queue_o.operand_a,
           rs2     : acc_insn_queue_o.operand_b,
-          frm     : fpnew_pkg::roundmode_e'(fcsr_frm_i),
+          frm     : openhw_fpnew_pkg::roundmode_e'(fcsr_frm_i),
           trans_id: acc_insn_queue_o.trans_id,
           default: '0
       };

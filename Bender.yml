@@ -10,7 +10,6 @@ dependencies:
   axi: { git: "https://github.com/pulp-platform/axi.git", version: 0.39.9 }
   common_cells:
     { git: "https://github.com/pulp-platform/common_cells", version: 1.39.0 }
-  fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 58ca3c3 } # branch: develop
   tech_cells_generic:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
   axi_riscv_atomics: { git: "https://github.com/pulp-platform/axi_riscv_atomics.git", version: 0.8.3 }
@@ -135,6 +134,9 @@ sources:
       - core/include/wt_cache_pkg.sv
       - core/include/std_cache_pkg.sv
       - core/include/aes_pkg.sv
+
+      # FPU (pickled with `bender pickle --top fpnew_top --prefix openhw_ --expand-macros`)
+      - core/fpnew.pickle.sv
 
       # Extension Interface
       - core/cvxif_example/include/cvxif_instr_pkg.sv
