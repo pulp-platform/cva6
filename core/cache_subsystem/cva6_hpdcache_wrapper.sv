@@ -44,10 +44,7 @@ module cva6_hpdcache_wrapper
     parameter type hpdcache_rsp_t = logic,
     parameter type hpdcache_wbuf_timecnt_t = logic,
     parameter type hpdcache_data_be_t = logic,
-<<<<<<< HEAD
 
-=======
->>>>>>> 79cc8f38e (hpdcache_subsystem: add SPM mode support)
     localparam type hpdcache_nline_t = logic [HPDcacheCfg.nlineWidth-1:0]
 )
 //  }}}
