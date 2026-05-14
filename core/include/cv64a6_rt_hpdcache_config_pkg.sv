@@ -25,7 +25,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigZcmpExtEn = 0;
   localparam CVA6ConfigAExtEn = 1;
   localparam CVA6ConfigHExtEn = 1;
-  localparam CVA6ConfigBExtEn = 0;
+  localparam CVA6ConfigBExtEn = 1;
   localparam CVA6ConfigVExtEn = 0;
   localparam CVA6ConfigRVZiCond = 1;
   localparam CVA6ConfigSclicExtEn = 1;
@@ -56,7 +56,7 @@ package cva6_config_pkg;
   localparam CVA6ConfigDcacheFlushOnFenceI = 1'b1;
   localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
 
-  localparam CVA6ConfigDcacheIdWidth = 1; // Must be >= $clog2(CVA6Cfg.NrLoadBufEntries)
+  localparam CVA6ConfigDcacheIdWidth = 3;
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
 
   localparam CVA6ConfigWtDcacheWbufDepth = 7;
@@ -65,7 +65,7 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigNrLoadPipeRegs = 1;
   localparam CVA6ConfigNrStorePipeRegs = 0;
-  localparam CVA6ConfigNrLoadBufEntries = 2;
+  localparam CVA6ConfigNrLoadBufEntries = 8;
 
   localparam CVA6ConfigRASDepth = 2;
   localparam CVA6ConfigBTBEntries = 32;
@@ -105,7 +105,7 @@ package cva6_config_pkg;
       XF8: bit'(CVA6ConfigF8En),
       RVA: bit'(CVA6ConfigAExtEn),
       RVB: bit'(CVA6ConfigBExtEn),
-      ZKN: bit'(0),
+      ZKN: bit'(1),
       RVV: bit'(CVA6ConfigVExtEn),
       RVC: bit'(CVA6ConfigCExtEn),
       RVH: bit'(CVA6ConfigHExtEn),
@@ -181,7 +181,7 @@ package cva6_config_pkg;
       FetchUserWidth: unsigned'(CVA6ConfigFetchUserWidth),
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
       InstrTlbEntries: int'(16),
-      DataTlbEntries: int'(64),
+      DataTlbEntries: int'(16),
       TlbColoring: bit'(1),
       NumTlbColors: int'(16),
       LockableTlbWays: int'(8),
@@ -194,4 +194,3 @@ package cva6_config_pkg;
   };
 
 endpackage
-
