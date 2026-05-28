@@ -64,6 +64,10 @@ module issue_stage
     output alu_bypass_t alu_bypass_o,
     // Program Counter - EX_STAGE
     output logic [CVA6Cfg.VLEN-1:0] pc_o,
+    // Integer Register File content - CONTROLLER
+    output logic [31:0] [CVA6Cfg.XLEN-1:0] regs_o,
+    // Floating Point Register File content - CONTROLLER
+    output logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs_o,
     // Is zcmt instruction - EX_STAGE
     output logic is_zcmt_o,
     // Is compressed instruction - EX_STAGE
@@ -279,6 +283,8 @@ module issue_stage
       .rs1_forwarding_o        (rs1_forwarding_o),
       .rs2_forwarding_o        (rs2_forwarding_o),
       .pc_o,
+      .regs_o,
+      .fp_regs_o,
       .is_zcmt_o,
       .is_compressed_instr_o,
       .flu_ready_i             (flu_ready_i),

@@ -243,6 +243,10 @@ module ex_stage
     output logic itlb_miss_o,
     // To count the data TLB misses - PERF_COUNTERS
     output logic dtlb_miss_o,
+    // Page offset for address aliasing checks - CONTROLLER
+    output logic [11:0] page_offset_o,
+    // Page offset matches - CONTROLLER
+    input  logic page_offset_matches_i,
     // Report the PMP configuration - CSR_REGFILE
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg_i,
     // Report the PMP addresses - CSR_REGFILE
@@ -611,6 +615,8 @@ module ex_stage
       .flush_tlb_gvma_i,
       .itlb_miss_o,
       .dtlb_miss_o,
+      .page_offset_o,
+      .page_offset_matches_i,
       .dcache_req_ports_i,
       .dcache_req_ports_o,
       .dcache_wbuffer_empty_i,
