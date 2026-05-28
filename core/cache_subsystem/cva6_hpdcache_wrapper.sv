@@ -207,7 +207,9 @@ module cva6_hpdcache_wrapper
           .dcache_req_i_t       (dcache_req_i_t),
           .dcache_req_o_t       (dcache_req_o_t),
           .InvalidateOnFlush    (1'b0),
-          .IsLoadPort           (1'b1)
+          // Port 2 carries the hwstack drain (cva6.sv: dcache_req_to_cache[2]),
+          // which only writes. A load adapter would issue its writes as loads.
+          .IsLoadPort           (r != 2)
       ) i_cva6_hpdcache_load_if_adapter (
           .clk_i,
           .rst_ni,
