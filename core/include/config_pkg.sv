@@ -511,6 +511,8 @@ package config_pkg;
     assert (Cfg.NumTlbColors > 0);
     assert ((Cfg.LockableTlbWays <= Cfg.InstrTlbEntries) && (Cfg.LockableTlbWays <= Cfg.DataTlbEntries) && (Cfg.LockableTlbWays <= 16));
     assert (Cfg.ICacheSpmLength > 0);
+    // Stacking reads all GPRs at once, which the FPGA register file does not provide
+    assert (!(Cfg.RVSCLIC && Cfg.FpgaEn));
     assert (Cfg.NrPMPEntries <= 64);
     assert (!(Cfg.RVXHCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
     assert (Cfg.FETCH_WIDTH == 32 || Cfg.FETCH_WIDTH == 64)

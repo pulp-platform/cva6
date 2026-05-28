@@ -17,7 +17,9 @@ module controller
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
-    parameter type bp_resolve_t = logic
+    parameter type bp_resolve_t = logic,
+    parameter type dcache_req_i_t = logic,
+    parameter type dcache_req_o_t = logic
 ) (
     // Subsystem Clock - SUBSYSTEM
     input logic clk_i,
@@ -65,6 +67,8 @@ module controller
     output logic halt_frontend_o,
     // Halt signal to commit stage - COMMIT_STAGE
     output logic halt_o,
+    // Hardware stacking counter - COMMIT_STAGE
+    output logic [4:0] hwstack_regs_count_o,
     // Cache is busy - CACHE
     input logic cache_busy_i,
     // Let dcache not accept any new requests - CACHE
@@ -85,10 +89,22 @@ module controller
     input logic eret_i,
     // We got an exception, flush the pipeline - FRONTEND
     input logic ex_valid_i,
+    // Exception is CLIC interrupt to M- or HS-mode, which stack registers - CSR_REGFILE
+    input logic clic_irq_i,
     // Exception is CLIC vectored interrupt - CSR_REGFILE
     input logic clic_vec_irq_i,
+    // Trap frame base address - CSR
+    input logic [CVA6Cfg.VLEN-1:0] trap_frame_base_i,
     // Address of trap vector table entry - CSR
     input logic [CVA6Cfg.VLEN-1:0] trap_vector_base_i,
+    // Integer Register File content - ISSUE_STAGE
+    input logic [31:0][CVA6Cfg.XLEN-1:0] int_regs_i,
+    // Floating Point Register File content - ISSUE_STAGE
+    input logic [31:0][CVA6Cfg.XLEN-1:0] fp_regs_i,
+    // Page offset for address aliasing checks - EX_STAGE
+    input logic [11:0] page_offset_i,
+    // Page offset matches - EX_STAGE
+    output logic page_offset_matches_o,
     // Set PC - FRONTEND
     output logic frontend_set_pc_o,
     // The handler address of a vectored interrupt is being fetched - COMMIT_STAGE
@@ -115,6 +131,10 @@ module controller
     output logic [CVA6Cfg.XLEN-1:0] vec_fault_cause_o,
     output logic [CVA6Cfg.GPLEN-1:0] vec_fault_tval2_o,
     output logic vec_fault_gva_o,
+    // Data cache request - CACHES
+    output dcache_req_i_t dcache_req_o,
+    // Data cache response - CACHES
+    input dcache_req_o_t dcache_rsp_i,
     // set the debug pc from CSR - FRONTEND
     input logic set_debug_pc_i,
     // We got a resolved branch, check if we need to flush the front-end - EX_STAGE
@@ -269,6 +289,109 @@ module controller
       default: begin
         vec_irq_state_d = VEC_IRQ_IDLE;
       end
+    endcase
+  end
+
+  // Hardware stacking FSM
+  typedef enum logic [1:0] {
+    HWSTACK_IDLE,
+    HWSTACK_SEND_REQ,
+    HWSTACK_WAIT_GNT
+  } hwstack_state_e;
+
+  hwstack_state_e hwstack_state_d, hwstack_state_q;
+  logic hwstack_dcache_req_valid, hwstack_dcache_tag_valid;
+  logic [4:0] hwstack_regs_count_d, hwstack_regs_count_q;
+  logic [CVA6Cfg.VLEN-1:0] hwstack_dcache_address;
+  logic [CVA6Cfg.XLEN-1:0] hwstack_dcache_wdata;
+
+  assign dcache_req_o.data_req = hwstack_dcache_req_valid;
+  assign dcache_req_o.tag_valid = hwstack_dcache_tag_valid;
+  assign dcache_req_o.address_index = hwstack_dcache_address[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
+  assign dcache_req_o.address_tag   = hwstack_dcache_address[CVA6Cfg.DCACHE_TAG_WIDTH+CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_INDEX_WIDTH];
+  assign dcache_req_o.data_wdata = hwstack_dcache_wdata;
+  assign dcache_req_o.data_wuser = '0;
+  assign dcache_req_o.data_we = 1'b1;
+  assign dcache_req_o.data_be = '1;
+  assign dcache_req_o.data_size = '1;
+  assign dcache_req_o.data_id = '0;
+  assign dcache_req_o.kill_req = '0;
+  assign dcache_req_o.cbo_op = '0;
+
+  assign hwstack_regs_count_o = (hwstack_state_q != HWSTACK_IDLE) ? hwstack_regs_count_q : '0;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      hwstack_state_q      <= HWSTACK_IDLE;
+      hwstack_regs_count_q <= '0;
+    end else begin
+      hwstack_state_q      <= hwstack_state_d;
+      hwstack_regs_count_q <= hwstack_regs_count_d;
+    end
+  end
+
+  always_comb begin : hwstack_load_offset_check
+    page_offset_matches_o = 1'b0;
+    if (hwstack_state_q != HWSTACK_IDLE) begin
+      if ((page_offset_i >= trap_frame_base_i[11:0]) && (page_offset_i < hwstack_dcache_address[11:0])) begin
+        page_offset_matches_o = 1'b1;
+      end
+    end
+  end
+
+  always_comb begin : hwstack_logic
+    // Default assignments
+    hwstack_state_d          = hwstack_state_q;
+    hwstack_regs_count_d     = hwstack_regs_count_q;
+    hwstack_dcache_address   = trap_frame_base_i + (hwstack_regs_count_q << 3);
+    hwstack_dcache_wdata     = int_regs_i[hwstack_regs_count_q];
+    hwstack_dcache_req_valid = 1'b0;
+    hwstack_dcache_tag_valid = 1'b0;
+    unique case (hwstack_state_q)
+
+      HWSTACK_IDLE: begin
+        hwstack_regs_count_d = 'd31;
+        if (ex_valid_i && clic_irq_i) begin
+          hwstack_dcache_req_valid = 1'b1;
+          hwstack_dcache_wdata     = int_regs_i[hwstack_regs_count_d];
+          if (dcache_rsp_i.data_gnt) begin
+            hwstack_state_d = HWSTACK_SEND_REQ;
+          end else begin
+            hwstack_state_d = HWSTACK_WAIT_GNT;
+          end
+        end
+      end
+
+      HWSTACK_SEND_REQ: begin
+        hwstack_dcache_req_valid = 1'b1;
+        if (dcache_rsp_i.data_gnt) begin
+          if (hwstack_regs_count_q == '0) begin
+            hwstack_state_d = HWSTACK_IDLE;
+          end else begin
+            hwstack_regs_count_d = hwstack_regs_count_q - 1;
+            hwstack_state_d = HWSTACK_SEND_REQ;
+          end
+        end else begin
+          hwstack_state_d = HWSTACK_WAIT_GNT;
+        end
+      end
+
+      HWSTACK_WAIT_GNT: begin
+        hwstack_dcache_req_valid = 1'b1;
+        if (dcache_rsp_i.data_gnt) begin
+          if (hwstack_regs_count_q == '0) begin
+            hwstack_state_d = HWSTACK_IDLE;
+          end else begin
+            hwstack_regs_count_d = hwstack_regs_count_q - 1;
+            hwstack_state_d = HWSTACK_SEND_REQ;
+          end
+        end
+      end
+
+      default: begin
+        hwstack_state_d = HWSTACK_IDLE;
+      end
+
     endcase
   end
 

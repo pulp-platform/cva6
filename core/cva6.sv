@@ -744,6 +744,14 @@ module cva6
   logic [CVA6Cfg.XLEN-1:0] vec_fault_cause;
   logic [CVA6Cfg.GPLEN-1:0] vec_fault_tval2;
   logic vec_fault_gva;
+  // Interrupt control for hardware stacking
+  logic clic_irq;
+  logic [CVA6Cfg.VLEN-1:0] trap_frame_base;
+  logic [31:0][CVA6Cfg.XLEN-1:0] int_regs;
+  logic [31:0][CVA6Cfg.XLEN-1:0] fp_regs;
+  logic [11:0] load_page_offset;
+  logic load_page_offset_matches;
+  logic [4:0] hwstack_regs_count;
 
   icache_areq_t icache_areq_ex_cache;
   icache_arsp_t icache_areq_cache_ex;
@@ -763,6 +771,8 @@ module cva6
   dcache_req_o_t dcache_req_ports_cache_id;
   dcache_req_i_t [1:0] dcache_req_ports_acc_cache;
   dcache_req_o_t [1:0] dcache_req_ports_cache_acc;
+  dcache_req_i_t dcache_req_ports_ctrl_cache;
+  dcache_req_o_t dcache_req_ports_cache_ctrl;
   logic dcache_commit_wbuffer_empty;
   logic dcache_commit_wbuffer_not_ni;
 
@@ -1022,6 +1032,8 @@ module cva6
       .fu_data_o               (fu_data_id_ex),
       .alu_bypass_o            (alu_bypass_id_ex),
       .pc_o                    (pc_id_ex),
+      .regs_o                  (int_regs),
+      .fp_regs_o               (fp_regs),
       .is_zcmt_o               (zcmt_id_ex),
       .is_compressed_instr_o   (is_compressed_instr_id_ex),
       .tinst_o                 (tinst_ex),
@@ -1218,6 +1230,9 @@ module cva6
       // Performance counters
       .itlb_miss_o                  (itlb_miss_ex_perf),
       .dtlb_miss_o                  (dtlb_miss_ex_perf),
+      // To controller
+      .page_offset_o                (load_page_offset),
+      .page_offset_matches_i        (load_page_offset_matches),
       // Memory Management
       .enable_translation_i         (enable_translation_csr_ex),      // from CSR
       .enable_g_translation_i       (enable_g_translation_csr_ex),    // from CSR
@@ -1333,7 +1348,8 @@ module cva6
       .sdtrig_commit_icount_valid_i       (sdtrig_commit_icount_valid),
       .sdtrig_commit_action_i             (sdtrig_commit_action),
       .sdtrig_commit_icount_nr_instr_i    (sdtrig_commit_icount_nr_instr),
-      .next_commit_pc_i                   (next_commit_pc)
+      .next_commit_pc_i                   (next_commit_pc),
+      .hwstack_regs_count_i               (hwstack_regs_count)
   );
 
   assign commit_ack = commit_macro_ack & ~commit_drop_id_commit;
@@ -1382,7 +1398,9 @@ module cva6
       .csr_exception_o                    (csr_exception_csr_commit),
       .epc_o                              (epc_commit_pcgen),
       .eret_o                             (eret),
+      .clic_irq_o                         (clic_irq),
       .clic_vec_irq_o                     (clic_vec_irq),
+      .trap_frame_base_o                  (trap_frame_base),
       .trap_vector_base_o                 (trap_vector_base_commit_pcgen),
       .priv_lvl_o                         (priv_lvl),
       .mbe_o                              (mbe),
@@ -1542,7 +1560,9 @@ module cva6
   // ------------
   controller #(
       .CVA6Cfg(CVA6Cfg),
-      .bp_resolve_t(bp_resolve_t)
+      .bp_resolve_t(bp_resolve_t),
+      .dcache_req_i_t(dcache_req_i_t),
+      .dcache_req_o_t(dcache_req_o_t)
   ) controller_i (
       .clk_i,
       .rst_ni,
@@ -1575,13 +1595,20 @@ module cva6
       .halt_acc_i            (halt_acc_ctrl),
       .halt_frontend_o       (halt_frontend),
       .halt_o                (halt_ctrl),
+      .hwstack_regs_count_o  (hwstack_regs_count),
       // control ports
       .boot_addr_i           (boot_addr_i[CVA6Cfg.VLEN-1:0]),
       .pc_commit_i           (pc_commit),
       .eret_i                (eret),
       .ex_valid_i            (ex_commit.valid),
+      .clic_irq_i            (clic_irq),
       .clic_vec_irq_i        (clic_vec_irq),
+      .trap_frame_base_i     (trap_frame_base),
       .trap_vector_base_i    (trap_vector_base_commit_pcgen),
+      .int_regs_i            (int_regs),
+      .fp_regs_i             (fp_regs),
+      .page_offset_i         (load_page_offset),
+      .page_offset_matches_o (load_page_offset_matches),
       .frontend_set_pc_o     (ctrl_set_pc),
       .vec_irq_busy_o        (vec_irq_busy),
       .frontend_next_pc_o    (ctrl_next_pc),
@@ -1598,6 +1625,8 @@ module cva6
       .vec_fault_cause_o     (vec_fault_cause),
       .vec_fault_tval2_o     (vec_fault_tval2),
       .vec_fault_gva_o       (vec_fault_gva),
+      .dcache_req_o          (dcache_req_ports_ctrl_cache),
+      .dcache_rsp_i          (dcache_req_ports_cache_ctrl),
       .set_debug_pc_i        (set_debug_pc),
       .resolved_branch_i     (resolved_branch),
       .flush_csr_i           (flush_csr_ctrl),
@@ -1629,7 +1658,8 @@ module cva6
     assign dcache_req_to_cache[0] = dcache_req_ports_ex_cache[0];
   end
   assign dcache_req_to_cache[1] = dcache_req_ports_ex_cache[1];
-  assign dcache_req_to_cache[2] = dcache_req_ports_acc_cache[0];
+  // assign dcache_req_to_cache[2] = dcache_req_ports_acc_cache[0];
+  assign dcache_req_to_cache[2] = dcache_req_ports_ctrl_cache;
   assign dcache_req_to_cache[3] = dcache_req_ports_ex_cache[2].data_req ? dcache_req_ports_ex_cache [2] :
                                                                           dcache_req_ports_acc_cache[1];
 
@@ -1644,7 +1674,8 @@ module cva6
     assign dcache_req_ports_cache_id = '0;
   end
   assign dcache_req_ports_cache_ex[1]  = dcache_req_from_cache[1];
-  assign dcache_req_ports_cache_acc[0] = dcache_req_from_cache[2];
+  assign dcache_req_ports_cache_acc[0] = '0;
+  assign dcache_req_ports_cache_ctrl   = dcache_req_from_cache[2];
   always_comb begin : gen_dcache_req_store_data_gnt
     dcache_req_ports_cache_ex[2]  = dcache_req_from_cache[3];
     dcache_req_ports_cache_acc[1] = dcache_req_from_cache[3];

@@ -36,6 +36,7 @@ module ariane_regfile #(
     // read port
     input  logic [        NR_READ_PORTS-1:0][           4:0] raddr_i,
     output logic [        NR_READ_PORTS-1:0][DATA_WIDTH-1:0] rdata_o,
+    output logic [                     31:0][DATA_WIDTH-1:0] regs_o,
     // write port
     input  logic [CVA6Cfg.NrCommitPorts-1:0][           4:0] waddr_i,
     input  logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i,
@@ -48,6 +49,9 @@ module ariane_regfile #(
   logic [            NUM_WORDS-1:0][DATA_WIDTH-1:0] mem;
   logic [CVA6Cfg.NrCommitPorts-1:0][ NUM_WORDS-1:0] we_dec;
 
+  for (genvar i = 0; i < 32; i++) begin
+    assign regs_o[i] = mem[i];
+  end
 
   always_comb begin : we_decoder
     for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin
