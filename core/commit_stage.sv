@@ -101,7 +101,9 @@ module commit_stage
     // Breakpoint exception from trigger module
     input logic break_from_trigger_i,
     // Next PC to commit (used for CLIC interrupts)
-    input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i
+    input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i,
+    // Hardware stacking registers count - CONTROLLER
+    input logic [4:0] hwstack_regs_count_i
 );
 
   // ila_0 i_ila_commit (
@@ -148,6 +150,8 @@ module commit_stage
 
   assign commit_tran_id_o = commit_instr_int[0].trans_id;
 
+  logic [CVA6Cfg.NrCommitPorts-1:0] commit_stall;
+
   logic instr_0_is_amo;
   logic [CVA6Cfg.NrCommitPorts-1:0] commit_macro_ack;
   assign instr_0_is_amo = is_amo(commit_instr_int[0].op);
@@ -161,6 +165,8 @@ module commit_stage
     // default assignments
     commit_ack_o[0] = 1'b0;
     commit_macro_ack[0] = 1'b0;
+
+    commit_stall = '0;
 
     amo_valid_commit_o = 1'b0;
 
@@ -336,6 +342,12 @@ module commit_stage
           amo_valid_commit_o = 1'b1;
           we_gpr_o[0] = amo_resp_i.ack;
         end
+        // Stall commit if the instruction would overwrite a register which is being saved on the stack
+        if (we_gpr_o[0] && |(waddr_o[0]) && (waddr_o[0] <= hwstack_regs_count_i)) begin
+          commit_stall[0] = 1'b1;
+          commit_ack_o[0] = 1'b0;
+          we_gpr_o[0]     = 1'b0;
+        end
       end
     end
 
@@ -386,6 +398,12 @@ module commit_stage
               end
             end
           end
+        end
+        // Stall commit if the instruction would overwrite a register which is being saved on the stack
+        if (we_gpr_o[1] && |(waddr_o[1]) && (waddr_o[1] <= hwstack_regs_count_i)) begin
+          commit_stall[1] = 1'b1;
+          commit_ack_o[1] = 1'b0;
+          we_gpr_o[1]     = 1'b0;
         end
       end
     end
