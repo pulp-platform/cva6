@@ -17,7 +17,7 @@ QUESTA    ?= questa-2025.3
 VERILATOR ?= oseda -2026.04 verilator
 
 # Target CVA6 configuration
-CVA6_CONFIG   ?= cv64a6_rt
+CVA6_CONFIG   ?= cv64a6_rt_hpdcache
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
 # Extra plusargs forwarded to the simulation, e.g. SIM_ARGS="+trace_verbose=1"
