@@ -17,7 +17,7 @@ QUESTA    ?= questa-2023.4
 VERILATOR ?= verilator
 
 # Target CVA6 configuration
-CVA6_CONFIG   ?= cv64a6_rt
+CVA6_CONFIG   ?= cv64a6_rt_hpdcache
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
 TEST          ?= test_simple
