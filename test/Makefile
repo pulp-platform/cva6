@@ -23,6 +23,8 @@ MAX_CYCLES    ?= 10000
 TEST          ?= test_simple
 ALLOWED_TESTS := test_simple
 DEBUG         ?= 0
+IRQ_ENABLE    ?= 0
+IRQ_PERIOD    ?= 10000
 
 ifeq ($(filter $(TEST),$(ALLOWED_TESTS)),)
 $(error TEST must be one of: $(ALLOWED_TESTS) (got '$(TEST)'))
@@ -160,7 +162,7 @@ vsim-build: $(VSIM_BUILD_DIR)/vsim_compile.err
 
 .PHONY: vsim-run
 vsim-run: $(VSIM_BUILD_DIR)/vsim_compile.err
-	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES)
+	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD)
 
 .PHONY: vsim-clean
 vsim-clean:
@@ -192,7 +194,7 @@ verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 
 .PHONY: verilator-run
 verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
-	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD) | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
 
 .PHONY: verilator-clean
 verilator-clean:

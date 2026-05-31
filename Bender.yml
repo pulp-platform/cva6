@@ -312,6 +312,7 @@ sources:
           - test/hw/cva6tb_rtc_timer.sv
           - test/hw/cva6tb_sim_console.sv
           - test/hw/cva6tb_hwmon.sv
+          - test/hw/cva6tb_irq_log.sv
           - test/hw/cva6tb_soc.sv
 
       - target: all(cva6tb, test_simple)
