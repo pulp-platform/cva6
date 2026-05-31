@@ -28,6 +28,7 @@ module test;
   int unsigned IrqJitter;
   int unsigned NumInterrupts;
   int unsigned IrqSeed;
+  longint unsigned IsrAddr;
   bit          InterruptsEnabled;
 
   logic bootmode;
@@ -47,10 +48,18 @@ module test;
     if (!$value$plusargs("Seed=%d",              IrqSeed))                     IrqSeed = 1;
     // Number of interrupts to raise; the run ends 100k cycles after the last one.
     if (!$value$plusargs("NumInterrupts=%d",     NumInterrupts))         NumInterrupts = 50;
+    // ISR entry address for the interrupt logger, taken from the ELF (e.g.
+    // fast_irq_handler): a run parameter, so one compiled image serves every
+    // software build.
+    if (!$value$plusargs("IsrAddr=%h",           IsrAddr))                     IsrAddr = 64'h0;
     if (!$value$plusargs("InterruptsEnabled=%b", InterruptsEnabled)) InterruptsEnabled = 1'b0;
     if (!$value$plusargs("fst=%s", fstfile)) begin
       if ($test$plusargs("fst")) fstfile = "cva6tb.fst";
     end
+    // No default ISR address: it is build-specific, and a default that is right
+    // for one build measures the wrong instruction in every other. Refuse instead.
+    if (InterruptsEnabled && IsrAddr == 64'h0)
+      $fatal(1, "+InterruptsEnabled=1 requires +IsrAddr=<hex>, the ISR entry address from the ELF");
   endfunction
 
   logic        clk;
@@ -67,7 +76,26 @@ module test;
   assign retcode = i_dut.i_regs.control_regs[EOCRegOffset][31:1];
 
   logic [NumClicExtIrqs-1:0] clic_ext_irqs;
+  logic                [7:0] clic_irq_id;
+  logic                      clic_irq_valid;
+  logic                      clic_irq_ready;
+  logic                      eret;
+  logic                      commit_valid;
+  logic               [63:0] commit_pc;
+  logic               [63:0] exception_pc;
+  event                      irq_start_log;
   event                      irq_start_gen;
+
+  assign clic_irq_id    = i_dut.clic_irq_id;
+  assign clic_irq_valid = i_dut.clic_irq_valid;
+  assign clic_irq_ready = i_dut.clic_irq_ready;
+  assign eret           = i_dut.i_cva6.eret;
+  assign commit_valid   = i_dut.i_cva6.commit_instr_id_commit[0].valid & i_dut.i_cva6.commit_ack_commit_id[0];
+  assign commit_pc      = i_dut.i_cva6.pc_commit;
+  // The PC the trap saves as its return address. Taken from the commit stage's
+  // output rather than the head of the scoreboard: a CLIC interrupt taken with an
+  // empty pipeline has no head entry, and its return address comes from elsewhere.
+  assign exception_pc   = i_dut.i_cva6.commit_stage_i.pc_o;
 
   // Interrupt generation
   initial begin : irq_gen
@@ -102,6 +130,24 @@ module test;
     log("**Interrupt generation finished**");
     cleanup;
   end
+
+  cva6tb_irq_log #(
+    .NumIrqs        ( NumClicExtIrqs ),
+    .IdOffset       ( NumClicIntIrqs )
+  ) i_irq_log (
+    .clk_i          ( clk            ),
+    .rst_ni         ( rst_n          ),
+    .start_log_i    ( irq_start_log  ),
+    .isr_addr_i     ( IsrAddr        ),
+    .irqs_i         ( clic_ext_irqs  ),
+    .commit_valid_i ( commit_valid   ),
+    .commit_pc_i    ( commit_pc      ),
+    .exception_pc_i ( exception_pc   ),
+    .irq_id_i       ( clic_irq_id    ),
+    .irq_valid_i    ( clic_irq_valid ),
+    .irq_ack_i      ( clic_irq_ready ),
+    .eret_i         ( eret           )
+  );
 
   cva6tb_clk_rst_gen #(
     .ClkPeriodPs  ( ClkPeriodPs ),
@@ -175,7 +221,8 @@ module test;
     preload_hex();
     // Wait for reset de-assertion
     wait(rst_n);
-    // Start the interrupt generator
+    // Start the interrupt logger and generator
+    if (InterruptsEnabled) -> irq_start_log;
     if (InterruptsEnabled) -> irq_start_gen;
     // Poll EOC
     for (int unsigned i = 0; i < MaxCycles; ++i) begin
