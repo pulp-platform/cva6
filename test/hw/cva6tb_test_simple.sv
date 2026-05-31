@@ -20,9 +20,15 @@ module test;
   localparam time         ApplDelay = (ClkPeriodPs * 1ps) * 0.1;
   localparam time         AcqDelay  = (ClkPeriodPs * 1ps) * 0.9;
   localparam int unsigned RstCycles = 10;
+  localparam time         ClkPeriod = ClkPeriodPs * 1ps;
 
   int unsigned RetCodeSuccess;
   int unsigned MaxCycles;
+  int unsigned IrqPeriod;
+  int unsigned IrqJitter;
+  int unsigned NumInterrupts;
+  int unsigned IrqSeed;
+  bit          InterruptsEnabled;
 
   logic bootmode;
 
@@ -30,8 +36,18 @@ module test;
   string fstfile;
 
   function automatic void parse_args();
-    if (!$value$plusargs("RetCodeSuccess=%d", RetCodeSuccess)) RetCodeSuccess = 0;
-    if (!$value$plusargs("MaxCycles=%d",      MaxCycles))           MaxCycles = 10_000;
+    if (!$value$plusargs("RetCodeSuccess=%d",    RetCodeSuccess))       RetCodeSuccess = 0;
+    if (!$value$plusargs("MaxCycles=%d",         MaxCycles))                 MaxCycles = 10_000;
+    if (!$value$plusargs("IrqPeriod=%d",         IrqPeriod))                 IrqPeriod = 100_000;
+    // Randomised arrival: each inter-arrival is IrqPeriod + U(0, IrqJitter),
+    // drawn from Seed, so the interrupt lands at a uniformly distributed phase
+    // of the background task's interference loop. A fixed period samples one
+    // alignment, which makes an observed maximum an artefact of that phase.
+    if (!$value$plusargs("IrqJitter=%d",         IrqJitter))                 IrqJitter = 0;
+    if (!$value$plusargs("Seed=%d",              IrqSeed))                     IrqSeed = 1;
+    // Number of interrupts to raise; the run ends 100k cycles after the last one.
+    if (!$value$plusargs("NumInterrupts=%d",     NumInterrupts))         NumInterrupts = 50;
+    if (!$value$plusargs("InterruptsEnabled=%b", InterruptsEnabled)) InterruptsEnabled = 1'b0;
     if (!$value$plusargs("fst=%s", fstfile)) begin
       if ($test$plusargs("fst")) fstfile = "cva6tb.fst";
     end
@@ -43,8 +59,49 @@ module test;
   logic        eoc;
   logic [30:0] retcode;
 
+  // Parameters for interrupt generation
+  localparam int unsigned IrqId          = 1;
+  localparam int unsigned IrqHighCycles  = 10;
+
   assign eoc     = i_dut.i_regs.control_regs[EOCRegOffset][0];
   assign retcode = i_dut.i_regs.control_regs[EOCRegOffset][31:1];
+
+  logic [NumClicExtIrqs-1:0] clic_ext_irqs;
+  event                      irq_start_gen;
+
+  // Interrupt generation
+  initial begin : irq_gen
+    automatic int count = 1;
+    automatic int unsigned gap;
+    automatic int unsigned seed_state;
+    clic_ext_irqs = '0;
+    wait(irq_start_gen.triggered);
+    // Read the seed only now: irq_start_gen fires after parse_args(), whereas
+    // at time 0 this block can run first and copy the unset value.
+    seed_state = IrqSeed;
+    #(ClkPeriod * (1000000 - IrqPeriod)); // Initial delay before first interrupt
+    forever begin
+      gap = IrqPeriod;
+      // Explicit LCG (Numerical Recipes constants), upper bits for the draw.
+      // Not $urandom(seed_state): its seed argument is an input, so the state
+      // never advances, and simulators differ in what they do with it -- it is
+      // ignored under Verilator, which made every +Seed give the same arrivals.
+      seed_state = seed_state * 32'd1664525 + 32'd1013904223;
+      if (IrqJitter != 0) gap += ((seed_state >> 8) % IrqJitter);
+      #(ClkPeriod * (gap - IrqHighCycles));
+      log($sformatf("Generating interrupt %0d", IrqId));
+      #ApplDelay;
+      clic_ext_irqs[IrqId] = 1'b1;
+      #(ClkPeriod - ApplDelay);
+      #(ClkPeriod * (IrqHighCycles - 1));
+      clic_ext_irqs[IrqId] = 1'b0;
+      if (count == NumInterrupts) break;
+      count += 1;
+    end
+    #(ClkPeriod * 100000);
+    log("**Interrupt generation finished**");
+    cleanup;
+  end
 
   cva6tb_clk_rst_gen #(
     .ClkPeriodPs  ( ClkPeriodPs ),
@@ -63,15 +120,15 @@ module test;
   );
 
   cva6tb_soc #(
-    .ApplDelay       ( ApplDelay ),
-    .AcqDelay        ( AcqDelay  )
+    .ApplDelay       ( ApplDelay     ),
+    .AcqDelay        ( AcqDelay      )
   ) i_dut (
-    .clk_i           ( clk       ),
-    .rst_ni          ( rst_n     ),
-    .rtc_i           ( rtc       ),
-    .boot_mode_i     ( bootmode  ),
-    .clic_ext_irqs_i ( '0        ),
-    .plic_ext_irqs_i ( '0        )
+    .clk_i           ( clk           ),
+    .rst_ni          ( rst_n         ),
+    .rtc_i           ( rtc           ),
+    .boot_mode_i     ( bootmode      ),
+    .clic_ext_irqs_i ( clic_ext_irqs ),
+    .plic_ext_irqs_i ( '0            )
   );
 
   task automatic preload_hex();
@@ -118,6 +175,8 @@ module test;
     preload_hex();
     // Wait for reset de-assertion
     wait(rst_n);
+    // Start the interrupt generator
+    if (InterruptsEnabled) -> irq_start_gen;
     // Poll EOC
     for (int unsigned i = 0; i < MaxCycles; ++i) begin
       @(posedge clk);
