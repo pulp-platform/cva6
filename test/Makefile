@@ -30,6 +30,8 @@ WAVES         ?= 0
 # suits one simulation at a time, which is the usual case.
 # For running many simulations at once, build with THREADS=1 instead.
 THREADS       ?= 2
+IRQ_ENABLE    ?= 0
+IRQ_PERIOD    ?= 10000
 
 # Goals that must work without a resolved dependency tree.
 NODEPS_GOALS := info default %clean
@@ -177,7 +179,7 @@ vsim-build: $(VSIM_BUILD_DIR)/vsim_compile.err
 
 .PHONY: vsim-run
 vsim-run: $(VSIM_BUILD_DIR)/vsim_compile.err
-	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS)
+	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS) +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD)
 
 .PHONY: vsim-clean
 vsim-clean:
@@ -221,7 +223,7 @@ verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 
 .PHONY: verilator-run
 verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
-	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS) | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS) +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD) | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
 
 .PHONY: verilator-clean
 verilator-clean:
