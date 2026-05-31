@@ -20,15 +20,20 @@ module test;
   localparam time         ApplDelay = (ClkPeriodPs * 1ps) * 0.1;
   localparam time         AcqDelay  = (ClkPeriodPs * 1ps) * 0.9;
   localparam int unsigned RstCycles = 10;
+  localparam time         ClkPeriod = ClkPeriodPs * 1ps;
 
   int unsigned RetCodeSuccess;
   int unsigned MaxCycles;
+  int unsigned IrqPeriod;
+  bit          InterruptsEnabled;
 
   logic bootmode;
 
   function automatic void parse_args();
-    if (!$value$plusargs("RetCodeSuccess=%d", RetCodeSuccess)) RetCodeSuccess = 0;
-    if (!$value$plusargs("MaxCycles=%d",      MaxCycles))           MaxCycles = 10_000;
+    if (!$value$plusargs("RetCodeSuccess=%d",    RetCodeSuccess))       RetCodeSuccess = 0;
+    if (!$value$plusargs("MaxCycles=%d",         MaxCycles))                 MaxCycles = 10_000;
+    if (!$value$plusargs("IrqPeriod=%d",         IrqPeriod))                 IrqPeriod = 100_000;
+    if (!$value$plusargs("InterruptsEnabled=%b", InterruptsEnabled)) InterruptsEnabled = 1'b0;
   endfunction
 
   logic        clk;
@@ -37,8 +42,70 @@ module test;
   logic        eoc;
   logic [30:0] retcode;
 
+  // Parameters for interrupt generation
+  localparam int unsigned IrqId          = 1;
+  localparam int unsigned NumInterrupts  = 50;
+  localparam int unsigned IrqHighCycles  = 10;
+
   assign eoc     = i_dut.i_regs.control_regs[EOCRegOffset][0];
   assign retcode = i_dut.i_regs.control_regs[EOCRegOffset][31:1];
+
+  logic [NumClicExtIrqs-1:0] clic_ext_irqs;
+  logic                [7:0] clic_irq_id;
+  logic                      clic_irq_valid;
+  logic                      clic_irq_ready;
+  logic                      eret;
+  logic                      commit_valid;
+  logic               [63:0] commit_pc;
+  logic               [63:0] exception_pc;
+  event                      irq_start_log;
+  event                      irq_start_gen;
+
+  assign clic_irq_valid = i_dut.clic_irq_valid;
+  assign clic_irq_ready = i_dut.clic_irq_ready;
+  assign eret           = i_dut.i_cva6.eret;
+  assign commit_valid   = i_dut.i_cva6.commit_instr_id_commit[0].valid & i_dut.i_cva6.commit_ack_commit_id[0];
+  assign commit_pc      = i_dut.i_cva6.pc_commit;
+  assign exception_pc   = i_dut.i_cva6.commit_stage_i.commit_instr_i[0].pc;
+
+  // Interrupt generation
+  initial begin : irq_gen
+    automatic int count = 1;
+    clic_ext_irqs = '0;
+    wait(irq_start_gen);
+    #(ClkPeriod * (1000000 - IrqPeriod)); // Initial delay before first interrupt
+    forever begin
+      #(ClkPeriod * (IrqPeriod-IrqHighCycles));
+      log($sformatf("Generating interrupt %0d", IrqId));
+      #ApplDelay;
+      clic_ext_irqs[IrqId] = 1'b1;
+      #(ClkPeriod - ApplDelay);
+      #(ClkPeriod * (IrqHighCycles - 1));
+      clic_ext_irqs[IrqId] = 1'b0;
+      if (count == NumInterrupts) break;
+      count += 1;
+    end
+    #(ClkPeriod * 100000);
+    log("**Interrupt generation finished**");
+    cleanup;
+  end
+
+  cva6tb_irq_log #(
+    .NumIrqs        ( NumClicExtIrqs ),
+    .FirstInstAddr  ( 64'h8000_0000  )
+  ) i_irq_log (
+    .clk_i          ( clk            ),
+    .rst_ni         ( rst_n          ),
+    .start_log_i    ( irq_start_log  ),
+    .irqs_i         ( clic_ext_irqs  ),
+    .commit_valid_i ( commit_valid   ),
+    .commit_pc_i    ( commit_pc      ),
+    .exception_pc_i ( exception_pc   ),
+    .irq_id_i       ( clic_irq_id    ),
+    .irq_valid_i    ( clic_irq_valid ),
+    .irq_ack_i      ( clic_irq_ready ),
+    .eret_i         ( eret           )
+  );
 
   cva6tb_clk_rst_gen #(
     .ClkPeriodPs  ( ClkPeriodPs ),
@@ -57,15 +124,15 @@ module test;
   );
 
   cva6tb_soc #(
-    .ApplDelay       ( ApplDelay ),
-    .AcqDelay        ( AcqDelay  )
+    .ApplDelay       ( ApplDelay     ),
+    .AcqDelay        ( AcqDelay      )
   ) i_dut (
-    .clk_i           ( clk       ),
-    .rst_ni          ( rst_n     ),
-    .rtc_i           ( rtc       ),
-    .boot_mode_i     ( bootmode  ),
-    .clic_ext_irqs_i ( '0        ),
-    .plic_ext_irqs_i ( '0        )
+    .clk_i           ( clk           ),
+    .rst_ni          ( rst_n         ),
+    .rtc_i           ( rtc           ),
+    .boot_mode_i     ( bootmode      ),
+    .clic_ext_irqs_i ( clic_ext_irqs ),
+    .plic_ext_irqs_i ( '0            )
   );
 
   task automatic preload_hex();
@@ -112,6 +179,9 @@ module test;
     preload_hex();
     // Wait for reset de-assertion
     wait(rst_n);
+    // Start logging interrupts
+    if (InterruptsEnabled) -> irq_start_log;
+    if (InterruptsEnabled) -> irq_start_gen;
     // Poll EOC
     for (int unsigned i = 0; i < MaxCycles; ++i) begin
       @(posedge clk);
