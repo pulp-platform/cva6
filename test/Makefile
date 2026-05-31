@@ -32,6 +32,8 @@ WAVES         ?= 0
 # suits one simulation at a time, which is the usual case.
 # For running many simulations at once, build with THREADS=1 instead.
 THREADS       ?= 2
+IRQ_ENABLE    ?= 0
+IRQ_PERIOD    ?= 10000
 # CVA6's legacy tracer
 LEGACY_TRACE  ?= 0
 # Instruction tracer
@@ -104,7 +106,8 @@ endif
 # that counts, so SIM_ARGS overrides them.
 comma := ,
 space := $(subst ,, )
-TB_ARGS = $(if $(MEM_DELAY),+MemDelay=$(MEM_DELAY))
+TB_ARGS = $(if $(MEM_DELAY),+MemDelay=$(MEM_DELAY)) \
+          +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD)
 ifeq ($(TRACER),1)
 TRACER_ARGS = $(if $(TRACE_FORMAT),+trace_format=$(TRACE_FORMAT)) \
               $(if $(TRACE_VERBOSE),+trace_verbose=$(TRACE_VERBOSE)) \
