@@ -754,6 +754,17 @@ module cva6
   logic                    clic_irq_req_id;
   logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_id;
 
+
+  // --------------------
+  // Next commit PC logic
+  // --------------------
+  logic                    scoreboard_empty;
+  logic [CVA6Cfg.VLEN-1:0] frontend_next_pc;
+  logic [CVA6Cfg.VLEN-1:0] issue_next_pc;
+  logic [CVA6Cfg.VLEN-1:0] next_commit_pc;
+
+  assign next_commit_pc = ~scoreboard_empty ? issue_next_pc : (issue_entry_valid_id_issue ? issue_entry_id_issue[0].pc : frontend_next_pc);
+
   // --------------
   // Frontend
   // --------------
@@ -765,27 +776,30 @@ module cva6
       .icache_drsp_t(icache_drsp_t)
   ) i_frontend (
       .clk_i,
-      .rst_ni             (rst_uarch_n),
-      .boot_addr_i        (rst_addr_ctrl_if),
-      .flush_bp_i         ((CVA6Cfg.RVU || CVA6Cfg.RVS) ? flush_ctrl_bp : 1'b0),
+      .rst_ni               (rst_uarch_n),
+      .boot_addr_i          (rst_addr_ctrl_if),
+      .flush_bp_i           ((CVA6Cfg.RVU || CVA6Cfg.RVS) ? flush_ctrl_bp : 1'b0),
       // below line is not entirely correct
-      .flush_i            (flush_ctrl_if),
-      .halt_i             (halt_ctrl),
-      .halt_frontend_i    (halt_frontend),
-      .set_pc_commit_i    (set_pc_ctrl_pcgen),
-      .pc_commit_i        (pc_commit),
-      .ex_valid_i         (ex_commit.valid),
-      .resolved_branch_i  (resolved_branch),
-      .eret_i             (eret),
-      .epc_i              (epc_commit_pcgen),
-      .trap_vector_base_i (trap_vector_base_commit_pcgen),
-      .set_debug_pc_i     (set_debug_pc),
-      .debug_mode_i       (debug_mode),
-      .icache_dreq_o      (icache_dreq_if_cache),
-      .icache_dreq_i      (icache_dreq_cache_if),
-      .fetch_entry_o      (fetch_entry_if_id),
-      .fetch_entry_valid_o(fetch_valid_if_id),
-      .fetch_entry_ready_i(fetch_ready_id_if)
+      .flush_i              (flush_ctrl_if),
+      .halt_i               (halt_ctrl),
+      .halt_frontend_i      (halt_frontend),
+      .set_pc_commit_i      (set_pc_ctrl_pcgen),
+      .pc_commit_i          (pc_commit),
+      .ex_valid_i           (ex_commit.valid),
+      .resolved_branch_i    (resolved_branch),
+      .eret_i               (eret),
+      .epc_i                (epc_commit_pcgen),
+      .trap_vector_base_i   (trap_vector_base_commit_pcgen),
+      .ctrl_set_pc_i        (ctrl_set_pc),
+      .ctrl_next_pc_i       (ctrl_next_pc),
+      .set_debug_pc_i       (set_debug_pc),
+      .debug_mode_i         (debug_mode),
+      .icache_dreq_o        (icache_dreq_if_cache),
+      .icache_dreq_i        (icache_dreq_cache_if),
+      .fetch_entry_o        (fetch_entry_if_id),
+      .fetch_entry_valid_o  (fetch_valid_if_id),
+      .fetch_entry_ready_i  (fetch_ready_id_if),
+      .next_instruction_pc_o(frontend_next_pc)
   );
 
   // ---------
@@ -1035,7 +1049,9 @@ module cva6
       .rvfi_commit_pointer_o(rvfi_commit_pointer),
       .rvfi_rs1_o           (rvfi_rs1),
       .rvfi_rs2_o           (rvfi_rs2),
-      .orig_instr_aes_bits  (orig_instr_aes)
+      .orig_instr_aes_bits  (orig_instr_aes),
+      .issue_next_pc_o      (issue_next_pc),
+      .scoreboard_empty_o   (scoreboard_empty)
   );
 
   // ---------
@@ -1246,7 +1262,8 @@ module cva6
       .hfence_vvma_o          (hfence_vvma_commit_controller),
       .hfence_gvma_o          (hfence_gvma_commit_controller),
       .break_from_trigger_i   (break_from_trigger),
-      .fence_t_o              (fence_t_commit_controller)
+      .fence_t_o              (fence_t_commit_controller),
+      .next_commit_pc_i       (next_commit_pc)
   );
 
   assign commit_ack = commit_macro_ack & ~commit_drop_id_commit;
@@ -1920,6 +1937,7 @@ module cva6
       .wdata(wdata_commit_id_padded),
       .we_gpr(we_gpr_commit_id),
       .we_fpr(we_fpr_commit_id),
+      .exception_pc(pc_commit),
       .commit_instr(commit_instr_id_commit),
       .commit_ack(commit_ack_commit_id),
       .commit_drop(commit_drop_id_commit),
