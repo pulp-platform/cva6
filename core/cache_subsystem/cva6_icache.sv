@@ -67,7 +67,8 @@ module cva6_icache
     input icache_rtrn_t mem_rtrn_i,
     output logic mem_data_req_o,
     input logic mem_data_ack_i,
-    output icache_req_t mem_data_o
+    output icache_req_t mem_data_o,
+    output logic mem_kill_req_o
 );
 
   localparam ICACHE_OFFSET_WIDTH = $clog2(CVA6Cfg.ICACHE_LINE_WIDTH / 8);
@@ -277,6 +278,8 @@ module cva6_icache
       inv_en = 1'b1;
     end
 
+    mem_kill_req_o = 1'b0;
+
     unique case (state_q)
       //////////////////////////////////
       // this clears all valid bits
@@ -417,7 +420,9 @@ module cva6_icache
           end
           // bail out if this request is being killed
         end else if (dreq_i.kill_s2 || flush_d) begin
-          state_d = KILL_MISS;
+          mem_kill_req_o = 1'b1;
+          state_d = IDLE;
+          // state_d = KILL_MISS;
         end
       end
       //////////////////////////////////
@@ -434,11 +439,11 @@ module cva6_icache
       // killed miss,
       // wait until memory responds and
       // go back to idle
-      KILL_MISS: begin
-        if (mem_rtrn_vld_i && mem_rtrn_i.rtype == ICACHE_IFILL_ACK) begin
-          state_d = IDLE;
-        end
-      end
+      // KILL_MISS: begin
+      //   if (mem_rtrn_vld_i && mem_rtrn_i.rtype == ICACHE_IFILL_ACK) begin
+      //     state_d = IDLE;
+      //   end
+      // end
       default: begin
         // we should never get here
         state_d = FLUSH;
