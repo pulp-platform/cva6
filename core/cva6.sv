@@ -753,6 +753,17 @@ module cva6
   logic                    clic_irq_req_id;
   logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_id;
 
+
+  // --------------------
+  // Next commit PC logic
+  // --------------------
+  logic scoreboard_empty;
+  logic [CVA6Cfg.VLEN-1:0] frontend_next_pc;
+  logic [CVA6Cfg.VLEN-1:0] issue_next_pc;
+  logic [CVA6Cfg.VLEN-1:0] next_commit_pc;
+
+  assign next_commit_pc = ~scoreboard_empty ? issue_next_pc : (issue_entry_valid_id_issue ? issue_entry_id_issue[0].pc : frontend_next_pc);
+
   // --------------
   // Frontend
   // --------------
@@ -784,7 +795,8 @@ module cva6
       .icache_dreq_i      (icache_dreq_cache_if),
       .fetch_entry_o      (fetch_entry_if_id),
       .fetch_entry_valid_o(fetch_valid_if_id),
-      .fetch_entry_ready_i(fetch_ready_id_if)
+      .fetch_entry_ready_i(fetch_ready_id_if),
+      .next_instruction_pc_o(frontend_next_pc)
   );
 
   // ---------
@@ -1034,7 +1046,9 @@ module cva6
       .rvfi_commit_pointer_o(rvfi_commit_pointer),
       .rvfi_rs1_o           (rvfi_rs1),
       .rvfi_rs2_o           (rvfi_rs2),
-      .orig_instr_aes_bits  (orig_instr_aes)
+      .orig_instr_aes_bits  (orig_instr_aes),
+      .issue_next_pc_o      (issue_next_pc),
+      .scoreboard_empty_o   (scoreboard_empty)
   );
 
   // ---------
@@ -1243,7 +1257,8 @@ module cva6
       .hfence_vvma_o       (hfence_vvma_commit_controller),
       .hfence_gvma_o       (hfence_gvma_commit_controller),
       .break_from_trigger_i(break_from_trigger),
-      .fence_t_o           (fence_t_commit_controller)
+      .fence_t_o           (fence_t_commit_controller),
+      .next_commit_pc_i    (next_commit_pc)
   );
 
   assign commit_ack = commit_macro_ack & ~commit_drop_id_commit;
@@ -1917,6 +1932,7 @@ module cva6
       .wdata(wdata_commit_id_padded),
       .we_gpr(we_gpr_commit_id),
       .we_fpr(we_fpr_commit_id),
+      .exception_pc(pc_commit),
       .commit_instr(commit_instr_id_commit),
       .commit_ack(commit_ack_commit_id),
       .commit_drop(commit_drop_id_commit),

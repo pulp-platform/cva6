@@ -97,7 +97,9 @@ module commit_stage
     // TO_BE_COMPLETED - CONTROLLER
     output logic hfence_gvma_o,
     // Breakpoint exception from trigger module
-    input logic break_from_trigger_i
+    input logic break_from_trigger_i,
+    // Next PC to commit (used for CLIC interrupts)
+    input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i
 );
 
   // ila_0 i_ila_commit (
@@ -129,7 +131,6 @@ module commit_stage
     assign waddr_o[i] = commit_instr_int[i].rd;
   end
 
-  assign pc_o = commit_instr_int[0].pc;
   // Dirty the FP state if we are committing anything related to the FPU
   always_comb begin : dirty_fp_state
     dirty_fp_state_o = 1'b0;
@@ -406,6 +407,8 @@ module commit_stage
     exception_o.tinst = '0;
     exception_o.gva   = 1'b0;
 
+    pc_o = commit_instr_int[0].pc;
+
     // we need a valid instruction in the commit stage
     if (commit_instr_int[0].valid && !commit_drop_i[0]) begin
       // ------------------------
@@ -441,6 +444,12 @@ module commit_stage
     if (CVA6Cfg.SDTRIG && !CVA6Cfg.DebugEn && break_from_trigger_i) begin
       exception_o.valid = 1'b1;
       exception_o.cause = 32'h00000003;
+    end
+
+    if (clic_mode_i && clic_irq_req_i) begin
+      exception_o.valid = 1'b1;
+      exception_o.cause = clic_irq_cause_i;
+      pc_o = next_commit_pc_i;
     end
   end
 
