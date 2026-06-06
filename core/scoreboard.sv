@@ -87,7 +87,12 @@ module scoreboard #(
     // Issue pointer - RVFI
     output logic [ CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] rvfi_issue_pointer_o,
     // Commit pointer - RVFI
-    output logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] rvfi_commit_pointer_o
+    output logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] rvfi_commit_pointer_o,
+
+    // Is the scoreboard empty - COMMIT_STAGE
+    output logic scoreboard_empty_o,
+    // PC of the next instruction to be committed (for CLIC interrupts) - COMMIT_STAGE
+    output logic [CVA6Cfg.VLEN-1:0] issue_next_pc_o
 );
 
   // this is the FIFO struct of the issue queue
@@ -113,6 +118,9 @@ module scoreboard #(
 
   logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.TRANS_ID_BITS-1:0] commit_pointer_n, commit_pointer_q;
   logic [$clog2(CVA6Cfg.NrCommitPorts):0] num_commit;
+
+  assign issue_next_pc_o = mem_q[commit_pointer_q[0]].sbe.pc;
+  assign scoreboard_empty_o = ~(|still_issued);
 
   for (genvar i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
     assign still_issued[i] = mem_q[i].issued & ~mem_q[i].cancelled;
