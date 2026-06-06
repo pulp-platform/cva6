@@ -65,7 +65,9 @@ module frontend
     // Handshake's valid between fetch and decode - ID_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] fetch_entry_valid_o,
     // Handshake's ready between fetch and decode - ID_STAGE
-    input logic [CVA6Cfg.NrIssuePorts-1:0] fetch_entry_ready_i
+    input logic [CVA6Cfg.NrIssuePorts-1:0] fetch_entry_ready_i,
+    // PC of the next instruction coming out of the frontend - COMMIT_STAGE
+    output [CVA6Cfg.VLEN-1:0] next_instruction_pc_o
 );
 
   localparam type bht_update_t = struct packed {
@@ -121,6 +123,40 @@ module frontend
   end else begin
     assign shamt = 1'b0;
   end
+
+  logic [CVA6Cfg.VLEN-1:0] last_fetch_address_d;
+  logic [CVA6Cfg.VLEN-1:0] last_fetch_address_q;
+
+  logic [1:0] inflight_requests_count_d;
+  logic [1:0] inflight_requests_count_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      last_fetch_address_q      <= '0;
+      inflight_requests_count_q <= '0;
+    end else begin
+      last_fetch_address_q      <= last_fetch_address_d;
+      inflight_requests_count_q <= inflight_requests_count_d;
+    end
+  end
+
+  always_comb begin
+    last_fetch_address_d = last_fetch_address_q;
+    inflight_requests_count_d = inflight_requests_count_q;
+    if (icache_dreq_o.req & icache_dreq_i.ready & ~icache_dreq_o.kill_s1) begin
+      inflight_requests_count_d += 1;
+      last_fetch_address_d = icache_dreq_o.vaddr;
+    end
+    if (|inflight_requests_count_q & (icache_dreq_o.kill_s2 | icache_dreq_i.valid)) begin
+      inflight_requests_count_d -= 1;
+    end
+  end
+
+  assign next_instruction_pc_o = fetch_entry_valid_o[0] ? fetch_entry_o[0].address : (
+                                    icache_valid_q ? icache_vaddr_q : (
+                                      (|inflight_requests_count_q) ? last_fetch_address_q : icache_dreq_o.vaddr
+                                    )
+                                  );
 
   // -----------------------
   // Ctrl Flow Speculation
