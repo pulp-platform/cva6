@@ -173,7 +173,11 @@ module issue_stage
     // Information dedicated to RVFI - RVFI
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs2_o,
     // Original instruction bits for AES
-    output logic [5:0] orig_instr_aes_bits
+    output logic [5:0] orig_instr_aes_bits,
+    // Is the scoreboard empty - COMMIT_STAGE
+    output logic scoreboard_empty_o,
+    // PC of the next instruction to be committed (for CLIC interrupts) - COMMIT_STAGE
+    output logic [CVA6Cfg.VLEN-1:0] issue_next_pc_o
 );
   // ---------------------------------------------------
   // Scoreboard (SB) <-> Issue and Read Operands (IRO)
@@ -238,7 +242,9 @@ module issue_stage
       .x_we_i,
       .x_rd_i,
       .rvfi_issue_pointer_o,
-      .rvfi_commit_pointer_o
+      .rvfi_commit_pointer_o,
+      .scoreboard_empty_o,
+      .issue_next_pc_o
   );
 
   // ---------------------------------------------------------

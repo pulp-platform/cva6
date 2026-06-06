@@ -102,7 +102,9 @@ module commit_stage
     input logic sdtrig_commit_icount_valid_i,
     input logic [$clog2(CVA6Cfg.NrCommitPorts)-1:0] sdtrig_commit_icount_nr_instr_i,
     input logic [CVA6Cfg.XLEN-1:0] sdtrig_commit_action_i,
-    input logic sdtrig_commit_std_exception_valid_i
+    input logic sdtrig_commit_std_exception_valid_i,
+    // Next PC to commit (used for CLIC interrupts)
+    input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i
 );
 
   // ila_0 i_ila_commit (
@@ -134,7 +136,6 @@ module commit_stage
     assign waddr_o[i] = commit_instr_int[i].rd;
   end
 
-  assign pc_o = commit_instr_int[0].pc;
   // Dirty the FP state if we are committing anything related to the FPU
   always_comb begin : dirty_fp_state
     dirty_fp_state_o = 1'b0;
@@ -433,6 +434,8 @@ module commit_stage
       ex_next_instr_d = '0;
     end
 
+    pc_o = commit_instr_int[0].pc;
+
     // we need a valid instruction in the commit stage
     if (commit_instr_int[0].valid && !commit_drop_i[0]) begin
       // ------------------------
@@ -478,6 +481,12 @@ module commit_stage
       exception_o.timing = 1'b0;
       exception_o.valid = 1'b1;
       ex_next_instr_d = '0;
+    end
+
+    if (clic_mode_i && clic_irq_req_i) begin
+      exception_o.valid = 1'b1;
+      exception_o.cause = clic_irq_cause_i;
+      pc_o = next_commit_pc_i;
     end
   end
 
