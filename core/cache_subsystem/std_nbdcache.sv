@@ -236,6 +236,7 @@ module std_nbdcache
       addr_decode_state_t adec_state_d, adec_state_q;
       logic [CVA6Cfg.DCACHE_INDEX_WIDTH-1:0] addr_idx_d, addr_idx_q;
       logic [CVA6Cfg.DCACHE_TAG_WIDTH-1:0] addr_tag_d, addr_tag_q;
+      logic [CVA6Cfg.DcacheIdWidth-1:0] data_id_d, data_id_q;
       req_dest_t req_dest_d, req_dest_q;
       logic [1:0] cur_idx;
 
@@ -260,6 +261,7 @@ module std_nbdcache
       always_comb begin
         addr_idx_d                  = addr_idx_q;
         addr_tag_d                  = addr_tag_q;
+        data_id_d                   = data_id_q;
         adec_state_d                = adec_state_q;
         req_dest_d                  = req_dest_q;
 
@@ -297,6 +299,7 @@ module std_nbdcache
               // Save the address index, as it's usually only valid
               // until the request is granted (for a read)
               addr_idx_d = req_ports_i[i].address_index;
+              data_id_d  = req_ports_i[i].data_id;
               // If this is a write, we know both the address index
               // and the tag, so we can decide where to forward it to
               // immediately
@@ -304,7 +307,7 @@ module std_nbdcache
                 adec_state_d = WRITE;
                 req_dest_d   = req_dest_t'(cur_idx);
                 // Connect the full signals to the correct port
-                unique case (req_dest_q)
+                unique case (req_dest_d)
                   CACHE_REQ: begin
                     cache_ports_in[i] = req_ports_i[i];
                     req_ports_o[i] = cache_ports_out[i];
@@ -357,6 +360,7 @@ module std_nbdcache
                   req_ports_o[i] = dspm_ports_out[i];
                   // Inject the previously recorded index
                   dspm_ports_in[i].address_index = addr_idx_q;
+                  dspm_ports_in[i].data_id = data_id_q;
                   // All reads have been granted by the cache before,
                   // this is just to signal a pending request to the SPM controller
                   dspm_ports_in[i].data_req = 1'b1;
@@ -365,6 +369,7 @@ module std_nbdcache
                   req_ports_o[i] = ispm_ports_in[i];
                   // Inject the previously recorded index
                   ispm_ports_out[i].address_index = addr_idx_q;
+                  ispm_ports_out[i].data_id = data_id_q;
                   // All reads have been granted by the cache before,
                   // this is just to signal a pending request to the SPM controller
                   ispm_ports_out[i].data_req = 1'b1;
@@ -385,6 +390,7 @@ module std_nbdcache
               // index
               if (req_ports_o[i].data_gnt) begin
                 addr_idx_d   = req_ports_i[i].address_index;
+                data_id_d    = req_ports_i[i].data_id;
                 adec_state_d = WAIT_TAG;
               end
             end
@@ -402,6 +408,10 @@ module std_nbdcache
             // back to the state that waits for the tag
             if (req_ports_o[i].data_gnt) begin
               adec_state_d = WAIT_TAG;
+              // Save the address index, as it's usually only valid
+              // until the request is granted (for a read)
+              addr_idx_d = req_ports_i[i].address_index;
+              data_id_d  = req_ports_i[i].data_id;
             end
           end
 
@@ -412,6 +422,7 @@ module std_nbdcache
               req_ports_o[i] = dspm_ports_out[i];
               dspm_ports_in[i].address_index = addr_idx_q;
               dspm_ports_in[i].address_tag = addr_tag_q;
+              dspm_ports_in[i].data_id = data_id_q;
               // All reads have been granted by the cache before,
               // this is just to signal a pending request to the SPM controller
               dspm_ports_in[i].data_req = 1'b1;
@@ -421,6 +432,7 @@ module std_nbdcache
               req_ports_o[i] = ispm_ports_in[i];
               ispm_ports_out[i].address_index = addr_idx_q;
               ispm_ports_out[i].address_tag = addr_tag_q;
+              ispm_ports_out[i].data_id = data_id_q;
               ispm_ports_out[i].data_req = 1'b1;
             end
             // As soon as the read data is valid, we go back to idle
@@ -465,6 +477,7 @@ module std_nbdcache
 
       `FF(addr_idx_q, addr_idx_d, '0, clk_i, rst_ni)
       `FF(addr_tag_q, addr_tag_d, '0, clk_i, rst_ni)
+      `FF(data_id_q, data_id_d, '0, clk_i, rst_ni)
       `FF(adec_state_q, adec_state_d, IDLE, clk_i, rst_ni)
       `FF(req_dest_q, req_dest_d, CACHE_REQ, clk_i, rst_ni)
     end
