@@ -144,6 +144,7 @@ module dspm_ctrl
         spm_req_ports_o[portsel].data_rdata = 64'hCA11AB1E_BADCAB1E;
         spm_req_ports_o[portsel].data_gnt = spm_req_ports_i[portsel].data_we;
         spm_req_ports_o[portsel].data_rvalid = ~spm_req_ports_i[portsel].data_we;
+        spm_req_ports_o[portsel].data_rid = spm_req_ports_i[portsel].data_id;
 
         // We don't need to wait for the memory here, as we did not access any
         wait_stage_d = '0;
@@ -155,6 +156,7 @@ module dspm_ctrl
       spm_req_ports_o[portsel_q].data_gnt = spm_req_ports_i[portsel_q].data_we;
       spm_req_ports_o[portsel_q].data_rvalid = ~spm_req_ports_i[portsel_q].data_we;
       spm_req_ports_o[portsel_q].data_rdata = rdata_i[way_idx_q][(cl_offset_q * riscv::XLEN) +: riscv::XLEN];
+      spm_req_ports_o[portsel_q].data_rid = spm_req_ports_i[portsel_q].data_id;
 
       // Same cycle acknowledge => Use the unregistered version
     end else if (NR_WAIT_STAGES == 0) begin
@@ -162,6 +164,7 @@ module dspm_ctrl
       spm_req_ports_o[portsel].data_gnt = spm_req_ports_i[portsel].data_we;
       spm_req_ports_o[portsel].data_rvalid = ~spm_req_ports_i[portsel].data_we;
       spm_req_ports_o[portsel].data_rdata = rdata_i[way_idx][(cl_offset*riscv::XLEN)+:riscv::XLEN];
+      spm_req_ports_o[portsel].data_rid = spm_req_ports_i[portsel].data_id;
     end
   end
 
