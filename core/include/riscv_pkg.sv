@@ -690,6 +690,8 @@ package riscv;
     // Cache Control (platform specifc)
     CSR_DCACHE_SPM_WAYS  = 12'h5E0,
     CSR_ICACHE_SPM_WAYS  = 12'h5E1,
+    CSR_DCACHE_SMODE     = 12'h5E2,
+    CSR_ICACHE_SMODE     = 12'h5E3,
     CSR_DCACHE           = 12'h7C1,
     CSR_ICACHE           = 12'h7C0,
     // Accelerator memory consistency (platform specific)

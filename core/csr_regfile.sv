@@ -1161,8 +1161,8 @@ module csr_regfile
         end
 
         // custom (non RISC-V) cache control
-        riscv::CSR_DCACHE: csr_rdata = dcache_q;
-        riscv::CSR_ICACHE: csr_rdata = icache_q;
+        riscv::CSR_DCACHE, riscv::CSR_DCACHE_SMODE: csr_rdata = dcache_q;
+        riscv::CSR_ICACHE, riscv::CSR_ICACHE_SMODE: csr_rdata = icache_q;
         riscv::CSR_FENCE_T_PAD: csr_rdata = fence_t_pad_q;
         riscv::CSR_FENCE_T_SEL: csr_rdata = fence_t_sel_q;
         riscv::CSR_FENCE_T_CEIL: csr_rdata = fence_t_ceil_q;
@@ -2387,8 +2387,8 @@ module csr_regfile
           end
         end
 
-        riscv::CSR_DCACHE: dcache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
-        riscv::CSR_ICACHE: icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
+        riscv::CSR_DCACHE, riscv::CSR_DCACHE_SMODE: dcache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
+        riscv::CSR_ICACHE, riscv::CSR_ICACHE_SMODE: icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
         riscv::CSR_FENCE_T_PAD: fence_t_pad_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
         riscv::CSR_FENCE_T_SEL: fence_t_sel_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};
         riscv::CSR_FENCE_T_CEIL: fence_t_ceil_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
