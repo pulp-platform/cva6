@@ -707,6 +707,8 @@ module cva6
   logic stall_ctrl_cache;
   logic init_ctrl_cache_n;
 
+  logic icache_dreq_sel;
+
   icache_areq_t icache_areq_ex_cache;
   icache_arsp_t icache_areq_cache_ex;
   icache_dreq_t icache_dreq_if_cache;
@@ -1489,6 +1491,7 @@ module cva6
       .trap_vector_base_i    (trap_vector_base_commit_pcgen),
       .frontend_set_pc_o     (ctrl_set_pc),
       .frontend_next_pc_o    (ctrl_next_pc),
+      .icache_dreq_sel_o     (icache_dreq_sel),
       .icache_dreq_o         (icache_dreq_ctrl_cache),
       .icache_drsp_i         (icache_drsp_cache_ctrl),
       .set_debug_pc_i        (set_debug_pc),
@@ -1508,9 +1511,9 @@ module cva6
   // Cache Subsystem
   // -------------------
 
-  assign icache_dreq = icache_dreq_ctrl_cache.req ? icache_dreq_ctrl_cache : icache_dreq_if_cache;
-  assign icache_drsp_cache_ctrl = icache_drsp;
-  assign icache_dreq_cache_if   = icache_drsp;
+  assign icache_dreq = icache_dreq_sel ? icache_dreq_ctrl_cache : icache_dreq_if_cache;
+  assign icache_drsp_cache_ctrl = icache_dreq_sel ? icache_drsp : '0;
+  assign icache_dreq_cache_if   = icache_dreq_sel ? '0 : icache_drsp;
 
   // Acc dispatcher and store buffer share a dcache request port.
   // Store buffer always has priority access over acc dispatcher.
