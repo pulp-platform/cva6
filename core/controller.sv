@@ -95,6 +95,8 @@ module controller
     output logic frontend_set_pc_o,
     // PC to be set - FRONTEND
     output logic [CVA6Cfg.VLEN-1:0] frontend_next_pc_o,
+    // Selects the request from the controller in the i-cache data request mux - CACHES
+    output logic icache_dreq_sel_o,
     // Handshake between CACHE and CONTROLLER (vectored irq handler address fetch) - CACHES
     output icache_dreq_t icache_dreq_o,
     // Handshake between CACHE and CONTROLLER (vectored irq handler address fetch) - CACHES
@@ -168,7 +170,7 @@ module controller
   logic [CVA6Cfg.VLEN-1:0] vec_irq_address;
   logic [CVA6Cfg.VLEN-1:0] trap_vector_base_d, trap_vector_base_q;
 
-  assign trap_vector_base_d = trap_vector_base_i;
+  assign trap_vector_base_d = vec_irq_address;
 
   assign icache_dreq_o.req     = vec_irq_icache_req;
   assign icache_dreq_o.vaddr   = vec_irq_address;
@@ -193,6 +195,7 @@ module controller
   // -----------------------------
   always_comb begin : vec_irq_fsm
     // Default assignments
+    icache_dreq_sel_o     = 1'b0;
     frontend_set_pc_o     = 1'b0;
     vec_irq_halt_frontend = 1'b0;
     vec_irq_icache_req    = 1'b0;
@@ -201,16 +204,15 @@ module controller
     unique case (vec_irq_state_q)
       VEC_IRQ_IDLE: begin
         if (ex_valid_i && clic_vec_irq_i) begin
-          vec_irq_icache_req    = 1'b1;
+          // Do not enable I-cache requests immediately
+          // Leave one cycle to the frontend to kill outstanding
+          // i-cache requests.
           vec_irq_halt_frontend = 1'b1;
-          if (icache_drsp_i.ready) begin
-            vec_irq_state_d = VEC_IRQ_WAIT_DATA;
-          end else begin
-            vec_irq_state_d = VEC_IRQ_WAIT_GNT;
-          end
+          vec_irq_state_d = VEC_IRQ_WAIT_GNT;
         end
       end
       VEC_IRQ_WAIT_GNT: begin
+        icache_dreq_sel_o     = 1'b1;
         vec_irq_icache_req    = 1'b1;
         vec_irq_halt_frontend = 1'b1;
         vec_irq_address       = trap_vector_base_q;
@@ -219,6 +221,7 @@ module controller
         end
       end
       VEC_IRQ_WAIT_DATA: begin
+        icache_dreq_sel_o     = 1'b1;
         vec_irq_halt_frontend = 1'b1;
         if (icache_drsp_i.valid) begin
           frontend_set_pc_o = 1'b1;
