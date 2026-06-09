@@ -97,8 +97,12 @@ module controller
     input logic clic_irq_i,
     // Exception is CLIC vectored interrupt - CSR_REGFILE
     input logic clic_vec_irq_i,
+    // CLIC interrupt hardware stacking configuration
+    input logic [1:0] clic_rstk_i,
     // Trap frame base address - CSR
     input logic [CVA6Cfg.VLEN-1:0] trap_frame_base_i,
+    // Task context base address - CSR
+    input logic [CVA6Cfg.VLEN-1:0] task_context_base_i,
     // Address of trap vector table entry - CSR
     input logic [CVA6Cfg.VLEN-1:0] trap_vector_base_i,
     // Integer Register File content - ISSUE_STAGE
@@ -271,10 +275,18 @@ module controller
   // Hwstack fill FSM signals
   hwstack_fifo_fill_state_e hwstack_fill_state_d, hwstack_fill_state_q;
   logic               [4:0] hwstack_regs_count_d, hwstack_regs_count_q;
+  logic               [4:0] hwstack_regs_num_d,   hwstack_regs_num_q;
 
   // Hwstack drain FSM signals
   hwstack_fifo_drain_state_e hwstack_drain_state_d,   hwstack_drain_state_q;
   logic   [CVA6Cfg.VLEN-1:0] hwstack_drain_address_d, hwstack_drain_address_q;
+
+  // Hwstack configuration
+  logic [1:0] hwstack_config;
+  logic [1:0] hwstack_config_d, hwstack_config_q;
+
+  logic                     [4:0] hwstack_regs_num;
+  logic [31:0] [CVA6Cfg.XLEN-1:0] hwstack_reg_pool;
 
   // Hwstack FIFO control signals
   logic [CVA6Cfg.HwstackFifoDepth-1:0] [CVA6Cfg.XLEN-1:0] hwstack_fifo_load_data;
@@ -302,15 +314,71 @@ module controller
   assign dcache_req_o.kill_req      = '0;
   assign dcache_req_o.cbo_op        = '0;
 
-  assign hwstack_regs_count_o = (hwstack_fill_state_q != HWSTACK_FILL_IDLE) ? hwstack_regs_count_q : '0;
-
-  assign hwstack_fifo_wdata = int_regs_i[hwstack_regs_count_q];
+  assign hwstack_fifo_wdata = hwstack_reg_pool[hwstack_regs_count_q];
 
   generate
     for (genvar i = 0; i < CVA6Cfg.HwstackFifoDepth; i++) begin
-      assign hwstack_fifo_load_data[i] = int_regs_i[i];
+      assign hwstack_fifo_load_data[i] = hwstack_reg_pool[i];
     end
   endgenerate
+
+  function automatic logic [4:0] get_abi_index(logic [4:0] actual_idx);
+    automatic logic [4:0] ret;
+    if (actual_idx == 5'd00) ret = 1;
+    if (actual_idx == 5'd01) ret = 5;
+    if (actual_idx == 5'd02) ret = 6;
+    if (actual_idx == 5'd03) ret = 7;
+    if (actual_idx == 5'd04) ret = 10;
+    if (actual_idx == 5'd05) ret = 11;
+    if (actual_idx == 5'd06) ret = 12;
+    if (actual_idx == 5'd07) ret = 13;
+    if (actual_idx == 5'd08) ret = 14;
+    if (actual_idx == 5'd09) ret = 15;
+    if (actual_idx == 5'd10) ret = 16;
+    if (actual_idx == 5'd11) ret = 17;
+    if (actual_idx == 5'd12) ret = 28;
+    if (actual_idx == 5'd13) ret = 29;
+    if (actual_idx == 5'd14) ret = 30;
+    if (actual_idx == 5'd15) ret = 31;
+    return ret;
+  endfunction
+
+  always_comb begin
+    hwstack_reg_pool     = '0;
+    hwstack_regs_num     = '0;
+    hwstack_regs_count_o = '0;
+    case(hwstack_config)
+      2'b01: begin
+        // Only caller-saved registers
+        hwstack_regs_num = 5'd16;
+        hwstack_reg_pool[ 0] = int_regs_i[ 1]; // ra
+        hwstack_reg_pool[ 1] = int_regs_i[ 5]; // t0
+        hwstack_reg_pool[ 2] = int_regs_i[ 6]; // t1
+        hwstack_reg_pool[ 3] = int_regs_i[ 7]; // t2
+        hwstack_reg_pool[ 4] = int_regs_i[10]; // a0
+        hwstack_reg_pool[ 5] = int_regs_i[11]; // a1
+        hwstack_reg_pool[ 6] = int_regs_i[12]; // a2
+        hwstack_reg_pool[ 7] = int_regs_i[13]; // a3
+        hwstack_reg_pool[ 8] = int_regs_i[14]; // a4
+        hwstack_reg_pool[ 9] = int_regs_i[15]; // a5
+        hwstack_reg_pool[10] = int_regs_i[16]; // a6
+        hwstack_reg_pool[11] = int_regs_i[17]; // a7
+        hwstack_reg_pool[12] = int_regs_i[28]; // t3
+        hwstack_reg_pool[13] = int_regs_i[29]; // t4
+        hwstack_reg_pool[14] = int_regs_i[30]; // t5
+        hwstack_reg_pool[15] = int_regs_i[31]; // t6
+        if (hwstack_fill_state_q != HWSTACK_FILL_IDLE) begin
+          hwstack_regs_count_o = get_abi_index(hwstack_regs_count_q);
+        end;
+      end
+      2'b10: begin
+        // All GPRs
+        hwstack_regs_num = 5'd31;
+        hwstack_reg_pool = int_regs_i;
+        hwstack_regs_count_o = (hwstack_fill_state_q != HWSTACK_FILL_IDLE) ? hwstack_regs_count_q : '0;
+      end
+    endcase
+  end
 
   hwstack_fifo #(
     .CVA6Cfg      ( CVA6Cfg               )
@@ -332,12 +400,16 @@ module controller
       hwstack_fill_state_q    <= HWSTACK_FILL_IDLE;
       hwstack_drain_state_q   <= HWSTACK_DRAIN_IDLE;
       hwstack_regs_count_q    <= '0;
+      hwstack_regs_num_q      <= '0;
       hwstack_drain_address_q <= '0;
+      hwstack_config_q        <= '0;
     end else begin
       hwstack_fill_state_q    <= hwstack_fill_state_d;
       hwstack_drain_state_q   <= hwstack_drain_state_d;
       hwstack_regs_count_q    <= hwstack_regs_count_d;
+      hwstack_regs_num_q      <= hwstack_regs_num_d;
       hwstack_drain_address_q <= hwstack_drain_address_d;
+      hwstack_config_q        <= hwstack_config_d;
     end
   end
 
@@ -345,6 +417,9 @@ module controller
     // Default assignments
     hwstack_fill_state_d = hwstack_fill_state_q;
     hwstack_regs_count_d = hwstack_regs_count_q;
+    hwstack_regs_num_d   = hwstack_regs_num_q;
+    hwstack_config_d     = hwstack_config_q;
+    hwstack_config       = hwstack_config_q;
     hwstack_fifo_load    = 1'b0;
     hwstack_fifo_push    = 1'b0;
     hwstack_pushing_o    = 1'b0;
@@ -352,8 +427,11 @@ module controller
 
       HWSTACK_FILL_IDLE: begin
         hwstack_regs_count_d = CVA6Cfg.HwstackFifoDepth;
-        if (ex_valid_i && clic_irq_i) begin
+        if (ex_valid_i && clic_irq_i && (|clic_rstk_i)) begin
           hwstack_fifo_load = 1'b1;
+          hwstack_config_d     = clic_rstk_i;
+          hwstack_config       = clic_rstk_i;
+          hwstack_regs_num_d   = hwstack_regs_num;
           hwstack_fill_state_d = HWSTACK_FILL_PUSH;
         end
       end
@@ -362,7 +440,7 @@ module controller
         hwstack_pushing_o = 1'b1;
         if (~hwstack_fifo_full) begin
           hwstack_fifo_push = 1'b1;
-          if (hwstack_regs_count_q == 'd31) begin
+          if (hwstack_regs_count_q == hwstack_regs_num_q) begin
             hwstack_fill_state_d = HWSTACK_FILL_IDLE;
           end else begin
             hwstack_regs_count_d = hwstack_regs_count_q + 1;
@@ -380,8 +458,14 @@ module controller
   always_comb begin : hwstack_load_offset_check
     page_offset_matches_o = 1'b0;
     if (hwstack_drain_state_q != HWSTACK_DRAIN_IDLE) begin
-      if ((page_offset_i >= trap_frame_base_i[11:0]) && (page_offset_i < hwstack_drain_address_q[11:0])) begin
-        page_offset_matches_o = 1'b1;
+      if (hwstack_config == 2'b01) begin
+        if ((page_offset_i >= trap_frame_base_i[11:0]) && (page_offset_i < hwstack_drain_address_q[11:0])) begin
+          page_offset_matches_o = 1'b1;
+        end
+      end else if (hwstack_config == 2'b11) begin
+        if ((page_offset_i >= task_context_base_i[11:0]) && (page_offset_i < hwstack_drain_address_q[11:0])) begin
+          page_offset_matches_o = 1'b1;
+        end
       end
     end
   end
@@ -395,8 +479,8 @@ module controller
     unique case (hwstack_drain_state_q)
 
       HWSTACK_DRAIN_IDLE: begin
-        if (ex_valid_i && clic_irq_i) begin
-          hwstack_drain_address_d = trap_frame_base_i;
+        if (ex_valid_i && clic_irq_i && (|clic_rstk_i)) begin
+          hwstack_drain_address_d = (clic_rstk_i == 2'b01) ? trap_frame_base_i : task_context_base_i;
           hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
         end
       end
