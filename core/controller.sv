@@ -325,21 +325,22 @@ module controller
   function automatic logic [4:0] get_abi_index(logic [4:0] actual_idx);
     automatic logic [4:0] ret;
     if (actual_idx == 5'd00) ret = 1;
-    if (actual_idx == 5'd01) ret = 5;
-    if (actual_idx == 5'd02) ret = 6;
-    if (actual_idx == 5'd03) ret = 7;
-    if (actual_idx == 5'd04) ret = 10;
-    if (actual_idx == 5'd05) ret = 11;
-    if (actual_idx == 5'd06) ret = 12;
-    if (actual_idx == 5'd07) ret = 13;
-    if (actual_idx == 5'd08) ret = 14;
-    if (actual_idx == 5'd09) ret = 15;
-    if (actual_idx == 5'd10) ret = 16;
-    if (actual_idx == 5'd11) ret = 17;
-    if (actual_idx == 5'd12) ret = 28;
-    if (actual_idx == 5'd13) ret = 29;
-    if (actual_idx == 5'd14) ret = 30;
-    if (actual_idx == 5'd15) ret = 31;
+    if (actual_idx == 5'd01) ret = 2;
+    if (actual_idx == 5'd02) ret = 5;
+    if (actual_idx == 5'd03) ret = 6;
+    if (actual_idx == 5'd04) ret = 7;
+    if (actual_idx == 5'd05) ret = 10;
+    if (actual_idx == 5'd06) ret = 11;
+    if (actual_idx == 5'd07) ret = 12;
+    if (actual_idx == 5'd08) ret = 13;
+    if (actual_idx == 5'd09) ret = 14;
+    if (actual_idx == 5'd10) ret = 15;
+    if (actual_idx == 5'd11) ret = 16;
+    if (actual_idx == 5'd12) ret = 17;
+    if (actual_idx == 5'd13) ret = 28;
+    if (actual_idx == 5'd14) ret = 29;
+    if (actual_idx == 5'd15) ret = 30;
+    if (actual_idx == 5'd16) ret = 31;
     return ret;
   endfunction
 
@@ -352,21 +353,22 @@ module controller
         // Only caller-saved registers
         hwstack_regs_num = 5'd16;
         hwstack_reg_pool[ 0] = int_regs_i[ 1]; // ra
-        hwstack_reg_pool[ 1] = int_regs_i[ 5]; // t0
-        hwstack_reg_pool[ 2] = int_regs_i[ 6]; // t1
-        hwstack_reg_pool[ 3] = int_regs_i[ 7]; // t2
-        hwstack_reg_pool[ 4] = int_regs_i[10]; // a0
-        hwstack_reg_pool[ 5] = int_regs_i[11]; // a1
-        hwstack_reg_pool[ 6] = int_regs_i[12]; // a2
-        hwstack_reg_pool[ 7] = int_regs_i[13]; // a3
-        hwstack_reg_pool[ 8] = int_regs_i[14]; // a4
-        hwstack_reg_pool[ 9] = int_regs_i[15]; // a5
-        hwstack_reg_pool[10] = int_regs_i[16]; // a6
-        hwstack_reg_pool[11] = int_regs_i[17]; // a7
-        hwstack_reg_pool[12] = int_regs_i[28]; // t3
-        hwstack_reg_pool[13] = int_regs_i[29]; // t4
-        hwstack_reg_pool[14] = int_regs_i[30]; // t5
-        hwstack_reg_pool[15] = int_regs_i[31]; // t6
+        hwstack_reg_pool[ 1] = int_regs_i[ 2]; // sp
+        hwstack_reg_pool[ 2] = int_regs_i[ 5]; // t0
+        hwstack_reg_pool[ 3] = int_regs_i[ 6]; // t1
+        hwstack_reg_pool[ 4] = int_regs_i[ 7]; // t2
+        hwstack_reg_pool[ 5] = int_regs_i[10]; // a0
+        hwstack_reg_pool[ 6] = int_regs_i[11]; // a1
+        hwstack_reg_pool[ 7] = int_regs_i[12]; // a2
+        hwstack_reg_pool[ 8] = int_regs_i[13]; // a3
+        hwstack_reg_pool[ 9] = int_regs_i[14]; // a4
+        hwstack_reg_pool[10] = int_regs_i[15]; // a5
+        hwstack_reg_pool[11] = int_regs_i[16]; // a6
+        hwstack_reg_pool[12] = int_regs_i[17]; // a7
+        hwstack_reg_pool[13] = int_regs_i[28]; // t3
+        hwstack_reg_pool[14] = int_regs_i[29]; // t4
+        hwstack_reg_pool[15] = int_regs_i[30]; // t5
+        hwstack_reg_pool[16] = int_regs_i[31]; // t6
         if (hwstack_fill_state_q != HWSTACK_FILL_IDLE) begin
           hwstack_regs_count_o = get_abi_index(hwstack_regs_count_q);
         end;
