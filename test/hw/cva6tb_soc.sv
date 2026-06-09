@@ -63,6 +63,7 @@ module cva6tb_soc
   logic                        [1:0] clic_irq_priv;
   logic                              clic_irq_v;
   logic                        [5:0] clic_irq_vsid;
+  logic                        [1:0] clic_irq_rstk;
 
   reg_req_t                          reg_pcr_req;
   reg_rsp_t                          reg_pcr_rsp;
@@ -221,6 +222,7 @@ module cva6tb_soc
     .clic_irq_id_i       ( clic_irq_id                       ),
     .clic_irq_level_i    ( clic_irq_level                    ),
     .clic_irq_priv_i     ( riscv::priv_lvl_t'(clic_irq_priv) ),
+    .clic_irq_rstk_i     ( clic_irq_rstk                     ),
     .clic_irq_v_i        ( clic_irq_v                        ),
     .clic_irq_vsid_i     ( clic_irq_vsid                     ),
     .clic_irq_shv_i      ( clic_irq_shv                      ),
@@ -258,6 +260,7 @@ module cva6tb_soc
     .irq_level_o    ( clic_irq_level    ),
     .irq_shv_o      ( clic_irq_shv      ),
     .irq_priv_o     ( clic_irq_priv     ),
+    .irq_rstk_o     ( clic_irq_rstk     ),
     .irq_v_o        ( clic_irq_v        ),
     .irq_vsid_o     ( clic_irq_vsid     ),
     .irq_kill_req_o ( clic_irq_kill_req ),

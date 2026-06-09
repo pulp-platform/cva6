@@ -14,7 +14,7 @@ dependencies:
   tech_cells_generic:
     { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
   axi_riscv_atomics: { git: "https://github.com/pulp-platform/axi_riscv_atomics.git", version: 0.8.3 }
-  clic: { git: "https://github.com/pulp-platform/clic.git", version: 3.0.0 }
+  clic: { git: "https://github.com/pulp-platform/clic.git", rev: ez/rstk }
   clint: { git: "https://github.com/pulp-platform/clint.git", version: 0.2.0 }
   common_verification: { git: "https://github.com/pulp-platform/common_verification", version: 0.2.5 }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0 }
