@@ -433,6 +433,7 @@ package riscv;
     CSR_SCOUNTEREN       = 12'h106,
     CSR_STVT             = 12'h107,
     CSR_STFA             = 12'h108,
+    CSR_STCA             = 12'h109,
     CSR_SENVCFG          = 12'h10A,
     CSR_SSCRATCH         = 12'h140,
     CSR_SEPC             = 12'h141,
@@ -500,6 +501,7 @@ package riscv;
     CSR_MHPM_EVENT_31    = 12'h33F,  //Reserved
     CSR_MTVT             = 12'h307,
     CSR_MTFA             = 12'h308,
+    CSR_MTCA             = 12'h309,
     CSR_MSCRATCH         = 12'h340,
     CSR_MEPC             = 12'h341,
     CSR_MCAUSE           = 12'h342,

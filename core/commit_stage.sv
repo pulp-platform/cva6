@@ -124,6 +124,8 @@ module commit_stage
     input logic [CVA6Cfg.VLEN-1:0] next_commit_pc_i,
     // Hardware stacking is being performed - CONTROLLER
     input logic hwstack_pushing_i,
+    // A register frame is being stacked - CONTROLLER
+    input logic hwstack_busy_i,
     // Hardware stacking registers count - CONTROLLER
     input logic [4:0] hwstack_regs_count_i
 );
@@ -159,10 +161,11 @@ module commit_stage
   // the trap. It waits while the head has a memory access under way that a
   // replay would repeat, an AMO or a non-idempotent load, and while a fence.t
   // sequence or the handler address fetch of a vectored interrupt runs, whose
-  // micro-reset or redirect would override the trap's redirect.
+  // micro-reset or redirect would override the trap's redirect. It also waits
+  // while a register frame is stacked, which a nested take would leave incomplete.
   logic clic_take;
   assign clic_take = clic_mode_i && clic_irq_req_i && !ni_load_sent_i && !fence_t_active_i
-                   && !vec_irq_busy_i && !(CVA6Cfg.RVA && amo_sent_q);
+                   && !vec_irq_busy_i && !hwstack_busy_i && !(CVA6Cfg.RVA && amo_sent_q);
 
   scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_int;
   always_comb begin

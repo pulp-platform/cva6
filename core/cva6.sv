@@ -375,6 +375,7 @@ module cva6
     input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,  // interrupt source ID
     input logic [7:0] clic_irq_level_i,  // interrupt level is 8-bit from CLIC spec
     input riscv::priv_lvl_t clic_irq_priv_i,  // CLIC interrupt privilege level
+    input logic [1:0] clic_irq_rstk_i,  // CLIC interrupt register stacking configuration
     input logic clic_irq_v_i,  // CLIC interrupt virtualization bit (only for vCLIC)
     input logic [5:0] clic_irq_vsid_i,  // CLIC interrupt Virtual Supervisor ID (only for vCLIC)
     input logic clic_irq_shv_i,  // selective hardware vectoring bit
@@ -747,11 +748,13 @@ module cva6
   // Interrupt control for hardware stacking
   logic clic_irq;
   logic [CVA6Cfg.VLEN-1:0] trap_frame_base;
+  logic [CVA6Cfg.VLEN-1:0] task_context_base;
   logic [31:0][CVA6Cfg.XLEN-1:0] int_regs;
   logic [31:0][CVA6Cfg.XLEN-1:0] fp_regs;
   logic [11:0] load_page_offset;
   logic load_page_offset_matches;
   logic hwstack_pushing;
+  logic hwstack_busy;
   logic [4:0] hwstack_regs_count;
 
   icache_areq_t icache_areq_ex_cache;
@@ -1351,6 +1354,7 @@ module cva6
       .sdtrig_commit_icount_nr_instr_i    (sdtrig_commit_icount_nr_instr),
       .next_commit_pc_i                   (next_commit_pc),
       .hwstack_pushing_i                  (hwstack_pushing),
+      .hwstack_busy_i                     (hwstack_busy),
       .hwstack_regs_count_i               (hwstack_regs_count)
   );
 
@@ -1403,6 +1407,7 @@ module cva6
       .clic_irq_o                         (clic_irq),
       .clic_vec_irq_o                     (clic_vec_irq),
       .trap_frame_base_o                  (trap_frame_base),
+      .task_context_base_o                (task_context_base),
       .trap_vector_base_o                 (trap_vector_base_commit_pcgen),
       .priv_lvl_o                         (priv_lvl),
       .mbe_o                              (mbe),
@@ -1598,6 +1603,7 @@ module cva6
       .halt_frontend_o       (halt_frontend),
       .halt_o                (halt_ctrl),
       .hwstack_pushing_o     (hwstack_pushing),
+      .hwstack_busy_o        (hwstack_busy),
       .hwstack_regs_count_o  (hwstack_regs_count),
       // control ports
       .boot_addr_i           (boot_addr_i[CVA6Cfg.VLEN-1:0]),
@@ -1606,7 +1612,9 @@ module cva6
       .ex_valid_i            (ex_commit.valid),
       .clic_irq_i            (clic_irq),
       .clic_vec_irq_i        (clic_vec_irq),
+      .clic_rstk_i           (clic_irq_rstk_i),
       .trap_frame_base_i     (trap_frame_base),
+      .task_context_base_i   (task_context_base),
       .trap_vector_base_i    (trap_vector_base_commit_pcgen),
       .int_regs_i            (int_regs),
       .fp_regs_i             (fp_regs),
