@@ -109,6 +109,14 @@ module controller
     input logic [31:0] [CVA6Cfg.XLEN-1:0] int_regs_i,
     // Floating Point Register File content - ISSUE_STAGE
     input logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs_i,
+    // Kernel stack pointer from CSR - CSR_REGFILE
+    input logic [CVA6Cfg.XLEN-1:0] kernel_stack_pointer_i,
+    // Write enable to integer register file for SP update - ISSUE_STAGE
+    output logic gpr_we_o,
+    // Write address for SP update (x2) - ISSUE_STAGE
+    output logic [4:0] gpr_waddr_o,
+    // Write data for SP update - ISSUE_STAGE
+    output logic [CVA6Cfg.XLEN-1:0] gpr_wdata_o,
     // Page offset for address aliasing checks - EX_STAGE
     input logic [11:0] page_offset_i,
     // Page offset matches - EX_STAGE
@@ -425,12 +433,16 @@ module controller
     hwstack_fifo_load    = 1'b0;
     hwstack_fifo_push    = 1'b0;
     hwstack_pushing_o    = 1'b0;
+    gpr_we_o             = 1'b0;
+    gpr_waddr_o          = 5'd2; // x2 = sp
+    gpr_wdata_o          = kernel_stack_pointer_i;
     unique case (hwstack_fill_state_q)
 
       HWSTACK_FILL_IDLE: begin
         hwstack_regs_count_d = CVA6Cfg.HwstackFifoDepth;
         if (ex_valid_i && clic_irq_i && (|clic_rstk_i)) begin
           hwstack_fifo_load = 1'b1;
+          if (|kernel_stack_pointer_i && (priv_lvl_i == riscv::PRIV_LVL_U)) gpr_we_o = 1'b1;
           hwstack_config_d     = clic_rstk_i;
           hwstack_config       = clic_rstk_i;
           hwstack_regs_num_d   = hwstack_regs_num;
