@@ -25,6 +25,7 @@ ALLOWED_TESTS := test_simple
 DEBUG         ?= 0
 IRQ_ENABLE    ?= 0
 IRQ_PERIOD    ?= 10000
+RTCONFIG      ?= 0
 
 ifeq ($(filter $(TEST),$(ALLOWED_TESTS)),)
 $(error TEST must be one of: $(ALLOWED_TESTS) (got '$(TEST)'))
@@ -136,6 +137,10 @@ VSIM_FLAGS += -c -do "run -all; quit"
 else
 VOPT_FLAGS += +acc
 VSIM_FLAGS += -wlf cva6tb.wlf -do "log -r /*; run -all"
+endif
+
+ifeq ($(RTCONFIG),1)
+VLOG_FLAGS += +define+RTCONFIG
 endif
 
 $(VSIM_BUILD_DIR):
