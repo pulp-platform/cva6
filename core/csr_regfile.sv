@@ -650,6 +650,7 @@ module csr_regfile
         if (CVA6Cfg.RVXHCLIC)
           csr_rdata = clic_mode_o ? {vstvt_q, 8'b0} : '0;  // vstvt reads 0 in CLINT mode
         else read_access_exception = 1'b1;
+        riscv::CSR_VSTFA_INC,
         riscv::CSR_VSTFA:
         if (CVA6Cfg.RVH) csr_rdata = vstfa_q;
         else read_access_exception = 1'b1;
@@ -734,6 +735,7 @@ module csr_regfile
             read_access_exception = 1'b1;
           end
         end
+        riscv::CSR_STFA_INC,
         riscv::CSR_STFA: begin
           if (CVA6Cfg.RVS) begin
             csr_rdata = stfa_q;
@@ -873,6 +875,7 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_MTVT: csr_rdata = mtvt_q;
         riscv::CSR_MTFA: csr_rdata = mtfa_q;
+        riscv::CSR_MTFA_INC: csr_rdata = mtfa_q;
         riscv::CSR_MTCA: csr_rdata = mtca_q;
         riscv::CSR_MSCRATCH: csr_rdata = mscratch_q;
         riscv::CSR_MEPC: csr_rdata = mepc_q;
@@ -1731,6 +1734,9 @@ module csr_regfile
         riscv::CSR_VSTFA:
         if (CVA6Cfg.RVH) vstfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
         else update_access_exception = 1'b1;
+        riscv::CSR_VSTFA_INC:
+        if (CVA6Cfg.RVH) vstfa_d = vstfa_q + 256;
+        else update_access_exception = 1'b1;
         riscv::CSR_VSTCA:
         if (CVA6Cfg.RVH) vstca_d = {csr_wdata[CVA6Cfg.XLEN-1:3], 3'b0};
         else update_access_exception = 1'b1;
@@ -1852,6 +1858,13 @@ module csr_regfile
         riscv::CSR_STFA: begin
           if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
             stfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_STFA_INC: begin
+          if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
+            stfa_d = stfa_q + 256;
           end else begin
             update_access_exception = 1'b1;
           end
@@ -2222,6 +2235,14 @@ module csr_regfile
         riscv::CSR_MTFA: begin
           if (CVA6Cfg.RVSCLIC) begin
             mtfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_MTFA_INC: begin
+          if (CVA6Cfg.RVSCLIC) begin
+            mtfa_d = mtfa_q + 256;
           end else begin
             update_access_exception = 1'b1;
           end
