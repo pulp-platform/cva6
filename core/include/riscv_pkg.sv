@@ -435,6 +435,7 @@ package riscv;
     CSR_STFA             = 12'h108,
     CSR_STCA             = 12'h109,
     CSR_SENVCFG          = 12'h10A,
+    CSR_SKSP             = 12'h10B,
     CSR_SSCRATCH         = 12'h140,
     CSR_SEPC             = 12'h141,
     CSR_SCAUSE           = 12'h142,

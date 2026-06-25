@@ -78,6 +78,8 @@ module csr_regfile
     output logic [CVA6Cfg.VLEN-1:0] trap_frame_base_o,
     // Task context base address - CONTROLLER
     output logic [CVA6Cfg.VLEN-1:0] task_context_base_o,
+    // Kernel stack pointer - CONTROLLER
+    output logic [CVA6Cfg.XLEN-1:0] kernel_stack_pointer_o,
     // Output base of exception vector, correct CSR is output (mtvec, stvec) - FRONTEND
     output logic [CVA6Cfg.VLEN-1:0] trap_vector_base_o,
     // Current privilege level the CPU is in - EX_STAGE
@@ -387,6 +389,7 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] stvt_q, stvt_d;
   logic [CVA6Cfg.XLEN-1:0] stfa_q, stfa_d;
   logic [CVA6Cfg.XLEN-1:0] stca_q, stca_d;
+  logic [CVA6Cfg.XLEN-1:0] sksp_q, sksp_d;
   logic [CVA6Cfg.XLEN-1:0] sscratch_q, sscratch_d;
   logic [CVA6Cfg.XLEN-1:0] sepc_q, sepc_d;
   logic [CVA6Cfg.XLEN-1:0] scause_q, scause_d;
@@ -749,6 +752,13 @@ module csr_regfile
         riscv::CSR_STCA: begin
           if (CVA6Cfg.RVS) begin
             csr_rdata = stca_q;
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SKSP: begin
+          if (CVA6Cfg.RVS) begin
+            csr_rdata = sksp_q;
           end else begin
             read_access_exception = 1'b1;
           end
@@ -1595,6 +1605,7 @@ module csr_regfile
       stvt_d       = stvt_q;
       stfa_d       = stfa_q;
       stca_d       = stca_q;
+      sksp_d       = sksp_q;
       sscratch_d   = sscratch_q;
       stval_d      = stval_q;
       satp_d       = satp_q;
@@ -1941,6 +1952,13 @@ module csr_regfile
         riscv::CSR_STCA: begin
           if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
             stca_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+        riscv::CSR_SKSP: begin
+          if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
+            sksp_d = csr_wdata;
           end else begin
             update_access_exception = 1'b1;
           end
@@ -3562,6 +3580,7 @@ module csr_regfile
     clic_vec_irq_o = 1'b0;
     trap_frame_base_o = mtfa_q;
     task_context_base_o = mtca_q;
+    kernel_stack_pointer_o = '0;
     trap_vector_base_o = (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) ? {mtvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}} : {mtvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
     // output user mode stvec
     if (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S) begin
@@ -3569,16 +3588,18 @@ module csr_regfile
         if (CVA6Cfg.RVXHCLIC && trap_to_v) begin
           trap_vector_base_o = {vstvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
         end else begin
-          trap_vector_base_o  = {stvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
-          trap_frame_base_o   = stfa_q;
+          trap_vector_base_o = {stvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
+          trap_frame_base_o = stfa_q;
           task_context_base_o = stca_q;
+          kernel_stack_pointer_o = sksp_q;
         end
       end else if (CVA6Cfg.RVH && trap_to_v) begin
         trap_vector_base_o = {vstvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
       end else begin
-        trap_vector_base_o  = {stvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
-        trap_frame_base_o   = stfa_q;
+        trap_vector_base_o = {stvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
+        trap_frame_base_o = stfa_q;
         task_context_base_o = stca_q;
+        kernel_stack_pointer_o = sksp_q;
       end
     end
 
@@ -3809,6 +3830,7 @@ module csr_regfile
           stvt_q       <= {CVA6Cfg.XLEN{1'b0}};
           stfa_q       <= {CVA6Cfg.XLEN{1'b0}};
           stca_q       <= {CVA6Cfg.XLEN{1'b0}};
+          sksp_q       <= {CVA6Cfg.XLEN{1'b0}};
           sintthresh_q <= '0;
         end
       end
@@ -3934,6 +3956,7 @@ module csr_regfile
           stvt_q       <= stvt_d;
           stfa_q       <= stfa_d;
           stca_q       <= stca_d;
+          sksp_q       <= sksp_d;
           sintthresh_q <= sintthresh_d;
         end
       end
