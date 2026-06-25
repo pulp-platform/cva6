@@ -739,7 +739,7 @@ module csr_regfile
             read_access_exception = 1'b1;
           end
         end
-        riscv::CSR_STFA: begin
+        riscv::CSR_STFA_INC, riscv::CSR_STFA: begin
           if (CVA6Cfg.RVS) begin
             csr_rdata = stfa_q;
           end else begin
@@ -878,6 +878,7 @@ module csr_regfile
         else read_access_exception = 1'b1;
         riscv::CSR_MTVT: csr_rdata = mtvt_q;
         riscv::CSR_MTFA: csr_rdata = mtfa_q;
+        riscv::CSR_MTFA_INC: csr_rdata = mtfa_q;
         riscv::CSR_MTCA: csr_rdata = mtca_q;
         riscv::CSR_MSCRATCH: csr_rdata = mscratch_q;
         riscv::CSR_MEPC: csr_rdata = mepc_q;
@@ -1930,6 +1931,13 @@ module csr_regfile
             update_access_exception = 1'b1;
           end
         end
+        riscv::CSR_STFA_INC: begin
+          if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
+            stfa_d = stfa_q + 256;
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
         riscv::CSR_STCA: begin
           if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
             stca_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
@@ -2296,6 +2304,14 @@ module csr_regfile
         riscv::CSR_MTFA: begin
           if (CVA6Cfg.RVSCLIC) begin
             mtfa_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+          end else begin
+            update_access_exception = 1'b1;
+          end
+        end
+
+        riscv::CSR_MTFA_INC: begin
+          if (CVA6Cfg.RVSCLIC) begin
+            mtfa_d = mtfa_q + 256;
           end else begin
             update_access_exception = 1'b1;
           end

@@ -715,6 +715,8 @@ package riscv;
     CSR_TLB_LOCK_PTE_16  = 12'h5F9,
     CSR_TLB_LOCK_VPN_16  = 12'h5FA,
     CSR_TLB_LOCK_ID_16   = 12'h5FB,
+    // RT features control
+    CSR_STFA_INC         = 12'h5DB,
     // Cache Control (platform specifc)
     CSR_DCACHE_SPM_WAYS  = 12'h5E0,
     CSR_ICACHE_SPM_WAYS  = 12'h5E1,
@@ -727,6 +729,8 @@ package riscv;
     CSR_FENCE_T_PAD      = 12'h7C3,
     CSR_FENCE_T_SEL      = 12'h7C4,
     CSR_FENCE_T_CEIL     = 12'h7C5,
+    // RT features control
+    CSR_MTFA_INC         = 12'h7C6,
     // Triggers
     CSR_TSELECT          = 12'h7A0,
     CSR_TDATA1           = 12'h7A1,
