@@ -92,7 +92,11 @@ module test;
 
   cva6tb_irq_log #(
     .NumIrqs        ( NumClicExtIrqs ),
-    .FirstInstAddr  ( 64'h8000_0000  )
+`ifdef RTCONFIG
+    .FirstInstAddr  ( 64'h01a0_09fe  )
+`else
+    .FirstInstAddr  ( 64'h8020_1b5c  )
+`endif
   ) i_irq_log (
     .clk_i          ( clk            ),
     .rst_ni         ( rst_n          ),
