@@ -597,6 +597,13 @@ module cva6
   logic [CVA6Cfg.NrCommitPorts-1:0][4:0] waddr_commit_id;
   logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.XLEN-1:0] wdata_commit_id;
   logic [CVA6Cfg.NrCommitPorts-1:0] we_gpr_commit_id;
+  logic [CVA6Cfg.NrCommitPorts-1:0][4:0] waddr_commit_raw;
+  logic [CVA6Cfg.NrCommitPorts-1:0][CVA6Cfg.XLEN-1:0] wdata_commit_raw;
+  logic [CVA6Cfg.NrCommitPorts-1:0] we_gpr_commit_raw;
+  // Controller SP write signals
+  logic ctrl_we_gpr;
+  logic [4:0] ctrl_waddr;
+  logic [CVA6Cfg.XLEN-1:0] ctrl_wdata;
   logic [CVA6Cfg.NrCommitPorts-1:0] we_fpr_commit_id;
   // --------------
   // CSR <-> *
@@ -712,6 +719,7 @@ module cva6
   logic clic_irq;
   logic [CVA6Cfg.VLEN-1:0] trap_frame_base;
   logic [CVA6Cfg.VLEN-1:0] task_context_base;
+  logic [CVA6Cfg.XLEN-1:0] kernel_stack_pointer;
   logic [31:0] [CVA6Cfg.XLEN-1:0] int_regs;
   logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs;
   logic [11:0] load_page_offset;
@@ -1266,9 +1274,9 @@ module cva6
       .commit_drop_i          (commit_drop_id_commit),
       .commit_ack_o           (commit_ack_commit_id),
       .commit_macro_ack_o     (commit_macro_ack),
-      .waddr_o                (waddr_commit_id),
-      .wdata_o                (wdata_commit_id),
-      .we_gpr_o               (we_gpr_commit_id),
+      .waddr_o                (waddr_commit_raw),
+      .wdata_o                (wdata_commit_raw),
+      .we_gpr_o               (we_gpr_commit_raw),
       .we_fpr_o               (we_fpr_commit_id),
       .amo_resp_i             (amo_resp),
       .pc_o                   (pc_commit),
@@ -1298,6 +1306,20 @@ module cva6
   );
 
   assign commit_ack = commit_macro_ack & ~commit_drop_id_commit;
+
+  // Mux controller SP write onto commit port 0.
+  // The controller only fires ctrl_we_gpr during hwstack drain completion,
+  // at which point the pipeline is flushed and halted so port 0 is idle.
+  always_comb begin : ctrl_regfile_write_mux
+    waddr_commit_id  = waddr_commit_raw;
+    wdata_commit_id  = wdata_commit_raw;
+    we_gpr_commit_id = we_gpr_commit_raw;
+    if (ctrl_we_gpr) begin
+      waddr_commit_id[0]  = ctrl_waddr;
+      wdata_commit_id[0]  = ctrl_wdata;
+      we_gpr_commit_id[0] = 1'b1;
+    end
+  end
 
   // ---------
   // CSR
@@ -1338,6 +1360,7 @@ module cva6
       .clic_vec_irq_o          (clic_vec_irq),
       .trap_frame_base_o       (trap_frame_base),
       .task_context_base_o     (task_context_base),
+      .kernel_stack_pointer_o  (kernel_stack_pointer),
       .trap_vector_base_o      (trap_vector_base_commit_pcgen),
       .priv_lvl_o              (priv_lvl),
       .mbe_o                   (mbe),
@@ -1526,6 +1549,10 @@ module cva6
       .trap_vector_base_i    (trap_vector_base_commit_pcgen),
       .int_regs_i            (int_regs),
       .fp_regs_i             (fp_regs),
+      .kernel_stack_pointer_i(kernel_stack_pointer),
+      .gpr_we_o              (ctrl_we_gpr),
+      .gpr_waddr_o           (ctrl_waddr),
+      .gpr_wdata_o           (ctrl_wdata),
       .page_offset_i         (load_page_offset),
       .page_offset_matches_o (load_page_offset_matches),
       .frontend_set_pc_o     (ctrl_set_pc),
