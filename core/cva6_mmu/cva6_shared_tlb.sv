@@ -476,15 +476,16 @@ module cva6_shared_tlb #(
   assign update_lfsr = shared_tlb_update_i.valid & all_ways_valid;
   assign repl_way_oh_d = (shared_tlb_update_i.valid) ? shared_tlb_way_bin2oh(repl_way) : '0;
 
-  lzc #(
-      .WIDTH(SHARED_TLB_WAYS)
+  cc_lzc #(
+      .Width(SHARED_TLB_WAYS),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc (
       .in_i   (~way_valid),
       .cnt_o  (inv_way),
       .empty_o(all_ways_valid)
   );
 
-  lfsr #(
+  cc_lfsr #(
       .LfsrWidth(8),
       .OutWidth ($clog2(SHARED_TLB_WAYS))
   ) i_lfsr (

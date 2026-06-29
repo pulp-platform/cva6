@@ -34,9 +34,9 @@ module pmp_entry #(
   logic [CVA6Cfg.PLEN-1:0] mask;
   int unsigned size;
   assign conf_addr_n = {2'b11, ~conf_addr_i};
-  lzc #(
-      .WIDTH(CVA6Cfg.PLEN),
-      .MODE (1'b0)
+  cc_lzc #(
+      .Width(CVA6Cfg.PLEN),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc (
       .in_i   (conf_addr_n),
       .cnt_o  (trail_ones),

@@ -1,14 +1,14 @@
 packages:
   apb:
-    revision: 77ddf073f194d44b9119949d2421be59789e69ae
-    version: 0.2.4
+    revision: 6a2bd0fe9f0822322104ac602fac5739fb063aa0
+    version: null
     source:
       Git: https://github.com/pulp-platform/apb.git
     dependencies:
     - common_cells
   axi:
-    revision: a256a3b86394fedf19e361047fccfdd7f6ef83e4
-    version: 0.39.9
+    revision: 0ccc838fe06aeeb857eb83c6be9a915c4bf99566
+    version: null
     source:
       Git: https://github.com/pulp-platform/axi.git
     dependencies:
@@ -16,8 +16,8 @@ packages:
     - common_verification
     - tech_cells_generic
   axi_riscv_atomics:
-    revision: 97a1dd2ac643c276880420a0cf8eea697f228aa9
-    version: 0.8.3
+    revision: 399ce0aefe79792d11bef8cc706139281d82df08
+    version: null
     source:
       Git: https://github.com/pulp-platform/axi_riscv_atomics.git
     dependencies:
@@ -25,7 +25,7 @@ packages:
     - common_cells
     - common_verification
   clic:
-    revision: 9060df871d420402141b3da9596fd582f3c5730b
+    revision: a05703c66873d55b3c879c661da7fc1014c416db
     version: null
     source:
       Git: https://github.com/pulp-platform/clic.git
@@ -41,10 +41,10 @@ packages:
     - common_cells
     - register_interface
   common_cells:
-    revision: 9ca8a7655f741e7dd5736669a20a301325194c28
-    version: 1.39.0
+    revision: 03d98106aa19952a10360d2230def85144a0008b
+    version: 2.0.0-beta.2
     source:
-      Git: https://github.com/pulp-platform/common_cells
+      Git: https://github.com/pulp-platform/common_cells.git
     dependencies:
     - common_verification
     - tech_cells_generic
@@ -55,8 +55,8 @@ packages:
       Git: https://github.com/pulp-platform/common_verification
     dependencies: []
   opentitan_peripherals:
-    revision: cd3153de2783abd3d03d0595e6c4b32413c62f14
-    version: 0.4.0
+    revision: 7a797ad07d6282280ea968f732ec8f5d5bb8e719
+    version: null
     source:
       Git: https://github.com/pulp-platform/opentitan_peripherals.git
     dependencies:
@@ -64,8 +64,8 @@ packages:
     - register_interface
     - tech_cells_generic
   register_interface:
-    revision: d6e1d4cdaab7870f4faf3f88a1c788eaf5ac129d
-    version: 0.4.7
+    revision: 84a6857c1ca37c0ad455a384a58a855b19317b21
+    version: null
     source:
       Git: https://github.com/pulp-platform/register_interface.git
     dependencies:
@@ -74,8 +74,8 @@ packages:
     - common_cells
     - common_verification
   tech_cells_generic:
-    revision: 7968dd6e6180df2c644636bc6d2908a49f2190cf
-    version: 0.2.13
+    revision: 3a3de73632a06826b1bd9c65a0a2e92b32016845
+    version: 0.2.14
     source:
       Git: https://github.com/pulp-platform/tech_cells_generic.git
     dependencies:

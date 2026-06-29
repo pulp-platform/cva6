@@ -337,7 +337,6 @@ module cva6tb_soc
   ) i_axi_err_slv (
     .clk_i       ( clk           ),
     .rst_ni      ( rst_n         ),
-    .test_i      ( '0            ),
     .slv_req_i   ( axi_err_req   ),
     .slv_resp_o  ( axi_err_rsp   )
   );
@@ -366,7 +365,7 @@ module cva6tb_soc
   );
 
   // Non-matching addresses are directed to an error slave
-  addr_decode #(
+  cc_addr_decode #(
     .NoIndices        ( RegbusOutNum    ),
     .NoRules          ( RegbusRulesNum  ),
     .addr_t           ( reg_addr_t      ),

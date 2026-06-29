@@ -105,7 +105,7 @@ package cva6tb_pkg;
   typedef axi_slv_resp_t axi_slv_rsp_t;
 
   localparam type reg_addr_t = logic [31:0];
-  localparam type reg_idx_t  = logic [cf_math_pkg::idx_width(RegbusOutNum)-1:0];
+  localparam type reg_idx_t  = logic [cc_pkg::idx_width(RegbusOutNum)-1:0];
 
   `REG_BUS_TYPEDEF_ALL(reg, reg_addr_t, logic [31:0], logic [3:0])
 

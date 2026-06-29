@@ -686,7 +686,7 @@ module miss_handler
   logic [CVA6Cfg.DCACHE_SET_ASSOC-1:0] lfsr_oh_raw, cache_ways_oh;
   logic [$clog2(CVA6Cfg.DCACHE_SET_ASSOC)-1:0] lfsr_bin_raw, cache_ways_bin;
 
-  lfsr_8bit #(
+  cc_lfsr_8bit #(
       .WIDTH(CVA6Cfg.DCACHE_SET_ASSOC)
   ) i_lfsr (
       .en_i          (lfsr_enable),

@@ -88,7 +88,7 @@ module acc_dispatcher
 
   `include "common_cells/registers.svh"
 
-  import cf_math_pkg::idx_width;
+  import cc_pkg::idx_width;
 
   /***********************
    *  Common signals     *
@@ -211,7 +211,7 @@ module acc_dispatcher
   logic             acc_req_ready;
 
   accelerator_req_t acc_req_int;
-  spill_register #(
+  cc_spill_register #(
       .T(accelerator_req_t)
   ) i_accelerator_req_register (
       .clk_i  (clk_i),
@@ -353,13 +353,13 @@ module acc_dispatcher
   assign acc_no_ld_pending = (acc_spec_loads_pending == 3'b0) && (acc_disp_loads_pending == 3'b0);
 
   // Count speculative loads. These can still be flushed.
-  counter #(
-      .WIDTH          (3),
-      .STICKY_OVERFLOW(0)
+  cc_counter #(
+      .Width          (3),
+      .StickyOverflow(0)
   ) i_acc_spec_loads (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
-      .clear_i   (flush_ex_i),
+      .clr_i   (flush_ex_i),
       .en_i      ((acc_valid_d && issue_instr_i.op == ACCEL_OP_LOAD) ^ acc_ld_disp),
       .load_i    (1'b0),
       .down_i    (acc_ld_disp),
@@ -369,13 +369,13 @@ module acc_dispatcher
   );
 
   // Count dispatched loads. These cannot be flushed anymore.
-  counter #(
-      .WIDTH          (3),
-      .STICKY_OVERFLOW(0)
+  cc_counter #(
+      .Width          (3),
+      .StickyOverflow(0)
   ) i_acc_disp_loads (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
-      .clear_i   (1'b0),
+      .clr_i   (1'b0),
       .en_i      (acc_ld_disp ^ acc_resp_i.acc_resp.load_complete),
       .load_i    (1'b0),
       .down_i    (acc_resp_i.acc_resp.load_complete),
@@ -398,13 +398,13 @@ module acc_dispatcher
   assign acc_no_st_pending = (acc_spec_stores_pending == 3'b0) && (acc_disp_stores_pending == 3'b0);
 
   // Count speculative stores. These can still be flushed.
-  counter #(
-      .WIDTH          (3),
-      .STICKY_OVERFLOW(0)
+  cc_counter #(
+      .Width          (3),
+      .StickyOverflow(0)
   ) i_acc_spec_stores (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
-      .clear_i   (flush_ex_i),
+      .clr_i   (flush_ex_i),
       .en_i      ((acc_valid_d && issue_instr_i.op == ACCEL_OP_STORE) ^ acc_st_disp),
       .load_i    (1'b0),
       .down_i    (acc_st_disp),
@@ -414,13 +414,13 @@ module acc_dispatcher
   );
 
   // Count dispatched stores. These cannot be flushed anymore.
-  counter #(
-      .WIDTH          (3),
-      .STICKY_OVERFLOW(0)
+  cc_counter #(
+      .Width          (3),
+      .StickyOverflow(0)
   ) i_acc_disp_stores (
       .clk_i     (clk_i),
       .rst_ni    (rst_ni),
-      .clear_i   (1'b0),
+      .clr_i   (1'b0),
       .en_i      (acc_st_disp ^ acc_resp_i.acc_resp.store_complete),
       .load_i    (1'b0),
       .down_i    (acc_resp_i.acc_resp.store_complete),

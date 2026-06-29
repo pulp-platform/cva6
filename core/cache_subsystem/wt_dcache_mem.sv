@@ -167,7 +167,7 @@ module wt_dcache_mem
   assign rd_req_masked = (|rd_req_prio) ? rd_req_prio : rd_req_i;
 
   logic rd_req;
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
       .NumIn    (NumPorts),
       .DataWidth(1)
   ) i_rr_arb_tree (
@@ -250,16 +250,18 @@ module wt_dcache_mem
     assign wbuffer_hit_oh[k] = (|wbuffer_data_i[k].valid) & ({{CVA6Cfg.XLEN_ALIGN_BYTES{1'b0}}, wbuffer_data_i[k].wtag} == (wbuffer_cmp_addr >> CVA6Cfg.XLEN_ALIGN_BYTES));
   end
 
-  lzc #(
-      .WIDTH(CVA6Cfg.WtDcacheWbufDepth)
+  cc_lzc #(
+      .Width(CVA6Cfg.WtDcacheWbufDepth),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc_wbuffer_hit (
       .in_i   (wbuffer_hit_oh),
       .cnt_o  (wbuffer_hit_idx),
       .empty_o()
   );
 
-  lzc #(
-      .WIDTH(CVA6Cfg.DCACHE_SET_ASSOC)
+  cc_lzc #(
+      .Width(CVA6Cfg.DCACHE_SET_ASSOC),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc_rd_hit (
       .in_i   (rd_hit_oh_o),
       .cnt_o  (rd_hit_idx),

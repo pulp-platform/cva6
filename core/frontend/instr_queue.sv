@@ -155,9 +155,9 @@ module instr_queue
     end
 
     // calculate a branch mask, e.g.: get the first taken branch
-    lzc #(
-        .WIDTH(CVA6Cfg.INSTR_PER_FETCH),
-        .MODE (0)                         // count trailing zeros
+    cc_lzc #(
+        .Width(CVA6Cfg.INSTR_PER_FETCH),
+        .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)  // count trailing zeros
     ) i_lzc_branch_index (
         .in_i   (taken),         // we want to count trailing zeros
         .cnt_o  (branch_index),  // first branch on branch_index
@@ -180,8 +180,8 @@ module instr_queue
     assign consumed_extended = {push_instr_fifo, push_instr_fifo} >> idx_is_q;
     assign consumed_o = consumed_extended[CVA6Cfg.INSTR_PER_FETCH-1:0];
     // count the numbers of valid instructions we've pushed from this package
-    popcount #(
-        .INPUT_WIDTH(CVA6Cfg.INSTR_PER_FETCH)
+    cc_popcount #(
+        .InputWidth(CVA6Cfg.INSTR_PER_FETCH)
     ) i_popcount (
         .data_i    (push_instr_fifo),
         .popcount_o(popcount)
@@ -508,8 +508,8 @@ module instr_queue
       .pop_i     (pop_address)
   );
 
-  unread i_unread_branch_mask (.d_i(|branch_mask_extended));
-  unread i_unread_fifo_pos (.d_i(|fifo_pos_extended));  // we don't care about the lower signals
+  cc_unread i_unread_branch_mask (.d_i(|branch_mask_extended));
+  cc_unread i_unread_fifo_pos (.d_i(|fifo_pos_extended));  // we don't care about the lower signals
 
   if (CVA6Cfg.RVC) begin : gen_pc_q_with_c
     always_ff @(posedge clk_i or negedge rst_ni) begin

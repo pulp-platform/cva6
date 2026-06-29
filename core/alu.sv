@@ -214,8 +214,8 @@ module alu
   if (CVA6Cfg.RVB) begin : gen_bitmanip
     // Count Population + Count population Word
 
-    popcount #(
-        .INPUT_WIDTH(CVA6Cfg.XLEN)
+    cc_popcount #(
+        .InputWidth(CVA6Cfg.XLEN)
     ) i_cpop_count (
         .data_i    (operand_a_cpop),
         .popcount_o(cpop)
@@ -223,9 +223,9 @@ module alu
 
     // Count Leading/Trailing Zeros
     // 64b
-    lzc #(
-        .WIDTH(CVA6Cfg.XLEN),
-        .MODE (1)
+    cc_lzc #(
+        .Width(CVA6Cfg.XLEN),
+        .Mode (cc_pkg::LZC_LEADING_ZERO_CNT)
     ) i_clz_64b (
         .in_i(operand_a_bitmanip),
         .cnt_o(lz_tz_count),
@@ -233,9 +233,9 @@ module alu
     );
     if (CVA6Cfg.IS_XLEN64) begin
       //32b
-      lzc #(
-          .WIDTH(32),
-          .MODE (1)
+      cc_lzc #(
+          .Width(32),
+          .Mode (cc_pkg::LZC_LEADING_ZERO_CNT)
       ) i_clz_32b (
           .in_i(operand_a_bitmanip[31:0]),
           .cnt_o(lz_tz_wcount),

@@ -784,13 +784,13 @@ module controller
   assign load_pad_cnt = fence_t_src_sel_i ? ((priv_lvl_q == riscv::PRIV_LVL_U) && (priv_lvl_i != riscv::PRIV_LVL_U))
                                             : (time_irq_i & ~time_irq_q);
 
-  counter #(
-      .WIDTH          (4),
-      .STICKY_OVERFLOW(0)
+  cc_counter #(
+      .Width          (4),
+      .StickyOverflow(0)
   ) i_drain_cnt (
       .clk_i,
       .rst_ni,
-      .clear_i   (cache_busy_i),       // Start counting from 0 when cache is busy
+      .clr_i   (cache_busy_i),       // Start counting from 0 when cache is busy
       .en_i      (drain_cnt != 4'hf),  // Stop counting when saturated
       .load_i    (1'b0),
       .down_i    (1'b0),
@@ -799,13 +799,13 @@ module controller
       .overflow_o()
   );
 
-  counter #(
-      .WIDTH          (32),
-      .STICKY_OVERFLOW(0)
+  cc_counter #(
+      .Width          (32),
+      .StickyOverflow(0)
   ) i_pad_cnt (
       .clk_i,
       .rst_ni,
-      .clear_i   (1'b0),
+      .clr_i   (1'b0),
       .en_i      (|pad_cnt),       // Count until 0
       .load_i    (load_pad_cnt),   // Start counting on positive edge of time irq
       .down_i    (1'b1),           // Always count down

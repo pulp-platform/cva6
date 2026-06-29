@@ -174,8 +174,9 @@ module wt_dcache_missunit
   assign busy_o = state_q != IDLE;
 
   // read port arbiter
-  lzc #(
-      .WIDTH(NumPorts)
+  cc_lzc #(
+      .Width(NumPorts),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc_reqs (
       .in_i   (miss_req_masked_d),
       .cnt_o  (miss_port_idx),
@@ -194,8 +195,9 @@ module wt_dcache_missunit
   ///////////////////////////////////////////////////////
 
   // find invalid cache line
-  lzc #(
-      .WIDTH(CVA6Cfg.DCACHE_SET_ASSOC)
+  cc_lzc #(
+      .Width(CVA6Cfg.DCACHE_SET_ASSOC),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc_inv (
       .in_i   (~miss_vld_bits_i[miss_port_idx]),
       .cnt_o  (inv_way),
@@ -203,7 +205,7 @@ module wt_dcache_missunit
   );
 
   // generate random cacheline index
-  lfsr #(
+  cc_lfsr #(
       .LfsrWidth(8),
       .OutWidth (CVA6Cfg.DCACHE_SET_ASSOC_WIDTH)
   ) i_lfsr_inv (
@@ -340,7 +342,7 @@ module wt_dcache_missunit
   ///////////////////////////////////////////////////////
 
   logic sc_fail, sc_pass, sc_backoff_over;
-  exp_backoff #(
+  cc_exp_backoff #(
       .Seed  (3),
       .MaxExp(16)
   ) i_exp_backoff (

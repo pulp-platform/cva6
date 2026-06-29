@@ -106,18 +106,18 @@ module serdiv
   assign lzc_a_input  = (opcode_i[0] & op_a_sign) ? {~op_a_i[$high(op_a_i)-1:0], 1'b1} : op_a_i;
   assign lzc_b_input  = (opcode_i[0] & op_b_sign) ? ~op_b_i : op_b_i;
 
-  lzc #(
-      .MODE (1),     // count leading zeros
-      .WIDTH(WIDTH)
+  cc_lzc #(
+      .Mode (cc_pkg::LZC_LEADING_ZERO_CNT),  // count leading zeros
+      .Width(WIDTH)
   ) i_lzc_a (
       .in_i   (lzc_a_input),
       .cnt_o  (lzc_a_result),
       .empty_o(lzc_a_no_one)
   );
 
-  lzc #(
-      .MODE (1),     // count leading zeros
-      .WIDTH(WIDTH)
+  cc_lzc #(
+      .Mode (cc_pkg::LZC_LEADING_ZERO_CNT),  // count leading zeros
+      .Width(WIDTH)
   ) i_lzc_b (
       .in_i   (lzc_b_input),
       .cnt_o  (lzc_b_result),

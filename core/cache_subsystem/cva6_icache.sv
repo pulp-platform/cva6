@@ -222,7 +222,7 @@ module cva6_icache
   // We only need one bit to decide between SPM and not
   logic cur_idx;
 
-  addr_decode #(
+  cc_addr_decode #(
       .NoIndices(2),
       .NoRules  (3),
       .addr_t   (paddr_t),
@@ -501,8 +501,9 @@ module cva6_icache
 
 
   // find invalid cache line
-  lzc #(
-      .WIDTH(CVA6Cfg.ICACHE_SET_ASSOC)
+  cc_lzc #(
+      .Width(CVA6Cfg.ICACHE_SET_ASSOC),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc (
       .in_i(~(vld_rdata | icache_spm_ways_i)),  // count SPM ways as valid so they are not replaced
       .cnt_o(inv_way),
@@ -510,7 +511,7 @@ module cva6_icache
   );
 
   // generate random cacheline index
-  lfsr #(
+  cc_lfsr #(
       .LfsrWidth(8),
       .OutWidth (CVA6Cfg.ICACHE_SET_ASSOC_WIDTH)
   ) i_lfsr (
@@ -534,8 +535,9 @@ module cva6_icache
   end
 
 
-  lzc #(
-      .WIDTH(CVA6Cfg.ICACHE_SET_ASSOC)
+  cc_lzc #(
+      .Width(CVA6Cfg.ICACHE_SET_ASSOC),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc_hit (
       .in_i   (cl_hit),
       .cnt_o  (hit_idx),

@@ -242,7 +242,7 @@ module std_nbdcache
 
       // Decode the address (rather, the address tag)
       // of an incoming request
-      addr_decode #(
+      cc_addr_decode #(
           .NoIndices(3),
           .NoRules  (4),
           .addr_t   (paddr_t),

@@ -137,9 +137,9 @@ module load_unit
   //  write in the first available slot
   generate
     if (CVA6Cfg.NrLoadBufEntries > 1) begin : ldbuf_free_index_multi_gen
-      lzc #(
-          .WIDTH(CVA6Cfg.NrLoadBufEntries),
-          .MODE (1'b0)                       // Count leading zeros
+      cc_lzc #(
+          .Width(CVA6Cfg.NrLoadBufEntries),
+          .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)  // Count leading zeros
       ) lzc_windex_i (
           .in_i   (~ldbuf_valid_q),
           .cnt_o  (ldbuf_free_index),

@@ -119,7 +119,7 @@ module wt_axi_adapter
 
   assign arb_gnt = axi_rd_gnt | axi_wr_gnt;
 
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
       .NumIn    (2),
       .DataWidth(1),
       .AxiVldRdy(1'b1),

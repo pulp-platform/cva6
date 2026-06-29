@@ -626,8 +626,8 @@ module load_store_unit
   // amount of pipeline registers inserted for load/store return path
   // can be tuned to trade-off IPC vs. cycle time
 
-  shift_reg #(
-      .dtype(logic [$bits(ld_valid) + $bits(ld_trans_id) + $bits(ld_result) + $bits(ld_ex) - 1:0]),
+  cc_shift_register #(
+      .data_t(logic [$bits(ld_valid) + $bits(ld_trans_id) + $bits(ld_result) + $bits(ld_ex) - 1:0]),
       .Depth(CVA6Cfg.NrLoadPipeRegs)
   ) i_pipe_reg_load (
       .clk_i,
@@ -636,8 +636,8 @@ module load_store_unit
       .d_o({load_valid_o, load_trans_id_o, load_result_o, load_exception_o})
   );
 
-  shift_reg #(
-      .dtype(logic [$bits(st_valid) + $bits(st_trans_id) + $bits(st_result) + $bits(st_ex) - 1:0]),
+  cc_shift_register #(
+      .data_t(logic [$bits(st_valid) + $bits(st_trans_id) + $bits(st_result) + $bits(st_ex) - 1:0]),
       .Depth(CVA6Cfg.NrStorePipeRegs)
   ) i_pipe_reg_store (
       .clk_i,

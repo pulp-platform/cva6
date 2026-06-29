@@ -1960,21 +1960,20 @@ module cva6
         .DEPTH(PC_QUEUE_DEPTH),
         .FPGA_EN(CVA6Cfg.FpgaEn)
     ) i_pc_fifo (
-        .clk_i     (clk_i),
-        .rst_ni    (rst_ni),
-        .flush_i   ('0),
-        .testmode_i('0),
-        .full_o    (),
-        .empty_o   (pc_empty[i]),
-        .usage_o   (),
-        .data_i    (commit_instr_id_commit[i].pc),
-        .push_i    (commit_ack[i] & ~commit_instr_id_commit[i].ex.valid),
-        .data_o    (pc_data[i]),
-        .pop_i     (pc_pop[i])
+        .clk_i  (clk_i),
+        .rst_ni (rst_ni),
+        .flush_i('0),
+        .full_o (),
+        .empty_o(pc_empty[i]),
+        .usage_o(),
+        .data_i (commit_instr_id_commit[i].pc),
+        .push_i (commit_ack[i] & ~commit_instr_id_commit[i].ex.valid),
+        .data_o (pc_data[i]),
+        .pop_i  (pc_pop[i])
     );
   end
 
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
       .NumIn(CVA6Cfg.NrCommitPorts),
       .DataWidth(64)
   ) i_rr_arb_tree (

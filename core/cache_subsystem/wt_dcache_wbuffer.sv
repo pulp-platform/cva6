@@ -247,8 +247,9 @@ module wt_dcache_wbuffer
   ///////////////////////////////////////////////////////
 
   // get byte offset
-  lzc #(
-      .WIDTH(CVA6Cfg.XLEN / 8)
+  cc_lzc #(
+      .Width(CVA6Cfg.XLEN / 8),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_vld_bdirty (
       .in_i   (bdirty[dirty_ptr]),
       .cnt_o  (bdirty_off),
@@ -350,7 +351,7 @@ module wt_dcache_wbuffer
   assign free_tx_slots = |(~tx_vld_o);
 
   // next word to lookup in the cache
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
       .NumIn    (CVA6Cfg.DCACHE_MAX_TX),
       .LockIn   (1'b1),
       .DataWidth(1)
@@ -442,8 +443,9 @@ module wt_dcache_wbuffer
   assign rdy    = (|wbuffer_hit_oh) | (~full);
 
   // next free entry in the buffer
-  lzc #(
-      .WIDTH(CVA6Cfg.WtDcacheWbufDepth)
+  cc_lzc #(
+      .Width(CVA6Cfg.WtDcacheWbufDepth),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_vld_lzc (
       .in_i   (~valid),
       .cnt_o  (next_ptr),
@@ -451,8 +453,9 @@ module wt_dcache_wbuffer
   );
 
   // get index of hit
-  lzc #(
-      .WIDTH(CVA6Cfg.WtDcacheWbufDepth)
+  cc_lzc #(
+      .Width(CVA6Cfg.WtDcacheWbufDepth),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_hit_lzc (
       .in_i   (wbuffer_hit_oh),
       .cnt_o  (hit_ptr),
@@ -460,7 +463,7 @@ module wt_dcache_wbuffer
   );
 
   // next dirty word to serve
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
       .NumIn   (CVA6Cfg.WtDcacheWbufDepth),
       .LockIn  (1'b1),
       .DataType(wbuffer_t)
@@ -479,7 +482,7 @@ module wt_dcache_wbuffer
   );
 
   // next word to lookup in the cache
-  rr_arb_tree #(
+  cc_rr_arb_tree #(
       .NumIn   (CVA6Cfg.WtDcacheWbufDepth),
       .DataType(wbuffer_t)
   ) i_clean_rr (
