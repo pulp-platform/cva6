@@ -39,9 +39,9 @@ module pmp_entry #(
   // CVA6 implements G=1. Bit 0 does not participate in either TOR boundary.
   assign tor_conf_addr = {conf_addr_i[CVA6Cfg.PLEN-3:1], 1'b0};
   assign tor_conf_addr_prev = {conf_addr_prev_i[CVA6Cfg.PLEN-3:1], 1'b0};
-  lzc #(
-      .WIDTH(CVA6Cfg.PLEN),
-      .MODE (1'b0)
+  cc_lzc #(
+      .Width(CVA6Cfg.PLEN),
+      .Mode (cc_pkg::LZC_TRAILING_ZERO_CNT)
   ) i_lzc (
       .in_i   (conf_addr_n),
       .cnt_o  (trail_ones),

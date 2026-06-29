@@ -167,7 +167,7 @@ module std_cache_subsystem
 
 
   // AR Channel
-  stream_arbiter #(
+  cc_stream_arbiter #(
       .DATA_T(axi_ar_chan_t),
       .N_INP (3)
   ) i_stream_arbiter_ar (
@@ -182,7 +182,7 @@ module std_cache_subsystem
   );
 
   // AW Channel
-  stream_arbiter #(
+  cc_stream_arbiter #(
       .DATA_T(axi_aw_chan_t),
       .N_INP (3)
   ) i_stream_arbiter_aw (
@@ -248,7 +248,7 @@ module std_cache_subsystem
   // this is equal to setting it to zero
   assign w_select_arbiter = w_fifo_empty ? (axi_req_o.aw_valid ? w_select : 0) : w_select_fifo;
 
-  stream_mux #(
+  cc_stream_mux #(
       .DATA_T(axi_w_chan_t),
       .N_INP (3)
   ) i_stream_mux_w (
@@ -282,7 +282,7 @@ module std_cache_subsystem
     endcase
   end
 
-  stream_demux #(
+  cc_stream_demux #(
       .N_OUP(3)
   ) i_stream_demux_r (
       .inp_valid_i(axi_resp_i.r_valid),
@@ -309,7 +309,7 @@ module std_cache_subsystem
     endcase
   end
 
-  stream_demux #(
+  cc_stream_demux #(
       .N_OUP(3)
   ) i_stream_demux_b (
       .inp_valid_i(axi_resp_i.b_valid),

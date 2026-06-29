@@ -82,8 +82,8 @@ module cva6tb_rtc_timer #(
   end
 
   // Sync the RTC signal through a classic multi-stage edge-triggered synchronizer
-  sync #(
-    .STAGES   ( 2          )
+  tc_sync #(
+    .Stages   ( 2          )
   ) i_sync (
     .clk_i    ( clk_i      ),
     .rst_ni   ( rst_ni     ),
