@@ -234,12 +234,7 @@ sources:
       - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_72_64_dec.sv
       - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_72_64_enc.sv
       # HPDCache SRAM models
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_ecc_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_ecc_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_1rw.sv
-      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_ecc_1rw.sv
+      - common/local/util/hpdcache_tc_sram.sv
 
       # Physical Memory Protection
       - core/pmp/src/pmp.sv
