@@ -54,21 +54,6 @@ packages:
     source:
       Git: https://github.com/pulp-platform/common_verification
     dependencies: []
-  fpnew:
-    revision: a74d99a32bd11ce0b05a82b0d6d26f98df3bba65
-    version: null
-    source:
-      Git: https://github.com/openhwgroup/cvfpu.git
-    dependencies:
-    - common_cells
-    - fpu_div_sqrt_mvp
-  fpu_div_sqrt_mvp:
-    revision: 86e1f558b3c95e91577c41b2fc452c86b04e85ac
-    version: 1.0.4
-    source:
-      Git: https://github.com/pulp-platform/fpu_div_sqrt_mvp.git
-    dependencies:
-    - common_cells
   opentitan_peripherals:
     revision: cd3153de2783abd3d03d0595e6c4b32413c62f14
     version: 0.4.0
