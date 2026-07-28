@@ -9,5 +9,5 @@ VERIBLE=${VERIBLE:-verible-verilog-format}
 cd "$(dirname "$0")/.." || exit 1
 find core -regex ".*\.\(v\|sv\)$" \
   -not -path "core/cache_subsystem/hpdcache/*" -not -path "core/cvfpu/*" |
-  grep -v "^core/include/.*_config_pkg\.sv$" |
+  grep -v -e "^core/include/.*_config_pkg\.sv$" -e "^core/fpnew\.pickle\.sv$" |
   xargs "$VERIBLE" --inplace

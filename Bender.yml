@@ -13,7 +13,7 @@ remotes:
 dependencies:
   axi: { version: 0.39.10 }
   common_cells: { version: 1.40.0 }
-  fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 3eb6afe } # branch: develop
+  # fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 3eb6afe } # branch: develop -> pickled version is used.
   tech_cells_generic: { version: 0.2.14 }
   # Required by standalone CVA6 testbench
   axi_riscv_atomics: { version: 0.8.3, target: cva6tb }
@@ -146,6 +146,9 @@ sources:
       - core/include/wt_cache_pkg.sv
       - core/include/std_cache_pkg.sv
       - core/include/aes_pkg.sv
+
+      # FPU (pickled with `bender pickle --top fpnew_top --prefix openhw_ --expand-macros`)
+      - core/fpnew.pickle.sv
 
       # Extension Interface
       - core/cvxif_example/include/cvxif_instr_pkg.sv
