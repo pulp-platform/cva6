@@ -106,9 +106,9 @@ module controller
     // Address of trap vector table entry - CSR
     input logic [CVA6Cfg.VLEN-1:0] trap_vector_base_i,
     // Integer Register File content - ISSUE_STAGE
-    input logic [31:0] [CVA6Cfg.XLEN-1:0] int_regs_i,
+    input logic [31:0][CVA6Cfg.XLEN-1:0] int_regs_i,
     // Floating Point Register File content - ISSUE_STAGE
-    input logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs_i,
+    input logic [31:0][CVA6Cfg.XLEN-1:0] fp_regs_i,
     // Kernel stack pointer from CSR - CSR_REGFILE
     input logic [CVA6Cfg.XLEN-1:0] kernel_stack_pointer_i,
     // Write enable to integer register file for SP update - ISSUE_STAGE
@@ -204,7 +204,7 @@ module controller
   logic [CVA6Cfg.VLEN-1:0] vec_irq_address;
   logic [CVA6Cfg.VLEN-1:0] trap_vector_base_d, trap_vector_base_q;
 
-  assign trap_vector_base_d = vec_irq_address;
+  assign trap_vector_base_d    = vec_irq_address;
 
   assign icache_dreq_o.req     = vec_irq_icache_req;
   assign icache_dreq_o.vaddr   = vec_irq_address;
@@ -212,7 +212,7 @@ module controller
   assign icache_dreq_o.kill_s1 = '0;
   assign icache_dreq_o.kill_s2 = '0;
 
-  assign frontend_next_pc_o = icache_drsp_i.data;
+  assign frontend_next_pc_o    = icache_drsp_i.data;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
@@ -282,45 +282,45 @@ module controller
 
   // Hwstack fill FSM signals
   hwstack_fifo_fill_state_e hwstack_fill_state_d, hwstack_fill_state_q;
-  logic               [4:0] hwstack_regs_count_d, hwstack_regs_count_q;
-  logic               [4:0] hwstack_regs_num_d,   hwstack_regs_num_q;
+  logic [4:0] hwstack_regs_count_d, hwstack_regs_count_q;
+  logic [4:0] hwstack_regs_num_d, hwstack_regs_num_q;
 
   // Hwstack drain FSM signals
-  hwstack_fifo_drain_state_e hwstack_drain_state_d,   hwstack_drain_state_q;
-  logic   [CVA6Cfg.VLEN-1:0] hwstack_drain_address_d, hwstack_drain_address_q;
+  hwstack_fifo_drain_state_e hwstack_drain_state_d, hwstack_drain_state_q;
+  logic [CVA6Cfg.VLEN-1:0] hwstack_drain_address_d, hwstack_drain_address_q;
 
   // Hwstack configuration
   logic [1:0] hwstack_config;
   logic [1:0] hwstack_config_d, hwstack_config_q;
 
-  logic                     [4:0] hwstack_regs_num;
-  logic [31:0] [CVA6Cfg.XLEN-1:0] hwstack_reg_pool;
+  logic [                         4:0]                   hwstack_regs_num;
+  logic [                        31:0][CVA6Cfg.XLEN-1:0] hwstack_reg_pool;
 
   // Hwstack FIFO control signals
-  logic [CVA6Cfg.HwstackFifoDepth-1:0] [CVA6Cfg.XLEN-1:0] hwstack_fifo_load_data;
-  logic                                [CVA6Cfg.XLEN-1:0] hwstack_fifo_wdata;
-  logic                                [CVA6Cfg.XLEN-1:0] hwstack_fifo_rdata;
-  logic                                                   hwstack_fifo_load;
-  logic                                                   hwstack_fifo_full;
-  logic                                                   hwstack_fifo_empty;
-  logic                                                   hwstack_fifo_push;
-  logic                                                   hwstack_fifo_pop;
+  logic [CVA6Cfg.HwstackFifoDepth-1:0][CVA6Cfg.XLEN-1:0] hwstack_fifo_load_data;
+  logic [            CVA6Cfg.XLEN-1:0]                   hwstack_fifo_wdata;
+  logic [            CVA6Cfg.XLEN-1:0]                   hwstack_fifo_rdata;
+  logic                                                  hwstack_fifo_load;
+  logic                                                  hwstack_fifo_full;
+  logic                                                  hwstack_fifo_empty;
+  logic                                                  hwstack_fifo_push;
+  logic                                                  hwstack_fifo_pop;
 
   // Data cache request signals
-  logic hwstack_dcache_req_valid;
+  logic                                                  hwstack_dcache_req_valid;
 
-  assign dcache_req_o.data_req      = hwstack_dcache_req_valid;
+  assign dcache_req_o.data_req = hwstack_dcache_req_valid;
   assign dcache_req_o.address_index = hwstack_drain_address_q[CVA6Cfg.DCACHE_INDEX_WIDTH-1:0];
   assign dcache_req_o.address_tag   = hwstack_drain_address_q[CVA6Cfg.DCACHE_TAG_WIDTH+CVA6Cfg.DCACHE_INDEX_WIDTH-1:CVA6Cfg.DCACHE_INDEX_WIDTH];
-  assign dcache_req_o.data_wdata    = hwstack_fifo_rdata;
-  assign dcache_req_o.data_wuser    = '0;
-  assign dcache_req_o.data_we       = 1'b1;
-  assign dcache_req_o.data_be       = '1;
-  assign dcache_req_o.data_size     = '1;
-  assign dcache_req_o.data_id       = '0;
-  assign dcache_req_o.tag_valid     = '0;
-  assign dcache_req_o.kill_req      = '0;
-  assign dcache_req_o.cbo_op        = '0;
+  assign dcache_req_o.data_wdata = hwstack_fifo_rdata;
+  assign dcache_req_o.data_wuser = '0;
+  assign dcache_req_o.data_we = 1'b1;
+  assign dcache_req_o.data_be = '1;
+  assign dcache_req_o.data_size = '1;
+  assign dcache_req_o.data_id = '0;
+  assign dcache_req_o.tag_valid = '0;
+  assign dcache_req_o.kill_req = '0;
+  assign dcache_req_o.cbo_op = '0;
 
   assign hwstack_fifo_wdata = hwstack_reg_pool[hwstack_regs_count_q];
 
@@ -356,30 +356,31 @@ module controller
     hwstack_reg_pool     = '0;
     hwstack_regs_num     = '0;
     hwstack_regs_count_o = '0;
-    case(hwstack_config)
+    case (hwstack_config)
       2'b01: begin
         // Only caller-saved registers
         hwstack_regs_num = 5'd16;
-        hwstack_reg_pool[ 0] = int_regs_i[ 1]; // ra
-        hwstack_reg_pool[ 1] = int_regs_i[ 2]; // sp
-        hwstack_reg_pool[ 2] = int_regs_i[ 5]; // t0
-        hwstack_reg_pool[ 3] = int_regs_i[ 6]; // t1
-        hwstack_reg_pool[ 4] = int_regs_i[ 7]; // t2
-        hwstack_reg_pool[ 5] = int_regs_i[10]; // a0
-        hwstack_reg_pool[ 6] = int_regs_i[11]; // a1
-        hwstack_reg_pool[ 7] = int_regs_i[12]; // a2
-        hwstack_reg_pool[ 8] = int_regs_i[13]; // a3
-        hwstack_reg_pool[ 9] = int_regs_i[14]; // a4
-        hwstack_reg_pool[10] = int_regs_i[15]; // a5
-        hwstack_reg_pool[11] = int_regs_i[16]; // a6
-        hwstack_reg_pool[12] = int_regs_i[17]; // a7
-        hwstack_reg_pool[13] = int_regs_i[28]; // t3
-        hwstack_reg_pool[14] = int_regs_i[29]; // t4
-        hwstack_reg_pool[15] = int_regs_i[30]; // t5
-        hwstack_reg_pool[16] = int_regs_i[31]; // t6
+        hwstack_reg_pool[0] = int_regs_i[1];  // ra
+        hwstack_reg_pool[1] = int_regs_i[2];  // sp
+        hwstack_reg_pool[2] = int_regs_i[5];  // t0
+        hwstack_reg_pool[3] = int_regs_i[6];  // t1
+        hwstack_reg_pool[4] = int_regs_i[7];  // t2
+        hwstack_reg_pool[5] = int_regs_i[10];  // a0
+        hwstack_reg_pool[6] = int_regs_i[11];  // a1
+        hwstack_reg_pool[7] = int_regs_i[12];  // a2
+        hwstack_reg_pool[8] = int_regs_i[13];  // a3
+        hwstack_reg_pool[9] = int_regs_i[14];  // a4
+        hwstack_reg_pool[10] = int_regs_i[15];  // a5
+        hwstack_reg_pool[11] = int_regs_i[16];  // a6
+        hwstack_reg_pool[12] = int_regs_i[17];  // a7
+        hwstack_reg_pool[13] = int_regs_i[28];  // t3
+        hwstack_reg_pool[14] = int_regs_i[29];  // t4
+        hwstack_reg_pool[15] = int_regs_i[30];  // t5
+        hwstack_reg_pool[16] = int_regs_i[31];  // t6
         if (hwstack_fill_state_q != HWSTACK_FILL_IDLE) begin
           hwstack_regs_count_o = get_abi_index(hwstack_regs_count_q);
-        end;
+        end
+        ;
       end
       2'b10: begin
         // All GPRs
@@ -391,18 +392,18 @@ module controller
   end
 
   hwstack_fifo #(
-    .CVA6Cfg      ( CVA6Cfg               )
+      .CVA6Cfg(CVA6Cfg)
   ) i_hwstack_fifo (
-    .clk_i       ( clk_i                  ),
-    .rst_ni      ( rst_ni                 ),
-    .load_i      ( hwstack_fifo_load      ),
-    .load_data_i ( hwstack_fifo_load_data ),
-    .data_i      ( hwstack_fifo_wdata     ),
-    .push_i      ( hwstack_fifo_push      ),
-    .pop_i       ( hwstack_fifo_pop       ),
-    .data_o      ( hwstack_fifo_rdata     ),
-    .empty_o     ( hwstack_fifo_empty     ),
-    .full_o      ( hwstack_fifo_full      )
+      .clk_i      (clk_i),
+      .rst_ni     (rst_ni),
+      .load_i     (hwstack_fifo_load),
+      .load_data_i(hwstack_fifo_load_data),
+      .data_i     (hwstack_fifo_wdata),
+      .push_i     (hwstack_fifo_push),
+      .pop_i      (hwstack_fifo_pop),
+      .data_o     (hwstack_fifo_rdata),
+      .empty_o    (hwstack_fifo_empty),
+      .full_o     (hwstack_fifo_full)
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -434,7 +435,7 @@ module controller
     hwstack_fifo_push    = 1'b0;
     hwstack_pushing_o    = 1'b0;
     gpr_we_o             = 1'b0;
-    gpr_waddr_o          = 5'd2; // x2 = sp
+    gpr_waddr_o          = 5'd2;  // x2 = sp
     gpr_wdata_o          = kernel_stack_pointer_i;
     unique case (hwstack_fill_state_q)
 
@@ -495,7 +496,7 @@ module controller
       HWSTACK_DRAIN_IDLE: begin
         if (ex_valid_i && clic_irq_i && (|clic_rstk_i)) begin
           hwstack_drain_address_d = (clic_rstk_i == 2'b01) ? trap_frame_base_i : task_context_base_i;
-          hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
+          hwstack_drain_state_d = HWSTACK_DRAIN_SEND_REQ;
         end
       end
 
@@ -508,7 +509,7 @@ module controller
           hwstack_dcache_req_valid = 1'b1;
           if (dcache_rsp_i.data_gnt) begin
             hwstack_fifo_pop        = 1'b1;
-            hwstack_drain_address_d = hwstack_drain_address_q + (CVA6Cfg.XLEN/8);
+            hwstack_drain_address_d = hwstack_drain_address_q + (CVA6Cfg.XLEN / 8);
             hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
           end else begin
             hwstack_drain_state_d = HWSTACK_DRAIN_WAIT_GNT;
@@ -520,7 +521,7 @@ module controller
         hwstack_dcache_req_valid = 1'b1;
         if (dcache_rsp_i.data_gnt) begin
           hwstack_fifo_pop        = 1'b1;
-          hwstack_drain_address_d = hwstack_drain_address_q + (CVA6Cfg.XLEN/8);
+          hwstack_drain_address_d = hwstack_drain_address_q + (CVA6Cfg.XLEN / 8);
           hwstack_drain_state_d   = HWSTACK_DRAIN_SEND_REQ;
         end
       end

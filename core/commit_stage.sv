@@ -422,10 +422,10 @@ module commit_stage
     // interrupts are correctly prioritized in the CSR reg file, exceptions are prioritized here
     exception_o.valid = 1'b0;
     exception_o.cause = '0;
-    exception_o.tval  = '0;
+    exception_o.tval = '0;
     exception_o.tval2 = '0;
     exception_o.tinst = '0;
-    exception_o.gva   = 1'b0;
+    exception_o.gva = 1'b0;
 
     pc_o = commit_instr_int[0].pc;
 

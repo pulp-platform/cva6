@@ -370,7 +370,7 @@ module cva6
     input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,  // interrupt source ID
     input logic [7:0] clic_irq_level_i,  // interrupt level is 8-bit from CLIC spec
     input riscv::priv_lvl_t clic_irq_priv_i,  // CLIC interrupt privilege level
-    input logic [1:0] clic_irq_rstk_i, // CLIC interrupt register stacking configuration
+    input logic [1:0] clic_irq_rstk_i,  // CLIC interrupt register stacking configuration
     input logic clic_irq_v_i,  // CLIC interrupt virtualization bit (only for vCLIC)
     input logic [5:0] clic_irq_vsid_i,  // CLIC interrupt Virtual Supervisor ID (only for vCLIC)
     input logic clic_irq_shv_i,  // selective hardware vectoring bit
@@ -719,8 +719,8 @@ module cva6
   logic [CVA6Cfg.VLEN-1:0] trap_frame_base;
   logic [CVA6Cfg.VLEN-1:0] task_context_base;
   logic [CVA6Cfg.XLEN-1:0] kernel_stack_pointer;
-  logic [31:0] [CVA6Cfg.XLEN-1:0] int_regs;
-  logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs;
+  logic [31:0][CVA6Cfg.XLEN-1:0] int_regs;
+  logic [31:0][CVA6Cfg.XLEN-1:0] fp_regs;
   logic [11:0] load_page_offset;
   logic load_page_offset_matches;
   logic hwstack_pushing;
@@ -789,7 +789,7 @@ module cva6
   // --------------------
   // Next commit PC logic
   // --------------------
-  logic scoreboard_empty;
+  logic                    scoreboard_empty;
   logic [CVA6Cfg.VLEN-1:0] frontend_next_pc;
   logic [CVA6Cfg.VLEN-1:0] issue_next_pc;
   logic [CVA6Cfg.VLEN-1:0] next_commit_pc;
@@ -807,29 +807,29 @@ module cva6
       .icache_drsp_t(icache_drsp_t)
   ) i_frontend (
       .clk_i,
-      .rst_ni             (rst_uarch_n),
-      .boot_addr_i        (rst_addr_ctrl_if),
-      .flush_bp_i         ((CVA6Cfg.RVU || CVA6Cfg.RVS) ? flush_ctrl_bp : 1'b0),
+      .rst_ni               (rst_uarch_n),
+      .boot_addr_i          (rst_addr_ctrl_if),
+      .flush_bp_i           ((CVA6Cfg.RVU || CVA6Cfg.RVS) ? flush_ctrl_bp : 1'b0),
       // below line is not entirely correct
-      .flush_i            (flush_ctrl_if),
-      .halt_i             (halt_ctrl),
-      .halt_frontend_i    (halt_frontend),
-      .set_pc_commit_i    (set_pc_ctrl_pcgen),
-      .pc_commit_i        (pc_commit),
-      .ex_valid_i         (ex_commit.valid),
-      .resolved_branch_i  (resolved_branch),
-      .eret_i             (eret),
-      .epc_i              (epc_commit_pcgen),
-      .trap_vector_base_i (trap_vector_base_commit_pcgen),
-      .ctrl_set_pc_i      (ctrl_set_pc),
-      .ctrl_next_pc_i     (ctrl_next_pc),
-      .set_debug_pc_i     (set_debug_pc),
-      .debug_mode_i       (debug_mode),
-      .icache_dreq_o      (icache_dreq_if_cache),
-      .icache_dreq_i      (icache_dreq_cache_if),
-      .fetch_entry_o      (fetch_entry_if_id),
-      .fetch_entry_valid_o(fetch_valid_if_id),
-      .fetch_entry_ready_i(fetch_ready_id_if),
+      .flush_i              (flush_ctrl_if),
+      .halt_i               (halt_ctrl),
+      .halt_frontend_i      (halt_frontend),
+      .set_pc_commit_i      (set_pc_ctrl_pcgen),
+      .pc_commit_i          (pc_commit),
+      .ex_valid_i           (ex_commit.valid),
+      .resolved_branch_i    (resolved_branch),
+      .eret_i               (eret),
+      .epc_i                (epc_commit_pcgen),
+      .trap_vector_base_i   (trap_vector_base_commit_pcgen),
+      .ctrl_set_pc_i        (ctrl_set_pc),
+      .ctrl_next_pc_i       (ctrl_next_pc),
+      .set_debug_pc_i       (set_debug_pc),
+      .debug_mode_i         (debug_mode),
+      .icache_dreq_o        (icache_dreq_if_cache),
+      .icache_dreq_i        (icache_dreq_cache_if),
+      .fetch_entry_o        (fetch_entry_if_id),
+      .fetch_entry_valid_o  (fetch_valid_if_id),
+      .fetch_entry_ready_i  (fetch_ready_id_if),
       .next_instruction_pc_o(frontend_next_pc)
   );
 
@@ -1578,7 +1578,7 @@ module cva6
 
   assign icache_dreq = icache_dreq_sel ? icache_dreq_ctrl_cache : icache_dreq_if_cache;
   assign icache_drsp_cache_ctrl = icache_dreq_sel ? icache_drsp : '0;
-  assign icache_dreq_cache_if   = icache_dreq_sel ? '0 : icache_drsp;
+  assign icache_dreq_cache_if = icache_dreq_sel ? '0 : icache_drsp;
 
   // Acc dispatcher and store buffer share a dcache request port.
   // Store buffer always has priority access over acc dispatcher.
@@ -1611,7 +1611,7 @@ module cva6
   end
   assign dcache_req_ports_cache_ex[1]  = dcache_req_from_cache[1];
   assign dcache_req_ports_cache_acc[0] = '0;
-  assign dcache_req_ports_cache_ctrl = dcache_req_from_cache[2];
+  assign dcache_req_ports_cache_ctrl   = dcache_req_from_cache[2];
   always_comb begin : gen_dcache_req_store_data_gnt
     dcache_req_ports_cache_ex[2]  = dcache_req_from_cache[3];
     dcache_req_ports_cache_acc[1] = dcache_req_from_cache[3];

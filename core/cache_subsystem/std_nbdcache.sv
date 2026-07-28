@@ -411,7 +411,7 @@ module std_nbdcache
               // Save the address index, as it's usually only valid
               // until the request is granted (for a read)
               addr_idx_d = req_ports_i[i].address_index;
-              data_id_d  = req_ports_i[i].data_id;
+              data_id_d = req_ports_i[i].data_id;
             end
           end
 
