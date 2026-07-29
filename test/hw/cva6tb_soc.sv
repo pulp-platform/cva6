@@ -96,11 +96,13 @@ module cva6tb_soc
   logic l1_dcache_miss;
   logic itlb_miss;
   logic dtlb_miss;
+  logic [1:0] core_priv_lvl;
 
   assign l1_icache_miss = i_cva6.icache_miss_cache_perf;
   assign l1_dcache_miss = i_cva6.dcache_miss_cache_perf;
   assign itlb_miss      = i_cva6.itlb_miss_ex_perf;
   assign dtlb_miss      = i_cva6.dtlb_miss_ex_perf;
+  assign core_priv_lvl  = i_cva6.priv_lvl;
 
   function automatic void load_sim_spm(string binary_path);
     log("Preloading AXI SPM");
@@ -505,6 +507,7 @@ module cva6tb_soc
     .l1_dcache_miss_i ( l1_dcache_miss   ),
     .itlb_miss_i      ( itlb_miss        ),
     .dtlb_miss_i      ( dtlb_miss        ),
+    .priv_lvl_i       ( core_priv_lvl    ),
     .time_i           ( rtc_timer_time )
   );
 
