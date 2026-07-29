@@ -503,7 +503,7 @@ module decoder
                     // disabled in HS-mode / H-mode
                     virtual_illegal_instr = 1'b1;
                   end else begin
-                    if((priv_lvl_i != riscv::PRIV_LVL_M && mcbie_i == riscv::CBIE_FLUSH) || 
+                    if((priv_lvl_i != riscv::PRIV_LVL_M && mcbie_i == riscv::CBIE_FLUSH) ||
                       (priv_lvl_i == riscv::PRIV_LVL_U && scbie_i == riscv::CBIE_FLUSH) ||
                       (priv_lvl_i == riscv::PRIV_LVL_HS && hcbie_i == riscv::CBIE_FLUSH) ||
                       (priv_lvl_i == riscv::PRIV_LVL_U && hu_i && (hcbie_i == riscv::CBIE_FLUSH || scbie_i == riscv::CBIE_FLUSH))) begin
@@ -1724,14 +1724,25 @@ module decoder
         end
 
         // Custom instructions
-        // FENCE.T
+        // FENCE.T, plus an unprivileged full TLB flush at funct3 == 001.
         riscv::OpcodeCustom0: begin
-          instruction_o.fu  = NONE;
-          instruction_o.rs1 = '0;
-          instruction_o.rs2 = '0;
-          instruction_o.rd  = '0;
-          imm_select        = UIMM;
-          instruction_o.op  = ariane_pkg::FENCE_T;
+          if (CVA6Cfg.RVS && instr.itype.funct3 == 3'b001) begin
+            // Unprivileged TLB flush: reuse the SFENCE.VMA datapath with x0/x0
+            // operands (flush all ASIDs / all addresses). Deliberately legal in
+            // U/S/M -- no illegal_instr is raised for any privilege level.
+            instruction_o.fu  = CSR;
+            instruction_o.rs1 = '0;
+            instruction_o.rs2 = '0;
+            instruction_o.rd  = '0;
+            instruction_o.op  = ariane_pkg::SFENCE_VMA;
+          end else begin
+            instruction_o.fu  = NONE;
+            instruction_o.rs1 = '0;
+            instruction_o.rs2 = '0;
+            instruction_o.rd  = '0;
+            imm_select        = UIMM;
+            instruction_o.op  = ariane_pkg::FENCE_T;
+          end
         end
 
         default: illegal_instr = 1'b1;
