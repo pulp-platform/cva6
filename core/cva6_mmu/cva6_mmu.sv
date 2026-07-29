@@ -185,6 +185,13 @@ module cva6_mmu
 
   exception_t misaligned_ex_n, misaligned_ex_q;
 
+  // TLB miss helper signals for performance counters
+  logic itlb_lu_miss, dtlb_lu_miss;
+  logic itlb_trans_en, dtlb_trans_en;
+  logic itlb_miss_pend_q, dtlb_miss_pend_q;
+  logic [CVA6Cfg.VLEN-13:0] itlb_lu_vpn, dtlb_lu_vpn;
+  logic [CVA6Cfg.VLEN-13:0] itlb_lu_vpn_q, dtlb_lu_vpn_q;
+
   // Assignments
 
   assign itlb_lu_access = fetch_areq_i.fetch_req;
@@ -194,6 +201,48 @@ module cva6_mmu
 
   assign new_fetch_req = fetch_areq_i.fetch_vaddr == fetch_vaddr_prev ? '0 : '1;
   assign new_ptw_req = shared_tlb_vaddr == shared_tlb_vaddr_prev ? '0 : shared_tlb_access && !shared_tlb_hit;
+
+  // Performance counters: one pulse per L1 TLB miss.
+  // A lookup only misses while at least one translation stage is enabled, otherwise
+  // the TLB is bypassed and lu_hit_o is meaningless.
+  assign itlb_trans_en = enable_translation_i | (CVA6Cfg.RVH & enable_g_translation_i);
+  assign dtlb_trans_en = en_ld_st_translation_i | (CVA6Cfg.RVH & en_ld_st_g_translation_i);
+
+  assign itlb_lu_miss = itlb_trans_en & itlb_lu_access & ~itlb_lu_hit;
+  assign dtlb_lu_miss = dtlb_trans_en & dtlb_lu_access & ~dtlb_lu_hit;
+
+  assign itlb_lu_vpn = fetch_areq_i.fetch_vaddr[CVA6Cfg.VLEN-1:12];
+  assign dtlb_lu_vpn = lsu_vaddr_i[CVA6Cfg.VLEN-1:12];
+
+  // The requester holds a missing lookup until the TLB is refilled, so the raw miss
+  // condition is a level, not an event: pulse only on the first cycle of a miss.
+  // The VPN comparison catches a second, distinct miss that follows without an
+  // intervening hit, e.g. a page fault redirects the frontend to the trap handler,
+  // which misses too, and no refill ever happened to clear the pending flag.
+  assign itlb_miss_o = itlb_lu_miss & (~itlb_miss_pend_q | (itlb_lu_vpn != itlb_lu_vpn_q));
+  assign dtlb_miss_o = dtlb_lu_miss & (~dtlb_miss_pend_q | (dtlb_lu_vpn != dtlb_lu_vpn_q));
+
+  // Sample only on cycles where a lookup is actually presented. lu_hit_o is meaningless
+  // otherwise, and the load unit deasserts its request for one cycle in the middle of a
+  // DTLB miss (ABORT_TRANSACTION, to free the D$ arbiter for the PTW) before re-asserting
+  // it in WAIT_TRANSLATION. Sampling that gap would restart the miss and double count it.
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      itlb_miss_pend_q <= 1'b0;
+      dtlb_miss_pend_q <= 1'b0;
+      itlb_lu_vpn_q    <= '0;
+      dtlb_lu_vpn_q    <= '0;
+    end else begin
+      if (itlb_lu_access) begin
+        itlb_miss_pend_q <= itlb_lu_miss;
+        itlb_lu_vpn_q    <= itlb_lu_vpn;
+      end
+      if (dtlb_lu_access) begin
+        dtlb_miss_pend_q <= dtlb_lu_miss;
+        dtlb_lu_vpn_q    <= dtlb_lu_vpn;
+      end
+    end
+  end
 
   cva6_tlb #(
       .CVA6Cfg          (CVA6Cfg),
@@ -301,8 +350,8 @@ module cva6_mmu
       .dtlb_update_o(update_dtlb),
 
       // Performance counters
-      .itlb_miss_o(itlb_miss_o),
-      .dtlb_miss_o(dtlb_miss_o),
+      .itlb_miss_o(),  // handled in MMU top level
+      .dtlb_miss_o(),  // handled in MMU top level
       .shared_tlb_miss_i(shared_tlb_miss),
 
       .shared_tlb_access_o(shared_tlb_access),
