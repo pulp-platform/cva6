@@ -632,6 +632,7 @@ module load_store_unit
   ) i_pipe_reg_load (
       .clk_i,
       .rst_ni,
+      .clr_i(1'b0),
       .d_i({ld_valid, ld_trans_id, ld_result, ld_ex}),
       .d_o({load_valid_o, load_trans_id_o, load_result_o, load_exception_o})
   );
@@ -642,6 +643,7 @@ module load_store_unit
   ) i_pipe_reg_store (
       .clk_i,
       .rst_ni,
+      .clr_i(1'b0),
       .d_i({st_valid, st_trans_id, st_result, st_ex}),
       .d_o({store_valid_o, store_trans_id_o, store_result_o, store_exception_o})
   );
