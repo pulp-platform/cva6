@@ -157,52 +157,6 @@ thirtyone:
   li a0, 0
   j pass_restore
 
-  .align 8
-  .global mtvt_handler
-mtvt_handler:
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j thirty
-  j thirtyone
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-  j fail_restore
-
-
 .align 8
 .global mtvec_handler_fail
 mtvec_handler_fail:
@@ -211,4 +165,48 @@ mtvec_handler_fail:
   li a0, 1
   ret
 
-  .data
+.data
+.align 9
+.global mtvt_handler
+mtvt_handler:
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword thirty
+  .dword thirtyone
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
+  .dword fail_restore
