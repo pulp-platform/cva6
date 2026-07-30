@@ -1,0 +1,211 @@
+[
+  {
+    "id": 30498247259,
+    "source": "github-actions",
+    "simulator": "verilator",
+    "run_number": 1,
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259",
+    "head_branch": "pulp-v3",
+    "head_sha": "43c4f2a4",
+    "event": "schedule",
+    "created_at": "2026-07-29T23:03:12Z",
+    "updated_at": "2026-07-30T00:42:52Z",
+    "run_started_at": "2026-07-29T23:03:12Z",
+    "duration_seconds": 5980,
+    "total_jobs": 17,
+    "passed_jobs": 13,
+    "failed_jobs": 4,
+    "skipped_jobs": 0,
+    "jobs": [
+      {
+        "name": "RV64 Tier2 cv64a6_imafdc_sv39_hpdcache_wb / dv-riscv-compliance",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:31Z",
+        "completed_at": "2026-07-30T00:06:47Z",
+        "duration_seconds": 1936,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737239959",
+        "arch": "rv64",
+        "config": "cv64a6_imafdc_sv39_hpdcache_wb",
+        "testcase": "dv-riscv-compliance"
+      },
+      {
+        "name": "RV64 Tier2 cv64a6_imafdc_sv39_hpdcache_wb / cv64a6_imafdc_tests",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:40:23Z",
+        "duration_seconds": 353,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737239966",
+        "arch": "rv64",
+        "config": "cv64a6_imafdc_sv39_hpdcache_wb",
+        "testcase": "cv64a6_imafdc_tests"
+      },
+      {
+        "name": "RV64 Tier2 cv64a6_imafdc_sv39_hpdcache_wb / dv-riscv-tests-v",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-30T00:42:51Z",
+        "duration_seconds": 4101,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737239974",
+        "arch": "rv64",
+        "config": "cv64a6_imafdc_sv39_hpdcache_wb",
+        "testcase": "dv-riscv-tests-v"
+      },
+      {
+        "name": "RV64 Tier2 cv64a6_imafdc_sv39_hpdcache_wb / dv-riscv-tests-p",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:55:49Z",
+        "duration_seconds": 1279,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737239996",
+        "arch": "rv64",
+        "config": "cv64a6_imafdc_sv39_hpdcache_wb",
+        "testcase": "dv-riscv-tests-p"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / dv-riscv-compliance",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:57:42Z",
+        "duration_seconds": 1392,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240000",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "dv-riscv-compliance"
+      },
+      {
+        "name": "RV64 Tier2 cv64a6_imafdc_sv39_hpdcache_wb / dv-riscv-arch-test",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-30T00:23:08Z",
+        "duration_seconds": 2918,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240004",
+        "arch": "rv64",
+        "config": "cv64a6_imafdc_sv39_hpdcache_wb",
+        "testcase": "dv-riscv-arch-test"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / dv-riscv-tests-p",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:44:51Z",
+        "duration_seconds": 621,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240006",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "dv-riscv-tests-p"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / cv32a6_tests",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:37:48Z",
+        "duration_seconds": 198,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240015",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "cv32a6_tests"
+      },
+      {
+        "name": "RV32 Tier2 cv32a60x / dv-riscv-arch-test",
+        "conclusion": "failure",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:36:40Z",
+        "duration_seconds": 130,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240022",
+        "arch": "rv32",
+        "config": "cv32a60x",
+        "testcase": "dv-riscv-arch-test"
+      },
+      {
+        "name": "RV32 Tier2 cv32a60x / cv32a6_tests",
+        "conclusion": "failure",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:35:27Z",
+        "duration_seconds": 57,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240023",
+        "arch": "rv32",
+        "config": "cv32a60x",
+        "testcase": "cv32a6_tests"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / smoke-tests-cv32a65x",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:36:41Z",
+        "duration_seconds": 131,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240024",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "smoke-tests-cv32a65x"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / coremark",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:37Z",
+        "completed_at": "2026-07-29T23:40:58Z",
+        "duration_seconds": 381,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240026",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "coremark"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / dv-csr-embedded-tests",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:38:07Z",
+        "duration_seconds": 217,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240029",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "dv-csr-embedded-tests"
+      },
+      {
+        "name": "RV32 Tier2 cv32a60x / dv-riscv-tests-p",
+        "conclusion": "failure",
+        "started_at": "2026-07-29T23:34:36Z",
+        "completed_at": "2026-07-29T23:35:44Z",
+        "duration_seconds": 68,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240037",
+        "arch": "rv32",
+        "config": "cv32a60x",
+        "testcase": "dv-riscv-tests-p"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / hwconfig_tests",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:36Z",
+        "completed_at": "2026-07-29T23:36:36Z",
+        "duration_seconds": 120,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240046",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "hwconfig_tests"
+      },
+      {
+        "name": "RV32 Tier2 cv32a65x / dv-riscv-arch-test",
+        "conclusion": "success",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:56:59Z",
+        "duration_seconds": 1349,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240057",
+        "arch": "rv32",
+        "config": "cv32a65x",
+        "testcase": "dv-riscv-arch-test"
+      },
+      {
+        "name": "RV32 Tier2 cv32a60x / dv-riscv-compliance",
+        "conclusion": "failure",
+        "started_at": "2026-07-29T23:34:30Z",
+        "completed_at": "2026-07-29T23:37:00Z",
+        "duration_seconds": 150,
+        "html_url": "https://github.com/pulp-platform/cva6/actions/runs/30498247259/job/90737240064",
+        "arch": "rv32",
+        "config": "cv32a60x",
+        "testcase": "dv-riscv-compliance"
+      }
+    ]
+  }
+]
