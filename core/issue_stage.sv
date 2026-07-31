@@ -65,9 +65,9 @@ module issue_stage
     // Program Counter - EX_STAGE
     output logic [CVA6Cfg.VLEN-1:0] pc_o,
     // Integer Register File content - CONTROLLER
-    output logic [31:0] [CVA6Cfg.XLEN-1:0] regs_o,
+    output logic [31:0][CVA6Cfg.XLEN-1:0] regs_o,
     // Floating Point Register File content - CONTROLLER
-    output logic [31:0] [CVA6Cfg.XLEN-1:0] fp_regs_o,
+    output logic [31:0][CVA6Cfg.XLEN-1:0] fp_regs_o,
     // Is zcmt instruction - EX_STAGE
     output logic is_zcmt_o,
     // Is compressed instruction - EX_STAGE
