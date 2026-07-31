@@ -248,7 +248,7 @@ module ex_stage
     // Page offset for address aliasing checks - CONTROLLER
     output logic [11:0] page_offset_o,
     // Page offset matches - CONTROLLER
-    input  logic page_offset_matches_i,
+    input logic page_offset_matches_i,
     // Report the PMP configuration - CSR_REGFILE
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg_i,
     // Report the PMP addresses - CSR_REGFILE
