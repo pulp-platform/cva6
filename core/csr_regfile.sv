@@ -612,8 +612,7 @@ module csr_regfile
         if (CVA6Cfg.RVXHCLIC)
           csr_rdata = clic_mode_o ? {vstvt_q, 8'b0} : '0;  // vstvt reads 0 in CLINT mode
         else read_access_exception = 1'b1;
-        riscv::CSR_VSTFA_INC,
-        riscv::CSR_VSTFA:
+        riscv::CSR_VSTFA_INC, riscv::CSR_VSTFA:
         if (CVA6Cfg.RVH) csr_rdata = vstfa_q;
         else read_access_exception = 1'b1;
         riscv::CSR_VSTCA:
@@ -692,8 +691,7 @@ module csr_regfile
             read_access_exception = 1'b1;
           end
         end
-        riscv::CSR_STFA_INC,
-        riscv::CSR_STFA: begin
+        riscv::CSR_STFA_INC, riscv::CSR_STFA: begin
           if (CVA6Cfg.RVS) begin
             csr_rdata = stfa_q;
           end else begin
@@ -2471,8 +2469,10 @@ module csr_regfile
           end
         end
 
-        riscv::CSR_DCACHE, riscv::CSR_DCACHE_SMODE: dcache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
-        riscv::CSR_ICACHE, riscv::CSR_ICACHE_SMODE: icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
+        riscv::CSR_DCACHE, riscv::CSR_DCACHE_SMODE:
+        dcache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
+        riscv::CSR_ICACHE, riscv::CSR_ICACHE_SMODE:
+        icache_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};  // enable bit
         riscv::CSR_FENCE_T_PAD: fence_t_pad_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
         riscv::CSR_FENCE_T_SEL: fence_t_sel_d = {{CVA6Cfg.XLEN - 1{1'b0}}, csr_wdata[0]};
         riscv::CSR_FENCE_T_CEIL: fence_t_ceil_d = {{CVA6Cfg.XLEN - 32{1'b0}}, csr_wdata[31:0]};
