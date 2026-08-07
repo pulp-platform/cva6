@@ -130,6 +130,8 @@ module wt_cache_subsystem
       .icache_drsp_t(icache_drsp_t),
       .icache_req_t(icache_req_t),
       .icache_rtrn_t(icache_rtrn_t),
+      .dcache_req_i_t(dcache_req_i_t),
+      .dcache_req_o_t(dcache_req_o_t),
       .RdTxId(0)
   ) i_cva6_icache (
       .clk_i            (clk_i),
