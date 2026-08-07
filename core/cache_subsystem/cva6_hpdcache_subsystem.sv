@@ -153,6 +153,11 @@ module cva6_hpdcache_subsystem
   logic icache_miss_resp_valid;
   icache_rtrn_t icache_miss_resp;
 
+  // unused: the icache miss path here already serializes to one outstanding
+  // request (see icache_miss_pending_q in the AXI/L15 arbiters), so
+  // SupportOutstandingKillReq stays disabled below and this never fires
+  logic icache_mem_kill_req;
+
   localparam int ICACHE_RDTXID = 1 << (CVA6Cfg.MEM_TID_WIDTH - 1);
 
   cva6_icache #(
@@ -184,7 +189,8 @@ module cva6_hpdcache_subsystem
       .mem_rtrn_i       (icache_miss_resp),
       .mem_data_req_o   (icache_miss_valid),
       .mem_data_ack_i   (icache_miss_ready),
-      .mem_data_o       (icache_miss)
+      .mem_data_o       (icache_miss),
+      .mem_kill_req_o   (icache_mem_kill_req)
   );
   //  }}}
 
