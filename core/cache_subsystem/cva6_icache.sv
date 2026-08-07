@@ -39,7 +39,12 @@ module cva6_icache
     parameter type dcache_req_i_t = logic,
     parameter type dcache_req_o_t = logic,
     /// ID to be used for read transactions
-    parameter logic [CVA6Cfg.MEM_TID_WIDTH-1:0] RdTxId = 0
+    parameter logic [CVA6Cfg.MEM_TID_WIDTH-1:0] RdTxId = 0,
+    /// Allow a new fetch request to be issued immediately after a kill, before the
+    /// in-flight (killed) memory response has returned. Only safe if the memory
+    /// adapter behind mem_data_req_o/mem_rtrn_vld_i can have multiple requests
+    /// outstanding and discards stale responses via mem_kill_req_o.
+    parameter bit SupportOutstandingKillReq = 1'b0
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -420,9 +425,12 @@ module cva6_icache
           end
           // bail out if this request is being killed
         end else if (dreq_i.kill_s2 || flush_d) begin
-          mem_kill_req_o = 1'b1;
-          state_d = IDLE;
-          // state_d = KILL_MISS;
+          if (SupportOutstandingKillReq) begin
+            mem_kill_req_o = 1'b1;
+            state_d = IDLE;
+          end else begin
+            state_d = KILL_MISS;
+          end
         end
       end
       //////////////////////////////////
@@ -439,11 +447,11 @@ module cva6_icache
       // killed miss,
       // wait until memory responds and
       // go back to idle
-      // KILL_MISS: begin
-      //   if (mem_rtrn_vld_i && mem_rtrn_i.rtype == ICACHE_IFILL_ACK) begin
-      //     state_d = IDLE;
-      //   end
-      // end
+      KILL_MISS: begin
+        if (mem_rtrn_vld_i && mem_rtrn_i.rtype == ICACHE_IFILL_ACK) begin
+          state_d = IDLE;
+        end
+      end
       default: begin
         // we should never get here
         state_d = FLUSH;

@@ -145,7 +145,8 @@ module cva6_icache_axi_wrapper
       .dcache_req_i_t(dcache_req_i_t),
       .dcache_req_o_t(dcache_req_o_t),
       .icache_rtrn_t(icache_rtrn_t),
-      .RdTxId(0)
+      .RdTxId(0),
+      .SupportOutstandingKillReq(1'b1)
   ) i_cva6_icache (
       .clk_i            (clk_i),
       .rst_ni           (rst_ni),
