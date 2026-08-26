@@ -79,6 +79,13 @@ module ispm_ctrl
 
   logic [ADDR_WIDTH-1:0] read_addr_req, read_addr_phys;
 
+  localparam int unsigned LINE_OFF_BITS = $clog2(LINE_WIDTH / 8);
+  localparam int unsigned ROW_IDX_BITS = IDX_WIDTH - LINE_OFF_BITS;
+
+  logic [ROW_IDX_BITS-1:0] issued_row_d, issued_row_q;
+  logic                    issued_vld_d, issued_vld_q;
+  logic                    row_match;
+
   logic [NR_WAYS-1:0] fetch_req, lsu_req;
   logic [NR_WAYS-1:0][ADDR_WIDTH-1:0] fetch_addr, lsu_addr;
   logic [NR_WAYS-1:0][MEMORY_WIDTH-1:0] lsu_wdata;
@@ -123,6 +130,8 @@ module ispm_ctrl
   )+:(IDX_WIDTH-$clog2(
       LINE_WIDTH/8
   ))];
+
+  assign row_match = issued_vld_q && (issued_row_q == read_addr_phys[ROW_IDX_BITS-1:0]);
 
   typedef enum logic {
     IDLE,
@@ -175,24 +184,35 @@ module ispm_ctrl
         // Also, if this request is killed, we just output something anyway as it's
         // killed upstream
         if (icache_phys_addr_valid_i || icache_req_port_i.kill_s2) begin
-          // Are we allowed to use this memory?
-          if (active_ways_i[fetch_way_idx]) begin
-            icache_req_port_o.valid = 1'b1; // If we've got a kill_s2, this will be handled upstream
-            // Otherwise just respond with 0x00000000
-            // (as 0xbadcab1e is actually a compressed instruction :/ )
-          end else begin
-            icache_req_port_o.data  = 32'h00000000;
-            icache_req_port_o.valid = 1'b1;
-          end
-
-          // If we immediately get another request => service it
-          if (icache_req_port_i.req) begin
+          // The data we have is only meaningful if it was read from the row the
+          // physical address is pointing at. If the read that is currently in
+          // flight was issued for a different row, discard it and re-read.
+          // A killed request is exempt: its data is dropped upstream anyway.
+          if (!row_match && !icache_req_port_i.kill_s2) begin
             busy          = 1'b1;
+            fetch_addr    = {NR_WAYS{read_addr_phys}};
             fetch_req     = '{default: 1'b1};
             fetch_state_d = READ;
-            // Otherwise just go back to idle
           end else begin
-            fetch_state_d = IDLE;
+            // Are we allowed to use this memory?
+            if (active_ways_i[fetch_way_idx]) begin
+              icache_req_port_o.valid = 1'b1; // If we've got a kill_s2, this will be handled upstream
+              // Otherwise just respond with 0x00000000
+              // (as 0xbadcab1e is actually a compressed instruction :/ )
+            end else begin
+              icache_req_port_o.data  = 32'h00000000;
+              icache_req_port_o.valid = 1'b1;
+            end
+
+            // If we immediately get another request => service it
+            if (icache_req_port_i.req) begin
+              busy          = 1'b1;
+              fetch_req     = '{default: 1'b1};
+              fetch_state_d = READ;
+              // Otherwise just go back to idle
+            end else begin
+              fetch_state_d = IDLE;
+            end
           end
 
           // If the physical address is not valid yet re-read the memory in every
@@ -215,9 +235,14 @@ module ispm_ctrl
       fetch_req     = '{default: 1'b0};
       fetch_state_d = IDLE;
     end
+
+    issued_vld_d = |fetch_req;
+    issued_row_d = fetch_addr[0][ROW_IDX_BITS-1:0];
   end
 
   `FF(fetch_state_q, fetch_state_d, IDLE, clk_i, rst_ni)
+  `FF(issued_row_q, issued_row_d, '0, clk_i, rst_ni)
+  `FF(issued_vld_q, issued_vld_d, 1'b0, clk_i, rst_ni)
 
   // LSU port - largely copied from dspm_ctrl.sv
   always_comb begin
