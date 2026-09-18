@@ -570,9 +570,17 @@ module csr_regfile
         riscv::CSR_VSEPC:
         if (CVA6Cfg.RVH) csr_rdata = vsepc_q;
         else read_access_exception = 1'b1;
-        riscv::CSR_VSCAUSE:
-        if (CVA6Cfg.RVH) csr_rdata = vscause_q;
-        else read_access_exception = 1'b1;
+        riscv::CSR_VSCAUSE: begin
+          if (CVA6Cfg.RVH) begin
+            csr_rdata = vscause_q;
+            // In vCLIC mode, vscause.spp/spie are aliases of vsstatus.spp/spie
+            if (CVA6Cfg.RVXHCLIC && clic_mode_o) begin
+              csr_rdata[29:27] = {1'b0, vsstatus_q.spp, vsstatus_q.spie};
+            end
+          end else begin
+            read_access_exception = 1'b1;
+          end
+        end
         riscv::CSR_VSTVAL:
         if (CVA6Cfg.RVH) csr_rdata = vstval_q;
         else read_access_exception = 1'b1;
@@ -1505,8 +1513,14 @@ module csr_regfile
           vsepc_d = {csr_wdata[CVA6Cfg.XLEN-1:2], csr_wdata[1] & CVA6Cfg.RVC, 1'b0};
         else update_access_exception = 1'b1;
         riscv::CSR_VSCAUSE:
-        if (CVA6Cfg.RVH) vscause_d = csr_wdata;
-        else update_access_exception = 1'b1;
+        if (CVA6Cfg.RVH) begin
+          vscause_d = csr_wdata;
+          // In vCLIC mode, vscause.spp/spie are aliases of vsstatus.spp/spie
+          if (CVA6Cfg.RVXHCLIC && clic_mode_o) begin
+            vsstatus_d.spp  = csr_wdata[28];
+            vsstatus_d.spie = csr_wdata[27];
+          end
+        end else update_access_exception = 1'b1;
         riscv::CSR_VSTVAL:
         if (CVA6Cfg.RVH) vstval_d = csr_wdata;
         else update_access_exception = 1'b1;
@@ -1624,8 +1638,14 @@ module csr_regfile
           sepc_d = {csr_wdata[CVA6Cfg.XLEN-1:2], csr_wdata[1] & CVA6Cfg.RVC, 1'b0};
         else update_access_exception = 1'b1;
         riscv::CSR_SCAUSE:
-        if (CVA6Cfg.RVS) scause_d = csr_wdata;
-        else update_access_exception = 1'b1;
+        if (CVA6Cfg.RVS) begin
+          scause_d = csr_wdata;
+          // In CLIC mode, scause.spp/spie are aliases of mstatus.spp/spie
+          if (CVA6Cfg.RVSCLIC && clic_mode_o) begin
+            mstatus_d.spp  = csr_wdata[28];
+            mstatus_d.spie = csr_wdata[27];
+          end
+        end else update_access_exception = 1'b1;
         riscv::CSR_STVAL:
         if (CVA6Cfg.RVS && CVA6Cfg.TvalEn) stval_d = csr_wdata;
         else update_access_exception = 1'b1;
@@ -1965,8 +1985,19 @@ module csr_regfile
             mcause_d = sdtrig_etrigger_context_mcause;
           // In CLIC mode, mcause also holds minhv/mpp/mpie/mpil and a 12-bit
           // exception code: keep them, mpil is restored into mintstatus on mret.
-          else if (CVA6Cfg.RVSCLIC && clic_mode_o) mcause_d = csr_wdata;
-          else mcause_d = {csr_wdata[CVA6Cfg.XLEN-1], {CVA6Cfg.XLEN - 6{1'b0}}, csr_wdata[4:0]};
+          else if (CVA6Cfg.RVSCLIC && clic_mode_o) begin
+            mcause_d = csr_wdata;
+            // mcause.mpp/mpie are aliases of mstatus.mpp/mpie: writing them through
+            // mcause updates mstatus (MPP is legalized as for mstatus writes).
+            mstatus_d.mpie = csr_wdata[27];
+            if (!((csr_wdata[29:28] == riscv::PRIV_LVL_HS) |
+                  (!CVA6Cfg.RVS & csr_wdata[29:28] == riscv::PRIV_LVL_S) |
+                  (!CVA6Cfg.RVU & csr_wdata[29:28] == riscv::PRIV_LVL_U))) begin
+              mstatus_d.mpp = riscv::priv_lvl_t'(csr_wdata[29:28]);
+            end
+            // MPP sets the effective privilege of loads/stores when MPRV is set
+            if (mstatus_q.mprv) flush_o = 1'b1;
+          end else mcause_d = {csr_wdata[CVA6Cfg.XLEN-1], {CVA6Cfg.XLEN - 6{1'b0}}, csr_wdata[4:0]};
         end
         riscv::CSR_MTVAL: begin
           if (CVA6Cfg.TvalEn)
