@@ -55,7 +55,6 @@ module dspm_ctrl
   localparam WAY_INDEX_BITS = $clog2(NR_WAYS);
   logic [WAY_INDEX_BITS-1:0] way_idx, way_idx_d, way_idx_q;
 
-  // One hot encoded
   logic [$clog2(NR_PORTS)-1:0] portsel, portsel_d, portsel_q;
 
   // SRAM latency counter
@@ -67,21 +66,86 @@ module dspm_ctrl
   // Word offset within the cacheline
   logic [$clog2(LINE_WIDTH/8)-$clog2(riscv::XLEN/8)-1:0] cl_offset, cl_offset_d, cl_offset_q;
 
-  // Port selection logic
+  // ------------------------------------------------------------------
+  // Request classification
+  // ------------------------------------------------------------------
+  // A read is steered here before its physical tag is known: the request
+  // splitter forwards it speculatively with tag_valid low, so that the SRAM
+  // read can start from the index alone (the row is fully determined by it;
+  // only the way comes from the tag). One cycle later the splitter repeats the
+  // request with tag_valid high, and the way is selected then. This mirrors
+  // what the cache does with its index/tag split, and what ispm_ctrl already
+  // does for instruction fetches.
+  //
+  //   write          : data_req &  data_we                (tag known already)
+  //   confirmed read : data_req & !data_we &  tag_valid
+  //   speculative rd : data_req & !data_we & !tag_valid
+  //
+  // Lower port indices win, as before. Writes have priority over speculation,
+  // so the store rate is unaffected.
+  logic wr_req, cf_req, sp_req;
+  logic [$clog2(NR_PORTS)-1:0] wr_port, cf_port, sp_port;
+
   always_comb begin
-    portsel = '{default: 0};
+    wr_req  = 1'b0;
+    cf_req  = 1'b0;
+    sp_req  = 1'b0;
+    wr_port = '{default: 0};
+    cf_port = '{default: 0};
+    sp_port = '{default: 0};
 
     for (int unsigned i = 0; i < NR_PORTS; i++) begin
-      // This data request is only coming from the actual requester
-      // if it is a write
-      // Otherwise this is coming from the request splitter
-      // => Only grant if it is a write
       if (spm_req_ports_i[i].data_req) begin
-        portsel = i;
-        break;
+        if (spm_req_ports_i[i].data_we) begin
+          if (!wr_req) begin
+            wr_req  = 1'b1;
+            wr_port = i[$clog2(NR_PORTS)-1:0];
+          end
+        end else if (spm_req_ports_i[i].tag_valid) begin
+          if (!cf_req) begin
+            cf_req  = 1'b1;
+            cf_port = i[$clog2(NR_PORTS)-1:0];
+          end
+        end else begin
+          if (!sp_req) begin
+            sp_req  = 1'b1;
+            sp_port = i[$clog2(NR_PORTS)-1:0];
+          end
+        end
       end
     end
   end
+
+  // Outstanding speculative read (valid for exactly one cycle)
+  logic spec_valid_d, spec_valid_q;
+  logic [$clog2(NR_PORTS)-1:0] spec_port_d, spec_port_q;
+  logic [IDX_WIDTH-1:0] spec_addr_d, spec_addr_q;
+
+  // A confirmed read whose speculative access was issued last cycle: its data
+  // is on rdata_i right now, so it can be answered without a further SRAM read.
+  logic confirm_hit;
+  logic do_accept;  // classic accept: a write, or a read we did not speculate on
+  logic do_spec;  // issue a speculative read this cycle
+
+  assign confirm_hit = cf_req && spec_valid_q && (spec_port_q == cf_port) &&
+                       (spec_addr_q == spm_req_ports_i[cf_port].address_index) &&
+                       (wait_stage_q == '0);
+  assign do_accept = !confirm_hit && (wr_req || cf_req) && (wait_stage_q == '0);
+  assign do_spec = !do_accept && sp_req && (wait_stage_q == '0);
+
+  // The port whose SRAM access is issued this cycle
+  assign portsel = do_accept ? (wr_req ? wr_port : cf_port) : (do_spec ? sp_port : '0);
+
+  // Way and offset of the confirmed read, taken from the request presented now
+  logic [WAY_INDEX_BITS-1:0] cf_way_idx;
+  logic [$clog2(LINE_WIDTH/8)-$clog2(riscv::XLEN/8)-1:0] cf_cl_offset;
+
+  assign cf_way_idx = spm_req_ports_i[cf_port].address_tag[0+:WAY_INDEX_BITS];
+  assign cf_cl_offset = spm_req_ports_i[cf_port].address_index[$clog2(
+      LINE_WIDTH/8
+  )-1:$clog2(
+      riscv::XLEN/8
+  )];
 
   // Static assignments
   // This saves which cache way this address targets
@@ -121,12 +185,37 @@ module dspm_ctrl
     // Only enable the part of the cacheline that we actually want to update
     be_o[(cl_offset*(riscv::XLEN/8))+:(riscv::XLEN/8)] = spm_req_ports_i[portsel].data_be;
 
+    // Speculation is only valid for the cycle right after it was issued
+    spec_valid_d                                       = do_spec;
+    spec_port_d                                        = sp_port;
+    spec_addr_d                                        = spm_req_ports_i[sp_port].address_index;
+
     // Decrease the wait counter if it's not already 0
     if (wait_stage_q) wait_stage_d = wait_stage_q - ($clog2(NR_WAIT_STAGES) + 1)'(1);
 
+    // A confirmed read we speculated on last cycle: the data is already on
+    // rdata_i, so answer in this very cycle (one cycle earlier than the
+    // classic path below).
+    if (confirm_hit) begin
+      if (active_ways_i[cf_way_idx]) begin
+        spm_req_ports_o[cf_port].data_rdata =
+            rdata_i[cf_way_idx][(cf_cl_offset*riscv::XLEN)+:riscv::XLEN];
+      end else begin
+        spm_req_ports_o[cf_port].data_rdata = 64'hCA11AB1E_BADCAB1E;
+      end
+      spm_req_ports_o[cf_port].data_rvalid = 1'b1;
+      spm_req_ports_o[cf_port].data_rid    = spm_req_ports_i[cf_port].data_id;
+    end
+
+    // Start a speculative read: the row comes from the index, the way is not
+    // known yet, so read every active way and select on the confirm cycle.
+    if (do_spec) begin
+      req_o = active_ways_i;
+    end
+
     // Accept a new request if one is pending and we're not waiting for
     // the SRAM anymore
-    if (spm_req_ports_i[portsel].data_req && wait_stage_q == '0) begin
+    if (do_accept) begin
       portsel_d = portsel;
       way_idx_d = way_idx;
       // Record the offset
@@ -167,6 +256,10 @@ module dspm_ctrl
       spm_req_ports_o[portsel].data_rid = spm_req_ports_i[portsel].data_id;
     end
   end
+
+  `FF(spec_valid_q, spec_valid_d, 1'b0, clk_i, rst_ni)
+  `FF(spec_port_q, spec_port_d, '0, clk_i, rst_ni)
+  `FF(spec_addr_q, spec_addr_d, '0, clk_i, rst_ni)
 
   `FF(cl_offset_q, cl_offset_d, '0, clk_i, rst_ni)
   `FF(wait_stage_q, wait_stage_d, '0, clk_i, rst_ni)
