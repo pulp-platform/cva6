@@ -337,6 +337,14 @@ module std_nbdcache
                 adec_state_d = WAIT_TAG;
                 cache_ports_in[i] = req_ports_i[i];
                 req_ports_o[i] = cache_ports_out[i];
+                // Speculatively start the SPM read too: the row is fully
+                // determined by the index, only the way needs the tag. A read
+                // has no side effects, so if this turns out to be a cache
+                // access the SPM access is simply dropped. tag_valid stays low,
+                // which is how dspm_ctrl recognises a speculative read.
+                dspm_ports_in[i] = req_ports_i[i];
+                dspm_ports_in[i].data_req = 1'b1;
+                dspm_ports_in[i].tag_valid = 1'b0;
               end
             end
           end
@@ -345,6 +353,13 @@ module std_nbdcache
             // By default we forward to the cache
             cache_ports_in[i] = req_ports_i[i];
             req_ports_o[i] = cache_ports_out[i];
+            // Keep the speculative SPM read alive while the tag is pending, so
+            // that its data is available in the cycle the tag arrives
+            dspm_ports_in[i] = req_ports_i[i];
+            dspm_ports_in[i].address_index = addr_idx_q;
+            dspm_ports_in[i].data_id = data_id_q;
+            dspm_ports_in[i].data_req = 1'b1;
+            dspm_ports_in[i].tag_valid = 1'b0;
             // Once the tag is valid, we can see where this request
             // needs to go
             if (req_ports_i[i].tag_valid) begin
@@ -426,6 +441,9 @@ module std_nbdcache
               // All reads have been granted by the cache before,
               // this is just to signal a pending request to the SPM controller
               dspm_ports_in[i].data_req = 1'b1;
+              // The tag is known here: this is a confirmed read, not a new
+              // speculative one
+              dspm_ports_in[i].tag_valid = 1'b1;
               // If we end up here it has to be an ISPM request
             end else begin
               ispm_ports_out[i] = req_ports_i[i];
