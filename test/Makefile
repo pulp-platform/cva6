@@ -14,7 +14,7 @@ VERILATOR_DIR := $(TEST_DIR)/verilator
 # Tools
 BENDER    ?= bender --suppress E31 -d $(ROOT_DIR)
 QUESTA    ?= questa-2025.3
-VERILATOR ?= verilator
+VERILATOR ?= oseda -2026.04 verilator
 
 # Target CVA6 configuration
 CVA6_CONFIG   ?= cv64a6_rt
