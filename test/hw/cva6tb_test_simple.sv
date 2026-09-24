@@ -72,7 +72,7 @@ module test;
   initial begin : irq_gen
     automatic int count = 1;
     clic_ext_irqs = '0;
-    wait(irq_start_gen);
+    wait(irq_start_gen.triggered);
     #(ClkPeriod * (1000000 - IrqPeriod)); // Initial delay before first interrupt
     forever begin
       #(ClkPeriod * (IrqPeriod-IrqHighCycles));
