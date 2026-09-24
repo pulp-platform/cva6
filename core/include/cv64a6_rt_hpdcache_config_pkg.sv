@@ -193,7 +193,7 @@ package cva6_config_pkg;
       FetchUserWidth: unsigned'(CVA6ConfigFetchUserWidth),
       FetchUserEn: unsigned'(CVA6ConfigFetchUserEn),
       InstrTlbEntries: int'(16),
-      DataTlbEntries: int'(64),
+      DataTlbEntries: int'(16),
       TlbColoring: bit'(1),
       NumTlbColors: int'(16),
       LockableTlbWays: int'(8),
