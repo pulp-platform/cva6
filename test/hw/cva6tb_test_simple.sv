@@ -51,8 +51,13 @@ module test;
     // of hardcoded constants selected by the RTCONFIG compile-time define --
     // which meant one compiled image per software configuration, and silently
     // wrong numbers whenever the symbol moved.
-    if (!$value$plusargs("IsrAddr=%h",           IsrAddr))                     IsrAddr = 64'h8020_1b5c;
+    if (!$value$plusargs("IsrAddr=%h",           IsrAddr))                     IsrAddr = 64'h0;
     if (!$value$plusargs("InterruptsEnabled=%b", InterruptsEnabled)) InterruptsEnabled = 1'b0;
+    // No default ISR address: it is build-specific, and a stale default that
+    // happens to be correct for one configuration is precisely the failure this
+    // plusarg removes. Refuse rather than measure the wrong instruction.
+    if (InterruptsEnabled && IsrAddr == 64'h0)
+      $fatal(1, "+InterruptsEnabled=1 requires +IsrAddr=<hex>, the ISR entry address from the ELF");
   endfunction
 
   logic        clk;
