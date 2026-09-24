@@ -28,6 +28,8 @@ module test;
   int unsigned IrqJitter;
   int unsigned NumInterrupts;
   int unsigned IrqSeed;
+  int unsigned IrqStartDelay;
+  bit          IrqStartOnReady;
   longint unsigned IsrAddr;
   bit          InterruptsEnabled;
 
@@ -46,6 +48,8 @@ module test;
     // alignment, which makes an observed maximum an artefact of that phase.
     if (!$value$plusargs("IrqJitter=%d",         IrqJitter))                 IrqJitter = 0;
     if (!$value$plusargs("Seed=%d",              IrqSeed))                     IrqSeed = 1;
+    if (!$value$plusargs("IrqStartDelay=%d",     IrqStartDelay))         IrqStartDelay = 0;
+    if (!$value$plusargs("IrqStartOnReady=%b",   IrqStartOnReady)) IrqStartOnReady = 1'b0;
     // Number of interrupts to raise; the run ends 100k cycles after the last one.
     if (!$value$plusargs("NumInterrupts=%d",     NumInterrupts))         NumInterrupts = 50;
     // ISR entry address for the interrupt logger, taken from the ELF (e.g.
@@ -107,7 +111,17 @@ module test;
     // Read the seed only now: irq_start_gen fires after parse_args(), whereas
     // at time 0 this block can run first and copy the unset value.
     seed_state = IrqSeed;
-    #(ClkPeriod * (1000000 - IrqPeriod)); // Initial delay before first interrupt
+    if (IrqStartOnReady) begin
+      // Start once the scheduler is up (the monitor's RUN_READY), then wait
+      // IrqStartDelay cycles: a fixed 1M-cycle delay is arbitrary and, with
+      // many short parallel runs, more expensive than the measurement itself.
+      wait(i_dut.i_perf_mon.run_ready === 1'b1);
+      #(ClkPeriod * IrqStartDelay);
+    end else begin
+      // Software that never drives the monitor (bare-metal tests) gets the
+      // fixed initial delay.
+      #(ClkPeriod * (1000000 - IrqPeriod));
+    end
     forever begin
       gap = IrqPeriod;
       // Explicit LCG (Numerical Recipes constants), upper bits for the draw.
@@ -224,13 +238,24 @@ module test;
     // Start the interrupt logger and generator
     if (InterruptsEnabled) -> irq_start_log;
     if (InterruptsEnabled) -> irq_start_gen;
-    // Poll EOC
+    // Poll EOC and the monitor's run-complete flag.
+    //
+    // +NumJobs (read by the monitor) ends the run once the measured task has
+    // completed that many jobs, so every cell of a campaign collects exactly
+    // the same number of samples and no job is cut mid-execution. MaxCycles is
+    // then a safety net rather than the thing that decides how much data a run
+    // produces -- which is what it used to be, with the side effect that
+    // different configurations yielded different sample counts.
     for (int unsigned i = 0; i < MaxCycles; ++i) begin
       @(posedge clk);
-      if(eoc == 1'b1) begin
+      if (eoc == 1'b1) begin
         log($sformatf("EOC register was set to one - return code: %0d", retcode));
         if (retcode == RetCodeSuccess) pass();
         else fail();
+      end
+      if (i_dut.i_perf_mon.run_done === 1'b1) begin
+        log("Requested job count reached");
+        pass();
       end
     end
     log($sformatf("Simluation timed out after %d cycles", MaxCycles));
