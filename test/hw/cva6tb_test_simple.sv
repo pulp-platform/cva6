@@ -25,6 +25,10 @@ module test;
   int unsigned RetCodeSuccess;
   int unsigned MaxCycles;
   int unsigned IrqPeriod;
+  int unsigned IrqJitter;
+  int unsigned NumInterrupts;
+  int unsigned IrqSeed;
+  longint unsigned IsrAddr;
   bit          InterruptsEnabled;
 
   logic bootmode;
@@ -33,6 +37,21 @@ module test;
     if (!$value$plusargs("RetCodeSuccess=%d",    RetCodeSuccess))       RetCodeSuccess = 0;
     if (!$value$plusargs("MaxCycles=%d",         MaxCycles))                 MaxCycles = 10_000;
     if (!$value$plusargs("IrqPeriod=%d",         IrqPeriod))                 IrqPeriod = 100_000;
+    // Randomised arrival: each inter-arrival is IrqPeriod + U(0, IrqJitter),
+    // drawn from Seed, so the interrupt lands at a uniformly distributed phase
+    // of the background task's interference loop. A fixed period samples one
+    // alignment, which makes an observed maximum an artefact of that phase.
+    if (!$value$plusargs("IrqJitter=%d",         IrqJitter))                 IrqJitter = 0;
+    if (!$value$plusargs("Seed=%d",              IrqSeed))                     IrqSeed = 1;
+    // Sample count is a run parameter, not a localparam. It was fixed at 50,
+    // which is why every collected CSV had exactly 50 rows regardless of
+    // MaxCycles.
+    if (!$value$plusargs("NumInterrupts=%d",     NumInterrupts))         NumInterrupts = 50;
+    // ISR entry address, extracted from the ELF by the harness. Replaces a pair
+    // of hardcoded constants selected by the RTCONFIG compile-time define --
+    // which meant one compiled image per software configuration, and silently
+    // wrong numbers whenever the symbol moved.
+    if (!$value$plusargs("IsrAddr=%h",           IsrAddr))                     IsrAddr = 64'h8020_1b5c;
     if (!$value$plusargs("InterruptsEnabled=%b", InterruptsEnabled)) InterruptsEnabled = 1'b0;
   endfunction
 
@@ -44,7 +63,6 @@ module test;
 
   // Parameters for interrupt generation
   localparam int unsigned IrqId          = 1;
-  localparam int unsigned NumInterrupts  = 50;
   localparam int unsigned IrqHighCycles  = 10;
 
   assign eoc     = i_dut.i_regs.control_regs[EOCRegOffset][0];
@@ -71,11 +89,16 @@ module test;
   // Interrupt generation
   initial begin : irq_gen
     automatic int count = 1;
+    automatic int unsigned gap;
+    automatic int unsigned seed_state;
     clic_ext_irqs = '0;
+    seed_state = IrqSeed;
     wait(irq_start_gen.triggered);
     #(ClkPeriod * (1000000 - IrqPeriod)); // Initial delay before first interrupt
     forever begin
-      #(ClkPeriod * (IrqPeriod-IrqHighCycles));
+      gap = IrqPeriod;
+      if (IrqJitter != 0) gap += ($urandom(seed_state) % IrqJitter);
+      #(ClkPeriod * (gap - IrqHighCycles));
       log($sformatf("Generating interrupt %0d", IrqId));
       #ApplDelay;
       clic_ext_irqs[IrqId] = 1'b1;
@@ -91,12 +114,12 @@ module test;
   end
 
   cva6tb_irq_log #(
-    .NumIrqs        ( NumClicExtIrqs ),
-    .FirstInstAddr  ( 64'h8000_0000  )
+    .NumIrqs        ( NumClicExtIrqs )
   ) i_irq_log (
     .clk_i          ( clk            ),
     .rst_ni         ( rst_n          ),
     .start_log_i    ( irq_start_log  ),
+    .isr_addr_i     ( IsrAddr        ),
     .irqs_i         ( clic_ext_irqs  ),
     .commit_valid_i ( commit_valid   ),
     .commit_pc_i    ( commit_pc      ),
