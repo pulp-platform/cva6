@@ -28,6 +28,7 @@ module test;
   int unsigned IrqJitter;
   int unsigned NumInterrupts;
   int unsigned IrqSeed;
+  int unsigned IrqStartDelay;
   longint unsigned IsrAddr;
   bit          InterruptsEnabled;
 
@@ -43,6 +44,7 @@ module test;
     // alignment, which makes an observed maximum an artefact of that phase.
     if (!$value$plusargs("IrqJitter=%d",         IrqJitter))                 IrqJitter = 0;
     if (!$value$plusargs("Seed=%d",              IrqSeed))                     IrqSeed = 1;
+    if (!$value$plusargs("IrqStartDelay=%d",     IrqStartDelay))         IrqStartDelay = 0;
     // Sample count is a run parameter, not a localparam. It was fixed at 50,
     // which is why every collected CSV had exactly 50 rows regardless of
     // MaxCycles.
@@ -99,7 +101,11 @@ module test;
     clic_ext_irqs = '0;
     seed_state = IrqSeed;
     wait(irq_start_gen.triggered);
-    #(ClkPeriod * (1000000 - IrqPeriod)); // Initial delay before first interrupt
+    // Wait for the scheduler to be up rather than for a hardcoded number of
+    // cycles. The old 1_000_000-cycle delay was both arbitrary and, with many
+    // short parallel runs, more expensive than the measurement itself.
+    wait(i_dut.i_perf_mon.run_ready === 1'b1);
+    #(ClkPeriod * IrqStartDelay);
     forever begin
       gap = IrqPeriod;
       if (IrqJitter != 0) gap += ($urandom(seed_state) % IrqJitter);
@@ -210,13 +216,24 @@ module test;
     // Start logging interrupts
     if (InterruptsEnabled) -> irq_start_log;
     if (InterruptsEnabled) -> irq_start_gen;
-    // Poll EOC
+    // Poll EOC and the monitor's run-complete flag.
+    //
+    // +NumJobs (read by the monitor) ends the run once the measured task has
+    // completed that many jobs, so every cell of a campaign collects exactly
+    // the same number of samples and no job is cut mid-execution. MaxCycles is
+    // then a safety net rather than the thing that decides how much data a run
+    // produces -- which is what it used to be, with the side effect that
+    // different configurations yielded different sample counts.
     for (int unsigned i = 0; i < MaxCycles; ++i) begin
       @(posedge clk);
-      if(eoc == 1'b1) begin
+      if (eoc == 1'b1) begin
         log($sformatf("EOC register was set to one - return code: %0d", retcode));
         if (retcode == RetCodeSuccess) pass();
         else fail();
+      end
+      if (i_dut.i_perf_mon.run_done === 1'b1) begin
+        log("Requested job count reached");
+        pass();
       end
     end
     log($sformatf("Simluation timed out after %d cycles", MaxCycles));
