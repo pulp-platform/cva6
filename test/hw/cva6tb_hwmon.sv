@@ -312,6 +312,9 @@ module cva6tb_hwmon
   int unsigned jobs_done;
   logic        run_ready;
   logic        run_done;
+  int unsigned stall_limit;
+  logic [63:0] last_progress_q;  // cycle of the last JOB_STOP
+  logic        stalled;
 
   function automatic void ev(string name, int unsigned task_id,
                              longint unsigned c0, c1, c2, c3, c4, c5, c6, c7,
@@ -335,9 +338,15 @@ module cva6tb_hwmon
 
     if (!$value$plusargs("NumJobs=%d", num_jobs))           num_jobs = 0;
     if (!$value$plusargs("MeasuredTask=%d", measured_task)) measured_task = 1;
-    jobs_done = 0;
-    run_ready = 1'b0;
-    run_done  = 1'b0;
+    // Stall detector: how long the scheduler may go without completing a job
+    // before the run is declared stuck. Generous by default -- it is there to
+    // turn a silent hang into a diagnosis, not to police slow tasks.
+    if (!$value$plusargs("StallCycles=%d", stall_limit))     stall_limit = 2_000_000;
+    jobs_done       = 0;
+    run_ready       = 1'b0;
+    run_done        = 1'b0;
+    stalled         = 1'b0;
+    last_progress_q = '0;
   endfunction
 
   function automatic void cleanup();
@@ -347,6 +356,10 @@ module cva6tb_hwmon
              (num_jobs != 0) ? $sformatf(" of %0d requested", num_jobs) : "");
     if (num_jobs != 0 && !run_done)
       $display("WARNING: run ended before the requested job count was reached");
+    if (stalled)
+      $display("ERROR: run STALLED -- see the stall message above; results are incomplete");
+    if (!run_ready)
+      $display("ERROR: the scheduler never released a job. The image did not reach steady state: check the payload, the boot path, and the task configuration.");
     $display("=========================");
     $fclose(log_file);
     $fclose(ev_file);
@@ -419,6 +432,7 @@ module cva6tb_hwmon
       // Terminate on a job count rather than on a cycle budget: every cell of a
       // campaign then collects exactly the same number of samples, and no job
       // is cut mid-execution.
+      last_progress_q = cycle_q;
       if (current_task_q == measured_task) begin
         jobs_done = jobs_done + 1;
         if (num_jobs != 0 && jobs_done >= num_jobs && !run_done) begin
@@ -429,8 +443,21 @@ module cva6tb_hwmon
     end
 
     if (req_write && req_addr == CVA6TB_HWMON_ABORT_OFFSET && active_q) begin
+      last_progress_q = cycle_q;
       ev("JOB_ABORT", current_task_q,
          log_exec_cycles, log_response_time, 0,0,0,0,0,0, 0);
+    end
+
+    // Stall detection. Layers of config validation can only rule out the
+    // hardware/software mismatches we already know about; this catches any
+    // silent hang, which is the failure mode that costs the most time to
+    // diagnose -- the image boots, brings up every task, and then goes quiet,
+    // reported only as a generic simulation timeout.
+    if (run_ready && !run_done && !stalled &&
+        (cycle_q - last_progress_q) > 64'(stall_limit)) begin
+      stalled = 1'b1;
+      $display("ERROR: [MON] scheduler stalled: no job completed for %0d cycles (last progress at cycle %0d, %0d jobs done). Check interrupt dispatch -- a core/vector-table mismatch boots normally and then stops dispatching.",
+               stall_limit, last_progress_q, jobs_done);
     end
   end
 
