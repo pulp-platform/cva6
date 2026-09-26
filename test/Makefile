@@ -20,9 +20,12 @@ VERILATOR ?= oseda -2026.04 verilator
 CVA6_CONFIG   ?= cv64a6_imafdchsclic_sv39_wb
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
+# Extra plusargs forwarded to the simulation, e.g. SIM_ARGS="+trace_verbose=1"
+SIM_ARGS      ?=
 TEST          ?= test_simple
 ALLOWED_TESTS := test_simple
 DEBUG         ?= 0
+WAVES         ?= 0
 
 # Goals that must work without a resolved dependency tree.
 NODEPS_GOALS := info default %clean
@@ -58,6 +61,10 @@ BENDER_FLAGS := -t rtl -t simulation -t cva6 -t $(CVA6_CONFIG) -t cva6tb -t $(TE
 
 ifeq ($(ZERO_SIM_MEM),1)
 BENDER_FLAGS += -D ZERO_SIM_MEM
+endif
+
+ifeq ($(WAVES),1)
+BENDER_FLAGS += -D CVA6TB_WAVES
 endif
 
 ##################################
@@ -166,7 +173,7 @@ vsim-build: $(VSIM_BUILD_DIR)/vsim_compile.err
 
 .PHONY: vsim-run
 vsim-run: $(VSIM_BUILD_DIR)/vsim_compile.err
-	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES)
+	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS)
 
 .PHONY: vsim-clean
 vsim-clean:
@@ -176,13 +183,19 @@ vsim-clean:
 ########## Verilator #############
 ##################################
 
+ifeq ($(WAVES),1)
+VERILATOR_TRACE := --trace-fst --trace-structs --trace-threads 2
+else
+VERILATOR_TRACE :=
+endif
+
 VERILATOR_JOBS      ?= 0
 VERILATOR_BUILD_DIR := $(VERILATOR_DIR)/build
 VERILATOR_LOG_DIR   := $(VERILATOR_DIR)/logs
 VERILATOR_FLIST     := $(VERILATOR_DIR)/cva6tb.flist
 VERILATOR_WARNINGS  := -Wall -Wno-fatal -Wno-style -Wno-BLKANDNBLK -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-WIDTHCONCAT -Wno-ASCRANGE -Wno-IMPLICITSTATIC
 VERILATOR_FLAGS     := --binary -j $(VERILATOR_JOBS) --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_WARNINGS) -O3 -f $(VERILATOR_FLIST) --assert --timing \
-	--trace-fst --trace-structs --trace-threads 2 --x-assign fast --x-initial fast
+	$(VERILATOR_TRACE) --x-assign fast --x-initial fast
 
 $(VERILATOR_LOG_DIR):
 	@mkdir -p $(VERILATOR_LOG_DIR)
@@ -198,7 +211,7 @@ verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 
 .PHONY: verilator-run
 verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
-	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
 
 .PHONY: verilator-clean
 verilator-clean:
