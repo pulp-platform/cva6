@@ -26,6 +26,10 @@ TEST          ?= test_simple
 ALLOWED_TESTS := test_simple
 DEBUG         ?= 0
 WAVES         ?= 0
+# Verilator threads for the simulation model, a BUILD time choice. The default
+# suits one simulation at a time, which is the usual case.
+# For running many simulations at once, build with THREADS=1 instead.
+THREADS       ?= 2
 
 # Goals that must work without a resolved dependency tree.
 NODEPS_GOALS := info default %clean
@@ -189,13 +193,19 @@ else
 VERILATOR_TRACE :=
 endif
 
+ifneq ($(THREADS),1)
+VERILATOR_THREADS := --threads $(THREADS)
+else
+VERILATOR_THREADS :=
+endif
+
 VERILATOR_JOBS      ?= 0
 VERILATOR_BUILD_DIR := $(VERILATOR_DIR)/build
 VERILATOR_LOG_DIR   := $(VERILATOR_DIR)/logs
 VERILATOR_FLIST     := $(VERILATOR_DIR)/cva6tb.flist
 VERILATOR_WARNINGS  := -Wall -Wno-fatal -Wno-style -Wno-BLKANDNBLK -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-WIDTHCONCAT -Wno-ASCRANGE -Wno-IMPLICITSTATIC
 VERILATOR_FLAGS     := --binary -j $(VERILATOR_JOBS) --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_WARNINGS) -O3 -f $(VERILATOR_FLIST) --assert --timing \
-	$(VERILATOR_TRACE) --x-assign fast --x-initial fast
+	$(VERILATOR_TRACE) $(VERILATOR_THREADS) --x-assign fast --x-initial fast
 
 $(VERILATOR_LOG_DIR):
 	@mkdir -p $(VERILATOR_LOG_DIR)
