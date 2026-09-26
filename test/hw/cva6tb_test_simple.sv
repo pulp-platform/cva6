@@ -26,9 +26,15 @@ module test;
 
   logic bootmode;
 
+  // empty -> no waveform dump
+  string fstfile;
+
   function automatic void parse_args();
     if (!$value$plusargs("RetCodeSuccess=%d", RetCodeSuccess)) RetCodeSuccess = 0;
     if (!$value$plusargs("MaxCycles=%d",      MaxCycles))           MaxCycles = 10_000;
+    if (!$value$plusargs("fst=%s", fstfile)) begin
+      if ($test$plusargs("fst")) fstfile = "cva6tb.fst";
+    end
   endfunction
 
   logic        clk;
@@ -105,9 +111,9 @@ module test;
 
   initial begin
     bootmode = 1'b0;
-    setup();
     // Parse command line arguments
     parse_args();
+    setup(fstfile);
     // Preload binary into simulation memory and set bootmode
     preload_hex();
     // Wait for reset de-assertion
