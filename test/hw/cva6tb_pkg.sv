@@ -203,16 +203,17 @@ package cva6tb_pkg;
     $display("@%t | [TB ] %s", $realtime, msg);
   endfunction
 
-  function automatic void setup();
+  function automatic void setup(string fstfile);
     $display("===========================================");
     $display("======== CVA6 standalone testbench ========");
     $display("===========================================");
     // Time format
     $timeformat(-9, 0, "ns", 9); // 1: scale (ns=-9), 2: decimals, 3: suffix, 4: print-field width
-    // Waveform logging
-    `ifdef VERILATOR
-    $dumpfile($sformatf("cva6tb.fst"));
-    $dumpvars;
+    `ifdef CVA6TB_WAVES
+    if (fstfile != "") begin
+      $dumpfile(fstfile);
+      $dumpvars;
+    end
     `endif
   endfunction
 
@@ -220,7 +221,7 @@ package cva6tb_pkg;
     $display("===========================================");
     $display("============ End of simulation ============");
     $display("===========================================");
-    `ifdef VERILATOR
+    `ifdef CVA6TB_WAVES
     $dumpflush;
     `endif
     $finish;
