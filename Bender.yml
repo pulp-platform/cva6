@@ -313,6 +313,12 @@ sources:
           - test/hw/cva6tb_sim_console.sv
           - test/hw/cva6tb_soc.sv
 
+      - target: all(cva6tb, tracer)
+        files:
+          # RVFI generation and the instruction tracer that consumes it
+          - core/cva6_rvfi.sv
+          - test/hw/tracer/cva6tb_tracer.sv
+
       - target: all(cva6tb, test_simple)
         files:
           - test/hw/cva6tb_test_simple.sv

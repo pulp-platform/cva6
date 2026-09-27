@@ -1921,6 +1921,14 @@ module cva6
   );
 `endif  // PITON_ARIANE
 
+  // CVA6's built-in instruction tracing: the legacy instr_tracer under an event
+  // driven simulator, a plain $fwrite of the commit stream under Verilator. Both
+  // used to run unconditionally and write a file on every simulation; they are
+  // opt-in now, since the testbench brings its own tracer. Build with
+  // LEGACY_TRACE=1 to get them back, which is what the tracer's validation
+  // against instr_tracer needs.
+`ifdef CVA6_LEGACY_TRACE
+
 `ifndef VERILATOR
 
   logic [                     31:0]       fetch_instructions     [CVA6Cfg.NrIssuePorts-1:0];
@@ -2026,6 +2034,8 @@ module cva6
     $fclose(f);
   end
 `endif  // VERILATOR
+
+`endif  // CVA6_LEGACY_TRACE
   //pragma translate_on
 
 
