@@ -14,13 +14,14 @@ those who have access to it.
 | --- | --- |
 | [hw/](hw/) | Testbench SoC and its peripherals (SystemVerilog) |
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
+| &nbsp;&nbsp;&nbsp;&nbsp;[tracer/](hw/tracer/) | RVFI instruction tracer and its DPI backend |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
 | &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources cloned on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver, CLIC helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
-| [util/](util/) | Boot ROM generator, `riscv-tests` regression runner |
+| [util/](util/) | Boot ROM generator, `riscv-tests` regression runner, spike log comparison, binary trace reader |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory and wave scripts |
 
@@ -28,15 +29,17 @@ those who have access to it.
 
 - [Bender](https://github.com/pulp-platform/bender) for dependency and file list handling
 - `riscv64-unknown-elf-` GCC toolchain (override the search path with `RV_BINROOT`)
-- [Verilator](https://github.com/verilator/verilator) (`VERILATOR`, defaults to `verilator`)
-- Optionally QuestaSim (`QUESTA`, defaults to `questa-2025.3`)
+- [Verilator](https://github.com/verilator/verilator) (`VERILATOR`, defaults to `oseda -2026.04 verilator`)
+- Optionally QuestaSim (`QUESTA` sets the SEPP package wrapper on IIS workstations, defaults to `questa-2025.3`)
 - Python 3.12 for the hardware generators; the environment is pinned with
   [uv](https://docs.astral.sh/uv/) (see [pyproject.toml](pyproject.toml)) — run `uv sync`
   in this directory and activate `.venv` before building
 
-Dependencies must be checked out once from the repository root:
+Dependencies must be checked out once from the repository root, along with the HPDCache
+submodule that Bender needs in order to parse the root manifest:
 
 ```sh
+git submodule update --init core/cache_subsystem/hpdcache
 bender checkout
 ```
 
@@ -58,7 +61,24 @@ make vsim-run DEBUG=1               # GUI-friendly: +acc, full signal logging to
 
 `make clean` removes both build directories.
 
+### Rebuilding
+
+Neither edits to the RTL sources nor changes to `CVA6_CONFIG`, `TEST`, `ZERO_SIM_MEM`,
+`LEGACY_TRACE` or `DEBUG` are detected: the existing build is considered up to date and the next run simulates
+the previously elaborated design. Clean explicitly before rebuilding:
+
+```sh
+make verilator-clean
+make verilator-build CVA6_CONFIG=cv64a6_imafdchxhclic_sv39_wb
+```
+
+(`make vsim-clean` for QuestaSim.)
+
 ### Makefile variables
+
+The build targets do not track which configuration produced the current model, so run
+`make verilator-clean` (or `vsim-clean`) before rebuilding with a different config.
+
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -67,6 +87,11 @@ make vsim-run DEBUG=1               # GUI-friendly: +acc, full signal logging to
 | `MAX_CYCLES` | `10000` | Simulation timeout in core cycles |
 | `TEST` | `test_simple` | Testbench top (currently the only one) |
 | `ZERO_SIM_MEM` | unset | Initialise simulation memories to zero instead of random |
+| `TRACER` | `0` | Build in the [instruction tracer](hw/tracer/) (`1` also elaborates `cva6_rvfi`) |
+| `LEGACY_TRACE` | `0` | Re-enable CVA6's own built-in tracing (`instr_tracer` under vsim, a `.dasm` dump under Verilator) |
+| `WAVES` | `0` | Compile in waveform support; then `+fst` at run time actually dumps |
+| `THREADS` | `2` | Verilator threads for the model; use `1` for parallel regressions |
+| `SIM_ARGS` | empty | Extra plusargs forwarded to the simulation |
 | `VERILATOR_JOBS` | `0` | Verilator parallelism (`0` = all cores) |
 | `DEBUG` | `0` | QuestaSim only: enable access and waveform logging |
 
@@ -146,6 +171,10 @@ The testbench passes when the EOC register is set and the return code equals `Re
 | `+MaxCycles=<n>` | `10000` | Cycle timeout |
 | `+RetCodeSuccess=<n>` | `0` | Return code that counts as a pass |
 
+The [instruction tracer](hw/tracer/) adds `+notrace`, `+trace_file=`, `+trace_verbose=`,
+`+trace_format=`, `+trace_stats=`, `+trace_start=`, `+trace_stop=`, `+trace_symbols=`, `+trace_symbol_mode=`,
+`+trace_symbol_start=` and `+trace_symbol_stop=` when the model is built with `TRACER=1`.
+
 ## Test software
 
 [sw/](sw/) builds every `.c` and `.S` file under [sw/tests/](sw/tests/) into an ELF, a
@@ -186,11 +215,43 @@ The hypervisor tests produce a single image that can be run directly:
 make verilator-run HEXFILE=sw/deps/riscv-hyp-tests/build/cva6/rvh_test.hex MAX_CYCLES=2000000
 ```
 
+## Instruction tracing
+
+Building with `TRACER=1` adds an RVFI driven instruction tracer that writes one line per
+retired instruction, in the format of CVA6's legacy `instr_tracer`:
+
+```sh
+make verilator-build TRACER=1
+make verilator-run   TRACER=1 HEXFILE=sw/out/hello.hex SIM_ARGS="+trace_verbose=1"
+```
+
+The trace is written to `verilator/cva6tb_trace_hart_0.txt`. Optionally it can be annotated with
+symbol names from one or more ELF files, and both tracing and annotation can be narrowed to a
+window delimited by a cycle count, a program counter or a symbol:
+
+```sh
+make verilator-run TRACER=1 HEXFILE=sw/out/hello.hex \
+  SIM_ARGS="+trace_symbols=sw/out/hello.elf +trace_start=sym:main +trace_stop=sym:_exit"
+```
+
+`+trace_format=spike` switches the output to spike's own commit log format, which
+[util/cmp_spike_trace.py](util/cmp_spike_trace.py) diffs against a real spike run;
+`+trace_format=rvfi` writes the same information in the spelling the converters under
+`verif/sim/` expect; `+trace_format=binary` writes fixed size records for tools, read by
+[util/read_trace.py](util/read_trace.py). `+trace_stats=<path>` adds an end of run summary in a
+separate file.
+
+See [hw/tracer/](hw/tracer/) for the output formats, the verbosity levels, the trigger syntax
+and what RVFI can and cannot report. The tracer is opt-in
+because it also pulls in `cva6_rvfi`; a default build is unaffected.
+
 ## Waveforms
 
-Verilator always dumps `cva6tb.fst` into [verilator/](verilator/), viewable with GTKWave or
-Surfer. On QuestaSim, run with `DEBUG=1` and load the wave scripts in
-[vsim/waves/](vsim/waves/):
+Build with `WAVES=1` and pass `+fst` (or `+fst=<file>`) to dump `cva6tb.fst` into
+[verilator/](verilator/), viewable with GTKWave or Surfer. Restricting the dump to a subtree
+does not work at run time: Verilator's `--binary` mode silently ignores the scope arguments of
+`$dumpvars`, so scoping has to be done at build time. On QuestaSim, run with `DEBUG=1` and
+load the wave scripts in [vsim/waves/](vsim/waves/):
 
 ```tcl
 do ../waves/cva6.tcl

@@ -14,20 +14,42 @@ VERILATOR_DIR := $(TEST_DIR)/verilator
 # Tools
 BENDER    ?= bender --suppress E31 -d $(ROOT_DIR)
 QUESTA    ?= questa-2025.3
-VERILATOR ?= verilator
+VERILATOR ?= oseda -2026.04 verilator
 
 # Target CVA6 configuration
-CVA6_CONFIG   ?= cv64a6_rt_hpdcache
+CVA6_CONFIG   ?= cv64a6_imafdchsclic_sv39_wb
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
+# Extra plusargs forwarded to the simulation, e.g. SIM_ARGS="+trace_verbose=1"
+SIM_ARGS      ?=
 TEST          ?= test_simple
 ALLOWED_TESTS := test_simple
 DEBUG         ?= 0
-IRQ_ENABLE    ?= 0
-IRQ_PERIOD    ?= 10000
+WAVES         ?= 0
+# Verilator threads for the simulation model, a BUILD time choice. The default
+# suits one simulation at a time, which is the usual case.
+# For running many simulations at once, build with THREADS=1 instead.
+THREADS       ?= 2
+# CVA6's legacy tracer
+LEGACY_TRACE  ?= 0
+# Instruction tracer
+TRACER        ?= 0
+TRACER_DIR    := $(TEST_DIR)/hw/tracer
+TRACER_SRC    := $(TRACER_DIR)/cva6tb_tracer.cc $(TRACER_DIR)/rv_disasm.cc \
+                 $(TRACER_DIR)/rv_format.cc $(TRACER_DIR)/rv_stats.cc \
+                 $(TRACER_DIR)/rv_symbols.cc $(TRACER_DIR)/rv_trigger.cc
+TRACER_HDR    := $(TRACER_DIR)/cva6tb_tracer_dpi.h $(TRACER_DIR)/rv_disasm.h \
+                 $(TRACER_DIR)/rv_format.h $(TRACER_DIR)/rv_stats.h \
+                 $(TRACER_DIR)/rv_symbols.h $(TRACER_DIR)/rv_trigger.h
 
+# Goals that must work without a resolved dependency tree.
+NODEPS_GOALS := info default %clean
+NEEDS_DEPS   := $(filter-out $(NODEPS_GOALS),$(MAKECMDGOALS))
+
+ifneq ($(NEEDS_DEPS),)
 ifeq ($(filter $(TEST),$(ALLOWED_TESTS)),)
 $(error TEST must be one of: $(ALLOWED_TESTS) (got '$(TEST)'))
+endif
 endif
 
 .PHONY: default
@@ -56,21 +78,27 @@ ifeq ($(ZERO_SIM_MEM),1)
 BENDER_FLAGS += -D ZERO_SIM_MEM
 endif
 
-$(ROOT_DIR)/Bender.lock:
-	$(BENDER) checkout
-	touch $@
+ifeq ($(TRACER),1)
+BENDER_FLAGS += -t tracer
+endif
+
+ifeq ($(WAVES),1)
+BENDER_FLAGS += -D CVA6TB_WAVES
+endif
+
+ifeq ($(LEGACY_TRACE),1)
+BENDER_FLAGS += -D CVA6_LEGACY_TRACE
+endif
 
 ##################################
 ##### Hardware dependencies ######
 ##################################
 
 ifeq ($(shell test -d $(ROOT_DIR)/.bender || echo 1),)
+
 CLINTROOT := $(shell $(BENDER) path clint)
 REGTOOL   := $(shell $(BENDER) path register_interface)/vendor/lowrisc_opentitan/util/regtool.py
 OTPROOT   := $(shell $(BENDER) path opentitan_peripherals)
-else
-$(error "Bender dependencies are not initialized. Please run 'bender checkout' in the root directory.")
-endif
 
 CLINTCORES := 1
 include $(CLINTROOT)/clint.mk
@@ -83,11 +111,17 @@ $(OTPROOT)/.generated: $(TEST_DIR)/hw/rv_plic.cfg.hjson
 
 HW_DEPS := $(CLINTROOT)/.generated $(OTPROOT)/.generated
 
+else ifneq ($(NEEDS_DEPS),)
+$(error Bender dependencies are not initialized. Run 'bender checkout' in $(ROOT_DIR))
+endif
+
 ##################################
 ########### Bootrom ##############
 ##################################
 
-RV_BINROOT ?= $(dir $(shell which riscv64-unknown-elf-gcc))
+ifndef RV_BINROOT
+RV_BINROOT := $(dir $(shell which riscv64-unknown-elf-gcc 2>/dev/null))
+endif
 RV_AR      := $(RV_BINROOT)/riscv64-unknown-elf-ar
 RV_CC      := $(RV_BINROOT)/riscv64-unknown-elf-gcc
 RV_OBJCOPY := $(RV_BINROOT)/riscv64-unknown-elf-objcopy
@@ -99,9 +133,9 @@ BROM_CC_FLAGS = -DOT_PLATFORM_RV32 -march=rv64gc_zifencei -mabi=lp64d \
                 -nostartfiles -Os -fno-zero-initialized-in-bss \
                 -fwhole-program -flto -Wl,-flto -Wl,--gc-sections
 
-$(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin: $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.ld $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.S
+$(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin: $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.ld $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.S $(RV_CC)
 	$(RV_CC) -T$< $(BROM_CC_FLAGS) -o $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.S
-	$(RV_OBJDUMP) -d $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf > $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.dump
+	cd $(@D) && $(RV_OBJDUMP) -d cva6tb_bootrom.elf > cva6tb_bootrom.dump
 	$(RV_OBJCOPY) -O binary $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf $@
 
 $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.sv: $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin $(TEST_DIR)/util/gen_bootrom.py
@@ -143,6 +177,9 @@ $(VSIM_BUILD_DIR):
 
 $(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock $(HW_DEPS) | $(VSIM_BUILD_DIR)
 	$(BENDER) script vsim $(BENDER_FLAGS) --vlog-arg="$(VLOG_FLAGS)" > $@
+ifeq ($(TRACER),1)
+	@echo 'vlog -ccflags "-std=c++17 -O2" $(TRACER_SRC)' >> $@
+endif
 	@echo 'vopt $(VOPT_FLAGS) test -o test_opt' >> $@
 
 $(VSIM_BUILD_DIR)/vsim_compile.log: $(VSIM_BUILD_DIR)/vsim_compile.tcl
@@ -162,7 +199,7 @@ vsim-build: $(VSIM_BUILD_DIR)/vsim_compile.err
 
 .PHONY: vsim-run
 vsim-run: $(VSIM_BUILD_DIR)/vsim_compile.err
-	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD)
+	cd $(VSIM_BUILD_DIR) && $(QUESTA) vsim $(VSIM_FLAGS) test_opt +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS)
 
 .PHONY: vsim-clean
 vsim-clean:
@@ -172,13 +209,29 @@ vsim-clean:
 ########## Verilator #############
 ##################################
 
+ifeq ($(WAVES),1)
+VERILATOR_TRACE := --trace-fst --trace-structs --trace-threads 2
+else
+VERILATOR_TRACE :=
+endif
+
+ifneq ($(THREADS),1)
+VERILATOR_THREADS := --threads $(THREADS)
+else
+VERILATOR_THREADS :=
+endif
+
 VERILATOR_JOBS      ?= 0
 VERILATOR_BUILD_DIR := $(VERILATOR_DIR)/build
 VERILATOR_LOG_DIR   := $(VERILATOR_DIR)/logs
 VERILATOR_FLIST     := $(VERILATOR_DIR)/cva6tb.flist
 VERILATOR_WARNINGS  := -Wall -Wno-fatal -Wno-style -Wno-BLKANDNBLK -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-WIDTHCONCAT -Wno-ASCRANGE -Wno-IMPLICITSTATIC
 VERILATOR_FLAGS     := --binary -j $(VERILATOR_JOBS) --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_WARNINGS) -O3 -f $(VERILATOR_FLIST) --assert --timing \
-	--trace-fst --trace-structs --trace-threads 2 --x-assign fast --x-initial fast
+	$(VERILATOR_TRACE) $(VERILATOR_THREADS) --x-assign fast --x-initial fast
+
+ifeq ($(TRACER),1)
+VERILATOR_FLAGS += $(TRACER_SRC)
+endif
 
 $(VERILATOR_LOG_DIR):
 	@mkdir -p $(VERILATOR_LOG_DIR)
@@ -194,10 +247,10 @@ verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 
 .PHONY: verilator-run
 verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
-	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) +InterruptsEnabled=$(IRQ_ENABLE) +IrqPeriod=$(IRQ_PERIOD) | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(SIM_ARGS) | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
 
 .PHONY: verilator-clean
 verilator-clean:
 	rm -rf $(VERILATOR_BUILD_DIR) $(VERILATOR_LOG_DIR)
 	rm -f $(VERILATOR_FLIST)
-	cd $(VERILATOR_DIR) && rm -f *.fst *.fst.hier *.flist *.json *.dasm *.csv
+	cd $(VERILATOR_DIR) && rm -f *.fst *.fst.hier *.flist *.json *.dasm *.csv *.log cva6tb_trace_hart_*.txt
