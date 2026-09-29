@@ -1,5 +1,5 @@
 
-/scratch/ezelioli/projects/cva6rt/runtimes/cva6/test/hw/bootrom/cva6tb_bootrom.elf:     file format elf64-littleriscv
+cva6tb_bootrom.elf:     file format elf64-littleriscv
 
 
 Disassembly of section .text:

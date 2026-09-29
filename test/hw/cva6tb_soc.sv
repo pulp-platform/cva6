@@ -272,7 +272,10 @@ module cva6tb_soc
     .trap_tval_i         ( rvfi_to_iti.tval       ),
     .branch_valid_i      ( rvfi_to_iti.branch_valid  ),
     .branch_taken_i      ( rvfi_to_iti.is_taken      ),
-    .branch_mispredict_i ( rvfi_to_iti.is_mispredict )
+    // rvfi_to_iti_t on this branch has no is_mispredict field -- it is an
+    // upstream addition the RT branch predates. It only feeds the trace's
+    // mispredict column, so tie it off rather than backport the field.
+    .branch_mispredict_i ( '0 )
   );
 
 `endif
