@@ -14,6 +14,7 @@ dependencies = [
     "markdown-grid-tables",
     "tclint==0.4.2",
     "flatdict>=4.1.0",
+    "numpy", # `util/trace_to_perfetto.py`
     "setuptools<81", # Required by old `regtool`
 ]
 
