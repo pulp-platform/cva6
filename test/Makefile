@@ -17,7 +17,7 @@ QUESTA    ?=
 VERILATOR ?= verilator
 
 # Target CVA6 configuration
-CVA6_CONFIG   ?= cv64a6_imafdchsclic_sv39_wb
+CVA6_CONFIG   ?= cv64a6_imafdchxhclic_sv39_hpdcache_wb
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
 # Main memory delay per AXI channel, 0 to 16, passed as +MemDelay when set
