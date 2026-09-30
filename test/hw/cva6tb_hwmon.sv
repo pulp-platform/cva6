@@ -376,6 +376,10 @@ module cva6tb_hwmon
           if (period_q[req_task_id] != 0) begin
             if (!run_ready) begin
               run_ready = 1'b1;
+              // Start the stall clock here, not at cycle 0: boot takes ~390 k
+              // cycles before the first release, which would otherwise trip the
+              // detector immediately and report "last progress at cycle 0".
+              last_progress_q = cycle_q;
               ev("RUN_READY", req_task_id, 0,0,0,0,0,0,0,0, 0);
             end
             ev("JOB_RELEASE", req_task_id, 0,0,0,0,0,0,0,0,
