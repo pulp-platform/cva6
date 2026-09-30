@@ -288,6 +288,7 @@ module controller
   // Hwstack drain FSM signals
   hwstack_fifo_drain_state_e hwstack_drain_state_d, hwstack_drain_state_q;
   logic [CVA6Cfg.VLEN-1:0] hwstack_drain_address_d, hwstack_drain_address_q;
+  logic [CVA6Cfg.VLEN-1:0] hwstack_drain_end_d, hwstack_drain_end_q;
 
   // Hwstack configuration
   logic [1:0] hwstack_config;
@@ -413,6 +414,7 @@ module controller
       hwstack_regs_count_q    <= '0;
       hwstack_regs_num_q      <= '0;
       hwstack_drain_address_q <= '0;
+      hwstack_drain_end_q     <= '0;
       hwstack_config_q        <= '0;
     end else begin
       hwstack_fill_state_q    <= hwstack_fill_state_d;
@@ -420,6 +422,7 @@ module controller
       hwstack_regs_count_q    <= hwstack_regs_count_d;
       hwstack_regs_num_q      <= hwstack_regs_num_d;
       hwstack_drain_address_q <= hwstack_drain_address_d;
+      hwstack_drain_end_q     <= hwstack_drain_end_d;
       hwstack_config_q        <= hwstack_config_d;
     end
   end
@@ -473,14 +476,8 @@ module controller
   always_comb begin : hwstack_load_offset_check
     page_offset_matches_o = 1'b0;
     if (hwstack_drain_state_q != HWSTACK_DRAIN_IDLE) begin
-      if (hwstack_config == 2'b01) begin
-        if ((page_offset_i >= trap_frame_base_i[11:0]) && (page_offset_i < hwstack_drain_address_q[11:0])) begin
-          page_offset_matches_o = 1'b1;
-        end
-      end else if (hwstack_config == 2'b11) begin
-        if ((page_offset_i >= task_context_base_i[11:0]) && (page_offset_i < hwstack_drain_address_q[11:0])) begin
-          page_offset_matches_o = 1'b1;
-        end
+      if ((page_offset_i[11:3] >= hwstack_drain_address_q[11:3]) && (page_offset_i[11:3] <= hwstack_drain_end_q[11:3])) begin
+        page_offset_matches_o = 1'b1;
       end
     end
   end
@@ -489,6 +486,7 @@ module controller
     // Default assignments
     hwstack_drain_state_d    = hwstack_drain_state_q;
     hwstack_drain_address_d  = hwstack_drain_address_q;
+    hwstack_drain_end_d      = hwstack_drain_end_q;
     hwstack_dcache_req_valid = 1'b0;
     hwstack_fifo_pop         = 1'b0;
     unique case (hwstack_drain_state_q)
@@ -496,6 +494,8 @@ module controller
       HWSTACK_DRAIN_IDLE: begin
         if (ex_valid_i && clic_irq_i && (|clic_rstk_i)) begin
           hwstack_drain_address_d = (clic_rstk_i == 2'b01) ? trap_frame_base_i : task_context_base_i;
+          hwstack_drain_end_d = hwstack_drain_address_d +
+              (hwstack_regs_num << $clog2(CVA6Cfg.XLEN / 8));
           hwstack_drain_state_d = HWSTACK_DRAIN_SEND_REQ;
         end
       end
