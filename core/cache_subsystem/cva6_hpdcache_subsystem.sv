@@ -157,10 +157,36 @@ module cva6_hpdcache_subsystem
   logic icache_miss_resp_valid;
   icache_rtrn_t icache_miss_resp;
 
-  // unused: the icache miss path here already serializes to one outstanding
-  // request (see icache_miss_pending_q in the AXI/L15 arbiters), so
-  // SupportOutstandingKillReq stays disabled below and this never fires
+  // A fetch killed while its refill is outstanding (e.g. by an interrupt
+  // redirect) need not wait for that refill: with SupportOutstandingKillReq the
+  // I$ returns to IDLE at once and the next request -- an ISPM hit, say --
+  // proceeds. The I$ then requires the adapter to discard the killed refill's
+  // response: delivered to an I$ already serving the ISPM, it gates the
+  // front-end handshake while the ISPM controller still accepts the next
+  // request, and the two fall out of step (wrong instruction word).
+  //
+  // The AXI arbiter keeps a single I$ miss outstanding (its one-entry miss FIFO
+  // accepts no new miss until the previous response has been delivered), so the
+  // first response after a kill is always the killed one: one flag is enough to
+  // drop it. The arbiter still sees the response and frees its FIFO entry. Not
+  // enabled for the L1.5 adapter, whose ordering has not been checked.
+  localparam bit IcacheOutstandingKill = (CVA6Cfg.NOCType == config_pkg::NOC_TYPE_AXI4_ATOP);
   logic icache_mem_kill_req;
+  logic icache_miss_killed_q;
+  logic icache_miss_resp_valid_to_icache;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : icache_killed_miss
+    if (!rst_ni) begin
+      icache_miss_killed_q <= 1'b0;
+    end else if (icache_mem_kill_req) begin
+      icache_miss_killed_q <= 1'b1;
+    end else if (icache_miss_resp_valid) begin
+      icache_miss_killed_q <= 1'b0;
+    end
+  end
+
+  assign icache_miss_resp_valid_to_icache =
+      icache_miss_resp_valid & ~(IcacheOutstandingKill & icache_miss_killed_q);
 
   //  D-cache <-> I-cache SPM signals
   dcache_req_o_t d2i_cache_req_in;
@@ -178,7 +204,8 @@ module cva6_hpdcache_subsystem
       .icache_rtrn_t(icache_rtrn_t),
       .dcache_req_i_t(dcache_req_i_t),
       .dcache_req_o_t(dcache_req_o_t),
-      .RdTxId(ICACHE_RDTXID)
+      .RdTxId(ICACHE_RDTXID),
+      .SupportOutstandingKillReq(IcacheOutstandingKill)
   ) i_cva6_icache (
       .clk_i            (clk_i),
       .rst_ni           (rst_ni),
@@ -195,7 +222,7 @@ module cva6_hpdcache_subsystem
       .dreq_o           (icache_dreq_o),
       .ispm_req_i       (d2i_cache_req_out),
       .ispm_req_o       (d2i_cache_req_in),
-      .mem_rtrn_vld_i   (icache_miss_resp_valid),
+      .mem_rtrn_vld_i   (icache_miss_resp_valid_to_icache),
       .mem_rtrn_i       (icache_miss_resp),
       .mem_data_req_o   (icache_miss_valid),
       .mem_data_ack_i   (icache_miss_ready),
