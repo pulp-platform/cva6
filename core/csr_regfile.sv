@@ -2573,10 +2573,19 @@ module csr_regfile
               privilege_violation = ~mcounteren_q[sel_cnt_en];
             end else if (priv_lvl_o == riscv::PRIV_LVL_U && CVA6Cfg.RVU) begin
               virtual_privilege_violation = v_q & mcounteren_q[sel_cnt_en] & ~hcounteren_q[sel_cnt_en];
+              // A U-mode counter read needs *both* enables: mcounteren gates
+              // S-mode and U-mode, scounteren gates U-mode on top of it, so a
+              // clear bit in either one traps. These were ANDed, which only
+              // trapped when both were clear and let a U-mode read through
+              // whenever mcounteren allowed it. Under V, hcounteren takes the
+              // place of the outer gate once mcounteren permits the access --
+              // mcounteren clear is an illegal instruction, while mcounteren set
+              // with hcounteren clear is the virtual-instruction case handled
+              // just above.
               if (v_q) begin
-                privilege_violation = ~mcounteren_q[sel_cnt_en] & ~scounteren_q[sel_cnt_en] & hcounteren_q[sel_cnt_en];
+                privilege_violation = ~mcounteren_q[sel_cnt_en] | (hcounteren_q[sel_cnt_en] & ~scounteren_q[sel_cnt_en]);
               end else begin
-                privilege_violation = ~mcounteren_q[sel_cnt_en] & ~scounteren_q[sel_cnt_en];
+                privilege_violation = ~mcounteren_q[sel_cnt_en] | ~scounteren_q[sel_cnt_en];
               end
             end else if (priv_lvl_o == riscv::PRIV_LVL_M) begin
               privilege_violation = 1'b0;
@@ -2591,10 +2600,19 @@ module csr_regfile
               privilege_violation = ~mcounteren_q[sel_cnt_en];
             end else if (priv_lvl_o == riscv::PRIV_LVL_U && CVA6Cfg.RVU) begin
               virtual_privilege_violation = v_q & mcounteren_q[sel_cnt_en] & ~hcounteren_q[sel_cnt_en];
+              // A U-mode counter read needs *both* enables: mcounteren gates
+              // S-mode and U-mode, scounteren gates U-mode on top of it, so a
+              // clear bit in either one traps. These were ANDed, which only
+              // trapped when both were clear and let a U-mode read through
+              // whenever mcounteren allowed it. Under V, hcounteren takes the
+              // place of the outer gate once mcounteren permits the access --
+              // mcounteren clear is an illegal instruction, while mcounteren set
+              // with hcounteren clear is the virtual-instruction case handled
+              // just above.
               if (v_q) begin
-                privilege_violation = ~mcounteren_q[sel_cnt_en] & ~scounteren_q[sel_cnt_en] & hcounteren_q[sel_cnt_en];
+                privilege_violation = ~mcounteren_q[sel_cnt_en] | (hcounteren_q[sel_cnt_en] & ~scounteren_q[sel_cnt_en]);
               end else begin
-                privilege_violation = ~mcounteren_q[sel_cnt_en] & ~scounteren_q[sel_cnt_en];
+                privilege_violation = ~mcounteren_q[sel_cnt_en] | ~scounteren_q[sel_cnt_en];
               end
             end else if (priv_lvl_o == riscv::PRIV_LVL_M) begin
               privilege_violation = 1'b0;
