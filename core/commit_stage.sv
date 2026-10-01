@@ -121,12 +121,24 @@ module commit_stage
   //     .probe9(1'b0) // input wire [0:0]  probe9
   // );
 
+  // A CLIC interrupt is taken here, at the commit stage, by turning the
+  // instruction at the head into the trap. Not an AMO, though: an AMO at the
+  // head sends its request to the data cache in its first cycle there
+  // (amo_valid_commit_o) and waits for the response. Trapping on it would
+  // abandon an update already under way -- replayed after the return, so
+  // applied twice -- and the flushed AMO buffer would be popped by the late
+  // response. The interrupt waits for the AMO to complete and is taken on
+  // the next instruction.
+  logic clic_take;
+  assign clic_take = clic_mode_i && clic_irq_req_i
+                   && !(CVA6Cfg.RVA && commit_instr_i[0].valid && is_amo(commit_instr_i[0].op));
+
   scoreboard_entry_t [CVA6Cfg.NrCommitPorts-1:0] commit_instr_int;
   always_comb begin
     for (int i = 0; i < CVA6Cfg.NrCommitPorts; i++) begin
       commit_instr_int[i] = commit_instr_i[i];
     end
-    if (clic_mode_i && clic_irq_req_i) begin
+    if (clic_take) begin
       commit_instr_int[0].ex.valid = 1'b1;
       commit_instr_int[0].ex.cause = clic_irq_cause_i;
     end
@@ -483,7 +495,7 @@ module commit_stage
       ex_next_instr_d = '0;
     end
 
-    if (clic_mode_i && clic_irq_req_i) begin
+    if (clic_take) begin
       exception_o.valid = 1'b1;
       exception_o.cause = clic_irq_cause_i;
       pc_o = next_commit_pc_i;
