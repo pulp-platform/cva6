@@ -218,6 +218,13 @@ module load_store_unit
   logic                    ld_valid_i;
   logic                    ld_translation_req;
   logic                    st_translation_req;
+  // LR is dispatched to the store unit but is architecturally a load: it needs
+  // only read permission, and any fault it takes -- page fault, PMP access
+  // fault, misalignment -- is reported as the load variant. SC and the AMOs
+  // stay stores. Everything downstream that asks "is this a store?" for the
+  // sake of permissions or fault attribution must use this, not the bare
+  // translation request.
+  logic                    st_translation_is_store;
   logic [CVA6Cfg.VLEN-1:0] ld_vaddr;
   logic [            31:0] ld_tinst;
   logic                    ld_hs_ld_st_inst;
@@ -230,10 +237,13 @@ module load_store_unit
   logic                    translation_valid;
   logic [CVA6Cfg.VLEN-1:0] mmu_vaddr;
   logic [CVA6Cfg.PLEN-1:0] mmu_paddr, fetch_vaddr_plen, lsu_paddr;
-  logic        [         CVA6Cfg.VLEN-1:0] pmp_vaddr_q;
-  logic                                    pmp_is_store_q;
-  logic                                    pmp_hlvx_inst_q;
-  logic        [                     31:0] mmu_tinst;
+  logic [CVA6Cfg.VLEN-1:0] pmp_vaddr_q;
+  logic                    pmp_is_store_q;
+  logic                    pmp_hlvx_inst_q;
+  logic [            31:0] mmu_tinst;
+
+  assign st_translation_is_store = st_translation_req &&
+      !(lsu_ctrl.operation inside {ariane_pkg::AMO_LRW, ariane_pkg::AMO_LRD});
   logic                                    mmu_hs_ld_st_inst;
   logic                                    mmu_hlvx_inst;
   exception_t                              mmu_exception;
@@ -294,7 +304,7 @@ module load_store_unit
         .lsu_req_i(translation_req),
         .lsu_vaddr_i(mmu_vaddr),
         .lsu_tinst_i(mmu_tinst),
-        .lsu_is_store_i(st_translation_req),
+        .lsu_is_store_i(st_translation_is_store),
         .csr_hs_ld_st_inst_o(csr_hs_ld_st_inst_o),
         .lsu_dtlb_hit_o(dtlb_hit),  // send in the same cycle as the request
         .lsu_dtlb_ppn_o(dtlb_ppn),  // send in the same cycle as the request
@@ -361,7 +371,7 @@ module load_store_unit
     assign pmp_translation_valid = translation_req;
     assign pmp_exception = misaligned_exception;
     assign pmp_vaddr_q = mmu_vaddr;
-    assign pmp_is_store_q = st_translation_req;
+    assign pmp_is_store_q = st_translation_is_store;
     assign pmp_hlvx_inst_q = mmu_hlvx_inst;
     if (CVA6Cfg.VLEN > CVA6Cfg.PLEN) begin : gen_paddr_vlen_greater
       assign lsu_paddr = mmu_vaddr[CVA6Cfg.PLEN-1:0];
@@ -719,7 +729,11 @@ module load_store_unit
         end
         STORE: begin
 
-          misaligned_exception.cause = riscv::ST_ADDR_MISALIGNED;
+          // Atomics are dispatched to the store unit, but LR is architecturally
+          // a load: a misaligned LR raises a load address-misaligned exception,
+          // while SC and the AMOs raise the store/AMO one.
+          misaligned_exception.cause = (lsu_ctrl.operation inside {ariane_pkg::AMO_LRW, ariane_pkg::AMO_LRD}) ?
+              riscv::LD_ADDR_MISALIGNED : riscv::ST_ADDR_MISALIGNED;
           misaligned_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
             misaligned_exception.tval = {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, lsu_ctrl.vaddr};
@@ -748,7 +762,9 @@ module load_store_unit
           end
         end
         STORE: begin
-          misaligned_exception.cause = riscv::STORE_PAGE_FAULT;
+          // LR raises the load variant, as in the misaligned case.
+          misaligned_exception.cause = (lsu_ctrl.operation inside {ariane_pkg::AMO_LRW, ariane_pkg::AMO_LRD}) ?
+              riscv::LOAD_PAGE_FAULT : riscv::STORE_PAGE_FAULT;
           misaligned_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
             misaligned_exception.tval = {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, lsu_ctrl.vaddr};
@@ -777,7 +793,9 @@ module load_store_unit
           end
         end
         STORE: begin
-          misaligned_exception.cause = riscv::STORE_GUEST_PAGE_FAULT;
+          // LR raises the load variant, as in the misaligned case.
+          misaligned_exception.cause = (lsu_ctrl.operation inside {ariane_pkg::AMO_LRW, ariane_pkg::AMO_LRD}) ?
+              riscv::LOAD_GUEST_PAGE_FAULT : riscv::STORE_GUEST_PAGE_FAULT;
           misaligned_exception.valid = 1'b1;
           if (CVA6Cfg.TvalEn)
             misaligned_exception.tval = {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, lsu_ctrl.vaddr};
