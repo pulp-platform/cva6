@@ -205,7 +205,8 @@ module cva6_hpdcache_subsystem
       .dcache_req_i_t(dcache_req_i_t),
       .dcache_req_o_t(dcache_req_o_t),
       .RdTxId(ICACHE_RDTXID),
-      .SupportOutstandingKillReq(IcacheOutstandingKill)
+      .SupportOutstandingKillReq(IcacheOutstandingKill),
+      .SupportKillPendingTranslation(1'b1)
   ) i_cva6_icache (
       .clk_i            (clk_i),
       .rst_ni           (rst_ni),
