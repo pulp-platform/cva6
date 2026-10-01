@@ -79,7 +79,13 @@ module cva6tb_irq_log #(
   // The core is halted for a reason outside the interrupt path -- a cache flush
   // triggered by fence.i (controller fence_active_q). Recorded per interrupt
   // (fence_blocked column) so an analysis can report those arrivals apart.
-  input logic               blocked_i
+  input logic               blocked_i,
+  // The core's CLIC controller request: the presented interrupt after the
+  // enable and threshold gating (SIE, level above the threshold). Low while
+  // irq_valid_i presents our interrupt means software has it masked; those
+  // cycles are counted per interrupt (masked_cycles column) to separate the
+  // time spent waiting on the software from the hardware path.
+  input logic               irq_req_i
 );
 
   // Tracking state for the single in-flight interrupt.
@@ -96,6 +102,7 @@ module cva6tb_irq_log #(
   logic [63:0] cur_pc;
   bit          first_commit_seen;
   bit          cur_blocked;    // blocked_i seen while this interrupt was pending
+  int unsigned cur_masked;     // cycles presented but held back by the enable/threshold
   int unsigned cur_id;         // CLIC ID of the interrupt being tracked
   int unsigned nest;           // interrupts taken inside our handler, not yet returned
 
@@ -103,6 +110,7 @@ module cva6tb_irq_log #(
   int unsigned irqs_dropped;   // lines asserting while another is in flight
   int unsigned isr_missed;     // handler returned without the ISR entry committing
   int unsigned rows_blocked;   // rows with fence_blocked = 1
+  int unsigned rows_masked;    // rows with masked_cycles > 0
   int          fd;
 
   logic [NumIrqs-1:0] irqs_edge;
@@ -138,12 +146,13 @@ module cva6tb_irq_log #(
   );
 
   function automatic void write_row();
-    $fdisplay(fd, "%0d,%0h,%0t,%0t,%0t,%0t,%0t,%0t,%0d",
+    $fdisplay(fd, "%0d,%0h,%0t,%0t,%0t,%0t,%0t,%0t,%0d,%0d",
               cur_num, cur_pc, t_irq, t_valid, t_ack,
-              t_first_commit, t_isr, $realtime, cur_blocked);
+              t_first_commit, t_isr, $realtime, cur_blocked, cur_masked);
     $fflush(fd);
     rows_written++;
     if (cur_blocked) rows_blocked++;
+    if (cur_masked != 0) rows_masked++;
   endfunction
 
   initial begin
@@ -152,8 +161,10 @@ module cva6tb_irq_log #(
     irqs_dropped      = 0;
     isr_missed        = 0;
     rows_blocked      = 0;
+    rows_masked       = 0;
     first_commit_seen = 1'b0;
     cur_blocked       = 1'b0;
+    cur_masked        = 0;
 
     @(start_log_i);
 
@@ -161,7 +172,7 @@ module cva6tb_irq_log #(
     // Unable to record results is fatal: a run that cannot write its
     // measurements is worse than one that does not start.
     if (fd == 0) $fatal(1, "[IRQ] could not open irq_latencies.csv for writing");
-    $fdisplay(fd, "irq_num,pc,irq_time,valid_time,ack_time,first_commit_time,isr_start_time,eret_time,fence_blocked");
+    $fdisplay(fd, "irq_num,pc,irq_time,valid_time,ack_time,first_commit_time,isr_start_time,eret_time,fence_blocked,masked_cycles");
     $fflush(fd);
     $display("@%t | [%s] Logging interrupts, ISR entry at 0x%0h", $realtime, "IRQ", isr_addr_i);
 
@@ -184,6 +195,7 @@ module cva6tb_irq_log #(
             cur_pc            = '0;
             first_commit_seen = 1'b0;
             cur_blocked       = 1'b0;
+            cur_masked        = 0;
             state_q           = S_RAISED;
           end else begin
             irqs_dropped++;
@@ -194,6 +206,9 @@ module cva6tb_irq_log #(
       // Between the line asserting and the ISR entry committing, note whether
       // the core was halted by a fence (its entry may wait for the flush).
       if ((state_q == S_RAISED || state_q == S_ACKED) && blocked_i) cur_blocked = 1'b1;
+      // While it is pending, count the cycles in which the CLIC presents it but
+      // the enable/threshold gating holds the request back (software masking).
+      if (state_q == S_RAISED && irq_valid_i && int'(irq_id_i) == cur_id && !irq_req_i) cur_masked++;
 
       case (state_q)
         // The CLIC presents and acknowledges every enabled source -- the timer
@@ -250,6 +265,7 @@ module cva6tb_irq_log #(
     $display("====== Interrupt log summary ======");
     $display("interrupts logged : %0d", rows_written);
     $display("fence-blocked     : %0d (entry delayed by a cache-flush fence; fence_blocked = 1)", rows_blocked);
+    $display("masked            : %0d (entry waited while software had it masked; masked_cycles > 0)", rows_masked);
     if (irqs_dropped != 0)
       $display("WARNING: %0d interrupt(s) asserted while another was in flight and were not logged",
                irqs_dropped);
