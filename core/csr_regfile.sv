@@ -1047,12 +1047,12 @@ CVA6Cfg.NrCommitPorts
                 riscv::CSR_PMPADDR62,
                 riscv::CSR_PMPADDR63: begin
           // index is calculated using PMPADDR0 as the offset
-          // Important: we only support granularity 8 bytes (G=1)
-          // -> last bit of pmpaddr must be set 0/1 based on the mode:
-          // NA4, NAPOT: 1
-          // TOR, OFF:   0
+          // With the implemented granularity G=1, pmpaddr[0] reads as zero for
+          // OFF and TOR, and NAPOT reads back as written: bit 0 distinguishes an
+          // 8-byte region (...0) from a 16-byte one (...01), both of which
+          // pmp_entry.sv decodes.
           if (CVA6Cfg.PMPNapotEn && pmpcfg_q[pmpaddr_index].addr_mode[1] == 1'b1)
-            csr_rdata = {pmpaddr_q[pmpaddr_index][CVA6Cfg.PLEN-3:1], 1'b1};
+            csr_rdata = pmpaddr_q[pmpaddr_index];
           else csr_rdata = {pmpaddr_q[pmpaddr_index][CVA6Cfg.PLEN-3:1], 1'b0};
         end
         default: read_access_exception = 1'b1;
