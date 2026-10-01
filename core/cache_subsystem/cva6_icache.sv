@@ -44,7 +44,13 @@ module cva6_icache
     /// in-flight (killed) memory response has returned. Only safe if the memory
     /// adapter behind mem_data_req_o/mem_rtrn_vld_i can have multiple requests
     /// outstanding and discards stale responses via mem_kill_req_o.
-    parameter bit SupportOutstandingKillReq = 1'b0
+    parameter bit SupportOutstandingKillReq = 1'b0,
+    /// On a kill while the request's address translation is still pending (ITLB
+    /// miss, PTW walking), return to IDLE at once instead of waiting in
+    /// KILL_ATRANS for the walk to finish. The walk completes in the background;
+    /// the MMU reports its fault only to a fetch of the same page, so it cannot
+    /// be attributed to the next request.
+    parameter bit SupportKillPendingTranslation = 1'b0
 ) (
     input logic clk_i,
     input logic rst_ni,
@@ -405,7 +411,7 @@ module cva6_icache
           end
           // bail out if this request is being killed (and we missed on the TLB)
         end else if (dreq_i.kill_s2 || flush_d) begin
-          state_d = KILL_ATRANS;
+          state_d = SupportKillPendingTranslation ? IDLE : KILL_ATRANS;
         end
       end
       //////////////////////////////////
