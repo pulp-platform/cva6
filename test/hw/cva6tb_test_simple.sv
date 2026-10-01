@@ -87,6 +87,7 @@ module test;
   logic                      commit_valid;
   logic               [63:0] commit_pc;
   logic               [63:0] exception_pc;
+  logic                      fence_flush;
   event                      irq_start_log;
   event                      irq_start_gen;
 
@@ -100,6 +101,8 @@ module test;
   // output rather than the head of the scoreboard: a CLIC interrupt taken with an
   // empty pipeline has no head entry, and its return address comes from elsewhere.
   assign exception_pc   = i_dut.i_cva6.commit_stage_i.pc_o;
+  // Core halted by a fence.i cache flush (CVA6 controller); see cva6tb_irq_log.
+  assign fence_flush    = i_dut.i_cva6.controller_i.fence_active_q;
 
   // Interrupt generation
   initial begin : irq_gen
@@ -160,7 +163,8 @@ module test;
     .irq_id_i       ( clic_irq_id    ),
     .irq_valid_i    ( clic_irq_valid ),
     .irq_ack_i      ( clic_irq_ready ),
-    .eret_i         ( eret           )
+    .eret_i         ( eret           ),
+    .blocked_i      ( fence_flush    )
   );
 
   cva6tb_clk_rst_gen #(
