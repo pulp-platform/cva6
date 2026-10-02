@@ -497,7 +497,7 @@ package config_pkg;
     assert (Cfg.NrExecuteRegionRules <= NrMaxRules);
     assert (Cfg.NrCachedRegionRules <= NrMaxRules);
     assert (Cfg.NumTlbColors > 0);
-    assert ((Cfg.LockableTlbWays <= Cfg.InstrTlbEntries) && (Cfg.LockableTlbWays <= Cfg.DataTlbEntries) && (Cfg.LockableTlbWays <= 8));
+    assert ((Cfg.LockableTlbWays <= Cfg.InstrTlbEntries) && (Cfg.LockableTlbWays <= Cfg.DataTlbEntries) && (Cfg.LockableTlbWays <= 16));
     assert (Cfg.NrPMPEntries <= 64);
     assert (!(Cfg.RVXHCLIC && (!Cfg.RVH || !Cfg.RVSCLIC)));
     assert (Cfg.FETCH_WIDTH == 32 || Cfg.FETCH_WIDTH == 64)
