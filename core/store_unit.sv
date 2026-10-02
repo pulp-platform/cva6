@@ -122,7 +122,10 @@ module store_unit
   // directly forward exception fields (valid bit is set below)
   // A store trigger reports its own cause and the faulting address; otherwise
   // the exception carried in from the MMU passes through unchanged.
-  assign ex_o.cause = (CVA6Cfg.SdtrigMcontrol6Store && sdtrig_store_stall_i && valid_i) ? sdtrig_store_action_i : ex_i.cause;
+  // The cause carried in from the MMU, with the fault of a cache-block
+  // operation reported as a store fault (see below).
+  logic [CVA6Cfg.XLEN-1:0] ex_i_cause;
+  assign ex_o.cause = (CVA6Cfg.SdtrigMcontrol6Store && sdtrig_store_stall_i && valid_i) ? sdtrig_store_action_i : ex_i_cause;
   assign ex_o.tval  = (CVA6Cfg.SdtrigMcontrol6Store && sdtrig_store_stall_i && valid_i) ? {{CVA6Cfg.XLEN - CVA6Cfg.VLEN{1'b0}}, lsu_ctrl_i.vaddr} : ex_i.tval;
   assign ex_o.tval2 = CVA6Cfg.RVH ? ex_i.tval2 : '0;
   assign ex_o.tinst = CVA6Cfg.RVH ? ex_i.tinst : '0;
@@ -300,6 +303,20 @@ module store_unit
   assign st_data_size = CVA6Cfg.MmuPresent ? st_data_size_q : st_data_size_n;
   assign amo_op = CVA6Cfg.MmuPresent ? amo_op_q : amo_op_d;
   assign cbo_op = CVA6Cfg.MmuPresent ? cbo_op_q : cbo_op_d;
+
+  // A cache-block operation is translated and PMP-checked for read permission
+  // (see load_store_unit.sv), but a fault it takes is a store fault.
+  always_comb begin
+    ex_i_cause = ex_i.cause;
+    if (CVA6Cfg.RVZiCbom && cbo_op != ariane_pkg::CBO_NONE) begin
+      unique case (ex_i.cause)
+        riscv::LD_ACCESS_FAULT:       ex_i_cause = riscv::ST_ACCESS_FAULT;
+        riscv::LOAD_PAGE_FAULT:       ex_i_cause = riscv::STORE_PAGE_FAULT;
+        riscv::LOAD_GUEST_PAGE_FAULT: ex_i_cause = riscv::STORE_GUEST_PAGE_FAULT;
+        default:                      ;
+      endcase
+    end
+  end
   assign store_buffer_valid = CVA6Cfg.MmuPresent ? store_buffer_valid_q && !ex_s1 : store_buffer_valid_d;
   assign store_buffer_valid_no_flush = CVA6Cfg.MmuPresent ? store_buffer_valid_no_flush_q && !ex_s1 : store_buffer_valid_no_flush_d;
   assign amo_buffer_valid = CVA6Cfg.MmuPresent ? amo_buffer_valid_q && !ex_s1 : amo_buffer_valid_d;
