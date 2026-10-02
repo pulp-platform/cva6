@@ -54,7 +54,10 @@ package cva6_config_pkg;
   // CAUTION - a configuration with CVA6ConfigDcacheFlushOnFence might be required for different SoCs, e.g., cache-coherent SMP configurations
   localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
   localparam CVA6ConfigDcacheFlushOnFenceI = 1'b1;
-  localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
+  // fence.i writes the D$ back and invalidates it (HPDcache FLUSH_INVAL_ALL
+  // instead of FLUSH_ALL), as the evaluation's worst-case interference assumes.
+  // DSPM ways are outside the directory, so their contents survive.
+  localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b1;
 
   localparam CVA6ConfigDcacheIdWidth = 3; // Must be >= $clog2(CVA6Cfg.NrLoadBufEntries)
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
