@@ -51,7 +51,9 @@ package cva6_config_pkg;
   // CAUTION - a configuration with CVA6ConfigDcacheFlushOnFence might be required for different SoCs, e.g., cache-coherent SMP configurations
   localparam CVA6ConfigDcacheFlushOnFence = 1'b0;
   localparam CVA6ConfigDcacheFlushOnFenceI = 1'b1;
-  localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b0;
+  // fence.i writes the D$ back and invalidates it (HPDcache FLUSH_INVAL_ALL
+  // instead of FLUSH_ALL), as the evaluation's worst-case interference assumes.
+  localparam CVA6ConfigDcacheInvalidateOnFlush = 1'b1;
 
   localparam CVA6ConfigDcacheIdWidth = 3;
   localparam CVA6ConfigMemTidWidth = CVA6ConfigAxiIdWidth;
