@@ -1073,7 +1073,14 @@ module issue_read_operands
       is_compressed_instr_o <= is_compressed_instr_n;
       branch_predict_o <= branch_predict_n;
       if (CVA6Cfg.ZKN) begin
-        orig_instr_aes_bits <= {orig_instr_i[0][31:30], orig_instr_i[0][23:20]};
+        // The AES unit takes its operands from whichever port issued to it
+        // (one_cycle_data in ex_stage.sv), so its instruction bits must come
+        // from the same port.
+        if (CVA6Cfg.SuperscalarEn && aes_valid_n[1]) begin
+          orig_instr_aes_bits <= {orig_instr_i[1][31:30], orig_instr_i[1][23:20]};
+        end else begin
+          orig_instr_aes_bits <= {orig_instr_i[0][31:30], orig_instr_i[0][23:20]};
+        end
       end
       if (CVA6Cfg.RVH) begin
         tinst_q <= tinst_n;
