@@ -12,6 +12,16 @@ package cva6_config_pkg;
 
   localparam CVA6ConfigXlen = 64;
 
+  // TLB entries software can lock (CSR_TLB_LOCK_*), 8 by default. An evaluation
+  // variant overrides it with +define+CVA6RT_LOCKABLE_TLB_WAYS=<n> (up to 16, the
+  // TLB size): the schedulability campaign uses 16 only for the tasks whose SPM
+  // regions need more than 8 locked pages. The default stays 8.
+`ifdef CVA6RT_LOCKABLE_TLB_WAYS
+  localparam CVA6RTLockableTlbWays = `CVA6RT_LOCKABLE_TLB_WAYS;
+`else
+  localparam CVA6RTLockableTlbWays = 8;
+`endif
+
   localparam CVA6ConfigRVF = 1;
   localparam CVA6ConfigRVD = 1;
   localparam CVA6ConfigF16En = 0;
@@ -199,7 +209,7 @@ package cva6_config_pkg;
       DataTlbEntries: int'(16),
       TlbColoring: bit'(1),
       NumTlbColors: int'(16),
-      LockableTlbWays: int'(8),
+      LockableTlbWays: int'(CVA6RTLockableTlbWays),
       UseSharedTlb: bit'(0),
       SvnapotEn: bit'(0),
       SharedTlbDepth: int'(64),
