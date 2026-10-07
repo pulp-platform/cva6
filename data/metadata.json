@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-10-07T02:53:29.068943+00:00",
+  "repo": "pulp-platform/cva6",
+  "workflows": [
+    "ci",
+    "tier1",
+    "tier2"
+  ]
+}
