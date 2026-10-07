@@ -21,7 +21,7 @@ those who have access to it.
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
-| [util/](util/) | Boot ROM generator, regression runners for the tests in `sw/` and `riscv-tests`, spike log comparison and binary trace reader |
+| [util/](util/) | Boot ROM generator, regression runners for the tests in `sw/` and `riscv-tests`, spike log comparison, binary trace reader and Perfetto export |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory, simulation logs and wave scripts |
 
