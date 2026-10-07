@@ -273,6 +273,7 @@ module cva6_rvfi
       {{32{1'b0}}, ariane_pkg::hs_deleg_interrupts(CVA6Cfg)} : 64'b0;
 
   riscv::priv_lvl_t priv_lvl;
+  logic virt;
 
   logic [CVA6Cfg.VLEN-1:0] lsu_ctrl_vaddr;
   fu_t lsu_ctrl_fu;
@@ -350,6 +351,7 @@ module cva6_rvfi
   assign time_iti = csr.cycle_q;
 
   assign priv_lvl = instr.priv_lvl;
+  assign virt = instr.v;
 
   assign wbdata = instr.wbdata;
   assign commit_ack = instr.commit_ack;
@@ -539,6 +541,8 @@ module cva6_rvfi
 
       rvfi_instr_o[i].cause <= ex_commit_cause;
       rvfi_instr_o[i].mode <= (CVA6Cfg.DebugEn && debug_mode) ? 2'b10 : priv_lvl;
+      // mode reports S for both HS and VS; virt says which. Never set in debug mode.
+      rvfi_instr_o[i].virt <= (CVA6Cfg.DebugEn && debug_mode) ? 1'b0 : virt;
       rvfi_instr_o[i].ixl <= CVA6Cfg.IS_XLEN64 ? 2 : 1;
       rvfi_instr_o[i].rs1_addr <= commit_instr_rs1[i];
       rvfi_instr_o[i].rs2_addr <= commit_instr_rs2[i];
