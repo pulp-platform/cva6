@@ -3602,6 +3602,14 @@ module csr_regfile
   assign rvfi_csr_o.vsatp_q = CVA6Cfg.RVH ? CVA6Cfg.XLEN'(vsatp_q) : '0;
   assign rvfi_csr_o.mtinst_q = CVA6Cfg.RVH ? mtinst_q : '0;
   assign rvfi_csr_o.mtval2_q = CVA6Cfg.RVH ? mtval2_q : '0;
+  assign rvfi_csr_o.mtvt_q = CVA6Cfg.RVSCLIC ? mtvt_q : '0;
+  assign rvfi_csr_o.mintstatus_q = (CVA6Cfg.RVSCLIC && clic_mode_o) ? CVA6Cfg.XLEN'(mintstatus_q) : '0;
+  assign rvfi_csr_o.mintthresh_q = (CVA6Cfg.RVSCLIC && clic_mode_o) ? CVA6Cfg.XLEN'(mintthresh_q) : '0;
+  assign rvfi_csr_o.stvt_q = (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC && clic_mode_o) ? stvt_q : '0;
+  assign rvfi_csr_o.sintthresh_q = (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC && clic_mode_o) ?
+      CVA6Cfg.XLEN'(sintthresh_q) : '0;
+  assign rvfi_csr_o.vstvt_q = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? CVA6Cfg.XLEN'({vstvt_q, 8'b0}) : '0;
+  assign rvfi_csr_o.vsintthresh_q = (CVA6Cfg.RVXHCLIC && clic_mode_o) ? CVA6Cfg.XLEN'(vsintthresh_q) : '0;
 
 
 endmodule
