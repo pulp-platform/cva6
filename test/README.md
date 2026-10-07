@@ -14,13 +14,14 @@ those who have access to it.
 | --- | --- |
 | [hw/](hw/) | Testbench SoC and its peripherals (SystemVerilog) |
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
+| &nbsp;&nbsp;&nbsp;&nbsp;[tracer/](hw/tracer/) | RVFI instruction tracer and its DPI backend |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
 | &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
-| [util/](util/) | Boot ROM generator, regression runners for the tests in `sw/` and `riscv-tests` |
+| [util/](util/) | Boot ROM generator, regression runners for the tests in `sw/` and `riscv-tests`, spike log comparison and binary trace reader |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory, simulation logs and wave scripts |
 
@@ -87,9 +88,12 @@ make verilator-build CVA6_CONFIG=cv64a6_imafdc_sv39_hpdcache_wb
 | `TEST` | `test_simple` | Testbench top (currently the only one) |
 | `ZERO_SIM_MEM` | unset | Initialise simulation memories to zero instead of random |
 | `LOAD_PIPE_REGS`, `BHT_TYPE`, `BHT_ENTRIES`, `BHT_HIST`, `RAS_DEPTH` | unset | Tuning knobs: override the configuration's `NrLoadPipeRegs`, `BPType` (`BHT` or `PH_BHT`), `BHTEntries`, `BHTHist` and `RASDepth` through the parameters of the testbench top, whose defaults are the configuration's values |
+| `TRACER` | `0` | Build in the [instruction tracer](hw/tracer/) (`1` also elaborates `cva6_rvfi`) |
+| `LEGACY_TRACE` | `0` | Re-enable CVA6's own built-in tracing (`instr_tracer` under vsim, a `.dasm` dump under Verilator) |
 | `WAVES` | `0` | Compile in waveform support; then `+fst` at run time actually dumps |
 | `THREADS` | `2` | Verilator threads for the model; use `1` for parallel regressions |
 | `SIM_ARGS` | empty | Extra plusargs forwarded to the simulation |
+| `TRACE_FORMAT`, `TRACE_FILE`, `TRACE_VERBOSE`, `TRACE_START`, `TRACE_STOP`, `TRACE_STATS`, `TRACE_SYMBOLS` | see [hw/tracer/](hw/tracer/) | Tracer settings, each passed as its plusarg |
 | `VERILATOR_JOBS` | `0` | Verilator parallelism (`0` = all cores) |
 | `DEBUG` | `0` | QuestaSim only: enable access and waveform logging |
 
@@ -173,6 +177,11 @@ The testbench passes when the EOC register is set and the return code equals `Re
 | `+RetCodeSuccess=<n>` | `0` | Return code that counts as a pass |
 | `+MemDelay=<n>` | `10` | Main memory delay per AXI channel, 0 to 100; each channel takes n+2 cycles |
 
+The [instruction tracer](hw/tracer/) adds `+notrace`, `+trace_file=`, `+trace_verbose=`,
+`+trace_format=`, `+trace_stats=`, `+trace_start=`, `+trace_stop=`, `+trace_symbols=`, `+trace_symbol_mode=`,
+`+trace_symbol_start=` and `+trace_symbol_stop=` when the model is built with `TRACER=1`, the
+everyday ones also as the `TRACE_*` variables above.
+
 ## Test software
 
 [sw/](sw/) builds every `.c` and `.S` file under [sw/tests/](sw/tests/) into an ELF, a
@@ -223,6 +232,36 @@ The hypervisor tests produce a single image that can be run directly:
 ```sh
 make verilator-run HEXFILE=sw/deps/riscv-hyp-tests/build/cva6/rvh_test.hex MAX_CYCLES=2200000
 ```
+
+## Instruction tracing
+
+Building with `TRACER=1` adds an RVFI driven instruction tracer that writes one line per
+retired instruction, in plain text columns meant to be read in an editor:
+
+```sh
+make verilator-build TRACER=1
+make verilator-run   TRACER=1 HEXFILE=sw/out/hello.hex TRACE_VERBOSE=1
+```
+
+The trace is written to `verilator/cva6tb_trace_hart_0.trace`, annotated with the symbol names
+of the program's ELF. Tracing and annotation can be narrowed to a window delimited by a cycle
+count, a program counter or a symbol:
+
+```sh
+make verilator-run TRACER=1 HEXFILE=sw/out/hello.hex TRACE_START=sym:main
+```
+
+`TRACE_FORMAT=legacy` writes the format of CVA6's legacy `instr_tracer` instead.
+`TRACE_FORMAT=spike` switches the output to spike's own commit log format, which
+[util/cmp_spike_trace.py](util/cmp_spike_trace.py) diffs against a real spike run;
+`TRACE_FORMAT=rvfi` writes the same information in the spelling the converters under
+`verif/sim/` expect; `TRACE_FORMAT=binary` writes fixed size records for tools, read by
+[util/read_trace.py](util/read_trace.py). `TRACE_STATS=<path>` adds an end of run summary in a
+separate file.
+
+See [hw/tracer/](hw/tracer/) for the output formats, the verbosity levels, the trigger syntax
+and what RVFI can and cannot report. The tracer is opt-in
+because it also pulls in `cva6_rvfi`; a default build is unaffected.
 
 ## Waveforms
 
