@@ -18,14 +18,14 @@
 // is what makes an image built from several separately linked binaries work:
 // load each one's symbols with the bias it was placed at.
 
-#ifndef CVA6TB_TRACER_RV_SYMBOLS_H
-#define CVA6TB_TRACER_RV_SYMBOLS_H
+#ifndef CVA6TB_RV_SYMBOLS_H
+#define CVA6TB_RV_SYMBOLS_H
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 struct symbol_t {
   uint64_t    addr;  // first address covered, after bias
@@ -69,6 +69,6 @@ class symbol_table_t {
   mutable bool                  sorted_ = false;
 };
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv
 
-#endif  // CVA6TB_TRACER_RV_SYMBOLS_H
+#endif  // CVA6TB_RV_SYMBOLS_H

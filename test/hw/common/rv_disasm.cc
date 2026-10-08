@@ -18,7 +18,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 // ---------------------------------------------------------------------------
 // small helpers
@@ -1136,4 +1136,4 @@ decoded_t rv_decode(uint32_t insn, int xlen, unsigned ext, rv_style_t style) {
   return d;
 }
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv

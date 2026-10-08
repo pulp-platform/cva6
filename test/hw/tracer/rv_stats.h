@@ -25,7 +25,7 @@
 #include <string>
 
 #include "rv_format.h"
-#include "rv_symbols.h"
+#include "../common/rv_symbols.h"
 
 namespace cva6tb_tracer {
 

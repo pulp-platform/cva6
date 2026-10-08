@@ -34,16 +34,20 @@ WAVES         ?= 0
 THREADS       ?= 2
 # CVA6's legacy tracer
 LEGACY_TRACE  ?= 0
+# C++ shared by every RVFI consumer: the decoder, the symbol table and the
+# start/stop triggers. Namespace cva6tb_rv, no dependency on any one consumer.
+RV_COMMON_DIR := $(TEST_DIR)/hw/common
+RV_COMMON_SRC := $(RV_COMMON_DIR)/rv_disasm.cc $(RV_COMMON_DIR)/rv_disasm_spike.cc \
+                 $(RV_COMMON_DIR)/rv_symbols.cc $(RV_COMMON_DIR)/rv_trigger.cc
+RV_COMMON_HDR := $(RV_COMMON_DIR)/rv_disasm.h $(RV_COMMON_DIR)/rv_symbols.h \
+                 $(RV_COMMON_DIR)/rv_trigger.h
 # Instruction tracer
 TRACER        ?= 0
 TRACER_DIR    := $(TEST_DIR)/hw/tracer
-TRACER_SRC    := $(TRACER_DIR)/cva6tb_tracer.cc $(TRACER_DIR)/rv_disasm.cc \
-                 $(TRACER_DIR)/rv_disasm_spike.cc $(TRACER_DIR)/rv_format.cc \
-                 $(TRACER_DIR)/rv_stats.cc $(TRACER_DIR)/rv_symbols.cc \
-                 $(TRACER_DIR)/rv_trigger.cc
-TRACER_HDR    := $(TRACER_DIR)/cva6tb_tracer_dpi.h $(TRACER_DIR)/rv_disasm.h \
-                 $(TRACER_DIR)/rv_format.h $(TRACER_DIR)/rv_stats.h \
-                 $(TRACER_DIR)/rv_symbols.h $(TRACER_DIR)/rv_trigger.h
+TRACER_SRC    := $(TRACER_DIR)/cva6tb_tracer.cc $(TRACER_DIR)/rv_format.cc \
+                 $(TRACER_DIR)/rv_stats.cc
+TRACER_HDR    := $(TRACER_DIR)/cva6tb_tracer_dpi.h $(TRACER_DIR)/rv_format.h \
+                 $(TRACER_DIR)/rv_stats.h
 # Instruction tracer settings, each passed as the plusarg of the same name when
 # set; see hw/tracer/. Files are made absolute, since the simulation runs in its
 # build directory. Symbols default to the program's own ELF beside HEXFILE and
@@ -73,7 +77,7 @@ endif
 default: info
 
 .PHONY: clean
-clean: vsim-clean verilator-clean
+clean: vsim-clean verilator-clean cosim-clean
 
 .PHONY: info
 info:
@@ -235,7 +239,7 @@ $(VSIM_BUILD_DIR):
 $(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock $(HW_DEPS) | $(VSIM_BUILD_DIR)
 	$(BENDER) script vsim $(BENDER_FLAGS) --vlog-arg="$(VLOG_FLAGS)" > $@
 ifeq ($(TRACER),1)
-	@echo 'vlog -ccflags "-std=c++17 -O2" $(TRACER_SRC)' >> $@
+	@echo 'vlog -ccflags "-std=c++17 -O2" $(RV_COMMON_SRC) $(TRACER_SRC)' >> $@
 endif
 	@echo 'vopt $(VOPT_FLAGS) $(TB_PARAMS) test -o test_opt' >> $@
 
@@ -286,9 +290,18 @@ VERILATOR_WARNINGS  := -Wall -Wno-fatal -Wno-style -Wno-BLKANDNBLK -Wno-WIDTHEXP
 VERILATOR_FLAGS     := --binary -j $(VERILATOR_JOBS) --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_WARNINGS) -O3 -f $(VERILATOR_FLIST) --assert --timing \
 	$(VERILATOR_TRACE) $(VERILATOR_THREADS) --x-assign fast --x-initial fast $(TB_PARAMS)
 
+# Shared by both consumers, so listed once: naming it twice duplicates symbols.
+ifneq ($(filter 1,$(TRACER) $(COSIM)),)
+VERILATOR_FLAGS += $(RV_COMMON_SRC)
+endif
+
 ifeq ($(TRACER),1)
 VERILATOR_FLAGS += $(TRACER_SRC)
 endif
+
+# Co-simulation: spike, the standalone reference and, with COSIM=1, its part of
+# this build
+include $(TEST_DIR)/hw/cosim/cosim.mk
 
 $(VERILATOR_LOG_DIR):
 	@mkdir -p $(VERILATOR_LOG_DIR)
@@ -296,15 +309,25 @@ $(VERILATOR_LOG_DIR):
 $(VERILATOR_FLIST): $(ROOT_DIR)/Bender.lock $(HW_DEPS)
 	$(BENDER) script verilator $(BENDER_FLAGS) -D ASSERTS_OFF -t verilator > $@
 
-$(VERILATOR_BUILD_DIR)/Vtest: $(VERILATOR_FLIST) | $(VERILATOR_LOG_DIR)
+# The DPI sources are handed to verilator as positional arguments, which leaves
+# them out of Vtest's prerequisites; these list them, so editing the C++ backend
+# rebuilds the model.
+ifneq ($(filter 1,$(TRACER) $(COSIM)),)
+VERILATOR_DEPS += $(RV_COMMON_SRC) $(RV_COMMON_HDR)
+endif
+ifeq ($(TRACER),1)
+VERILATOR_DEPS += $(TRACER_SRC) $(TRACER_HDR)
+endif
+
+$(VERILATOR_BUILD_DIR)/Vtest: $(VERILATOR_FLIST) $(VERILATOR_DEPS) | $(VERILATOR_LOG_DIR)
 	cd $(VERILATOR_DIR) && $(VERILATOR) $(VERILATOR_FLAGS) --top-module test 2>&1 | tee $(VERILATOR_LOG_DIR)/build.log
 
 .PHONY: verilator-build
 verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 
 .PHONY: verilator-run
-verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
-	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(strip $(SIM_ARGS) $(TB_ARGS) $(TRACER_ARGS)) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+verilator-run: $(VERILATOR_BUILD_DIR)/Vtest $(COSIM_RUN_DEPS) | $(VERILATOR_LOG_DIR)
+	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(strip $(SIM_ARGS) $(TB_ARGS) $(TRACER_ARGS) $(COSIM_SIM_ARGS)) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
 
 .PHONY: verilator-clean
 verilator-clean:

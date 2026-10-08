@@ -64,9 +64,12 @@ $(DEPS_DIR)/riscv-hyp-tests/: $(DEPS_DIR)/patches/riscv-hyp-tests.patch
 	cd $(DEPS_DIR)/riscv-hyp-tests && git apply $(DEPS_DIR)/patches/riscv-hyp-tests.patch
 
 .PHONY: riscv-tests
+# riscv-tests runs its own configure, which finds the toolchain on PATH, so
+# RV_BINROOT goes first on PATH here.
 riscv-tests: | $(DEPS_DIR)/riscv-tests/
 	@mkdir -p $(DEPS_DIR)/riscv-tests/build
-	cd $(DEPS_DIR)/riscv-tests/build && ../configure && make isa
+	cd $(DEPS_DIR)/riscv-tests/build && PATH="$(RV_BINROOT):$$PATH" ../configure && \
+	    PATH="$(RV_BINROOT):$$PATH" make isa
 
 .PHONY: riscv-hyp-tests
 riscv-hyp-tests: | $(DEPS_DIR)/riscv-hyp-tests/

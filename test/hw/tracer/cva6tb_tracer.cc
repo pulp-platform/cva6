@@ -25,11 +25,11 @@
 #include <string>
 #include <vector>
 
-#include "rv_disasm.h"
+#include "../common/rv_disasm.h"
 #include "rv_format.h"
 #include "rv_stats.h"
-#include "rv_symbols.h"
-#include "rv_trigger.h"
+#include "../common/rv_symbols.h"
+#include "../common/rv_trigger.h"
 
 using namespace cva6tb_tracer;
 

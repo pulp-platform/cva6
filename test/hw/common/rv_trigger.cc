@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 bool condition_t::parse(const char *spec, const symbol_table_t &syms) {
   if (!spec || !*spec) { kind_ = None; return true; }
@@ -77,4 +77,4 @@ bool window_t::active(uint64_t cycle, uint64_t pc) {
   return open_;
 }
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv

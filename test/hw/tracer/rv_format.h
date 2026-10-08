@@ -25,10 +25,15 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "rv_disasm.h"
-#include "rv_symbols.h"
+#include "../common/rv_disasm.h"
+#include "../common/rv_symbols.h"
 
 namespace cva6tb_tracer {
+
+// The decoder, symbol table and triggers are shared with the other RVFI
+// consumers under hw/common/. Their names are adopted unqualified: within this
+// namespace they read as part of the same vocabulary.
+using namespace cva6tb_rv;
 
 // Fixed for the life of the trace file.
 struct format_config_t {

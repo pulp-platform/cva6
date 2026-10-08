@@ -26,7 +26,7 @@
 
 #include "rv_disasm.h"
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 namespace {
 
@@ -681,4 +681,4 @@ void render_spike(decoded_t &d, uint32_t insn, int xlen, unsigned ext) {
   }
 }
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv
