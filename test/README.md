@@ -18,6 +18,7 @@ those who have access to it.
 | &nbsp;&nbsp;&nbsp;&nbsp;[cosim/](hw/cosim/) | Spike co-simulation: the lockstep loop, the reference and the divergence rules |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tracer/](hw/tracer/) | RVFI instruction tracer and its DPI backend |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
+| &nbsp;&nbsp;&nbsp;&nbsp;[fuzz/](sw/fuzz/) | Generated random programs, checked by co-simulation |
 | &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`, `riscv-arch-test`, Sail) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver, CLIC helpers |
@@ -261,6 +262,28 @@ Generation needs a RISC-V GCC 15 or later and a Ruby 3.2 or later with developme
 Each ELF ends by writing the EOC register, so the testbench's own pass/fail protocol is
 the verdict and nothing has to parse a signature. See [sw/arch-test/README.md](sw/arch-test/) for
 the requirements, how the DUT is described, and the configurations covered.
+
+### Generated stimulus
+
+[sw/fuzz/](sw/fuzz/) generates random programs and runs them co-simulated. They check nothing
+themselves and always report success: the co-simulation is the checker, so a generator only has
+to produce a legal program, and the comparison covers every architectural effect of every
+instruction.
+
+```sh
+make verilator-build COSIM=1
+./util/run-fuzz.sh --count 100
+```
+
+A seed that diverges keeps its assembly, hex and simulation log under `verilator/fuzz/<seed>/`
+so it can be replayed on its own. See [sw/fuzz/README.md](sw/fuzz/) for what the generator
+covers and what it keeps out of the default mix.
+
+[FORCE-RISCV](https://github.com/openhwgroup/force-riscv) is set up alongside it as a second,
+heavier source of stimulus — an instruction sequence generator that models the ISA, so it reaches
+paging, privilege switching and non-trivial handlers. `make force` builds it and installs the
+cva6tb port; `./util/run-force.sh` runs what it generates. [sw/fuzz/README.md](sw/fuzz/) describes
+the port, how a FORCE program ends, and privilege switching.
 
 ## Instruction tracing
 
