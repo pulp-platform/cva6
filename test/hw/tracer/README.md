@@ -24,13 +24,16 @@ commit log, or write fixed size records for tools; see *Output formats*.
 | [cva6tb_tracer.sv](cva6tb_tracer.sv) | Samples RVFI at commit and calls the DPI backend. No strings, classes or queues. |
 | [cva6tb_tracer_dpi.h](cva6tb_tracer_dpi.h) | The DPI-C interface between the two halves. |
 | [cva6tb_tracer.cc](cva6tb_tracer.cc) | Formats and writes the trace; owns the output file. |
-| [rv_disasm.h](rv_disasm.h) / [rv_disasm.cc](rv_disasm.cc) | Self-contained RV32/RV64 decoder, with the legacy tracer's spelling. |
-| [rv_disasm_spike.cc](rv_disasm_spike.cc) | The same instructions spelled as spike-dasm spells them. |
+| [rv_disasm.h](../common/rv_disasm.h) / [rv_disasm.cc](../common/rv_disasm.cc) | Self-contained RV32/RV64 decoder, with the legacy tracer's spelling. |
+| [rv_disasm_spike.cc](../common/rv_disasm_spike.cc) | The same instructions spelled as spike-dasm spells them. |
 | [rv_format.h](rv_format.h) / [rv_format.cc](rv_format.cc) | The output formats and the factory that picks between them. |
 | [rv_stats.h](rv_stats.h) / [rv_stats.cc](rv_stats.cc) | Optional end of run summary, written to its own file. |
-| [rv_symbols.h](rv_symbols.h) / [rv_symbols.cc](rv_symbols.cc) | Symbol table and its ELF loader. |
-| [rv_trigger.h](rv_trigger.h) / [rv_trigger.cc](rv_trigger.cc) | Start/stop conditions and the windows they delimit. |
+| [rv_symbols.h](../common/rv_symbols.h) / [rv_symbols.cc](../common/rv_symbols.cc) | Symbol table and its ELF loader. |
+| [rv_trigger.h](../common/rv_trigger.h) / [rv_trigger.cc](../common/rv_trigger.cc) | Start/stop conditions and the windows they delimit. |
 | [vscode/](vscode/) | Syntax highlighting for the `trace` format in VS Code. |
+
+The files under [`../common/`](../common/) are shared: the disassembler, the symbol table and
+the triggers serve every RVFI consumer and live in namespace `cva6tb_rv`.
 
 All decoding, formatting and file I/O live on the C++ side, so the RTL half stays trivial and
 the same backend works under Verilator, QuestaSim, VCS and Xcelium. Nothing links against
@@ -89,7 +92,7 @@ named in `SIM_ARGS` is given as an absolute path, `$PWD/...` from `test/`.
 ### In another testbench
 
 The tracer does not depend on this testbench, so an SoC that embeds CVA6 can put it in its own
-one. One Bender target is needed and it is not `cva6tb`:
+one. Two Bender targets matter and neither is `cva6tb`:
 
 ```sh
 bender script ... -t tracer        # core/cva6_rvfi.sv and test/hw/tracer/cva6tb_tracer.sv
@@ -99,11 +102,11 @@ bender script ... -t tracer        # core/cva6_rvfi.sv and test/hw/tracer/cva6tb
 dependencies — its CLINT, its CLIC — relevant to the integrator, for nothing.
 
 Bender does not know about the DPI backend, so the simulator needs it listed by hand. It is the
-C++ in [this directory](.), and it needs C++17:
+C++ under [`../common/`](../common) and [this directory](.), and it needs C++17:
 
 ```sh
-vlog -ccflags "-std=c++17 -O2" <cva6>/test/hw/tracer/*.cc
-verilator ... <cva6>/test/hw/tracer/*.cc
+vlog -ccflags "-std=c++17 -O2" <cva6>/test/hw/common/*.cc <cva6>/test/hw/tracer/*.cc
+verilator ... <cva6>/test/hw/common/*.cc <cva6>/test/hw/tracer/*.cc
 ```
 
 Two modules are instantiated per core, in this order, both parameterised with the same
@@ -559,8 +562,8 @@ tracer's: its columns, its operand order (`csrw t0, mtvec`) and the decompressed
 compressed instruction (`c.j x0, 310`). The `spike` and `rvfi` formats use spike-dasm's: its
 pseudo-instructions (`seqz`, `snez`, `sext.w`, `ret`), `zero` for `x0`, operands in assembler
 order and pc relative targets (`c.j pc + 310`), and `unknown` for an encoding it does not know.
-[rv_disasm_spike.cc](rv_disasm_spike.cc) is a table of the instructions with spike's match,
-mask and operands, searched in spike's own order, so a pseudo-instruction wins over its base
+[rv_disasm_spike.cc](../common/rv_disasm_spike.cc) is a table of the instructions with spike's
+match, mask and operands, searched in spike's own order, so a pseudo-instruction wins over its base
 instruction exactly where it does in spike. On RV32 it names `rev8`, which spike recognizes by
 its RV64 encoding only.
 
