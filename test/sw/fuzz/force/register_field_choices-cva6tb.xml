@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<!--
+ Copyright 2026 ETH Zurich and University of Bologna.
+ Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ SPDX-License-Identifier: Apache-2.0
+
+ Register field values this testbench constrains, loaded after the framework's
+ own register_field_choices_rv64.xml.
+
+ mstatus.WPRI covers bits 36-62 and 23-31 on RV64, and FORCE randomises it like
+ any other field, and its boot code writes the result. On this core bit 37 is
+ not reserved: it is mstatus.MBE, and CVA6 implements it. mbe reaches the
+ load and store units, which byte-reverse per access size. The reference is
+ built little-endian and holds the bit at zero. Both are conformant, because MBE
+ is WARL and an implementation may provide one endianness or both, but once the
+ bit is set the two disagree about the meaning of every load and store in the
+ program.
+
+ Writing zeros to a WPRI span is what software is supposed to do in any case.
+-->
+<choices_file>
+  <choices name="mstatus.WPRI" type="RegisterFieldValue">
+    <choice description="Reserved fields written as zero" value="0x0" weight="100"/>
+  </choices>
+  <choices name="sstatus.WPRI" type="RegisterFieldValue">
+    <choice description="Reserved fields written as zero" value="0x0" weight="100"/>
+  </choices>
+</choices_file>

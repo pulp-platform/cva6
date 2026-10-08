@@ -9,3 +9,5 @@ cva6tb_trace_hart_*
 *.log
 models/
 bench/
+fuzz/
+force/
