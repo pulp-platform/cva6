@@ -20,6 +20,7 @@ those who have access to it.
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
 | &nbsp;&nbsp;&nbsp;&nbsp;[bench/](sw/bench/) | Benchmarks: startup, region-of-interest hooks, the ports of CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM, a pointer chase and Lua, and their expected results |
 | &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`, `riscv-arch-test`, Sail, Embench-IoT, CoreMark, RaiderSTREAM, Lua, are-we-fast-yet) and their patches |
+| &nbsp;&nbsp;&nbsp;&nbsp;[fuzz/](sw/fuzz/) | Generated random programs, checked by co-simulation |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver, CLIC helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
@@ -267,6 +268,22 @@ Generation needs a RISC-V GCC 15 or later and a Ruby 3.2 or later with developme
 Each ELF ends by writing the EOC register, so the testbench's own pass/fail protocol is
 the verdict and nothing has to parse a signature. See [sw/arch-test/README.md](sw/arch-test/) for
 the requirements, how the DUT is described, and the configurations covered.
+
+### Generated stimulus
+
+[sw/fuzz/](sw/fuzz/) generates random programs and runs them co-simulated. They check nothing
+themselves and always report success: the co-simulation is the checker, so a generator only has
+to produce a legal program, and the comparison covers every architectural effect of every
+instruction.
+
+```sh
+make verilator-build COSIM=1 CVA6_CONFIG=cv64a6_imafdc_sv39_wb
+./util/run-fuzz.sh --count 100
+```
+
+A seed that diverges keeps its assembly, hex and simulation log under `verilator/fuzz/<seed>/`
+so it can be replayed on its own. See [sw/fuzz/README.md](sw/fuzz/) for what the generator
+covers and what it keeps out of the default mix.
 
 ## Instruction tracing
 
