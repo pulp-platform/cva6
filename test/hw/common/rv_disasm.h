@@ -13,13 +13,13 @@
 //              one of two styles: the column layout of the legacy instr_tracer,
 //              or the mnemonics and operands spike-dasm prints.
 
-#ifndef CVA6TB_TRACER_RV_DISASM_H
-#define CVA6TB_TRACER_RV_DISASM_H
+#ifndef CVA6TB_RV_DISASM_H
+#define CVA6TB_RV_DISASM_H
 
 #include <cstdint>
 #include <string>
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 // Which register file an operand refers to.
 enum reg_kind_t : uint8_t { REG_NONE = 0, REG_GPR = 1, REG_FPR = 2 };
@@ -92,6 +92,6 @@ bool rv_csr_lookup(uint16_t addr, std::string *name);
 // raw mcause/scause value: bit XLEN-1 set marks an interrupt.
 std::string rv_cause_name(uint64_t cause, int xlen);
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv
 
-#endif  // CVA6TB_TRACER_RV_DISASM_H
+#endif  // CVA6TB_RV_DISASM_H

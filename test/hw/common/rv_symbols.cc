@@ -16,7 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 namespace {
 
@@ -238,4 +238,4 @@ const symbol_t *symbol_table_t::lookup(uint64_t addr) const {
   return &*it;
 }
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv
