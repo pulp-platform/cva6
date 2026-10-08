@@ -314,11 +314,18 @@ sources:
           - test/hw/cva6tb_axi_sim_mem.sv
           - test/hw/cva6tb_soc.sv
 
+      - target: any(tracer, cosim)
+        files:
+          # RVFI generation, consumed by both the tracer and the co-simulation
+          - core/cva6_rvfi.sv
+
       - target: tracer
         files:
-          # RVFI generation and the instruction tracer that consumes it
-          - core/cva6_rvfi.sv
           - test/hw/tracer/cva6tb_tracer.sv
+
+      - target: cosim
+        files:
+          - test/hw/cosim/cva6tb_cosim.sv
 
       - target: all(cva6tb, test_simple)
         files:

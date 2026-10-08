@@ -15,8 +15,20 @@ VERILATOR_DIR := $(TEST_DIR)/verilator
 BENDER    ?= bender --suppress E31 -d $(ROOT_DIR)
 QUESTA    ?=
 VERILATOR ?= verilator
+# Prefix for the steps that use the toolchain the Verilator model is built with:
+# building spike and the standalone reference. Empty when that is the host's own;
+# util/iis-env.sh sets it.
+OSEDA     ?=
 
-# Target CVA6 configuration
+# Co-simulation. Declared here because it picks the default CVA6 configuration.
+COSIM         ?= 0
+
+# Target CVA6 configuration. Spike models neither CLIC nor the testbench's
+# peripherals, so co-simulation brings up on the smallest 64-bit config and
+# reaches H and CLIC through divergence rules later.
+ifeq ($(COSIM),1)
+CVA6_CONFIG   ?= cv64a6_imafdc_sv39_wb
+endif
 CVA6_CONFIG   ?= cv64a6_imafdchsclic_sv39_wb
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
@@ -34,16 +46,20 @@ WAVES         ?= 0
 THREADS       ?= 2
 # CVA6's legacy tracer
 LEGACY_TRACE  ?= 0
+# C++ shared by every RVFI consumer: the decoder, the symbol table and the
+# start/stop triggers. Namespace cva6tb_rv, no dependency on any one consumer.
+RV_COMMON_DIR := $(TEST_DIR)/hw/common
+RV_COMMON_SRC := $(RV_COMMON_DIR)/rv_disasm.cc $(RV_COMMON_DIR)/rv_disasm_spike.cc \
+                 $(RV_COMMON_DIR)/rv_symbols.cc $(RV_COMMON_DIR)/rv_trigger.cc
+RV_COMMON_HDR := $(RV_COMMON_DIR)/rv_disasm.h $(RV_COMMON_DIR)/rv_symbols.h \
+                 $(RV_COMMON_DIR)/rv_trigger.h
 # Instruction tracer
 TRACER        ?= 0
 TRACER_DIR    := $(TEST_DIR)/hw/tracer
-TRACER_SRC    := $(TRACER_DIR)/cva6tb_tracer.cc $(TRACER_DIR)/rv_disasm.cc \
-                 $(TRACER_DIR)/rv_disasm_spike.cc $(TRACER_DIR)/rv_format.cc \
-                 $(TRACER_DIR)/rv_stats.cc $(TRACER_DIR)/rv_symbols.cc \
-                 $(TRACER_DIR)/rv_trigger.cc
-TRACER_HDR    := $(TRACER_DIR)/cva6tb_tracer_dpi.h $(TRACER_DIR)/rv_disasm.h \
-                 $(TRACER_DIR)/rv_format.h $(TRACER_DIR)/rv_stats.h \
-                 $(TRACER_DIR)/rv_symbols.h $(TRACER_DIR)/rv_trigger.h
+TRACER_SRC    := $(TRACER_DIR)/cva6tb_tracer.cc $(TRACER_DIR)/rv_format.cc \
+                 $(TRACER_DIR)/rv_stats.cc
+TRACER_HDR    := $(TRACER_DIR)/cva6tb_tracer_dpi.h $(TRACER_DIR)/rv_format.h \
+                 $(TRACER_DIR)/rv_stats.h
 # Instruction tracer settings, each passed as the plusarg of the same name when
 # set; see hw/tracer/. Files are made absolute, since the simulation runs in its
 # build directory. Symbols default to the program's own ELF beside HEXFILE and
@@ -58,6 +74,33 @@ TRACE_STATS   ?=
 TRACE_SYMBOLS ?= $(if $(filter legacy,$(TRACE_FORMAT)),, \
                    $(wildcard $(basename $(abspath $(HEXFILE))).elf \
                               $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf))
+# Spike co-simulation. COSIM is declared further up, with the configuration it picks.
+COSIM_DIR     := $(TEST_DIR)/hw/cosim
+# The model and the reference. cva6tb_cosim.cc is the DPI half and is only
+# compiled into the simulation; everything else is shared with the standalone
+# tool, which is the same code driven without any RTL.
+COSIM_LIB_SRC := $(COSIM_DIR)/rv_memif.cc $(COSIM_DIR)/rv_ref_spike.cc
+COSIM_SRC     := $(COSIM_DIR)/cva6tb_cosim.cc $(COSIM_DIR)/rv_cosim.cc \
+                 $(COSIM_DIR)/rv_policy.cc $(COSIM_LIB_SRC)
+COSIM_HDR     := $(COSIM_DIR)/cva6tb_cosim_dpi.h $(COSIM_DIR)/rv_cosim.h \
+                 $(COSIM_DIR)/rv_policy.h $(COSIM_DIR)/rv_memif.h $(COSIM_DIR)/rv_ref.h \
+                 $(COSIM_DIR)/rv_ref_spike.h
+COSIM_STANDALONE := $(COSIM_DIR)/rv_cosim_standalone
+SPIKE_CFLAGS  = -std=c++20 -I$(SPIKE_DIR)/include
+SPIKE_LDFLAGS = -L$(SPIKE_DIR)/lib -lriscv -lsoftfloat -Wl,-rpath,$(SPIKE_DIR)/lib
+# Spike is built from source into a prefix inside test/, which pins the version
+# and keeps test/ self-contained.
+SPIKE_DIR     ?= $(TEST_DIR)/tools/spike
+SPIKE_SRC_DIR ?= $(TEST_DIR)/tools/riscv-isa-sim
+SPIKE_URL     ?= https://github.com/riscv-software-src/riscv-isa-sim.git
+# Spike is pinned to a master commit: its last release predates the H, Zcb and
+# Zicbom support these configurations need. The criterion for bumping it: the newest
+# upstream master that builds here and still satisfies the API this backend
+# depends on (take_trap private, mip::backdoor_write_with_mask, the seven
+# simif_t pure virtuals, the processor_t constructor, mem_t, and the
+# log_reg_write type nibble in decode_macros.h). Checked at this commit.
+SPIKE_COMMIT  ?= 0bff12123b1fd510e19e19634dd997dbade70e54  # master, 2026-09-28
+SPIKE_JOBS    ?= 8
 
 # Goals that must work without a resolved dependency tree.
 NODEPS_GOALS := info default %clean
@@ -73,7 +116,7 @@ endif
 default: info
 
 .PHONY: clean
-clean: vsim-clean verilator-clean
+clean: vsim-clean verilator-clean cosim-clean
 
 .PHONY: info
 info:
@@ -113,6 +156,17 @@ TRACER_ARGS = $(if $(TRACE_FORMAT),+trace_format=$(TRACE_FORMAT)) \
               $(if $(TRACE_STOP),+trace_stop=$(TRACE_STOP)) \
               $(if $(TRACE_STATS),+trace_stats=$(abspath $(TRACE_STATS))) \
               $(if $(strip $(TRACE_SYMBOLS)),+trace_symbols=$(subst $(space),$(comma),$(strip $(abspath $(TRACE_SYMBOLS)))))
+endif
+
+ifeq ($(COSIM),1)
+BENDER_FLAGS += -t cosim
+# The reference's memory is zero filled, so the DUT's is too: memory that was
+# never written reads as zero on both sides.
+BENDER_FLAGS += -D ZERO_SIM_MEM
+# The reference starts in the boot ROM exactly as the DUT does, so the image is
+# always needed; passing it here means no invocation has to remember to.
+COSIM_SIM_ARGS := +cosim_bootrom=$(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin
+COSIM_RUN_DEPS := $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin
 endif
 
 ifeq ($(WAVES),1)
@@ -183,6 +237,60 @@ bootrom-clean:
 
 
 ##################################
+############ Spike ###############
+##################################
+
+# Configured and built through $(OSEDA), with the toolchain that compiles the
+# model, so the two agree on the libstdc++ ABI. CC/CXX name that environment's
+# system compiler explicitly, since it inherits the caller's PATH.
+SPIKE_CC      ?= /usr/bin/gcc
+SPIKE_CXX     ?= /usr/bin/g++
+
+$(SPIKE_SRC_DIR)/configure:
+	git clone $(SPIKE_URL) $(SPIKE_SRC_DIR)
+	cd $(SPIKE_SRC_DIR) && git checkout $(SPIKE_COMMIT)
+
+$(SPIKE_DIR)/include/riscv/processor.h: $(SPIKE_SRC_DIR)/configure
+	mkdir -p $(SPIKE_SRC_DIR)/build
+	cd $(SPIKE_SRC_DIR)/build && $(OSEDA) ../configure --prefix=$(SPIKE_DIR) \
+	    CC=$(SPIKE_CC) CXX=$(SPIKE_CXX)
+	cd $(SPIKE_SRC_DIR)/build && $(OSEDA) make -j$(SPIKE_JOBS)
+	cd $(SPIKE_SRC_DIR)/build && $(OSEDA) make install
+
+.PHONY: spike
+spike: $(SPIKE_DIR)/include/riscv/processor.h
+
+.PHONY: spike-clean
+spike-clean:
+	rm -rf $(SPIKE_DIR) $(SPIKE_SRC_DIR)/build
+
+##################################
+######## Co-simulation ###########
+##################################
+
+# The reference model without any RTL: the cheapest way to tell a co-simulation
+# bug from an RTL bug. Built through $(OSEDA), like everything that links against
+# spike, and run where the model runs.
+
+$(COSIM_STANDALONE): $(COSIM_DIR)/rv_cosim_standalone.cc $(COSIM_LIB_SRC) $(COSIM_HDR) \
+                     $(SPIKE_DIR)/include/riscv/processor.h
+	$(OSEDA) $(SPIKE_CXX) $(SPIKE_CFLAGS) -O2 -Wall -Wextra -o $@ \
+	    $(COSIM_DIR)/rv_cosim_standalone.cc $(COSIM_LIB_SRC) $(SPIKE_LDFLAGS)
+
+.PHONY: cosim-standalone
+cosim-standalone: $(COSIM_STANDALONE)
+
+# Runs it on the default image, with the boot ROM the testbench uses.
+.PHONY: cosim-standalone-run
+cosim-standalone-run: $(COSIM_STANDALONE) $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin
+	$(COSIM_STANDALONE) $(abspath $(HEXFILE)) \
+	    --bootrom $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.bin
+
+.PHONY: cosim-clean
+cosim-clean:
+	rm -f $(COSIM_STANDALONE)
+
+##################################
 ########## QuestaSim #############
 ##################################
 
@@ -211,7 +319,7 @@ $(VSIM_BUILD_DIR):
 $(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock $(HW_DEPS) | $(VSIM_BUILD_DIR)
 	$(BENDER) script vsim $(BENDER_FLAGS) --vlog-arg="$(VLOG_FLAGS)" > $@
 ifeq ($(TRACER),1)
-	@echo 'vlog -ccflags "-std=c++17 -O2" $(TRACER_SRC)' >> $@
+	@echo 'vlog -ccflags "-std=c++17 -O2" $(RV_COMMON_SRC) $(TRACER_SRC)' >> $@
 endif
 	@echo 'vopt $(VOPT_FLAGS) test -o test_opt' >> $@
 
@@ -262,8 +370,19 @@ VERILATOR_WARNINGS  := -Wall -Wno-fatal -Wno-style -Wno-BLKANDNBLK -Wno-WIDTHEXP
 VERILATOR_FLAGS     := --binary -j $(VERILATOR_JOBS) --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_WARNINGS) -O3 -f $(VERILATOR_FLIST) --assert --timing \
 	$(VERILATOR_TRACE) $(VERILATOR_THREADS) --x-assign fast --x-initial fast
 
+# Shared by both consumers, so listed once: naming it twice duplicates symbols.
+ifneq ($(filter 1,$(TRACER) $(COSIM)),)
+VERILATOR_FLAGS += $(RV_COMMON_SRC)
+endif
+
 ifeq ($(TRACER),1)
 VERILATOR_FLAGS += $(TRACER_SRC)
+endif
+
+ifeq ($(COSIM),1)
+VERILATOR_FLAGS += $(COSIM_SRC)
+VERILATOR_FLAGS += -CFLAGS "$(SPIKE_CFLAGS)"
+VERILATOR_FLAGS += -LDFLAGS "$(SPIKE_LDFLAGS)"
 endif
 
 $(VERILATOR_LOG_DIR):
@@ -272,15 +391,28 @@ $(VERILATOR_LOG_DIR):
 $(VERILATOR_FLIST): $(ROOT_DIR)/Bender.lock $(HW_DEPS)
 	$(BENDER) script verilator $(BENDER_FLAGS) -D ASSERTS_OFF -t verilator > $@
 
-$(VERILATOR_BUILD_DIR)/Vtest: $(VERILATOR_FLIST) | $(VERILATOR_LOG_DIR)
+# The DPI sources are handed to verilator as positional arguments, which leaves
+# them out of Vtest's prerequisites; these list them, so editing the C++ backend
+# rebuilds the model.
+ifneq ($(filter 1,$(TRACER) $(COSIM)),)
+VERILATOR_DEPS += $(RV_COMMON_SRC) $(RV_COMMON_HDR)
+endif
+ifeq ($(TRACER),1)
+VERILATOR_DEPS += $(TRACER_SRC) $(TRACER_HDR)
+endif
+ifeq ($(COSIM),1)
+VERILATOR_DEPS += $(COSIM_SRC) $(COSIM_HDR) $(SPIKE_DIR)/include/riscv/processor.h
+endif
+
+$(VERILATOR_BUILD_DIR)/Vtest: $(VERILATOR_FLIST) $(VERILATOR_DEPS) | $(VERILATOR_LOG_DIR)
 	cd $(VERILATOR_DIR) && $(VERILATOR) $(VERILATOR_FLAGS) --top-module test 2>&1 | tee $(VERILATOR_LOG_DIR)/build.log
 
 .PHONY: verilator-build
 verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 
 .PHONY: verilator-run
-verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
-	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(strip $(SIM_ARGS) $(TB_ARGS) $(TRACER_ARGS)) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+verilator-run: $(VERILATOR_BUILD_DIR)/Vtest $(COSIM_RUN_DEPS) | $(VERILATOR_LOG_DIR)
+	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(strip $(SIM_ARGS) $(TB_ARGS) $(TRACER_ARGS) $(COSIM_SIM_ARGS)) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
 
 .PHONY: verilator-clean
 verilator-clean:

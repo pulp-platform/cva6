@@ -14,6 +14,8 @@ those who have access to it.
 | --- | --- |
 | [hw/](hw/) | Testbench SoC and its peripherals (SystemVerilog) |
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
+| &nbsp;&nbsp;&nbsp;&nbsp;[common/](hw/common/) | C++ shared by every RVFI consumer: disassembler, symbol table, triggers |
+| &nbsp;&nbsp;&nbsp;&nbsp;[cosim/](hw/cosim/) | Spike co-simulation: the lockstep loop, the reference and the divergence rules |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tracer/](hw/tracer/) | RVFI instruction tracer and its DPI backend |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
 | &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`, `riscv-arch-test`, Sail) and their patches |
@@ -22,6 +24,7 @@ those who have access to it.
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
 | [util/](util/) | Boot ROM generator, ACT generation, regression runners for the tests in `sw/`, `riscv-tests` and the ACTs, spike log comparison, binary trace reader and Perfetto export |
+| [tools/](.) | Spike, built from source on demand (gitignored) |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory, simulation logs and wave scripts |
 
@@ -31,6 +34,8 @@ those who have access to it.
 - `riscv64-unknown-elf-` GCC 14 or later (override the search path with `RV_BINROOT`)
 - [Verilator](https://github.com/verilator/verilator) 5.042 or later (`VERILATOR` sets the command)
 - Optionally QuestaSim (`QUESTA` sets a prefix for its commands, such as a wrapper that sets it up)
+- For co-simulation, spike: `make spike` clones it and builds it into `tools/spike` with the
+  toolchain that compiles the Verilator model, so nothing has to be installed by hand
 - Python 3.12 for the hardware generators; the environment is pinned with
   [uv](https://docs.astral.sh/uv/) (see [pyproject.toml](pyproject.toml)) — run `uv sync`
   in this directory and activate `.venv` before building
@@ -101,6 +106,10 @@ make verilator-build CVA6_CONFIG=cv64a6_imafdchxhclic_sv39_wb
 [hw/cva6tb_test_simple.sv](hw/cva6tb_test_simple.sv) is the simulation top. It generates the
 1 GHz core clock and the 1 MHz RTC, instantiates the SoC, preloads the binary, then polls the
 EOC register every cycle until it is set or `MaxCycles` elapses.
+
+The layout under [hw/](hw/) is the SoC plus three self-contained pieces: [hw/common/](hw/common/)
+holds the C++ shared by every RVFI consumer (disassembler, symbol table, triggers),
+[hw/tracer/](hw/tracer/) observes execution, and [hw/cosim/](hw/cosim/) checks it.
 
 [hw/cva6tb_soc.sv](hw/cva6tb_soc.sv) is the device under test: CVA6 as the single AXI master,
 an AXI crossbar with four slaves (error slave, regbus bridge, SPM, main memory), and a regbus
@@ -174,6 +183,10 @@ The testbench passes when the EOC register is set and the return code equals `Re
 | `+MaxCycles=<n>` | `10000` | Cycle timeout |
 | `+RetCodeSuccess=<n>` | `0` | Return code that counts as a pass |
 | `+MemDelay=<n>` | `10` | Main memory delay per AXI channel, 0 to 16; each channel takes n+2 cycles |
+
+The [co-simulation](hw/cosim/) adds `+nocosim`, `+cosim_rules=`, `+cosim_rule=`,
+`+cosim_image=`, `+cosim_bootrom=`, `+cosim_spike_log=`, `+cosim_max_reports=`,
+`+cosim_vaddr_bits=` and `+cosim_inject_fault=` when the model is built with `COSIM=1`.
 
 The [instruction tracer](hw/tracer/) adds `+notrace`, `+trace_file=`, `+trace_verbose=`,
 `+trace_format=`, `+trace_stats=`, `+trace_start=`, `+trace_stop=`, `+trace_symbols=`, `+trace_symbol_mode=`,
@@ -278,6 +291,42 @@ separate file.
 See [hw/tracer/](hw/tracer/) for the output formats, the verbosity levels, the trigger syntax
 and what RVFI can and cannot report. The tracer is opt-in
 because it also pulls in `cva6_rvfi`; a default build is unaffected.
+
+## Co-simulation
+
+[hw/cosim/](hw/cosim/) runs spike in lockstep with CVA6, one reference instruction per RVFI
+retirement, and compares every architectural effect as it happens. It needs no expected answer,
+so it checks any program, and it reports a failure at the instruction that diverged.
+
+```sh
+make spike                          # once: builds spike into test/tools/spike
+make verilator-build COSIM=1
+make verilator-run   COSIM=1 HEXFILE=sw/out/hello.hex MAX_CYCLES=1000000
+```
+
+`COSIM=1` selects `cv64a6_imafdc_sv39_wb` unless `CVA6_CONFIG` says otherwise, and forces
+`ZERO_SIM_MEM` so that both sides start from the same memory. Runtime behaviour is controlled
+with `+cosim_*` plusargs, and each legitimate divergence is a named rule with a reason
+attached. The whole of it is documented in
+[hw/cosim/README.md](hw/cosim/), including how to prove the checker is checking anything.
+
+The reference can also be run with no RTL at all, which is the fastest way to tell a
+co-simulation bug from an RTL bug:
+
+```sh
+make cosim-standalone
+./hw/cosim/rv_cosim_standalone sw/out/hello.hex \
+    --bootrom hw/bootrom/cva6tb_bootrom.bin
+```
+
+`COSIM=1` also works with the ISA test corpus that
+[util/run-riscv-tests.sh](util/run-riscv-tests.sh) runs:
+
+```sh
+make -C sw riscv-tests
+make verilator-build COSIM=1
+COSIM=1 NJOBS=8 ./util/run-riscv-tests.sh
+```
 
 ## Waveforms
 

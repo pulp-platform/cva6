@@ -230,7 +230,17 @@ module cva6tb_soc
     .noc_resp_i          ( axi_core_rsp                      )
   );
 
+// RVFI generation is shared: the tracer observes it, the co-simulation checks
+// against it. Elaborate `cva6_rvfi` once if either consumer is present, and let
+// each consumer guard only itself.
 `ifdef TARGET_TRACER
+`define CVA6TB_RVFI
+`endif
+`ifdef TARGET_COSIM
+`define CVA6TB_RVFI
+`endif
+
+`ifdef CVA6TB_RVFI
 
   rvfi_instr_t [CVA6Cfg.NrCommitPorts-1:0] rvfi_instr;
   rvfi_csr_t                               rvfi_csr;
@@ -253,6 +263,10 @@ module cva6tb_soc
     .rvfi_csr_o          ( rvfi_csr            )
   );
 
+`endif
+
+`ifdef TARGET_TRACER
+
   cva6tb_tracer #(
     .CVA6Cfg             ( CVA6Cfg             ),
     .rvfi_instr_t        ( rvfi_instr_t        ),
@@ -267,6 +281,23 @@ module cva6tb_soc
     .branch_valid_i      ( rvfi_to_iti.branch_valid  ),
     .branch_taken_i      ( rvfi_to_iti.is_taken      ),
     .branch_mispredict_i ( rvfi_to_iti.is_mispredict )
+  );
+
+`endif
+
+`ifdef TARGET_COSIM
+
+  cva6tb_cosim #(
+    .CVA6Cfg             ( CVA6Cfg             ),
+    .rvfi_instr_t        ( rvfi_instr_t        ),
+    .rvfi_csr_t          ( rvfi_csr_t          ),
+    .HartId              ( 0                   )
+  ) i_cva6tb_cosim (
+    .clk_i               ( clk                 ),
+    .rst_ni              ( rst_n               ),
+    .rvfi_i              ( rvfi_instr          ),
+    .rvfi_csr_i          ( rvfi_csr            ),
+    .trap_tval_i         ( rvfi_to_iti.tval    )
   );
 
 `endif
