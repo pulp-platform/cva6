@@ -8,6 +8,8 @@
              built model, in parallel, and write results.json, results.csv and
              one log per benchmark to the output directory
 
+plot-run.py shows a run's results, compare-runs.py compares runs.
+
 A benchmark passes when the testbench reports **SIMULATION PASSED** (main
 returned 0), it printed its region-of-interest counters, and, for those that
 validate their output (all but Embench, whose main returns non-zero on a
@@ -224,6 +226,7 @@ def cmd_run(args):
         print(f"CoreMark/MHz: {summary['coremark_per_mhz']:.4f}")
     print(f"simulation speed: {summary['sim_cycles_per_s']} cycles/s per job")
     print(f"bench: {summary['passed']} passed, {summary['failed']} failed; results in {out}")
+    print(f"show the results: uv run ./util/plot-run.py {out}")
     return 0 if summary["failed"] == 0 else 1
 
 
@@ -244,7 +247,7 @@ def main():
     run.add_argument("--sim-args", default="", help="extra plusargs for every simulation")
     run.add_argument("--filter", nargs="*", help="only benchmarks whose name contains one of these")
     run.add_argument("--config", help="configuration name to record, if not from the file list")
-    run.add_argument("--tag", help="label for this run, used to name its results")
+    run.add_argument("--tag", help="label for this run, used to name its results and in plots")
     run.set_defaults(func=cmd_run)
 
     args = parser.parse_args()

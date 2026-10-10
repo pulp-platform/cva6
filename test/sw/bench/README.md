@@ -86,13 +86,58 @@ effects or a bandwidth limit of its own. RaiderSTREAM therefore measures how the
 caches cope with a fixed latency (how many misses they keep in flight, how much they wait), not
 a realistic DRAM bandwidth.
 
+## Showing a run
+
+[../../util/plot-run.py](../../util/plot-run.py) shows one run: one core configuration, any
+number of benchmarks. It runs in the uv environment (see [../../README.md](../../README.md)):
+
+```sh
+uv run ./util/plot-run.py verilator/bench/cva6s+ [--out <dir>] [--format png|svg|pdf]
+```
+
+It writes, by default to `<run>/plots/`:
+
+| File | Content |
+| --- | --- |
+| `ipc` | IPC per benchmark, and the geometric mean of each suite |
+| `ipc.csv` | IPC, cycles and instructions per benchmark |
+
+## Comparing runs
+
+[../../util/compare-runs.py](../../util/compare-runs.py) compares several runs: core
+configurations, the points of a design space exploration, a change against its baseline. Like
+`plot-run.py`, it runs in the uv environment. The first run is the baseline unless `--baseline`
+names another:
+
+```sh
+uv run ./util/compare-runs.py verilator/bench/<a> verilator/bench/<b> [...] [--labels a b ...] [--baseline a] [--out <dir>]
+```
+
+It writes, by default to `verilator/bench/compare/`, and prints as tables:
+
+| File | Content |
+| --- | --- |
+| `speedup` | each run's geometric mean speedup over the baseline |
+| `speedup-map` | the speedup per benchmark and run |
+| `runs.csv` | per run: configuration, simulation arguments, IPC, speedup |
+| `suites.csv` | per suite: each run's geometric mean speedup |
+| `benchmarks.csv` | per benchmark: IPC and speedup in every run |
+
+**Speedups** come from the regions' cycles. They cover only benchmarks that pass in both runs and
+run the same binary, that is, retire the same number of instructions; the others are listed as not
+compared. Besides the geometric mean over all of them, the speedup of each suite is the geometric
+mean over its benchmarks (`SUITES` in `benchresults.py`, by name prefix). The suites measure
+different things and differ in size, Embench counting 22 programs and CoreMark one: compare runs
+by suite before relying on the overall mean.
+
 ## Running
 
 [../../util/run-bench.py](../../util/run-bench.py) runs every image in `sw/out/bench` on a built
 model in parallel, one single-threaded simulation per job, so build the model with `THREADS=1`.
 It writes a log per benchmark plus `results.json` and `results.csv` to `--out` (default
 `verilator/bench/<tag or config>`, which `make verilator-clean` does not touch), and prints the
-table, the geometric mean IPC overall and per suite, and CoreMark/MHz.
+table, the geometric mean IPC overall and per suite, and CoreMark/MHz;
+[plot-run.py](#showing-a-run) shows the rest.
 `results.json` also records the model's configuration, the RTL commit (and whether the tree
 was dirty) and the software build info.
 

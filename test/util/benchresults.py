@@ -5,10 +5,11 @@
 
 run-bench.py writes one results.json per run: the run's metadata, and per
 benchmark its status and region-of-interest counters. Everything derived from
-them is defined here, so that every script reading them agrees.
+them is defined here, so that the scripts showing a run and those comparing
+runs agree.
 
 Only the standard library is used: run-bench.py imports this module from the
-simulation container.
+simulation environment, the plotting scripts from the uv environment.
 """
 
 import json
