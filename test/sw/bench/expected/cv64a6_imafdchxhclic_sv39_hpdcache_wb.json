@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "config": "cv64a6_imafdchxhclic_sv39_hpdcache_wb",
+  "sim_args": "",
+  "measured": {
+    "date": "2026-10-16T13:50:07+00:00",
+    "rtl": {
+      "commit": "92471632a82074e9df1ee1b7f34c370bd10c0a03",
+      "branch": "v3/bench-suite",
+      "dirty": false
+    },
+    "software": [
+      "compiler:      riscv64-unknown-elf-gcc (crosstool-NG 1.26.0.120_4d36f27) 14.2.0 (/usr/pack/riscv-1.0-kgf/riscv64-gcc-14.2.0/bin//riscv64-unknown-elf-gcc)",
+      "embench-iot:   54fd9a0f10aabc662991567ca19ff3e61bfd3939",
+      "coremark:      1f483d5b8316753a742cbf5590caf5bd0a4e4777",
+      "coremark iter: 15",
+      "dhrystone:     riscv-tests 87b04f07a51f57b134a935c6157222bbd35905d9",
+      "raiderstream:  1e4f96392fd1b985fec2fec2120f03e31ed2b73a, 16384 elements",
+      "chase loads:   16384",
+      "lua:           312b9efaa1061c2c4cad08554dbc1351c3270eef",
+      "awfy:          74306fec151070fd07157cefeacf19e7e0bcdc89, iterations: bounce=1 deltablue=1 list=1 queens=1 sieve=1",
+      "bench sources: 626397680cbf7e06fd2b9028011e55921b9d92d9"
+    ]
+  },
+  "benchmarks": {
+    "coremark": {
+      "cycles": 6410722,
+      "instret": 5162509
+    },
+    "em-aha-mont64": {
+      "cycles": 2139702,
+      "instret": 1568525
+    },
+    "em-crc32": {
+      "cycles": 4050381,
+      "instret": 3853263
+    },
+    "em-cubic": {
+      "cycles": 1536432,
+      "instret": 1133341
+    },
+    "em-edn": {
+      "cycles": 2915334,
+      "instret": 2473915
+    },
+    "em-huffbench": {
+      "cycles": 3320330,
+      "instret": 2505035
+    },
+    "em-matmult-int": {
+      "cycles": 2676259,
+      "instret": 2238236
+    },
+    "em-md5sum": {
+      "cycles": 2197119,
+      "instret": 1984658
+    },
+    "em-minver": {
+      "cycles": 454931,
+      "instret": 251216
+    },
+    "em-nbody": {
+      "cycles": 81223,
+      "instret": 21535
+    },
+    "em-nettle-aes": {
+      "cycles": 4739151,
+      "instret": 4667416
+    },
+    "em-nettle-sha256": {
+      "cycles": 4087626,
+      "instret": 3983408
+    },
+    "em-nsichneu": {
+      "cycles": 5063090,
+      "instret": 2250303
+    },
+    "em-picojpeg": {
+      "cycles": 3940008,
+      "instret": 3457057
+    },
+    "em-primecount": {
+      "cycles": 3562147,
+      "instret": 1991738
+    },
+    "em-qrduino": {
+      "cycles": 4049661,
+      "instret": 2966698
+    },
+    "em-sglib-combined": {
+      "cycles": 3463532,
+      "instret": 2224654
+    },
+    "em-slre": {
+      "cycles": 2939000,
+      "instret": 2348314
+    },
+    "em-st": {
+      "cycles": 136424,
+      "instret": 69869
+    },
+    "em-statemate": {
+      "cycles": 1372615,
+      "instret": 1199056
+    },
+    "em-tarfind": {
+      "cycles": 2880019,
+      "instret": 2669420
+    },
+    "em-ud": {
+      "cycles": 3417340,
+      "instret": 2704798
+    },
+    "em-wikisort": {
+      "cycles": 1097287,
+      "instret": 882836
+    },
+    "rs-central": {
+      "cycles": 754974,
+      "instret": 229437
+    },
+    "rs-gather": {
+      "cycles": 3551662,
+      "instret": 553043
+    },
+    "rs-scatter": {
+      "cycles": 2256026,
+      "instret": 454737
+    },
+    "rs-seq": {
+      "cycles": 1708894,
+      "instret": 241741
+    }
+  }
+}

@@ -198,6 +198,82 @@ The model under `verilator/build` is replaced on every rebuild; copy `Vtest` tog
 `cva6tb.flist` (the runner reads the configuration from it) to keep one, e.g. under
 `verilator/models/<cfg>/`.
 
+## Checking for performance changes
+
+Each configuration CI checks has its expected results under [expected/](expected/):
+`cv64a6_imafdch_sv39_wb`, `cv64a6_imafdchsclic_sv39_wb`, `cv64a6_imafdchsclic_sv39_hpdcache_wb`,
+`cv64a6_imafdchxhclic_sv39_wb`, `cv64a6_imafdchxhclic_sv39_hpdcache_wb` and `cv64a6_splus`. They
+hold every benchmark's cycles and instructions, as one run measured them, with the compiler, the
+source revisions and the RTL commit of that run. `check` runs the benchmarks of a model's expected
+results and reports each one's cycles against them, then the geometric mean of the change per
+suite and overall:
+
+```sh
+make -C sw bench-ci
+make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1
+make bench-check                                       # or: ./util/run-bench.py check
+```
+
+The expected results are those of the set CI checks, which `make -C sw bench-ci` builds into
+`sw/out/bench-ci/`: the benchmarks of `make -C sw bench`, but RaiderSTREAM without `rs-sg` and on
+arrays of 16384 doubles instead of 32768 (`BENCH_CI_VARS` in [bench.mk](bench.mk)). Without
+these, RaiderSTREAM would take most of a check's time, `rs-sg` alone over 20 minutes on the
+standard write-back cache; with them, each array is still four times the data cache.
+`make -C sw bench` stays the set to report numbers from.
+
+For example, a `cv64a6_splus` model with `NrLoadPipeRegs` = 0, checked on the quick set:
+
+```
+benchmark      expected   cycles   change
+-------------  --------  -------  -------
+coremark        4653979  4035755  -13.28%
+em-aha-mont64   1448049  1447627   -0.03%
+em-minver        346307   327810   -5.34%
+em-statemate    1175360  1154737   -1.75%
+em-ud            955703   881812   -7.73%
+em-wikisort      576167   478062  -17.03%
+rs-central       754903   689409   -8.68%
+---
+cycles against the expected results, geometric mean (+ slower, - faster):
+  CoreMark       -13.28%  (1)
+  Embench        -6.57%  (5)
+  RaiderSTREAM   -8.68%  (1)
+  all            -7.86%  (7)
+**BENCH CHECK FAILED**: 7 of 7 benchmarks changed; if intended, update sw/bench/expected/cv64a6_splus.json with --update (make bench-check-update) and commit it
+```
+
+The last line is the verdict:
+- **`**BENCH CHECK PASSED**`**: every benchmark took the expected cycles.
+- **`**BENCH CHECK FAILED**`**: a benchmark changed, did not pass, or retired other instructions
+  than expected (it is not the binary the expected results measured: another compiler or other
+  sources). A failing benchmark, or another binary, also fails with `BENCH_CHECK_STRICT=0`.
+- **`**BENCH CHECK REPORTED**`**: with `BENCH_CHECK_STRICT=0` (`--report-only`), cycles changed;
+  the report is all there is.
+
+A change that moves the numbers on purpose updates the expected results in the same commit:
+`make bench-check-update` runs every benchmark under `sw/out/bench-ci/` and rewrites
+`expected/<config>.json`, so the diff shows reviewers which numbers moved and by how much.
+Simulation is deterministic, so a difference is never noise. Two changes that both move numbers
+conflict in the file; after rebasing, the second updates it again.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `BENCH_CHECK_SET` | `full` | `full`: every benchmark of the expected results; `quick`: one or more per suite, about 5 minutes with 4 jobs |
+| `BENCH_CHECK_STRICT` | `1` | `0` reports changed cycles instead of failing |
+| `BENCH_CHECK_JOBS` | all cores | simulations at once |
+
+With 4 jobs, the full set takes about 15 minutes on `cv64a6_splus` and the HPDcache configurations,
+and about 20 on those with the standard write-back cache. The cycles do not depend on the Verilator
+version: the expected results check the same under 5.042 and 5.046.
+In CI it runs alongside the architectural tests, which take about an hour:
+
+```sh
+make -C sw bench-ci RV_BINROOT=<GCC 14.2 bin directory>  # the compiler the expected results name
+make verilator-build CVA6_CONFIG=<config> THREADS=1
+make bench-check
+# judge the job by its log: **BENCH CHECK PASSED**
+```
+
 ## How the binaries are built
 
 The compiler flags follow those of the CVA6S+ frontend evaluation by Philipp Schilk (MSc thesis,
@@ -245,12 +321,13 @@ CoreMark/MHz is computed by the runner from cycles.
 | [embench/](embench/) | Embench-IoT board description `cva6tb` |
 | [coremark/](coremark/) | CoreMark port |
 | [raiderstream/](raiderstream/) | RaiderSTREAM driver, and an empty `omp.h` for upstream's kernels |
+| [expected/](expected/) | Expected results per configuration, for `check` |
 
 ## Known limitations
 
-- The benchmarks are built for RV64GC (`lp64d`), so they run on 64-bit configurations with an
-  FPU, which is what the testbench is run on. A 32-bit or FPU-less configuration would need builds
-  of its own.
+- The benchmarks are built for RV64GC (`lp64d`), so they run, and `check` covers, 64-bit
+  configurations with an FPU, which is what the testbench is run on. A 32-bit or FPU-less
+  configuration would need builds of its own, and expected results from them.
 - Some Embench regions are tiny at `CPU_MHZ=1` (`nbody` retires under 500 instructions), so
   their IPC mostly reflects cold-start effects rather than steady-state performance.
 - A `cv64a6_splus` model simulates at roughly 25k cycles/s per job, so a full run takes about 8

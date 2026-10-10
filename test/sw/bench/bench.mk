@@ -160,6 +160,15 @@ bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/
 .PHONY: bench
 bench: bench-coremark bench-embench bench-raiderstream bench-info
 
+# The set CI checks, and make bench-check with it, built into out/bench-ci:
+# every benchmark but rs-sg, and RaiderSTREAM on arrays of half the default
+# size, still four times the data cache. That halves the longest simulations.
+BENCH_CI_VARS := RS_PATTERNS="seq gather scatter central" RS_ARRAY_SIZE=16384
+
+.PHONY: bench-ci
+bench-ci:
+	$(MAKE) -C $(SW_DIR) bench BENCH_OUT_DIR=$(OUT_DIR)/bench-ci $(BENCH_CI_VARS)
+
 .PHONY: bench-clean
 bench-clean:
-	rm -rf $(BENCH_OUT_DIR) $(EMBENCH_DIR)/config/riscv32/boards/cva6tb
+	rm -rf $(BENCH_OUT_DIR) $(OUT_DIR)/bench-ci $(EMBENCH_DIR)/config/riscv32/boards/cva6tb

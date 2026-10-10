@@ -63,7 +63,7 @@ TRACE_SYMBOLS ?= $(if $(filter legacy,$(TRACE_FORMAT)),, \
                               $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf))
 
 # Goals that must work without a resolved dependency tree.
-NODEPS_GOALS := info default %clean
+NODEPS_GOALS := info default %clean bench-check bench-check-update
 NEEDS_DEPS   := $(filter-out $(NODEPS_GOALS),$(MAKECMDGOALS))
 
 ifneq ($(NEEDS_DEPS),)
@@ -295,6 +295,25 @@ verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 .PHONY: verilator-run
 verilator-run: $(VERILATOR_BUILD_DIR)/Vtest | $(VERILATOR_LOG_DIR)
 	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(strip $(SIM_ARGS) $(TB_ARGS) $(TRACER_ARGS)) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+
+# Benchmark cycles against the expected results of the model's configuration,
+# sw/bench/expected/<config>.json: a report and a verdict line, **BENCH CHECK
+# PASSED** or **BENCH CHECK FAILED** (see sw/bench/README.md). Runs the model
+# under verilator/build, built with THREADS=1, like verilator-run.
+BENCH_CHECK_SET    ?= full
+BENCH_CHECK_STRICT ?= 1
+BENCH_CHECK_JOBS   ?= $(shell nproc)
+
+.PHONY: bench-check
+bench-check:
+	$(TEST_DIR)/util/run-bench.py check --sim $(VERILATOR_BUILD_DIR)/Vtest \
+	  --set $(BENCH_CHECK_SET) -j $(BENCH_CHECK_JOBS) $(if $(filter 0,$(BENCH_CHECK_STRICT)),--report-only)
+
+# Rewrites the expected results from a run of every benchmark: commit them with
+# the change that moved the numbers
+.PHONY: bench-check-update
+bench-check-update:
+	$(TEST_DIR)/util/run-bench.py check --update --sim $(VERILATOR_BUILD_DIR)/Vtest -j $(BENCH_CHECK_JOBS)
 
 .PHONY: verilator-clean
 verilator-clean:

@@ -7,6 +7,11 @@
     run      simulate every benchmark under sw/out/bench (make -C sw bench) on a
              built model, in parallel, and write results.json, results.csv and
              one log per benchmark to the output directory
+    check    run the benchmarks of the model's expected results
+             (sw/bench/expected/<config>.json), report each one's cycles
+             against them, and end with a verdict line: **BENCH CHECK PASSED**
+             if all match, **BENCH CHECK FAILED** otherwise; --update writes
+             the expected results from the run instead
 
 plot-run.py shows a run's results, compare-runs.py compares runs.
 
@@ -43,6 +48,13 @@ from pathlib import Path
 from benchresults import RESULTS_SCHEMA, by_suite
 
 TEST_DIR = Path(__file__).resolve().parent.parent
+EXPECTED_DIR = TEST_DIR / "sw/bench/expected"
+EXPECTED_SCHEMA = 1
+
+# `check --set quick`: one or more programs of each suite, about 5 minutes
+# of simulation with 4 jobs
+QUICK_SET = ("coremark", "em-minver", "em-ud", "em-statemate", "em-wikisort", "em-aha-mont64",
+             "rs-central")
 
 # Console lines a benchmark must print, besides its ROI counters, to count as
 # correct, by name or, for keys ending in '-', by name prefix. CoreMark returns 0
@@ -148,20 +160,10 @@ def print_table(rows, columns):
         print(line.format(*r))
 
 
-def cmd_run(args):
-    sim = Path(args.sim).resolve()
-    hex_dir = Path(args.hex_dir).resolve()
-    config = args.config or model_config(sim)
-    out = Path(args.out or TEST_DIR / "verilator/bench" / (args.tag or config or "run")).resolve()
-    if not os.access(sim, os.X_OK):
-        sys.exit(f"error: {sim} not built; run 'make verilator-build CVA6_CONFIG=<cfg> THREADS=1'")
-    hexes = sorted(hex_dir.glob("*.hex"))
-    if args.filter:
-        hexes = [h for h in hexes if any(f in h.stem for f in args.filter)]
-    if not hexes:
-        sys.exit(f"error: no benchmarks under {hex_dir}; run 'make -C sw bench'")
+def simulate(sim, hex_dir, hexes, out, config, tag, sim_args, jobs, max_cycles):
+    """Run the images in parallel, one simulation each, and write results.json
+    and results.csv to `out`. Returns the run as results.json holds it."""
     out.mkdir(parents=True, exist_ok=True)
-
     build_info = hex_dir / "build-info.txt"
     meta = {
         "date": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -170,18 +172,17 @@ def cmd_run(args):
         "sim": str(sim),
         "sim_mtime": datetime.datetime.fromtimestamp(sim.stat().st_mtime).isoformat(
             timespec="seconds"),
-        "sim_args": args.sim_args,
-        "max_cycles": args.max_cycles,
+        "sim_args": sim_args,
+        "max_cycles": max_cycles,
         "rtl": git_info(TEST_DIR),
         "software": build_info.read_text().strip().splitlines() if build_info.is_file() else None,
-        "tag": args.tag,
+        "tag": tag,
     }
-    sim_args = args.sim_args.split()
-    print(f"bench: {len(hexes)} benchmarks on {meta['config']} ({sim}), {args.jobs} at a time")
+    print(f"bench: {len(hexes)} benchmarks on {meta['config']} ({sim}), {jobs} at a time")
 
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = [pool.submit(run_one, sim, h, out / f"{h.stem}.log", args.max_cycles, sim_args)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        futures = [pool.submit(run_one, sim, h, out / f"{h.stem}.log", max_cycles, sim_args.split())
                    for h in hexes]
         for i, fut in enumerate(concurrent.futures.as_completed(futures), 1):
             r = fut.result()
@@ -211,6 +212,37 @@ def cmd_run(args):
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(results)
+    return {"meta": meta, "summary": summary, "results": results}
+
+
+def model_and_images(args, target="bench"):
+    """The model, the image directory and its images, or an error message.
+    target is the make target that builds the images."""
+    sim = Path(args.sim).resolve()
+    hex_dir = Path(args.hex_dir).resolve()
+    if not os.access(sim, os.X_OK):
+        return None, None, None, (f"{sim} not built; run "
+                                  "'make verilator-build CVA6_CONFIG=<cfg> THREADS=1'")
+    hexes = sorted(hex_dir.glob("*.hex"))
+    if not hexes:
+        return None, None, None, f"no benchmarks under {hex_dir}; run 'make -C sw {target}'"
+    return sim, hex_dir, hexes, None
+
+
+def cmd_run(args):
+    sim, hex_dir, hexes, error = model_and_images(args)
+    if error:
+        sys.exit(f"error: {error}")
+    if args.filter:
+        hexes = [h for h in hexes if any(f in h.stem for f in args.filter)]
+        if not hexes:
+            sys.exit(f"error: no benchmark under {hex_dir} matches {' '.join(args.filter)}")
+    config = args.config or model_config(sim)
+    out = Path(args.out or TEST_DIR / "verilator/bench" / (args.tag or config or "run")).resolve()
+    run = simulate(sim, hex_dir, hexes, out, config, args.tag, args.sim_args, args.jobs,
+                   args.max_cycles)
+    results, summary = run["results"], run["summary"]
+    passed = [r for r in results if r["status"] == "PASS"]
 
     print()
     print_table([(r["name"], r["status"], r["cycles"] or "-", r["instret"] or "-",
@@ -228,6 +260,109 @@ def cmd_run(args):
     print(f"bench: {summary['passed']} passed, {summary['failed']} failed; results in {out}")
     print(f"show the results: uv run ./util/plot-run.py {out}")
     return 0 if summary["failed"] == 0 else 1
+
+
+def verdict(word, why=""):
+    """The check's verdict, as the line a log is judged by."""
+    print(f"**BENCH CHECK {word}**{': ' + why if why else ''}")
+    return 0 if word in ("PASSED", "REPORTED", "UPDATED") else 1
+
+
+def change(cycles, expected):
+    pct = (cycles / expected - 1) * 100
+    return f"{pct:+.2f}%" if pct else "="
+
+
+def cmd_check(args):
+    sim, hex_dir, hexes, error = model_and_images(args, "bench-ci")
+    if error:
+        return verdict("FAILED", error)
+    config = args.config or model_config(sim)
+    if not config:
+        return verdict("FAILED", f"cannot tell the configuration of {sim}; give --config")
+    path = Path(args.expected) if args.expected else EXPECTED_DIR / f"{config}.json"
+    expected = json.loads(path.read_text()) if path.is_file() else None
+    if expected and expected.get("schema", 1) > EXPECTED_SCHEMA:
+        return verdict("FAILED", f"{path}: schema {expected['schema']}, newer than this script's")
+    images = {h.stem: h for h in hexes}
+
+    # What to run: everything, to write the expected results; otherwise what
+    # they list, measured as they were
+    if args.update:
+        names = sorted(images)
+    else:
+        if not expected:
+            return verdict("FAILED", f"no expected results for {config} ({path}); "
+                           "write them with --update")
+        if expected["config"] != config:
+            return verdict("FAILED", f"{path} is for {expected['config']}, the model is {config}")
+        if expected.get("sim_args", "") != args.sim_args:
+            return verdict("FAILED", f"{path} was measured with sim args "
+                           f"'{expected.get('sim_args', '')}', not '{args.sim_args}'")
+        names = sorted(expected["benchmarks"])
+        if args.set == "quick":
+            names = [n for n in names if n in QUICK_SET]
+        missing = [n for n in names if n not in images]
+        if missing:
+            return verdict("FAILED", f"no images under {hex_dir} for {', '.join(missing)}; "
+                           "run 'make -C sw bench-ci'")
+    out = Path(args.out or TEST_DIR / "verilator/bench" / f"check-{config}").resolve()
+    run = simulate(sim, hex_dir, [images[n] for n in names], out, config, f"check-{config}",
+                   args.sim_args, args.jobs, args.max_cycles)
+    results = {r["name"]: r for r in run["results"]}
+    failed = [n for n in names if results[n]["status"] != "PASS"]
+    old = (expected or {}).get("benchmarks", {})
+
+    # The report: each benchmark's cycles against the expected ones, then the
+    # geometric mean of the ratios per suite and overall
+    rows, ratios = [], {}
+    for n in names:
+        r, e = results[n], old.get(n)
+        note = ""
+        if r["status"] != "PASS":
+            note = f"{r['status']} {r['detail']}".strip()
+        elif e and r["instret"] != e["instret"]:
+            note = f"other binary: {r['instret']} instructions, expected {e['instret']}"
+        elif e:
+            ratios[n] = r["cycles"] / e["cycles"]
+        rows.append((n, e["cycles"] if e else "-", r["cycles"] or "-",
+                     change(r["cycles"], e["cycles"]) if e and n in ratios else "-", note))
+    print()
+    print_table(rows, ["benchmark", "expected", "cycles", "change", ""])
+    print("---")
+    if ratios:
+        print("cycles against the expected results, geometric mean (+ slower, - faster):")
+        for suite, values in by_suite(ratios).items():
+            g = geomean(values.values())
+            print(f"  {suite:<14} {(g - 1) * 100:+.2f}%  ({len(values)})")
+        g = geomean(ratios.values())
+        print(f"  {'all':<14} {(g - 1) * 100:+.2f}%  ({len(ratios)})")
+    print(f"results in {out}")
+
+    if args.update:
+        if failed:
+            return verdict("FAILED", f"not updated: {', '.join(failed)} did not pass")
+        doc = {"schema": EXPECTED_SCHEMA, "config": config, "sim_args": args.sim_args,
+               "measured": {k: run["meta"][k] for k in ("date", "rtl", "software")},
+               "benchmarks": {n: {"cycles": results[n]["cycles"],
+                                  "instret": results[n]["instret"]} for n in names}}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(doc, indent=2) + "\n")
+        return verdict("UPDATED", f"{path}, {len(names)} benchmarks")
+
+    other = [n for n in names if results[n]["status"] == "PASS" and n not in ratios]
+    changed = [n for n, x in ratios.items() if x != 1]
+    if failed or other:
+        return verdict("FAILED", "; ".join(
+            ([f"did not pass: {', '.join(failed)}"] if failed else []) +
+            ([f"not the binaries the expected results measured (other instruction counts): "
+              f"{', '.join(other)}"] if other else [])))
+    if changed:
+        why = (f"{len(changed)} of {len(names)} benchmarks changed; if intended, "
+               f"update {path.relative_to(TEST_DIR) if path.is_relative_to(TEST_DIR) else path} "
+               "with --update (make bench-check-update) and commit it")
+        return verdict("REPORTED" if args.report_only else "FAILED", why)
+    return verdict("PASSED", f"{len(names)} benchmarks as expected")
 
 
 def main():
@@ -249,6 +384,28 @@ def main():
     run.add_argument("--config", help="configuration name to record, if not from the file list")
     run.add_argument("--tag", help="label for this run, used to name its results and in plots")
     run.set_defaults(func=cmd_run)
+
+    check = sub.add_parser("check", help="compare with the expected results")
+    check.add_argument("--sim", default=TEST_DIR / "verilator/build/Vtest",
+                       help="model to simulate (default: verilator/build/Vtest)")
+    check.add_argument("--hex-dir", default=TEST_DIR / "sw/out/bench-ci",
+                       help="benchmark images (default: sw/out/bench-ci, make -C sw bench-ci)")
+    check.add_argument("--expected", help="expected results "
+                       "(default: sw/bench/expected/<configuration>.json)")
+    check.add_argument("--out", help="logs and results (default: verilator/bench/check-<config>)")
+    check.add_argument("-j", "--jobs", type=int,
+                       default=int(os.environ.get("NJOBS", os.cpu_count())))
+    check.add_argument("--max-cycles", type=int, default=200_000_000)
+    check.add_argument("--sim-args", default="", help="extra plusargs for every simulation")
+    check.add_argument("--config", help="the model's configuration, if not from the file list")
+    check.add_argument("--set", choices=("full", "quick"), default="full",
+                       help="every benchmark of the expected results, or the quick set")
+    check.add_argument("--report-only", action="store_true",
+                       help="a change of cycles is reported (**BENCH CHECK REPORTED**), "
+                       "not a failure; failing benchmarks still fail")
+    check.add_argument("--update", action="store_true",
+                       help="run every benchmark and write the expected results from it")
+    check.set_defaults(func=cmd_check)
 
     args = parser.parse_args()
     sys.exit(args.func(args))
