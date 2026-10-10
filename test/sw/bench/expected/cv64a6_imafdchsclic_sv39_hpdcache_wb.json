@@ -131,6 +131,26 @@
       "cycles": 1097287,
       "instret": 882836
     },
+    "lua-bounce": {
+      "cycles": 10551139,
+      "instret": 7739164
+    },
+    "lua-deltablue": {
+      "cycles": 3048576,
+      "instret": 1820629
+    },
+    "lua-list": {
+      "cycles": 7841805,
+      "instret": 5773552
+    },
+    "lua-queens": {
+      "cycles": 9642856,
+      "instret": 6864781
+    },
+    "lua-sieve": {
+      "cycles": 5032219,
+      "instret": 3231396
+    },
     "rs-central": {
       "cycles": 754974,
       "instret": 229437

@@ -10,6 +10,7 @@ their timed region took:
 | `dhrystone` | Dhrystone 2.1, as riscv-tests ships it | nothing the others do not; a DMIPS/MHz reference |
 | `rs-<pattern>` | RaiderSTREAM's four kernels for one access pattern | the data cache and the memory: misses, misses in flight, write-backs |
 | `chase-<size>` | a pointer chase over a working set of that size | the load-to-use latency of wherever the working set fits |
+| `lua-<name>` | the Lua interpreter running an are-we-fast-yet benchmark | the frontend: 150 KB of code, indirect jumps, calls and returns; allocation and garbage collection |
 
 ```sh
 make -C sw bench
@@ -19,7 +20,7 @@ make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1
 
 `make -C sw bench` clones the sources into `sw/deps/` at pinned revisions and writes one
 `<name>.elf`, `.hex` and `.dump` per benchmark to `sw/out/bench/`; `bench-<suite>` builds one suite
-(`coremark`, `embench`, `dhrystone`, `raiderstream`, `chase`). `sw/out/bench/build-info.txt`
+(`coremark`, `embench`, `dhrystone`, `raiderstream`, `chase`, `lua`). `sw/out/bench/build-info.txt`
 records the compiler and the source revisions they were built from; the runner copies it into its
 results.
 
@@ -43,8 +44,9 @@ A benchmark passes when the testbench reports `**SIMULATION PASSED**` (its `main
 which all but CoreMark do only when their results verify), it printed the region's counters, and,
 except for Embench, its validation line was printed: `Correct operation validated` for CoreMark,
 which returns 0 even when its checksums mismatch, `[DHRY] results verified`,
-`[RS] results verified` or `[CHASE] chain verified` for the others. Any trap ends the run through
-the EOC register with return code `0x100 + mcause`, after printing `mcause`, `mepc` and `mtval`.
+`[RS] results verified`, `[CHASE] chain verified` or `[LUA] results verified` for the others. Any
+trap ends the run through the EOC register with return code `0x100 + mcause`, after printing
+`mcause`, `mepc` and `mtval`.
 
 ## Memory benchmarks
 
@@ -97,6 +99,46 @@ cycles per load miss on `cv64a6_splus`) and moves one 64-bit beat per cycle, wit
 effects or a bandwidth limit of its own. These benchmarks therefore measure how the core and its
 caches cope with a fixed latency (how many misses they keep in flight, how much they wait), not
 a realistic DRAM bandwidth.
+
+## Lua
+
+The other suites are small programs: their code fits in the instruction cache, but for
+`em-nsichneu`'s. `lua-<name>` runs Lua 5.4 ([upstream](https://github.com/lua/lua)), an
+interpreter of some 150 KB of code that dispatches each bytecode through an indirect jump, on one
+benchmark of [are-we-fast-yet](https://github.com/smarr/are-we-fast-yet) (AWFY), a suite meant to
+compare language implementations, with the same programs in each language. Each benchmark verifies
+its result after each of its inner iterations.
+
+[lua/](lua/) is the port:
+- **Sources**: AWFY's Lua sources are compiled to bytecode on the host, by `luadump.c` built with
+  `HOST_CC` from the same Lua sources, and embedded in the program (`sources.S`). Compiling them in
+  simulation would take millions of cycles before the region starts (some 8 million for
+  DeltaBlue). They are served to `require` through `package.preload`, its only searcher: the others
+  open files. The benchmark and the modules it requires are loaded before the region starts; the
+  region runs `LUA_ITERATIONS_<name>` inner iterations.
+- **Libraries**: all standard libraries but `io`, `os` and `debug`, which need an operating
+  system. Lua prints to the testbench console (`luaport.h`).
+- **Memory**: newlib's `malloc`, on a heap past the program image ([lib/heap.c](lib/heap.c)).
+- **Determinism**: `time()` and `clock()` return 0. Lua reads them only to seed its string hashes,
+  `math.random` and `table.sort`'s pivots, and every run must be the same.
+
+Only AWFY's micro benchmarks fit a simulation: one inner iteration of its larger ones (Richards,
+Json, CD, Havlak) takes tens of millions of instructions or more. The default `LUA_BENCHMARKS` are
+those whose region, one inner iteration, takes under 10 million cycles on `cv64a6_splus`:
+
+| Benchmark | What it does | Region cycles | IPC |
+| --- | --- | --- | --- |
+| `deltablue` | constraint solver, object-oriented | 3.1 M | 0.60 |
+| `sieve` | sieve of Eratosthenes on a table | 4.1 M | 0.79 |
+| `list` | recursion over linked lists | 6.1 M | 0.94 |
+| `queens` | eight queens, backtracking | 8.5 M | 0.80 |
+| `bounce` | bouncing balls, objects and a random generator | 9.2 M | 0.85 |
+| `permute` | permutations, recursion | 13.5 M | 0.82 |
+| `towers` | towers of Hanoi on linked stacks | 23.2 M | 0.82 |
+| `storage` | allocation of a tree of arrays: the garbage collector | 25.6 M | 0.74 |
+
+Loading the bytecode and running the modules' definitions takes another 1 to 3 million cycles
+before the region.
 
 ## Showing a run
 
@@ -274,8 +316,8 @@ conflict in the file; after rebasing, the second updates it again.
 | `BENCH_CHECK_STRICT` | `1` | `0` reports changed cycles instead of failing |
 | `BENCH_CHECK_JOBS` | all cores | simulations at once |
 
-With 4 jobs, the full set takes about 15 minutes on `cv64a6_splus` and the HPDcache configurations,
-and about 20 on those with the standard write-back cache. The cycles do not depend on the Verilator
+With 4 jobs, the full set takes about 20 minutes on `cv64a6_splus` and the HPDcache configurations,
+and about 30 on those with the standard write-back cache. The cycles do not depend on the Verilator
 version: the expected results check the same under 5.042 and 5.046.
 In CI it runs alongside the architectural tests, which take about an hour:
 
@@ -312,6 +354,7 @@ the ones he used. The differences:
 | CoreMark | `-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany -O3 -fno-builtin-printf`, 15 iterations, performance-run seeds |
 | Dhrystone | riscv-tests' flags: `-march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf -fno-tree-loop-distribute-patterns`; inlining disabled in its sources; 500 runs |
 | RaiderSTREAM, pointer chase | Embench's |
+| Lua | Lua's own (`-O2`): `-march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -O2 -g -std=gnu99 -fno-common -ffunction-sections -fdata-sections` |
 
 Every compilation also takes `-ffile-prefix-map=<sw>=.`, which does not change the code. Embench's
 support code asserts, which puts its file name in the data of five programs; with the map, the
@@ -344,7 +387,9 @@ CoreMark/MHz is computed by the runner from cycles.
 | [dhrystone/](dhrystone/) | Dhrystone: `util.h` stand-in and result check |
 | [raiderstream/](raiderstream/) | RaiderSTREAM driver, and an empty `omp.h` for upstream's kernels |
 | [chase/](chase/) | Pointer chase |
+| [lua/](lua/) | Lua port: driver, console hooks, host bytecode compiler, embedded AWFY bytecode |
 | [expected/](expected/) | Expected results per configuration, for `check` |
+| [lib/heap.c](lib/heap.c) | `_sbrk` for newlib's `malloc`, linked by the benchmarks that allocate |
 
 ## Known limitations
 
@@ -353,6 +398,6 @@ CoreMark/MHz is computed by the runner from cycles.
   configuration would need builds of its own, and expected results from them.
 - Some Embench regions are tiny at `CPU_MHZ=1` (`nbody` retires under 500 instructions), so
   their IPC mostly reflects cold-start effects rather than steady-state performance.
-- A `cv64a6_splus` model simulates at roughly 25k cycles/s per job, so a full run takes about 8
-  minutes on 8 cores. The longest benchmark, `rs-sg`, takes some 11 million cycles, including what
-  runs before its region.
+- A `cv64a6_splus` model simulates at roughly 25k cycles/s per job, so a full run takes about 12
+  minutes on 8 cores. The longest benchmarks, `rs-sg` and `lua-bounce`, take some 11 million cycles
+  each, including what runs before their region.

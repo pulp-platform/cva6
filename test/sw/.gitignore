@@ -7,3 +7,5 @@ deps/sail/
 deps/embench-iot/
 deps/coremark/
 deps/raiderstream/
+deps/lua/
+deps/are-we-fast-yet/

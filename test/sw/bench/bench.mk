@@ -2,9 +2,9 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Benchmarks (CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM, pointer chase)
-# for the standalone testbench, included by ../Makefile. Everything lands in
-# out/bench/: one <name>.elf/.hex/.dump per benchmark, plus build-info.txt
+# Benchmarks (CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM, pointer chase,
+# Lua) for the standalone testbench, included by ../Makefile. Everything lands
+# in out/bench/: one <name>.elf/.hex/.dump per benchmark, plus build-info.txt
 # recording what produced them. See README.md.
 
 BENCH_DIR     := $(SW_DIR)/bench
@@ -22,6 +22,13 @@ COREMARK_DIR  := $(DEPS_DIR)/coremark
 # RaiderSTREAM: master as of 2026-03-27.
 RAIDERSTREAM_REV := 1e4f96392fd1b985fec2fec2120f03e31ed2b73a
 RAIDERSTREAM_DIR := $(DEPS_DIR)/raiderstream
+
+# Lua 5.4.9, the latest 5.4 release (2026-08-10), and are-we-fast-yet master as
+# of 2026-03-22.
+LUA_REV  := 312b9efaa1061c2c4cad08554dbc1351c3270eef
+AWFY_REV := 74306fec151070fd07157cefeacf19e7e0bcdc89
+LUA_DIR  := $(DEPS_DIR)/lua
+AWFY_DIR := $(DEPS_DIR)/are-we-fast-yet
 
 # Source paths are compiled in relative to sw/ (Embench's support code asserts,
 # so __FILE__ is in five programs' data): the binaries do not depend on where
@@ -77,6 +84,37 @@ CHASE_SIZES ?= 16k 64k 256k
 CHASE_LOADS ?= 16384
 CHASE_ELFS  := $(patsubst %,$(BENCH_OUT_DIR)/chase-%.elf,$(CHASE_SIZES))
 
+# Lua: one program per are-we-fast-yet benchmark, lua-<benchmark>, each running
+# LUA_ITERATIONS_<benchmark> of its inner iterations. Lua's own flags (its
+# makefile's -O2), and the core and libraries but io, os and debug. By default
+# the benchmarks whose region takes under 10 million cycles on cv64a6_splus;
+# permute (14), towers (23) and storage (26) can be added to LUA_BENCHMARKS.
+LUA_CFLAGS     := -march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -O2 -g -std=gnu99 -fno-common \
+                  -ffunction-sections -fdata-sections -Wall -Wextra -include $(BENCH_DIR)/lua/luaport.h \
+                  $(BENCH_PREFIX_MAP)
+LUA_SRCS       := lapi lcode lctype ldebug ldo ldump lfunc lgc llex lmem lobject lopcodes lparser \
+                  lstate lstring ltable ltm lundump lvm lzio lauxlib lbaselib lcorolib lmathlib \
+                  loadlib lstrlib ltablib lutf8lib
+LUA_OBJS       := $(patsubst %,$(BENCH_OBJ_DIR)/lua/%.o,$(LUA_SRCS))
+# AWFY's Lua sources, compiled to bytecode on the host by luadump, built from
+# the same Lua sources with HOST_CC.
+HOST_CC        ?= gcc
+LUA_HOST_DIR   := $(BENCH_OUT_DIR)/lua-host
+AWFY_MODULES   := benchmark som bounce cd deltablue hashindextable-53 havlak json list mandelbrot \
+                  mandelbrot-fn-53 nbody permute queens richards sieve storage towers
+AWFY_CHUNKS    := $(patsubst %,$(LUA_HOST_DIR)/%.luac,$(AWFY_MODULES))
+LUA_HOST_SRCS  := $(filter-out lbaselib lcorolib lmathlib loadlib lstrlib ltablib lutf8lib,$(LUA_SRCS))
+LUA_BENCHMARKS ?= bounce deltablue list queens sieve
+LUA_ITERATIONS_bounce    ?= 1
+LUA_ITERATIONS_deltablue ?= 1
+LUA_ITERATIONS_list      ?= 1
+LUA_ITERATIONS_permute   ?= 1
+LUA_ITERATIONS_queens    ?= 1
+LUA_ITERATIONS_sieve     ?= 1
+LUA_ITERATIONS_storage   ?= 1
+LUA_ITERATIONS_towers    ?= 1
+LUA_ELFS       := $(patsubst %,$(BENCH_OUT_DIR)/lua-%.elf,$(LUA_BENCHMARKS))
+
 $(EMBENCH_DIR)/:
 	git clone https://github.com/embench/embench-iot.git $(EMBENCH_DIR)
 	cd $(EMBENCH_DIR) && git checkout $(EMBENCH_REV)
@@ -88,6 +126,14 @@ $(COREMARK_DIR)/:
 $(RAIDERSTREAM_DIR)/:
 	git clone https://github.com/michael-beebe/RaiderSTREAM.git $(RAIDERSTREAM_DIR)
 	cd $(RAIDERSTREAM_DIR) && git checkout $(RAIDERSTREAM_REV)
+
+$(LUA_DIR)/:
+	git clone https://github.com/lua/lua.git $(LUA_DIR)
+	cd $(LUA_DIR) && git checkout $(LUA_REV)
+
+$(AWFY_DIR)/:
+	git clone https://github.com/smarr/are-we-fast-yet.git $(AWFY_DIR)
+	cd $(AWFY_DIR) && git checkout $(AWFY_REV)
 
 $(BENCH_OBJ_DIR)/crt0.o: $(BENCH_DIR)/lib/crt0.S
 	@mkdir -p $(dir $@)
@@ -104,6 +150,11 @@ $(BENCH_OBJ_DIR)/console.o: $(LIB_DIR)/console.c
 $(BENCH_OBJ_DIR)/printf.o: | $(DEPS_DIR)/printf
 	@mkdir -p $(dir $@)
 	$(RV_CC) $(BENCH_LIB_FLAGS) $(BENCH_INC) -c $(DEPS_DIR)/printf/printf.c -o $@
+
+# For the benchmarks that allocate; not in the library, see heap.c.
+$(BENCH_OBJ_DIR)/heap.o: $(BENCH_DIR)/lib/heap.c
+	@mkdir -p $(dir $@)
+	$(RV_CC) $(BENCH_LIB_FLAGS) -c $< -o $@
 
 $(BENCH_LIB): $(BENCH_LIB_OBJS)
 	$(RV_AR) rcs $@ $^
@@ -161,6 +212,30 @@ $(BENCH_OUT_DIR)/chase-%.elf: $(BENCH_DIR)/chase/chase.c $(BENCH_DIR)/include/be
 .PHONY: bench-chase
 bench-chase: $(CHASE_ELFS) $(CHASE_ELFS:.elf=.hex) $(CHASE_ELFS:.elf=.dump)
 
+$(BENCH_OBJ_DIR)/lua/%.o: $(BENCH_DIR)/lua/luaport.h | $(LUA_DIR)/
+	@mkdir -p $(dir $@)
+	$(RV_CC) $(LUA_CFLAGS) -c $(LUA_DIR)/$*.c -o $@
+
+$(LUA_HOST_DIR)/luadump: $(BENCH_DIR)/lua/luadump.c | $(LUA_DIR)/
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -O2 -std=gnu99 -I$(LUA_DIR) -o $@ $< $(patsubst %,$(LUA_DIR)/%.c,$(LUA_HOST_SRCS)) -lm
+
+$(LUA_HOST_DIR)/%.luac: $(LUA_HOST_DIR)/luadump | $(AWFY_DIR)/
+	$(LUA_HOST_DIR)/luadump $* $(AWFY_DIR)/benchmarks/Lua/$*.lua $@
+
+$(BENCH_OBJ_DIR)/lua-sources.o: $(BENCH_DIR)/lua/sources.S $(AWFY_CHUNKS)
+	@mkdir -p $(dir $@)
+	$(RV_CC) -march=rv64gc_zifencei -mabi=lp64d -Wa,-I$(LUA_HOST_DIR) -c $< -o $@
+
+$(BENCH_OUT_DIR)/lua-%.elf: $(BENCH_DIR)/lua/luabench.c $(LUA_OBJS) $(BENCH_OBJ_DIR)/lua-sources.o \
+                            $(BENCH_OBJ_DIR)/heap.o $(BENCH_DIR)/include/bench.h $(BENCH_CRT0) $(BENCH_LIB)
+	$(RV_CC) $(LUA_CFLAGS) '-DLUA_BENCHMARK="$*"' -DLUA_ITERATIONS=$(LUA_ITERATIONS_$*) -I$(LUA_DIR) \
+	    $(BENCH_INC) $(BENCH_LDFLAGS) -o $@ $(BENCH_CRT0) $< $(LUA_OBJS) $(BENCH_OBJ_DIR)/lua-sources.o \
+	    $(BENCH_OBJ_DIR)/heap.o $(BENCH_LIB) -lm
+
+.PHONY: bench-lua
+bench-lua: $(LUA_ELFS) $(LUA_ELFS:.elf=.hex) $(LUA_ELFS:.elf=.dump)
+
 # Embench's own build_all.py does the compiling, against a board description
 # copied into its tree; the environment carries the paths board.cfg needs.
 # Each benchmark is then renamed em-<name> next to CoreMark.
@@ -189,7 +264,8 @@ $(BENCH_OUT_DIR)/%.dump: $(BENCH_OUT_DIR)/%.elf
 
 # What produced the binaries, for comparing results across builds.
 .PHONY: bench-info
-bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/ $(DEPS_DIR)/riscv-tests/
+bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/ $(DEPS_DIR)/riscv-tests/ \
+              $(LUA_DIR)/ $(AWFY_DIR)/
 	@mkdir -p $(BENCH_OUT_DIR)
 	@{ echo "compiler:      $$($(RV_CC) --version | head -1) ($(RV_CC))"; \
 	   echo "embench-iot:   $$(git -C $(EMBENCH_DIR) rev-parse HEAD)"; \
@@ -198,12 +274,14 @@ bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/ $(DEPS_DIR)/
 	   echo "dhrystone:     riscv-tests $$(git -C $(DEPS_DIR)/riscv-tests rev-parse HEAD)"; \
 	   echo "raiderstream:  $$(git -C $(RAIDERSTREAM_DIR) rev-parse HEAD), $(RS_ARRAY_SIZE) elements"; \
 	   echo "chase loads:   $(CHASE_LOADS)"; \
+	   echo "lua:           $$(git -C $(LUA_DIR) rev-parse HEAD)"; \
+	   echo "awfy:          $$(git -C $(AWFY_DIR) rev-parse HEAD), iterations: $(foreach b,$(LUA_BENCHMARKS),$(b)=$(LUA_ITERATIONS_$(b)))"; \
 	   echo "bench sources: $$(git -C $(BENCH_DIR) log -1 --format=%H -- . 2>/dev/null)$$(git -C $(BENCH_DIR) diff --quiet -- . 2>/dev/null || echo ' (modified)')"; \
 	 } > $(BENCH_OUT_DIR)/build-info.txt
 	@cat $(BENCH_OUT_DIR)/build-info.txt
 
 .PHONY: bench
-bench: bench-coremark bench-embench bench-dhrystone bench-raiderstream bench-chase bench-info
+bench: bench-coremark bench-embench bench-dhrystone bench-raiderstream bench-chase bench-lua bench-info
 
 # The set CI checks, and make bench-check with it, built into out/bench-ci:
 # every benchmark but rs-sg, and RaiderSTREAM on arrays of half the default

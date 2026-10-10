@@ -54,7 +54,7 @@ EXPECTED_SCHEMA = 1
 # `check --set quick`: one or more programs of each suite, about 5 minutes
 # of simulation with 4 jobs
 QUICK_SET = ("coremark", "dhrystone", "em-minver", "em-ud", "em-statemate", "em-wikisort",
-             "em-aha-mont64", "rs-central", "chase-16k", "chase-64k", "chase-256k")
+             "em-aha-mont64", "rs-central", "chase-16k", "chase-64k", "chase-256k", "lua-sieve")
 
 # Console lines a benchmark must print, besides its ROI counters, to count as
 # correct, by name or, for keys ending in '-', by name prefix. CoreMark returns 0
@@ -65,6 +65,7 @@ REQUIRED_OUTPUT = {
     "dhrystone": "[DHRY] results verified",
     "rs-": "[RS] results verified",
     "chase-": "[CHASE] chain verified",
+    "lua-": "[LUA] results verified",
 }
 
 # Dhrystones per second of the VAX 11/780, the 1 DMIPS reference

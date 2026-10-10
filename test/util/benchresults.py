@@ -28,6 +28,7 @@ SUITES = (
     ("dhrystone", "Dhrystone"),
     ("rs-", "RaiderSTREAM"),
     ("chase-", "Pointer chase"),
+    ("lua-", "Lua"),
 )
 
 
