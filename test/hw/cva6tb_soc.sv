@@ -24,6 +24,7 @@ module cva6tb_soc
   logic                              clk;
   logic                              rst_n;
   rvfi_probes_t                      rvfi_probes;
+  perf_probes_t                      perf_probes;
 
   logic                              mtip;
   logic                              msip;
@@ -171,6 +172,7 @@ module cva6tb_soc
   cva6_top #(
     .CVA6Cfg       ( CVA6Cfg                  ),
     .rvfi_probes_t ( rvfi_probes_t            ),
+    .perf_probes_t ( perf_probes_t            ),
     .noc_req_t     ( axi_mst_req_t            ),
     .noc_resp_t    ( axi_mst_rsp_t            )
   ) i_cva6 (
@@ -183,6 +185,7 @@ module cva6tb_soc
     .time_irq_i    ( mtip                     ),
     .debug_req_i   ( '0                       ),
     .rvfi_probes_o ( rvfi_probes              ),
+    .perf_probes_o ( perf_probes              ),
     .cvxif_req_o   ( /* Not connected */      ),
     .cvxif_resp_i  ( '0                       ),
     .noc_req_o     ( axi_core_req             ),
@@ -191,12 +194,16 @@ module cva6tb_soc
   );
 
 // RVFI generation is shared: the tracer observes it, the co-simulation checks
-// against it. Elaborate `cva6_rvfi` once if any consumer is present, and let
-// each consumer guard only itself.
+// against it, the cycle accounting delimits benchmarks with it. Elaborate
+// `cva6_rvfi` once if any consumer is present, and let each consumer guard
+// only itself.
 `ifdef TARGET_TRACER
 `define CVA6TB_RVFI
 `endif
 `ifdef TARGET_COSIM
+`define CVA6TB_RVFI
+`endif
+`ifdef TARGET_PERF
 `define CVA6TB_RVFI
 `endif
 
@@ -258,6 +265,23 @@ module cva6tb_soc
     .rvfi_i              ( rvfi_instr          ),
     .rvfi_csr_i          ( rvfi_csr            ),
     .trap_tval_i         ( rvfi_to_iti.tval    )
+  );
+
+`endif
+
+`ifdef TARGET_PERF
+
+  // Cycle accounting of benchmarks: RVFI delimits their region of interest,
+  // the performance probes tell what each issue slot does within it.
+  cva6tb_perf #(
+    .CVA6Cfg             ( CVA6Cfg             ),
+    .rvfi_instr_t        ( rvfi_instr_t        ),
+    .perf_probes_t       ( perf_probes_t       )
+  ) i_cva6tb_perf (
+    .clk_i               ( clk                 ),
+    .rst_ni              ( rst_n               ),
+    .rvfi_i              ( rvfi_instr          ),
+    .perf_i              ( perf_probes         )
   );
 
 `endif

@@ -18,6 +18,9 @@ VERILATOR ?= verilator
 
 # Target CVA6 configuration
 CVA6_CONFIG   ?= cv64a6_imafdch_sv39_hpdcache_wb
+# A configuration package to build instead of CVA6_CONFIG's own, such as a
+# variant of it with other parameters, without editing config/target
+CVA6_CONFIG_PKG ?=
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
 # Main memory delay per AXI channel, 0 to 100, passed as +MemDelay when set
@@ -62,9 +65,11 @@ TRACE_STATS   ?=
 TRACE_SYMBOLS ?= $(if $(filter legacy,$(TRACE_FORMAT)),, \
                    $(wildcard $(basename $(abspath $(HEXFILE))).elf \
                               $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf))
+# Cycle accounting of benchmarks (RVFI and the performance probes)
+PERF          ?= 0
 
 # Goals that must work without a resolved dependency tree.
-NODEPS_GOALS := info default %clean
+NODEPS_GOALS := info default %clean bench-check bench-check-update
 NEEDS_DEPS   := $(filter-out $(NODEPS_GOALS),$(MAKECMDGOALS))
 
 ifneq ($(NEEDS_DEPS),)
@@ -137,6 +142,10 @@ ifneq ($(LEGACY_TRACE),1)
 BENDER_FLAGS += -D CVA6_NO_LEGACY_TRACE
 endif
 
+ifeq ($(PERF),1)
+BENDER_FLAGS += -t perf
+endif
+
 ##################################
 ##### Hardware dependencies ######
 ##################################
@@ -161,6 +170,11 @@ HW_DEPS := $(CLINT_ROOT)/.generated-cva6tb $(OTPROOT)/.generated
 else ifneq ($(NEEDS_DEPS),)
 $(error Bender dependencies are not initialized. Run 'bender checkout' in $(ROOT_DIR))
 endif
+
+# The generated sources alone, in the uv environment, before builds on other
+# hosts that lack it (util/sweep.py --runner)
+.PHONY: hw-deps
+hw-deps: $(HW_DEPS)
 
 ##################################
 ###### Platform registers ########
@@ -238,6 +252,9 @@ $(VSIM_BUILD_DIR):
 
 $(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock $(HW_DEPS) | $(VSIM_BUILD_DIR)
 	$(BENDER) script vsim $(BENDER_FLAGS) --vlog-arg="$(VLOG_FLAGS)" > $@
+ifneq ($(CVA6_CONFIG_PKG),)
+	sed -i 's|"\$$ROOT/config/target/$(CVA6_CONFIG)/rtl_cfg_pkg\.sv"|"$(abspath $(CVA6_CONFIG_PKG))"|' $@
+endif
 ifeq ($(TRACER),1)
 	@echo 'vlog -ccflags "-std=c++17 -O2" $(RV_COMMON_SRC) $(TRACER_SRC)' >> $@
 endif
@@ -308,6 +325,9 @@ $(VERILATOR_LOG_DIR):
 
 $(VERILATOR_FLIST): $(ROOT_DIR)/Bender.lock $(HW_DEPS)
 	$(BENDER) script verilator $(BENDER_FLAGS) -D ASSERTS_OFF -t verilator > $@
+ifneq ($(CVA6_CONFIG_PKG),)
+	sed -i 's|^.*/config/target/$(CVA6_CONFIG)/rtl_cfg_pkg\.sv$$|$(abspath $(CVA6_CONFIG_PKG))|' $@
+endif
 
 # The DPI sources are handed to verilator as positional arguments, which leaves
 # them out of Vtest's prerequisites; these list them, so editing the C++ backend
@@ -328,6 +348,25 @@ verilator-build: $(VERILATOR_BUILD_DIR)/Vtest
 .PHONY: verilator-run
 verilator-run: $(VERILATOR_BUILD_DIR)/Vtest $(COSIM_RUN_DEPS) | $(VERILATOR_LOG_DIR)
 	cd $(VERILATOR_DIR) && ./$(notdir $(VERILATOR_BUILD_DIR))/Vtest +binary=$(abspath $(HEXFILE)) +MaxCycles=$(MAX_CYCLES) $(strip $(SIM_ARGS) $(TB_ARGS) $(TRACER_ARGS) $(COSIM_SIM_ARGS)) 2>&1 | tee $(VERILATOR_LOG_DIR)/$(basename $(notdir $(HEXFILE))).log
+
+# Benchmark cycles against the expected results of the model's configuration,
+# sw/bench/expected/<config>.json: a report and a verdict line, **BENCH CHECK
+# PASSED** or **BENCH CHECK FAILED** (see sw/bench/README.md). Runs the model
+# under verilator/build, built with THREADS=1, like verilator-run.
+BENCH_CHECK_SET    ?= full
+BENCH_CHECK_STRICT ?= 1
+BENCH_CHECK_JOBS   ?= $(shell nproc)
+
+.PHONY: bench-check
+bench-check:
+	$(TEST_DIR)/util/run-bench.py check --sim $(VERILATOR_BUILD_DIR)/Vtest \
+	  --set $(BENCH_CHECK_SET) -j $(BENCH_CHECK_JOBS) $(if $(filter 0,$(BENCH_CHECK_STRICT)),--report-only)
+
+# Rewrites the expected results from a run of every benchmark: commit them with
+# the change that moved the numbers
+.PHONY: bench-check-update
+bench-check-update:
+	$(TEST_DIR)/util/run-bench.py check --update --sim $(VERILATOR_BUILD_DIR)/Vtest -j $(BENCH_CHECK_JOBS)
 
 .PHONY: verilator-clean
 verilator-clean:

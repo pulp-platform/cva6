@@ -390,9 +390,10 @@ sources:
           - test/hw/cva6tb_axi_sim_mem.sv
           - test/hw/cva6tb_soc.sv
 
-      - target: any(tracer, cosim)
+      - target: any(tracer, cosim, perf)
         files:
-          # RVFI generation, consumed by the tracer and the co-simulation
+          # RVFI generation, consumed by the tracer, the co-simulation and the
+          # cycle accounting
           - core/cva6_rvfi.sv
 
       - target: tracer
@@ -402,6 +403,11 @@ sources:
       - target: cosim
         files:
           - test/hw/cosim/cva6tb_cosim.sv
+
+      - target: perf
+        files:
+          # The cycle accounting of benchmarks, which consumes RVFI
+          - test/hw/cva6tb_perf.sv
 
       - target: all(cva6tb, test_simple)
         files:
