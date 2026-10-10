@@ -61,6 +61,8 @@ TRACE_STATS   ?=
 TRACE_SYMBOLS ?= $(if $(filter legacy,$(TRACE_FORMAT)),, \
                    $(wildcard $(basename $(abspath $(HEXFILE))).elf \
                               $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf))
+# Cycle accounting of benchmarks (RVFI and the performance probes)
+PERF          ?= 0
 
 # Goals that must work without a resolved dependency tree.
 NODEPS_GOALS := info default %clean bench-check bench-check-update
@@ -124,6 +126,10 @@ endif
 
 ifneq ($(LEGACY_TRACE),1)
 BENDER_FLAGS += -D CVA6_NO_LEGACY_TRACE
+endif
+
+ifeq ($(PERF),1)
+BENDER_FLAGS += -t perf
 endif
 
 ##################################

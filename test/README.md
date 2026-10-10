@@ -91,6 +91,7 @@ make verilator-build CVA6_CONFIG=cv64a6_imafdchxhclic_sv39_wb
 | `ZERO_SIM_MEM` | unset | Initialise simulation memories to zero instead of random |
 | `TRACER` | `0` | Build in the [instruction tracer](hw/tracer/) (`1` also elaborates `cva6_rvfi`) |
 | `LEGACY_TRACE` | `0` | Re-enable CVA6's own built-in tracing (`instr_tracer` under vsim, a `.dasm` dump under Verilator) |
+| `PERF` | `0` | Build in the [cycle accounting](sw/bench/) of benchmarks (`1` also elaborates `cva6_rvfi`) |
 | `BENCH_CHECK_SET` | `full` | Benchmarks `make bench-check` runs: `full` or `quick` (see [sw/bench/](sw/bench/)) |
 | `BENCH_CHECK_STRICT` | `1` | `0`: `make bench-check` reports changed cycles instead of failing |
 | `WAVES` | `0` | Compile in waveform support; then `+fst` at run time actually dumps |
@@ -300,14 +301,18 @@ uv run ./util/plot-run.py verilator/bench/cva6s+
 uv run ./util/compare-runs.py verilator/bench/<a> verilator/bench/<b> [...]
 ```
 
-[util/plot-run.py](util/plot-run.py) shows a run's results, per benchmark and per suite.
-[util/compare-runs.py](util/compare-runs.py) compares runs: speedups over a baseline, per suite
-and per benchmark, and two scores that weigh suites alike. [util/sweep.py](util/sweep.py) builds,
+Built with `PERF=1`, the testbench also accounts for every issue slot of every cycle in the
+region: issued, or why not. [util/plot-run.py](util/plot-run.py) shows a run's results: IPC per
+benchmark and per suite and, with the accounting, the share of slots retiring, lost to bad
+speculation, to the frontend and to the backend, the lost slots by cause, cache misses, and the
+redirect and load stall histograms. [util/compare-runs.py](util/compare-runs.py) compares runs:
+speedups over a baseline, per suite and per benchmark, two scores that weigh suites alike, and
+cycles per instruction by cause. [util/sweep.py](util/sweep.py) builds,
 runs and compares variants of a configuration from a sweep file, here or on other hosts through
 a runner. `make bench-check` compares the model's benchmark cycles with the
 expected results committed for its configuration and ends with a verdict line, **BENCH CHECK
 PASSED** or **BENCH CHECK FAILED**. See [sw/bench/README.md](sw/bench/) for how the region is
-measured, the compiler flags, and what counts as a pass.
+measured, the cycle accounting, the compiler flags, and what counts as a pass.
 
 ## Waveforms
 

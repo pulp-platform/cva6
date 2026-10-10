@@ -22,6 +22,12 @@ mismatch), the validation line is there. Cycles and retired instructions are
 the region's mcycle and minstret deltas, as measured by the benchmark itself
 (sw/bench/lib/bench.c).
 
+On a model built with PERF=1, each simulation also writes perf.json, the
+testbench's account of every issue slot in the same region (hw/cva6tb_perf.sv).
+Its classes must add up to the region's cycles for every port, or the benchmark
+is reported PERFERR. results.json keeps the raw counts; what they mean is
+defined in benchresults.py.
+
 Like the other simulation flows it runs in the environment that built the
 model:
 
@@ -45,7 +51,7 @@ import sys
 import time
 from pathlib import Path
 
-from benchresults import RESULTS_SCHEMA, by_suite
+from benchresults import RESULTS_SCHEMA, by_suite, check_perf
 
 TEST_DIR = Path(__file__).resolve().parent.parent
 EXPECTED_DIR = TEST_DIR / "sw/bench/expected"
@@ -155,6 +161,21 @@ def run_one(sim, hex_path, log_path, max_cycles, sim_args):
         result["status"], result["detail"] = "INVALID", f"missing '{required}'"
     else:
         result["status"] = "PASS"
+
+    # Cycle accounting, from a model built with PERF=1
+    perf_path = workdir / "perf.json"
+    if perf_path.is_file():
+        try:
+            perf = json.loads(perf_path.read_text())
+            error = check_perf(perf)
+        except (ValueError, KeyError) as e:
+            perf, error = None, f"perf: unreadable perf.json ({e})"
+        if error:
+            if result["status"] == "PASS":
+                result["status"] = "PERFERR"
+            result["detail"] = error
+        if perf and not error:
+            result["perf"] = perf
     return result
 
 

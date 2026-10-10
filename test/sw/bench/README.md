@@ -14,7 +14,7 @@ their timed region took:
 
 ```sh
 make -C sw bench
-make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1
+make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1 PERF=1
 ./util/run-bench.py run --tag cva6s+
 ```
 
@@ -140,6 +140,78 @@ those whose region, one inner iteration, takes under 10 million cycles on `cv64a
 Loading the bytecode and running the modules' definitions takes another 1 to 3 million cycles
 before the region.
 
+## Cycle accounting
+
+A model built with `PERF=1` also accounts for where the region's cycles go.
+[hw/cva6tb_perf.sv](../../hw/cva6tb_perf.sv) follows the region by the two markers retiring,
+as RVFI reports them, and puts every issue slot of every cycle in exactly one class, from the
+core's performance probes (`perf_probes_o`, see `core/include/perf_types.svh`):
+
+| Class | The slot... |
+| --- | --- |
+| `issued` | issued an instruction |
+| `recovery` | had no instruction, the frontend refilling after a redirect |
+| `frontend` | had no instruction, otherwise |
+| `sb_full` | had an instruction, but the scoreboard was full |
+| `blocked` | had an instruction, but an older slot did not issue |
+| `stall` | had an instruction, but the issue stage was stalled from outside |
+| `fu_busy` | had an instruction, but its functional unit was busy |
+| `raw` | had an instruction, but one of its operands was not ready |
+| `other` | had an instruction, not issued for another reason |
+
+Within the classes, the collector also counts:
+- `fu_busy` by the waiting instruction's functional unit, and the slots whose unit is taken only
+  by the older instruction of the same issue group (two memory operations cannot pair, for
+  example).
+- `raw` by the unit producing the missing operand, and the slots where that producer is the older
+  instruction of the same issue group.
+- **Load stall episodes, by length.** An episode lasts as long as one slot waits for one load: a
+  few cycles if the load hits in the data cache, at least a memory round trip if it misses.
+- `blocked` by the class of the older slot.
+- **Instruction cache miss episodes.** These are `frontend` and `recovery` slots falling between
+  an instruction cache miss and decode having an instruction again, through the refill.
+- **Events:** instruction and data cache misses, mispredicted branches, frontend redirects, and a
+  histogram of redirect penalties (cycles from the redirect to the first instruction offered
+  again).
+
+At the end of the region, everything goes to `perf.json` in the simulation's working directory,
+and `[PERF] roi cycles=<n> retired=<n>` goes to the console. The RVFI region starts and ends at
+the markers, slightly outside the counter reads, so it is a few tens of cycles longer than the
+`mcycle` delta.
+
+The runner checks that each port's classes add up to the region's cycles; if not, the benchmark
+is reported `PERFERR`. It keeps the raw counts in `results.json`. What they mean is defined in
+[../../util/benchresults.py](../../util/benchresults.py), which the scripts showing and comparing
+runs share, so a change of definition applies to existing results without re-running them. The
+classes add up to four categories, as shares of all issue slots:
+
+| Category | Slots |
+| --- | --- |
+| retiring | of instructions that retired (RVFI) |
+| bad_spec | of instructions issued and then squashed, plus `recovery` |
+| frontend | `frontend` |
+| backend | `sb_full`, `blocked`, `stall`, `fu_busy`, `raw`, `other` |
+
+One level down, they break down as:
+
+| Category | Broken down into |
+| --- | --- |
+| bad_spec | squashed instructions, recovery (and how much of it on instruction cache misses) |
+| frontend | instruction cache misses, other |
+| backend | its classes, then `raw` by producing unit with loads split into hits and misses, `fu_busy` by unit, `blocked` by the older slot's class |
+
+Load stalls of up to 8 cycles count as hits (`LOAD_HIT_MAX_STALL`). On CoreMark and Embench, hit
+stalls last 1 to 7 cycles, misses around 37 with the default memory delay, and the data cache
+barely misses. For the plots, the lost slots also make a single partition of eight causes:
+- waiting for a load;
+- waiting for another result;
+- behind an older slot;
+- unit busy or taken;
+- misprediction recovery;
+- instruction cache miss, whether it starves the frontend or prolongs a recovery;
+- fetch, other;
+- scoreboard full, other.
+
 ## Showing a run
 
 [../../util/plot-run.py](../../util/plot-run.py) shows one run: one core configuration, any
@@ -155,6 +227,16 @@ It writes, by default to `<run>/plots/`:
 | --- | --- |
 | `ipc` | IPC per benchmark, and the geometric mean of each suite |
 | `ipc.csv` | IPC, cycles and instructions per benchmark |
+| `slots` | where the issue slots go (the four categories), per benchmark and per suite |
+| `losses` | the lost slots by cause, per benchmark and per suite |
+| `events` | mispredictions and cache misses per 1000 instructions, per benchmark |
+| `histograms` | redirect penalties and load stall lengths, summed over the benchmarks |
+| `breakdown.csv`, `histograms.csv` | every number of the last four |
+
+All but `ipc` need cycle accounting (a model built with `PERF=1`). A suite's row sums its
+benchmarks' slots, so the longer ones weigh more; with a single suite, one row sums all
+benchmarks. It also prints the breakdown of all benchmarks together, and each suite's four
+categories.
 
 ## Comparing runs
 
@@ -173,7 +255,8 @@ It writes, by default to `verilator/bench/compare/`, and prints as tables:
 | --- | --- |
 | `speedup` | each run's geometric mean speedup over the baseline |
 | `speedup-map` | the speedup per benchmark and run |
-| `runs.csv` | per run: configuration, simulation arguments, IPC, speedup |
+| `cpi` | each run's cycles per instruction, split by cause |
+| `runs.csv` | per run: configuration, simulation arguments, IPC, speedup, CPI and its parts, events per 1000 instructions |
 | `suites.csv` | per suite: each run's geometric mean speedup |
 | `benchmarks.csv` | per benchmark: IPC and speedup in every run |
 
@@ -183,6 +266,13 @@ compared. Besides the geometric mean over all of them, the speedup of each suite
 mean over its benchmarks (`SUITES` in `benchresults.py`, by name prefix). The suites measure
 different things and differ in size, Embench counting 22 programs and CoreMark one: compare runs
 by suite before relying on the overall mean.
+
+**CPI stacks** compare configurations even when their issue widths differ:
+- The base is the CPI at full issue width (1 for a single-issue core, 0.5 for a dual-issue one).
+- Each of the eight causes of lost slots adds its slots divided by the width.
+- They add up to the CPI, so a shorter stack is a faster core.
+
+They need cycle accounting, and cover the benchmarks all accounted runs share.
 
 ## Sweeping configurations
 
@@ -202,6 +292,7 @@ or both:
 ```toml
 name = "example"
 config = "cv64a6_splus"
+perf = true                               # build with PERF=1
 benchmarks = ["coremark", "em-"]          # optional: names containing one of these
 
 [[point]]

@@ -12,6 +12,7 @@ A sweep file names a base configuration and the points to run:
 
     name = "example"
     config = "cv64a6_splus"            # base configuration, as CVA6_CONFIG
+    perf = true                        # build with cycle accounting (PERF=1)
     benchmarks = ["coremark", "em-"]   # optional: names containing one of these
     max_cycles = 200000000             # optional
 
@@ -155,10 +156,10 @@ def tree_state():
     return git("ls-files", "-s", "--", *MODEL_SOURCES) + git("diff", "HEAD", "--", *MODEL_SOURCES)
 
 
-def build_model(model_dir, config, package, verilator_jobs, rebuild, tree, runner):
+def build_model(model_dir, config, package, perf, verilator_jobs, rebuild, tree, runner):
     """Build the model of one parameter set, unless an identical one is there,
     here or through the runner. Returns (model_dir, verdict)."""
-    key = hashlib.sha256(json.dumps([config, package, tree]).encode()).hexdigest()
+    key = hashlib.sha256(json.dumps([config, package, perf, tree]).encode()).hexdigest()
     pkg = model_dir / "cva6_config_pkg.sv"
     vtest = model_dir / "build" / "Vtest"
     log = model_dir / "logs" / "build.log"
@@ -173,7 +174,7 @@ def build_model(model_dir, config, package, verilator_jobs, rebuild, tree, runne
                    capture_output=True)
     cmd = ["make", "-C", str(TEST_DIR), "verilator-build", f"CVA6_CONFIG={config}",
            f"CVA6_CONFIG_PKG={pkg}", f"VERILATOR={VERILATOR}", f"VERILATOR_DIR={model_dir}",
-           "THREADS=1", f"VERILATOR_JOBS={verilator_jobs}"]
+           "THREADS=1", f"PERF={1 if perf else 0}", f"VERILATOR_JOBS={verilator_jobs}"]
     if runner:
         cmd = [*runner, "--cores", str(verilator_jobs), "--", *cmd]
     with open(model_dir / "make.log", "w") as f:
@@ -221,10 +222,10 @@ def main():
     for key in ("name", "config"):
         if key not in sweep:
             sys.exit(f"error: the sweep file needs '{key}'")
-    unknown = set(sweep) - {"name", "config", "benchmarks", "max_cycles", "point", "grid"}
+    unknown = set(sweep) - {"name", "config", "perf", "benchmarks", "max_cycles", "point", "grid"}
     if unknown:
         sys.exit(f"error: unknown keys {sorted(unknown)}")
-    config = sweep["config"]
+    config, perf = sweep["config"], bool(sweep.get("perf", True))
     points = expand_points(sweep)
     out = TEST_DIR / "verilator" / "bench" / "sweeps" / label_dir(sweep["name"])
 
@@ -237,7 +238,8 @@ def main():
             models[key] = {"params": params, "dir": out / "models" / label_dir(name)}
     packages = {k: generate_package(config, m["params"]) for k, m in models.items()}
 
-    print(f"sweep {sweep['name']}: {len(points)} points, {len(models)} models of {config}, in {out}")
+    print(f"sweep {sweep['name']}: {len(points)} points, {len(models)} models of {config}"
+          f"{' with cycle accounting' if perf else ''}, in {out}")
     for label, params, sim_args in points:
         print(f"  {label}: {', '.join(f'{k}={v}' for k, v in params.items()) or 'base'}"
               f"{'  ' + sim_args if sim_args else ''}")
@@ -249,7 +251,7 @@ def main():
                     print("  " + line.strip())
         return 0
 
-    manifest = {"name": sweep["name"], "config": config,
+    manifest = {"name": sweep["name"], "config": config, "perf": perf,
                 "date": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
                 "sweep_file": str(Path(args.sweep).resolve()), "points": []}
     for label, params, sim_args in points:
@@ -277,7 +279,7 @@ def main():
                 sys.exit(f"error: {shlex.join(cmd)} failed:\n{proc.stdout[-2000:]}{proc.stderr[-2000:]}")
     verdicts = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=build_jobs) as pool:
-        futures = {pool.submit(build_model, m["dir"], config, packages[k], verilator_jobs,
+        futures = {pool.submit(build_model, m["dir"], config, packages[k], perf, verilator_jobs,
                                args.rebuild, tree, runner): k for k, m in models.items()}
         for fut in concurrent.futures.as_completed(futures):
             model_dir, verdict = fut.result()

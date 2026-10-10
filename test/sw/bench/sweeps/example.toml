@@ -3,6 +3,7 @@
 #   uv run ./util/sweep.py sw/bench/sweeps/example.toml
 name = "example"
 config = "cv64a6_splus"
+perf = true
 benchmarks = ["em-crc32", "em-nbody", "em-minver", "em-ud"]  # substrings of names
 
 [[point]]

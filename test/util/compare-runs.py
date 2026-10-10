@@ -14,16 +14,19 @@ default to verilator/bench/compare/:
 
     speedup         each run's geometric mean speedup over the baseline
     speedup-map     the speedup per benchmark and run
+    cpi             each run's cycles per instruction, split by cause
     runs.csv        per run: configuration, simulation arguments, IPC, speedup,
-                    scores
+                    scores, CPI and its parts, events per 1000 instructions
     suites.csv      per suite: the geometric mean speedup of every run
     benchmarks.csv  per benchmark: IPC and speedup in every run
 
 and prints the same as tables. Speedups come from the regions' cycles, over the
 benchmarks that pass in both runs and run the same binary there. The scores
 weigh suites alike: compute is the geometric mean of the CoreMark, Embench and
-Lua speedups, memory that of RaiderSTREAM and pointer chase (benchresults.SCORES). Runs in the uv
-environment (see ../README.md): uv run ./util/compare-runs.py <runs>.
+Lua speedups, memory that of RaiderSTREAM and pointer chase (benchresults.SCORES). The CPI stacks
+need cycle accounting (models built with PERF=1); they sum all the benchmarks
+that every such run has. Runs in the uv environment (see ../README.md):
+uv run ./util/compare-runs.py <runs>.
 """
 
 import argparse
@@ -31,12 +34,14 @@ import csv
 import sys
 from pathlib import Path
 
-from benchplot import (DIVERGING, FONT, INK_MUTED, INK_SECONDARY, PT_PER_PX, SERIES, SURFACE,
-                       DPI, bar_height, ink_on, plt, row_figure, rows_layout, save, style,
-                       titles)
-from benchresults import SCORES, by_suite, geomean, load_run, run_label, scores, speedups
+from benchplot import (DIVERGING, FONT, INK_MUTED, INK_SECONDARY, NEUTRAL, PT_PER_PX,
+                       SERIES, SURFACE, DPI, bar_height, ink_on, legend, plt, row_figure,
+                       rows_layout, save, stacked, style, titles)
+from benchresults import (LOSS_CAUSES, SCORES, accounted, by_suite, cpi_stack, geomean,
+                          load_run, per_kilo_insn, run_label, scores, speedups, total)
 
 TEST_DIR = Path(__file__).resolve().parent.parent
+STACK = (("base", "Issue at full width"),) + LOSS_CAUSES
 
 
 def print_table(rows, columns):
@@ -107,6 +112,24 @@ def plot_speedup_map(names, others, per_bench, base, out):
     return save(fig, out)
 
 
+def plot_cpi(labels, stacks, base, n_bench, out):
+    parts = [[stacks[l][key] for l in labels] for key, _ in STACK]
+    totals = [sum(stacks[l].values()) for l in labels]
+    xmax = max(totals) * 1.12
+    fig, ax = row_figure(len(labels), header_in=1.25, left=0.22)
+    ys, ends = stacked(ax, labels, parts, (NEUTRAL,) + SERIES, xmax, header_rows=0,
+                       value_format=lambda w: f"{w:.2f}")
+    for y, end in zip(ys, ends):
+        ax.text(end + xmax * 0.01, y, f"{end:.3f}", va="center", fontsize=FONT - 1,
+                color=INK_SECONDARY)
+    ax.set_xlabel("cycles per instruction", fontsize=FONT, color=INK_MUTED)
+    titles(fig, "Cycles per instruction, by cause",
+           f"All {n_bench} benchmarks the runs share, together. The base is the CPI at full "
+           "issue width; each cause adds its lost slots, in cycles.")
+    legend(fig, [text for _, text in STACK], (NEUTRAL,) + SERIES, 5)
+    return save(fig, out)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -150,6 +173,13 @@ def main():
     score = {o: scores(suite_gm[o]) for o in others}
     score_names = [n for n, _ in SCORES if any(score[o][n] for o in others)]
 
+    # CPI stacks over the benchmarks every accounted run shares
+    acc = {l: {r["name"]: c for r, c in accounted(by_label[l])} for l in labels}
+    with_perf = [l for l in labels if acc[l]]
+    shared = sorted(set.intersection(*(set(acc[l]) for l in with_perf))) if with_perf else []
+    totals = {l: total([acc[l][n] for n in shared]) for l in with_perf} if shared else {}
+    stacks = {l: cpi_stack(totals[l]) for l in totals}
+
     # Tables
     print(f"baseline: {base}")
     rows = []
@@ -160,12 +190,20 @@ def main():
                      f"{geomean(r['ipc'] for r in passed):.4f}" if passed else "-",
                      "baseline" if l == base else (pct(gm[l]) if gm[l] else "-"),
                      *("" if l == base else (pct(score[l][n]) if score[l][n] else "-")
-                       for n in score_names)))
+                       for n in score_names),
+                     f"{sum(stacks[l].values()):.4f}" if l in stacks else "-"))
     print_table(rows, ["run", "config", "sim args", "passed", "geomean ipc", "speedup",
-                       *score_names])
+                       *score_names, "cpi"])
     for l in others:
         if differ[l]:
             print(f"{l}: not compared, different binaries: {', '.join(differ[l])}")
+
+    if stacks:
+        print()
+        print(f"cycles per instruction by cause, {len(shared)} shared benchmarks together:")
+        print_table([(text, *(f"{stacks[l][key]:.4f}" for l in stacks)) for key, text in STACK]
+                    + [("total", *(f"{sum(stacks[l].values()):.4f}" for l in stacks))],
+                    ["", *stacks])
     if len(suite_sizes) > 1:
         print()
         print(f"speedup over {base} per suite (geometric mean):")
@@ -182,17 +220,29 @@ def main():
     if names:
         written.append(plot_speedup_map(names, others, per_bench, base,
                                         out / f"speedup-map.{args.format}"))
+    if stacks:
+        written.append(plot_cpi(list(stacks), stacks, base, len(shared), out / f"cpi.{args.format}"))
+    else:
+        print("no cycle accounting shared by the runs (models built with PERF=1): no CPI stacks")
 
     # Tables as CSV
     with open(out / "runs.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["run", "results", "config", "sim_args", "passed", "geomean_ipc",
-                         "speedup_vs_baseline", *(f"score_{n}" for n, _ in SCORES)])
+                         "speedup_vs_baseline", *(f"score_{n}" for n, _ in SCORES), "cpi",
+                         *(f"cpi.{k}" for k, _ in STACK),
+                         "mispredicts_pki", "icache_misses_pki", "dcache_misses_pki"])
         for l, row in zip(labels, rows):
             writer.writerow([l, by_label[l]["path"], row[1], row[2], row[3], row[4],
                              "" if l == base or not gm[l] else f"{gm[l]:.5f}",
                              *("" if l == base or not score[l][n] else f"{score[l][n]:.5f}"
-                               for n, _ in SCORES)])
+                               for n, _ in SCORES),
+                             *((f"{sum(stacks[l].values()):.5f}",
+                                *(f"{stacks[l][k]:.5f}" for k, _ in STACK)) if l in stacks
+                               else [""] * (len(STACK) + 1)),
+                             *((f"{per_kilo_insn(totals[l], e):.3f}"
+                                for e in ("mispredicts", "icache_misses", "dcache_misses"))
+                               if l in totals else ["", "", ""])])
     with open(out / "suites.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["suite", "benchmarks", *(f"speedup.{o}" for o in others)])

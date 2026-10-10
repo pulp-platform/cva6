@@ -21,6 +21,7 @@ module cva6tb_soc
   logic                              clk;
   logic                              rst_n;
   rvfi_probes_t                      rvfi_probes;
+  perf_probes_t                      perf_probes;
 
   logic                              mtip;
   logic                              msip;
@@ -200,6 +201,7 @@ module cva6tb_soc
     .rvfi_probes_instr_t ( rvfi_probes_instr_t               ),
     .rvfi_probes_csr_t   ( rvfi_probes_csr_t                 ),
     .rvfi_probes_t       ( rvfi_probes_t                     ),
+    .perf_probes_t       ( perf_probes_t                     ),
     .axi_ar_chan_t       ( axi_mst_ar_chan_t                 ),
     .axi_aw_chan_t       ( axi_mst_aw_chan_t                 ),
     .axi_w_chan_t        ( axi_mst_w_chan_t                  ),
@@ -227,13 +229,24 @@ module cva6tb_soc
     .clic_kill_req_i     ( clic_irq_kill_req                 ),
     .clic_kill_ack_o     ( clic_irq_kill_ack                 ),
     .rvfi_probes_o       ( rvfi_probes                       ),
+    .perf_probes_o       ( perf_probes                       ),
     .cvxif_req_o         ( /* Not connected */               ),
     .cvxif_resp_i        ( '0                                ),
     .noc_req_o           ( axi_core_req                      ),
     .noc_resp_i          ( axi_core_rsp                      )
   );
 
+// RVFI generation is shared: the tracer observes it, the cycle accounting
+// delimits benchmarks with it. Elaborate `cva6_rvfi` once if either consumer is
+// present, and let each consumer guard only itself.
 `ifdef TARGET_TRACER
+`define CVA6TB_RVFI
+`endif
+`ifdef TARGET_PERF
+`define CVA6TB_RVFI
+`endif
+
+`ifdef CVA6TB_RVFI
 
   rvfi_instr_t [CVA6Cfg.NrCommitPorts-1:0] rvfi_instr;
   rvfi_csr_t                               rvfi_csr;
@@ -256,6 +269,10 @@ module cva6tb_soc
     .rvfi_csr_o          ( rvfi_csr            )
   );
 
+`endif
+
+`ifdef TARGET_TRACER
+
   cva6tb_tracer #(
     .CVA6Cfg             ( CVA6Cfg             ),
     .rvfi_instr_t        ( rvfi_instr_t        ),
@@ -270,6 +287,23 @@ module cva6tb_soc
     .branch_valid_i      ( rvfi_to_iti.branch_valid  ),
     .branch_taken_i      ( rvfi_to_iti.is_taken      ),
     .branch_mispredict_i ( rvfi_to_iti.is_mispredict )
+  );
+
+`endif
+
+`ifdef TARGET_PERF
+
+  // Cycle accounting of benchmarks: RVFI delimits their region of interest,
+  // the performance probes tell what each issue slot does within it.
+  cva6tb_perf #(
+    .CVA6Cfg             ( CVA6Cfg             ),
+    .rvfi_instr_t        ( rvfi_instr_t        ),
+    .perf_probes_t       ( perf_probes_t       )
+  ) i_cva6tb_perf (
+    .clk_i               ( clk                 ),
+    .rst_ni              ( rst_n               ),
+    .rvfi_i              ( rvfi_instr          ),
+    .perf_i              ( perf_probes         )
   );
 
 `endif
