@@ -27,6 +27,7 @@ SUITES = (
     ("em-", "Embench"),
     ("dhrystone", "Dhrystone"),
     ("rs-", "RaiderSTREAM"),
+    ("chase-", "Pointer chase"),
 )
 
 

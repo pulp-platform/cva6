@@ -2,8 +2,8 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Benchmarks (CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM) for the
-# standalone testbench, included by ../Makefile. Everything lands in
+# Benchmarks (CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM, pointer chase)
+# for the standalone testbench, included by ../Makefile. Everything lands in
 # out/bench/: one <name>.elf/.hex/.dump per benchmark, plus build-info.txt
 # recording what produced them. See README.md.
 
@@ -69,6 +69,13 @@ RS_PATTERNS   ?= seq gather scatter sg central
 RS_ARRAY_SIZE ?= 32768
 RS_ELFS       := $(patsubst %,$(BENCH_OUT_DIR)/rs-%.elf,$(RS_PATTERNS))
 
+# Pointer chase: one program per working set size in CHASE_SIZES, chase-<size>,
+# each timing CHASE_LOADS dependent loads. By default within the 32 KiB data
+# cache, twice and eight times its size: smaller or larger sets measure the same
+# latencies again.
+CHASE_SIZES ?= 16k 64k 256k
+CHASE_LOADS ?= 16384
+CHASE_ELFS  := $(patsubst %,$(BENCH_OUT_DIR)/chase-%.elf,$(CHASE_SIZES))
 
 $(EMBENCH_DIR)/:
 	git clone https://github.com/embench/embench-iot.git $(EMBENCH_DIR)
@@ -145,6 +152,15 @@ $(BENCH_OUT_DIR)/rs-%.elf: $(BENCH_DIR)/raiderstream/raiderstream.c $(BENCH_OBJ_
 .PHONY: bench-raiderstream
 bench-raiderstream: $(RS_ELFS) $(RS_ELFS:.elf=.hex) $(RS_ELFS:.elf=.dump)
 
+# <n>k and <n>m are KiB and MiB.
+$(BENCH_OUT_DIR)/chase-%.elf: $(BENCH_DIR)/chase/chase.c $(BENCH_DIR)/include/bench.h \
+                              $(BENCH_CRT0) $(BENCH_LIB)
+	$(RV_CC) $(BENCH_CFLAGS) '-DCHASE_BYTES=($(subst k,*1024,$(subst m,*1048576,$*)))' \
+	    -DCHASE_LOADS=$(CHASE_LOADS) $(BENCH_INC) $(BENCH_LDFLAGS) -o $@ $(BENCH_CRT0) $< $(BENCH_LIB)
+
+.PHONY: bench-chase
+bench-chase: $(CHASE_ELFS) $(CHASE_ELFS:.elf=.hex) $(CHASE_ELFS:.elf=.dump)
+
 # Embench's own build_all.py does the compiling, against a board description
 # copied into its tree; the environment carries the paths board.cfg needs.
 # Each benchmark is then renamed em-<name> next to CoreMark.
@@ -181,12 +197,13 @@ bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/ $(DEPS_DIR)/
 	   echo "coremark iter: $(COREMARK_ITERATIONS)"; \
 	   echo "dhrystone:     riscv-tests $$(git -C $(DEPS_DIR)/riscv-tests rev-parse HEAD)"; \
 	   echo "raiderstream:  $$(git -C $(RAIDERSTREAM_DIR) rev-parse HEAD), $(RS_ARRAY_SIZE) elements"; \
+	   echo "chase loads:   $(CHASE_LOADS)"; \
 	   echo "bench sources: $$(git -C $(BENCH_DIR) log -1 --format=%H -- . 2>/dev/null)$$(git -C $(BENCH_DIR) diff --quiet -- . 2>/dev/null || echo ' (modified)')"; \
 	 } > $(BENCH_OUT_DIR)/build-info.txt
 	@cat $(BENCH_OUT_DIR)/build-info.txt
 
 .PHONY: bench
-bench: bench-coremark bench-embench bench-dhrystone bench-raiderstream bench-info
+bench: bench-coremark bench-embench bench-dhrystone bench-raiderstream bench-chase bench-info
 
 # The set CI checks, and make bench-check with it, built into out/bench-ci:
 # every benchmark but rs-sg, and RaiderSTREAM on arrays of half the default

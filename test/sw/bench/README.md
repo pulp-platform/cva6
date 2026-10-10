@@ -9,6 +9,7 @@ their timed region took:
 | `em-<name>` | the 22 programs of Embench-IoT | the pipeline; fits in the caches, except `nsichneu`'s code |
 | `dhrystone` | Dhrystone 2.1, as riscv-tests ships it | nothing the others do not; a DMIPS/MHz reference |
 | `rs-<pattern>` | RaiderSTREAM's four kernels for one access pattern | the data cache and the memory: misses, misses in flight, write-backs |
+| `chase-<size>` | a pointer chase over a working set of that size | the load-to-use latency of wherever the working set fits |
 
 ```sh
 make -C sw bench
@@ -18,7 +19,7 @@ make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1
 
 `make -C sw bench` clones the sources into `sw/deps/` at pinned revisions and writes one
 `<name>.elf`, `.hex` and `.dump` per benchmark to `sw/out/bench/`; `bench-<suite>` builds one suite
-(`coremark`, `embench`, `dhrystone`, `raiderstream`). `sw/out/bench/build-info.txt`
+(`coremark`, `embench`, `dhrystone`, `raiderstream`, `chase`). `sw/out/bench/build-info.txt`
 records the compiler and the source revisions they were built from; the runner copies it into its
 results.
 
@@ -41,14 +42,14 @@ counters.
 A benchmark passes when the testbench reports `**SIMULATION PASSED**` (its `main` returned 0,
 which all but CoreMark do only when their results verify), it printed the region's counters, and,
 except for Embench, its validation line was printed: `Correct operation validated` for CoreMark,
-which returns 0 even when its checksums mismatch, `[DHRY] results verified`
-or `[RS] results verified` for the others. Any trap ends the run through
+which returns 0 even when its checksums mismatch, `[DHRY] results verified`,
+`[RS] results verified` or `[CHASE] chain verified` for the others. Any trap ends the run through
 the EOC register with return code `0x100 + mcause`, after printing `mcause`, `mepc` and `mtval`.
 
 ## Memory benchmarks
 
-The other suites fit in the caches: their data cache misses are close to none. RaiderSTREAM
-exercises the data side, and the testbench memory behind it.
+The other suites fit in the caches: their data cache misses are close to none. These two exercise
+the data side, and the testbench memory behind it.
 
 **RaiderSTREAM** ([upstream](https://github.com/michael-beebe/RaiderSTREAM)) extends STREAM with
 irregular access patterns. `rs-<pattern>` runs the four kernels of one pattern, in STREAM's order,
@@ -82,9 +83,18 @@ replaces upstream's C++ harness, which needs an OS:
 baseline on CVA6: a load waits for the store buffer to drain when its page offset matches a
 pending store's (`core/store_buffer.sv`), and `a[0]`, `b[0]` and `c[0]` share their page offset.
 
+**The pointer chase** ([chase/](chase/)) follows `CHASE_LOADS` (default 16384) pointers through
+16-byte nodes linked in one cycle in pseudo-random order, after a warm-up lap. Each load depends
+on the previous one, so the cycles per load are the load-to-use latency of wherever the working
+set fits. A 16-byte node is the smallest data cache line of any CVA6 configuration, so the
+working set occupies `<size>` of the cache whatever the line size. The chase must end at the node
+predicted from the number of loads; `[CHASE]` gives the cycles per 100 loads. `CHASE_SIZES`
+lists the sizes built, by default `16k`, `64k` and `256k`: within the 32 KiB data cache, twice and
+eight times its size. Smaller sets take the cycles of `16k`, larger ones those of `256k`.
+
 **The testbench memory** answers every request after `+MemDelay` cycles (default 10, about 38
 cycles per load miss on `cv64a6_splus`) and moves one 64-bit beat per cycle, without bank or row
-effects or a bandwidth limit of its own. RaiderSTREAM therefore measures how the core and its
+effects or a bandwidth limit of its own. These benchmarks therefore measure how the core and its
 caches cope with a fixed latency (how many misses they keep in flight, how much they wait), not
 a realistic DRAM bandwidth.
 
@@ -292,8 +302,8 @@ the ones he used. The differences:
   twice: a copy for the warm-up pass and one specialised for the timed pass's repetition count.
   The warm-up then never runs the timed code, which starts cold in the instruction cache, and the
   specialised copy can drop work: `nbody` timed 445 instructions instead of 21535, `ud` a third
-  of its work. With the flag, both passes run the same code. RaiderSTREAM, which has no warm-up
-  pass, is compiled without it.
+  of its work. With the flag, both passes run the same code. RaiderSTREAM and the pointer chase,
+  which have no warm-up pass, are compiled without it.
 - **The compiler**: GCC 14.2 here; his version is not documented.
 
 | Suite | Flags |
@@ -301,7 +311,7 @@ the ones he used. The differences:
 | Embench-IoT | `-march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -O3 -g -fdata-sections -ffunction-sections -fno-tree-loop-distribute-patterns -funroll-all-loops -falign-jumps=4 -falign-functions=16 -fno-ipa-cp-clone` |
 | CoreMark | `-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany -O3 -fno-builtin-printf`, 15 iterations, performance-run seeds |
 | Dhrystone | riscv-tests' flags: `-march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf -fno-tree-loop-distribute-patterns`; inlining disabled in its sources; 500 runs |
-| RaiderSTREAM | Embench's |
+| RaiderSTREAM, pointer chase | Embench's |
 
 Every compilation also takes `-ffile-prefix-map=<sw>=.`, which does not change the code. Embench's
 support code asserts, which puts its file name in the data of five programs; with the map, the
@@ -333,6 +343,7 @@ CoreMark/MHz is computed by the runner from cycles.
 | [coremark/](coremark/) | CoreMark port |
 | [dhrystone/](dhrystone/) | Dhrystone: `util.h` stand-in and result check |
 | [raiderstream/](raiderstream/) | RaiderSTREAM driver, and an empty `omp.h` for upstream's kernels |
+| [chase/](chase/) | Pointer chase |
 | [expected/](expected/) | Expected results per configuration, for `check` |
 
 ## Known limitations

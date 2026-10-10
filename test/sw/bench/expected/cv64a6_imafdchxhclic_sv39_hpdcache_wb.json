@@ -23,6 +23,18 @@
     ]
   },
   "benchmarks": {
+    "chase-16k": {
+      "cycles": 49707,
+      "instret": 17164
+    },
+    "chase-256k": {
+      "cycles": 622449,
+      "instret": 16907
+    },
+    "chase-64k": {
+      "cycles": 513730,
+      "instret": 16907
+    },
     "coremark": {
       "cycles": 6410722,
       "instret": 5162509
