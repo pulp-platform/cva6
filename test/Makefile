@@ -18,6 +18,9 @@ VERILATOR ?= verilator
 
 # Target CVA6 configuration
 CVA6_CONFIG   ?= cv64a6_imafdchsclic_sv39_wb
+# A configuration package to build instead of CVA6_CONFIG's own, such as a
+# variant of it with other parameters, without editing core/include
+CVA6_CONFIG_PKG ?=
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
 # Main memory delay per AXI channel, 0 to 100, passed as +MemDelay when set
@@ -148,6 +151,11 @@ else ifneq ($(NEEDS_DEPS),)
 $(error Bender dependencies are not initialized. Run 'bender checkout' in $(ROOT_DIR))
 endif
 
+# The generated sources alone, in the uv environment, before builds on other
+# hosts that lack it (util/sweep.py --runner)
+.PHONY: hw-deps
+hw-deps: $(HW_DEPS)
+
 ##################################
 ########### Bootrom ##############
 ##################################
@@ -210,6 +218,9 @@ $(VSIM_BUILD_DIR):
 
 $(VSIM_BUILD_DIR)/vsim_compile.tcl: $(ROOT_DIR)/Bender.lock $(HW_DEPS) | $(VSIM_BUILD_DIR)
 	$(BENDER) script vsim $(BENDER_FLAGS) --vlog-arg="$(VLOG_FLAGS)" > $@
+ifneq ($(CVA6_CONFIG_PKG),)
+	sed -i 's|"\$$ROOT/core/include/$(CVA6_CONFIG)_config_pkg\.sv"|"$(abspath $(CVA6_CONFIG_PKG))"|' $@
+endif
 ifeq ($(TRACER),1)
 	@echo 'vlog -ccflags "-std=c++17 -O2" $(TRACER_SRC)' >> $@
 endif
@@ -271,6 +282,9 @@ $(VERILATOR_LOG_DIR):
 
 $(VERILATOR_FLIST): $(ROOT_DIR)/Bender.lock $(HW_DEPS)
 	$(BENDER) script verilator $(BENDER_FLAGS) -D ASSERTS_OFF -t verilator > $@
+ifneq ($(CVA6_CONFIG_PKG),)
+	sed -i 's|^.*/core/include/$(CVA6_CONFIG)_config_pkg\.sv$$|$(abspath $(CVA6_CONFIG_PKG))|' $@
+endif
 
 $(VERILATOR_BUILD_DIR)/Vtest: $(VERILATOR_FLIST) | $(VERILATOR_LOG_DIR)
 	cd $(VERILATOR_DIR) && $(VERILATOR) $(VERILATOR_FLAGS) --top-module test 2>&1 | tee $(VERILATOR_LOG_DIR)/build.log

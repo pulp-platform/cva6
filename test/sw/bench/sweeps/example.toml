@@ -1,0 +1,17 @@
+# Example sweep, small enough to check the flow: a model with one field
+# changed, and a point that only changes the simulation arguments.
+#   uv run ./util/sweep.py sw/bench/sweeps/example.toml
+name = "example"
+config = "cv64a6_splus"
+benchmarks = ["em-crc32", "em-nbody", "em-minver", "em-ud"]  # substrings of names
+
+[[point]]
+label = "baseline"
+
+[[point]]
+label = "no-load-pipe-reg"
+params = { NrLoadPipeRegs = 0 }
+
+[[point]]
+label = "mem-delay-0"
+sim_args = "+MemDelay=0"

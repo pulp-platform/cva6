@@ -130,6 +130,55 @@ mean over its benchmarks (`SUITES` in `benchresults.py`, by name prefix). The su
 different things and differ in size, Embench counting 22 programs and CoreMark one: compare runs
 by suite before relying on the overall mean.
 
+## Sweeping configurations
+
+[../../util/sweep.py](../../util/sweep.py) runs the benchmarks over variants of a core
+configuration, the runs of a design space exploration, and compares them. It runs in the uv
+environment and drives the builds, `run-bench.py` and `compare-runs.py` itself:
+
+```sh
+uv run ./util/sweep.py sw/bench/sweeps/example.toml [--build-jobs N] [-j N] [--rebuild] [--reuse-runs] [--dry-run]
+```
+
+A sweep file ([sweeps/example.toml](sweeps/example.toml)) names a base configuration and the points
+to run. Points can be listed explicitly, the first being the baseline, or as a grid of every
+combination. A point changes fields of the configuration's `cva6_cfg`, its simulation arguments,
+or both:
+
+```toml
+name = "example"
+config = "cv64a6_splus"
+benchmarks = ["coremark", "em-"]          # optional: names containing one of these
+
+[[point]]
+label = "baseline"
+
+[[point]]
+label = "no-load-pipe-reg"
+params = { NrLoadPipeRegs = 0 }           # a SystemVerilog expression, cast like the field's value
+sim_args = "+MemDelay=0"
+
+[grid]                                    # every combination, after the points
+BHTEntries = [64, 128]
+sim_args = ["", "+MemDelay=0"]
+```
+
+**Models.** Each distinct set of parameters makes one model. Its configuration package is the
+base package with those fields replaced, each checked to be a field of `cva6_cfg`. The model is
+built in its own directory, passing that package as `CVA6_CONFIG_PKG`, with several builds in
+parallel.
+
+**Reuse.** A model is reused by the points that differ only in simulation arguments, and by later
+invocations as long as the package, the build options and the tracked sources are unchanged
+(`--rebuild` forces new builds). `--reuse-runs` also keeps the results of points already run.
+`--dry-run` shows the points and each model's changed lines.
+
+**Output,** under `verilator/bench/sweeps/<name>/`:
+- `models/<parameters>/`: package, build and logs;
+- `runs/<point>/`: `run-bench.py`'s results;
+- `compare/`: `compare-runs.py`'s results;
+- `sweep.json`, which records what each point is.
+
 ## Running
 
 [../../util/run-bench.py](../../util/run-bench.py) runs every image in `sw/out/bench` on a built
