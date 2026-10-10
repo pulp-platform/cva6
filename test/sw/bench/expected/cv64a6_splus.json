@@ -27,6 +27,10 @@
       "cycles": 4647864,
       "instret": 5162509
     },
+    "dhrystone": {
+      "cycles": 187395,
+      "instret": 195024
+    },
     "em-aha-mont64": {
       "cycles": 1413399,
       "instret": 1568525

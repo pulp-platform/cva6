@@ -53,8 +53,8 @@ EXPECTED_SCHEMA = 1
 
 # `check --set quick`: one or more programs of each suite, about 5 minutes
 # of simulation with 4 jobs
-QUICK_SET = ("coremark", "em-minver", "em-ud", "em-statemate", "em-wikisort", "em-aha-mont64",
-             "rs-central")
+QUICK_SET = ("coremark", "dhrystone", "em-minver", "em-ud", "em-statemate", "em-wikisort",
+             "em-aha-mont64", "rs-central")
 
 # Console lines a benchmark must print, besides its ROI counters, to count as
 # correct, by name or, for keys ending in '-', by name prefix. CoreMark returns 0
@@ -62,14 +62,18 @@ QUICK_SET = ("coremark", "em-minver", "em-ud", "em-statemate", "em-wikisort", "e
 # and their line confirms the check ran.
 REQUIRED_OUTPUT = {
     "coremark": "Correct operation validated",
+    "dhrystone": "[DHRY] results verified",
     "rs-": "[RS] results verified",
 }
 
+# Dhrystones per second of the VAX 11/780, the 1 DMIPS reference
+DHRYSTONES_PER_DMIPS = 1757
 
 RE_ROI = re.compile(r"\[BENCH\] roi cycles=(\d+) instret=(\d+)")
 RE_TRAP = re.compile(r"\[BENCH\] trap (.*)")
 RE_TIME = re.compile(r"^@\s*(\d+)ns")
 RE_COREMARK_ITER = re.compile(r"Iterations\s*:\s*(\d+)")
+RE_DHRYSTONE_RUNS = re.compile(r"\[DHRY\] runs=(\d+)")
 RE_TARGET = re.compile(r"TARGET_(CV[0-9A-Z_]+)")
 
 
@@ -129,6 +133,12 @@ def run_one(sim, hex_path, log_path, max_cycles, sim_args):
         it = RE_COREMARK_ITER.search(log)
         if it and result["cycles"]:
             result["coremark_per_mhz"] = round(int(it.group(1)) * 1e6 / result["cycles"], 4)
+
+    if name == "dhrystone":
+        runs = RE_DHRYSTONE_RUNS.search(log)
+        if runs and result["cycles"]:
+            result["dmips_per_mhz"] = round(
+                int(runs.group(1)) * 1e6 / DHRYSTONES_PER_DMIPS / result["cycles"], 4)
 
     trap = RE_TRAP.search(log)
     required = next((line for key, line in REQUIRED_OUTPUT.items()
@@ -201,6 +211,8 @@ def simulate(sim, hex_dir, hexes, out, config, tag, sim_args, jobs, max_cycles):
                                  by_suite({r["name"]: r["ipc"] for r in passed}).items()},
         "coremark_per_mhz": next((r.get("coremark_per_mhz") for r in passed
                                   if r["name"] == "coremark"), None),
+        "dmips_per_mhz": next((r.get("dmips_per_mhz") for r in passed
+                               if r["name"] == "dhrystone"), None),
         "sim_cycles_per_s": round(sum(r["sim_cycles"] or 0 for r in results) /
                                   max(sum(r["wall_s"] for r in results), 1e-9)),
     }
@@ -256,6 +268,8 @@ def cmd_run(args):
                                              summary["geomean_ipc_by_suite"].items()))
     if summary["coremark_per_mhz"]:
         print(f"CoreMark/MHz: {summary['coremark_per_mhz']:.4f}")
+    if summary["dmips_per_mhz"]:
+        print(f"DMIPS/MHz: {summary['dmips_per_mhz']:.4f}")
     print(f"simulation speed: {summary['sim_cycles_per_s']} cycles/s per job")
     print(f"bench: {summary['passed']} passed, {summary['failed']} failed; results in {out}")
     print(f"show the results: uv run ./util/plot-run.py {out}")

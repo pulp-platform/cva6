@@ -25,6 +25,7 @@ RESULTS_SCHEMA = 1
 SUITES = (
     ("coremark", "CoreMark"),
     ("em-", "Embench"),
+    ("dhrystone", "Dhrystone"),
     ("rs-", "RaiderSTREAM"),
 )
 

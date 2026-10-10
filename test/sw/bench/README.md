@@ -7,6 +7,7 @@ their timed region took:
 | --- | --- | --- |
 | `coremark` | CoreMark | the pipeline; fits in the caches |
 | `em-<name>` | the 22 programs of Embench-IoT | the pipeline; fits in the caches, except `nsichneu`'s code |
+| `dhrystone` | Dhrystone 2.1, as riscv-tests ships it | nothing the others do not; a DMIPS/MHz reference |
 | `rs-<pattern>` | RaiderSTREAM's four kernels for one access pattern | the data cache and the memory: misses, misses in flight, write-backs |
 
 ```sh
@@ -17,7 +18,7 @@ make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1
 
 `make -C sw bench` clones the sources into `sw/deps/` at pinned revisions and writes one
 `<name>.elf`, `.hex` and `.dump` per benchmark to `sw/out/bench/`; `bench-<suite>` builds one suite
-(`coremark`, `embench`, `raiderstream`). `sw/out/bench/build-info.txt`
+(`coremark`, `embench`, `dhrystone`, `raiderstream`). `sw/out/bench/build-info.txt`
 records the compiler and the source revisions they were built from; the runner copies it into its
 results.
 
@@ -40,7 +41,8 @@ counters.
 A benchmark passes when the testbench reports `**SIMULATION PASSED**` (its `main` returned 0,
 which all but CoreMark do only when their results verify), it printed the region's counters, and,
 except for Embench, its validation line was printed: `Correct operation validated` for CoreMark,
-which returns 0 even when its checksums mismatch, and `[RS] results verified` for RaiderSTREAM. Any trap ends the run through
+which returns 0 even when its checksums mismatch, `[DHRY] results verified`
+or `[RS] results verified` for the others. Any trap ends the run through
 the EOC register with return code `0x100 + mcause`, after printing `mcause`, `mepc` and `mtval`.
 
 ## Memory benchmarks
@@ -185,7 +187,7 @@ invocations as long as the package, the build options and the tracked sources ar
 model in parallel, one single-threaded simulation per job, so build the model with `THREADS=1`.
 It writes a log per benchmark plus `results.json` and `results.csv` to `--out` (default
 `verilator/bench/<tag or config>`, which `make verilator-clean` does not touch), and prints the
-table, the geometric mean IPC overall and per suite, and CoreMark/MHz;
+table, the geometric mean IPC overall and per suite, CoreMark/MHz and DMIPS/MHz;
 [plot-run.py](#showing-a-run) shows the rest.
 `results.json` also records the model's configuration, the RTL commit (and whether the tree
 was dirty) and the software build info.
@@ -298,11 +300,20 @@ the ones he used. The differences:
 | --- | --- |
 | Embench-IoT | `-march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -O3 -g -fdata-sections -ffunction-sections -fno-tree-loop-distribute-patterns -funroll-all-loops -falign-jumps=4 -falign-functions=16 -fno-ipa-cp-clone` |
 | CoreMark | `-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany -O3 -fno-builtin-printf`, 15 iterations, performance-run seeds |
+| Dhrystone | riscv-tests' flags: `-march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf -fno-tree-loop-distribute-patterns`; inlining disabled in its sources; 500 runs |
 | RaiderSTREAM | Embench's |
 
 Every compilation also takes `-ffile-prefix-map=<sw>=.`, which does not change the code. Embench's
 support code asserts, which puts its file name in the data of five programs; with the map, the
 binaries are the same from any checkout, and so are the cycles.
+
+Dhrystone is riscv-tests' copy (`benchmarks/dhrystone`, from the pinned riscv-tests the other
+tests use), compiled as riscv-tests does so that its DMIPS/MHz compares with the figures published
+from it. [dhrystone/](dhrystone/) maps riscv-tests' statistics hooks onto the measured region and
+checks the final values of the program's globals, which it only states. The runner computes
+DMIPS/MHz from the region's cycles and the 1757 Dhrystones per second of 1 DMIPS. Dhrystone mostly
+runs `strcpy` and `strcmp`, newlib's here, and its numbers depend heavily on the compiler and its
+flags: they compare only with figures built the same way.
 
 Embench runs with `CPU_MHZ=1` and one warm-up pass before the timed one. Its own
 `build_all.py` compiles it, against the board description in [embench/](embench/), which the
@@ -320,6 +331,7 @@ CoreMark/MHz is computed by the runner from cycles.
 | [lib/crt0.S](lib/crt0.S) | Startup: zeroes `.bss`, enables the FPU, keeps the boot ROM's return address |
 | [embench/](embench/) | Embench-IoT board description `cva6tb` |
 | [coremark/](coremark/) | CoreMark port |
+| [dhrystone/](dhrystone/) | Dhrystone: `util.h` stand-in and result check |
 | [raiderstream/](raiderstream/) | RaiderSTREAM driver, and an empty `omp.h` for upstream's kernels |
 | [expected/](expected/) | Expected results per configuration, for `check` |
 

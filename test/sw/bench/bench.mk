@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0, see LICENSE for details.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Benchmarks (CoreMark, Embench-IoT, RaiderSTREAM) for the standalone
-# testbench, included by ../Makefile. Everything lands in out/bench/: one
-# <name>.elf/.hex/.dump per benchmark, plus build-info.txt recording what
-# produced them. See README.md.
+# Benchmarks (CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM) for the
+# standalone testbench, included by ../Makefile. Everything lands in
+# out/bench/: one <name>.elf/.hex/.dump per benchmark, plus build-info.txt
+# recording what produced them. See README.md.
 
 BENCH_DIR     := $(SW_DIR)/bench
 BENCH_OUT_DIR := $(OUT_DIR)/bench
@@ -52,6 +52,15 @@ COREMARK_SRCS       := $(addprefix $(COREMARK_DIR)/,core_list_join.c core_main.c
 BENCH_CFLAGS := -march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -O3 -g -fdata-sections \
                 -ffunction-sections -fno-tree-loop-distribute-patterns -funroll-all-loops \
                 -falign-jumps=4 -falign-functions=16 -Wall -Wextra $(BENCH_PREFIX_MAP)
+
+# Dhrystone 2.1 as riscv-tests ships it (already a dependency, see ../Makefile):
+# no inlining, and riscv-tests' flags, so that DMIPS/MHz compare with the
+# figures published from it.
+DHRYSTONE_DIR    := $(DEPS_DIR)/riscv-tests/benchmarks/dhrystone
+DHRYSTONE_CFLAGS := -march=rv64gc_zifencei -mabi=lp64d -mcmodel=medany -static -std=gnu99 -O2 \
+                    -ffast-math -fno-common -fno-builtin-printf -fno-tree-loop-distribute-patterns \
+                    -Wno-implicit-int -Wno-implicit-function-declaration $(BENCH_PREFIX_MAP)
+DHRYSTONE_INC    := -I$(BENCH_DIR)/dhrystone -I$(DHRYSTONE_DIR) $(BENCH_INC)
 
 # RaiderSTREAM: one program per access pattern in RS_PATTERNS, rs-<pattern>,
 # each running its four kernels on arrays of RS_ARRAY_SIZE doubles (a power of
@@ -102,6 +111,24 @@ $(BENCH_OUT_DIR)/coremark.elf: $(BENCH_DIR)/coremark/core_portme.c $(BENCH_DIR)/
 .PHONY: bench-coremark
 bench-coremark: $(BENCH_OUT_DIR)/coremark.hex $(BENCH_OUT_DIR)/coremark.dump
 
+# Its main is renamed, for a wrapper that checks the results.
+$(BENCH_OBJ_DIR)/dhrystone_main.o: $(BENCH_DIR)/dhrystone/util.h | $(DEPS_DIR)/riscv-tests/
+	@mkdir -p $(dir $@)
+	$(RV_CC) $(DHRYSTONE_CFLAGS) $(DHRYSTONE_INC) -Dmain=dhrystone_main \
+	    -c $(DHRYSTONE_DIR)/dhrystone_main.c -o $@
+
+$(BENCH_OBJ_DIR)/dhrystone.o: | $(DEPS_DIR)/riscv-tests/
+	@mkdir -p $(dir $@)
+	$(RV_CC) $(DHRYSTONE_CFLAGS) $(DHRYSTONE_INC) -c $(DHRYSTONE_DIR)/dhrystone.c -o $@
+
+$(BENCH_OUT_DIR)/dhrystone.elf: $(BENCH_DIR)/dhrystone/dhrystone_check.c $(BENCH_OBJ_DIR)/dhrystone_main.o \
+                                $(BENCH_OBJ_DIR)/dhrystone.o $(BENCH_CRT0) $(BENCH_LIB)
+	$(RV_CC) $(DHRYSTONE_CFLAGS) $(DHRYSTONE_INC) $(BENCH_LDFLAGS) -o $@ $(BENCH_CRT0) $< \
+	    $(BENCH_OBJ_DIR)/dhrystone_main.o $(BENCH_OBJ_DIR)/dhrystone.o $(BENCH_LIB)
+
+.PHONY: bench-dhrystone
+bench-dhrystone: $(BENCH_OUT_DIR)/dhrystone.hex $(BENCH_OUT_DIR)/dhrystone.dump
+
 # Upstream's OpenMP kernels, compiled as they are but without OpenMP, against an
 # empty omp.h: each runs as a plain loop.
 $(BENCH_OBJ_DIR)/rs-kernels.o: $(BENCH_DIR)/raiderstream/omp.h | $(RAIDERSTREAM_DIR)/
@@ -146,19 +173,20 @@ $(BENCH_OUT_DIR)/%.dump: $(BENCH_OUT_DIR)/%.elf
 
 # What produced the binaries, for comparing results across builds.
 .PHONY: bench-info
-bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/
+bench-info: | $(EMBENCH_DIR)/ $(COREMARK_DIR)/ $(RAIDERSTREAM_DIR)/ $(DEPS_DIR)/riscv-tests/
 	@mkdir -p $(BENCH_OUT_DIR)
 	@{ echo "compiler:      $$($(RV_CC) --version | head -1) ($(RV_CC))"; \
 	   echo "embench-iot:   $$(git -C $(EMBENCH_DIR) rev-parse HEAD)"; \
 	   echo "coremark:      $$(git -C $(COREMARK_DIR) rev-parse HEAD)"; \
 	   echo "coremark iter: $(COREMARK_ITERATIONS)"; \
+	   echo "dhrystone:     riscv-tests $$(git -C $(DEPS_DIR)/riscv-tests rev-parse HEAD)"; \
 	   echo "raiderstream:  $$(git -C $(RAIDERSTREAM_DIR) rev-parse HEAD), $(RS_ARRAY_SIZE) elements"; \
 	   echo "bench sources: $$(git -C $(BENCH_DIR) log -1 --format=%H -- . 2>/dev/null)$$(git -C $(BENCH_DIR) diff --quiet -- . 2>/dev/null || echo ' (modified)')"; \
 	 } > $(BENCH_OUT_DIR)/build-info.txt
 	@cat $(BENCH_OUT_DIR)/build-info.txt
 
 .PHONY: bench
-bench: bench-coremark bench-embench bench-raiderstream bench-info
+bench: bench-coremark bench-embench bench-dhrystone bench-raiderstream bench-info
 
 # The set CI checks, and make bench-check with it, built into out/bench-ci:
 # every benchmark but rs-sg, and RaiderSTREAM on arrays of half the default
