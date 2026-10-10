@@ -4,3 +4,6 @@ deps/riscv-tests/
 deps/riscv-hyp-tests/
 deps/riscv-arch-test/
 deps/sail/
+deps/embench-iot/
+deps/coremark/
+deps/raiderstream/
