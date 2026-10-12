@@ -1464,6 +1464,7 @@ module csr_regfile
       sepc_d       = sepc_q;
       scause_d     = scause_q;
       stvec_d      = stvec_q;
+      stvt_d       = stvt_q;
       sintthresh_d = sintthresh_q;
       scounteren_d = scounteren_q;
       stfa_d       = stfa_q;
