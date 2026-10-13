@@ -1725,6 +1725,7 @@ module cva6
 
         .wbuffer_empty_o (dcache_commit_wbuffer_empty),
         .wbuffer_not_ni_o(dcache_commit_wbuffer_not_ni),
+        .dcache_busy_o   (busy_cache_ctrl),
 
         .hwpf_base_set_i    ('0  /*FIXME*/),
         .hwpf_base_i        ('0  /*FIXME*/),
