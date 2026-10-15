@@ -16,12 +16,13 @@ those who have access to it.
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tracer/](hw/tracer/) | RVFI instruction tracer and its DPI backend |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
-| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`, `riscv-arch-test`, Sail) and their patches |
+| &nbsp;&nbsp;&nbsp;&nbsp;[bench/](sw/bench/) | Benchmarks: startup, region-of-interest hooks, the ports of CoreMark, Embench-IoT, Dhrystone, RaiderSTREAM, a pointer chase and Lua, and their expected results |
+| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`, `riscv-arch-test`, Sail, Embench-IoT, CoreMark, RaiderSTREAM, Lua, are-we-fast-yet) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver, CLIC helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
-| [util/](util/) | Boot ROM generator, ACT generation, regression runners for the tests in `sw/`, `riscv-tests` and the ACTs, spike log comparison, binary trace reader and Perfetto export |
+| [util/](util/) | Boot ROM generator, ACT generation, regression runners for the tests in `sw/`, `riscv-tests` and the ACTs, spike log comparison, binary trace reader and Perfetto export, benchmark runner, plots, comparison and sweeps |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory, simulation logs and wave scripts |
 
@@ -90,6 +91,8 @@ make verilator-build CVA6_CONFIG=cv64a6_imafdchxhclic_sv39_wb
 | `ZERO_SIM_MEM` | unset | Initialise simulation memories to zero instead of random |
 | `TRACER` | `0` | Build in the [instruction tracer](hw/tracer/) (`1` also elaborates `cva6_rvfi`) |
 | `LEGACY_TRACE` | `0` | Re-enable CVA6's own built-in tracing (`instr_tracer` under vsim, a `.dasm` dump under Verilator) |
+| `BENCH_CHECK_SET` | `full` | Benchmarks `make bench-check` runs: `full` or `quick` (see [sw/bench/](sw/bench/)) |
+| `BENCH_CHECK_STRICT` | `1` | `0`: `make bench-check` reports changed cycles instead of failing |
 | `WAVES` | `0` | Compile in waveform support; then `+fst` at run time actually dumps |
 | `THREADS` | `2` | Verilator threads for the model; use `1` for parallel regressions |
 | `SIM_ARGS` | empty | Extra plusargs forwarded to the simulation |
@@ -279,6 +282,32 @@ separate file.
 See [hw/tracer/](hw/tracer/) for the output formats, the verbosity levels, the trigger syntax
 and what RVFI can and cannot report. The tracer is opt-in
 because it also pulls in `cva6_rvfi`; a default build is unaffected.
+
+## Benchmarks
+
+[sw/bench/](sw/bench/) builds benchmarks for this testbench: CoreMark, Embench-IoT and Dhrystone
+for the pipeline, RaiderSTREAM and a pointer chase for the data cache and memory, and the Lua
+interpreter for the frontend. Each benchmark measures its timed region with `mcycle` and
+`minstret` and prints the result; [util/run-bench.py](util/run-bench.py) runs them all in parallel
+and collects cycles, instructions and IPC into `results.json`, which the scripts below show and
+compare:
+
+```sh
+make -C sw bench
+make verilator-build CVA6_CONFIG=cv64a6_splus THREADS=1
+./util/run-bench.py run --tag cva6s+
+uv run ./util/plot-run.py verilator/bench/cva6s+
+uv run ./util/compare-runs.py verilator/bench/<a> verilator/bench/<b> [...]
+```
+
+[util/plot-run.py](util/plot-run.py) shows a run's results, per benchmark and per suite.
+[util/compare-runs.py](util/compare-runs.py) compares runs: speedups over a baseline, per suite
+and per benchmark, and two scores that weigh suites alike. [util/sweep.py](util/sweep.py) builds,
+runs and compares variants of a configuration from a sweep file, here or on other hosts through
+a runner. `make bench-check` compares the model's benchmark cycles with the
+expected results committed for its configuration and ends with a verdict line, **BENCH CHECK
+PASSED** or **BENCH CHECK FAILED**. See [sw/bench/README.md](sw/bench/) for how the region is
+measured, the compiler flags, and what counts as a pass.
 
 ## Waveforms
 
