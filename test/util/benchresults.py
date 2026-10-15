@@ -36,6 +36,23 @@ def suite(name):
     return next((title for prefix, title in SUITES if name.startswith(prefix)), "Other")
 
 
+# Scores of a run against a baseline, each the geometric mean of some suites'
+# geometric mean speedups, every suite weighted alike: what the core computes,
+# and what the memory system serves. Dhrystone is a reference only.
+SCORES = (
+    ("compute", ("CoreMark", "Embench", "Lua")),
+    ("memory", ("RaiderSTREAM", "Pointer chase")),
+)
+
+
+def scores(suite_speedups):
+    """{score: value} from {suite: geometric mean speedup}; a score is None
+    unless every one of its suites is there."""
+    return {name: (geomean(suite_speedups[t] for t in suites)
+                   if all(suite_speedups.get(t) for t in suites) else None)
+            for name, suites in SCORES}
+
+
 def by_suite(values):
     """{benchmark: value} split by suite, in SUITES' order: {suite: {benchmark: value}}."""
     order = [title for _, title in SUITES] + ["Other"]

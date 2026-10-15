@@ -14,12 +14,15 @@ default to verilator/bench/compare/:
 
     speedup         each run's geometric mean speedup over the baseline
     speedup-map     the speedup per benchmark and run
-    runs.csv        per run: configuration, simulation arguments, IPC, speedup
+    runs.csv        per run: configuration, simulation arguments, IPC, speedup,
+                    scores
     suites.csv      per suite: the geometric mean speedup of every run
     benchmarks.csv  per benchmark: IPC and speedup in every run
 
 and prints the same as tables. Speedups come from the regions' cycles, over the
-benchmarks that pass in both runs and run the same binary there. Runs in the uv
+benchmarks that pass in both runs and run the same binary there. The scores
+weigh suites alike: compute is the geometric mean of the CoreMark, Embench and
+Lua speedups, memory that of RaiderSTREAM and pointer chase (benchresults.SCORES). Runs in the uv
 environment (see ../README.md): uv run ./util/compare-runs.py <runs>.
 """
 
@@ -31,7 +34,7 @@ from pathlib import Path
 from benchplot import (DIVERGING, FONT, INK_MUTED, INK_SECONDARY, PT_PER_PX, SERIES, SURFACE,
                        DPI, bar_height, ink_on, plt, row_figure, rows_layout, save, style,
                        titles)
-from benchresults import by_suite, geomean, load_run, run_label, speedups
+from benchresults import SCORES, by_suite, geomean, load_run, run_label, scores, speedups
 
 TEST_DIR = Path(__file__).resolve().parent.parent
 
@@ -144,6 +147,8 @@ def main():
     suite_gm = {o: {t: geomean(v.values()) for t, v in by_suite(per_bench[o]).items()}
                 for o in others}
     suite_sizes = {t: len(v) for t, v in by_suite(dict.fromkeys(names)).items()}
+    score = {o: scores(suite_gm[o]) for o in others}
+    score_names = [n for n, _ in SCORES if any(score[o][n] for o in others)]
 
     # Tables
     print(f"baseline: {base}")
@@ -153,8 +158,11 @@ def main():
         passed = [r for r in by_label[l]["results"] if r["status"] == "PASS"]
         rows.append((l, meta.get("config") or "-", meta.get("sim_args") or "-", len(passed),
                      f"{geomean(r['ipc'] for r in passed):.4f}" if passed else "-",
-                     "baseline" if l == base else (pct(gm[l]) if gm[l] else "-")))
-    print_table(rows, ["run", "config", "sim args", "passed", "geomean ipc", "speedup"])
+                     "baseline" if l == base else (pct(gm[l]) if gm[l] else "-"),
+                     *("" if l == base else (pct(score[l][n]) if score[l][n] else "-")
+                       for n in score_names)))
+    print_table(rows, ["run", "config", "sim args", "passed", "geomean ipc", "speedup",
+                       *score_names])
     for l in others:
         if differ[l]:
             print(f"{l}: not compared, different binaries: {', '.join(differ[l])}")
@@ -179,10 +187,12 @@ def main():
     with open(out / "runs.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["run", "results", "config", "sim_args", "passed", "geomean_ipc",
-                         "speedup_vs_baseline"])
+                         "speedup_vs_baseline", *(f"score_{n}" for n, _ in SCORES)])
         for l, row in zip(labels, rows):
             writer.writerow([l, by_label[l]["path"], row[1], row[2], row[3], row[4],
-                             "" if l == base or not gm[l] else f"{gm[l]:.5f}"])
+                             "" if l == base or not gm[l] else f"{gm[l]:.5f}",
+                             *("" if l == base or not score[l][n] else f"{score[l][n]:.5f}"
+                               for n, _ in SCORES)])
     with open(out / "suites.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["suite", "benchmarks", *(f"speedup.{o}" for o in others)])
