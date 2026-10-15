@@ -635,6 +635,7 @@ module cva6
   logic single_step_csr_commit;
   riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg;
   logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr;
+  logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask;
   logic [31:0] mcountinhibit_csr_perf;
   //jvt
   jvt_t jvt;
@@ -1210,6 +1211,7 @@ module cva6
       // PMP
       .pmpcfg_i                     (pmpcfg),
       .pmpaddr_i                    (pmpaddr),
+      .pmpaddr_mask_i               (pmpaddr_mask),
       //RVFI
       .rvfi_lsu_ctrl_o              (rvfi_lsu_ctrl),
       .rvfi_mem_paddr_o             (rvfi_mem_paddr),
@@ -1392,6 +1394,7 @@ module cva6
       .perf_we_o                          (we_csr_perf),
       .pmpcfg_o                           (pmpcfg),
       .pmpaddr_o                          (pmpaddr),
+      .pmpaddr_mask_o                     (pmpaddr_mask),
       .mcountinhibit_o                    (mcountinhibit_csr_perf),
       .mcbie_o                            (mcbie),
       .scbie_o                            (scbie),

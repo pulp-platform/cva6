@@ -15,7 +15,9 @@
 module pmp
   import ariane_pkg::*;
 #(
-    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty
+    parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
+    // NAPOT masks come decoded in conf_mask_i (see pmp_data_if)
+    parameter bit PrecomputedMask = 1'b0
 ) (
     // Input
     input logic [CVA6Cfg.PLEN-1:0] addr_i,
@@ -24,6 +26,7 @@ module pmp
     // Configuration
     input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] conf_addr_i,
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] conf_i,
+    input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] conf_mask_i,
     // Output
     output logic allow_o
 );
@@ -37,10 +40,12 @@ module pmp
       assign conf_addr_prev = (i == 0) ? '0 : conf_addr_i[i-1];
 
       pmp_entry #(
-          .CVA6Cfg(CVA6Cfg)
+          .CVA6Cfg        (CVA6Cfg),
+          .PrecomputedMask(PrecomputedMask)
       ) i_pmp_entry (
           .addr_i          (addr_i),
           .conf_addr_i     (conf_addr_i[i]),
+          .conf_mask_i     (conf_mask_i[i]),
           .conf_addr_prev_i(conf_addr_prev),
           .conf_addr_mode_i(conf_i[i].addr_mode),
           .match_o         (match[i])
