@@ -19,9 +19,16 @@ package cva6tb_pkg;
     config_pkg::cva6_user_cfg_t cfg = user_cfg;
     // Everything below the SPM -- the error slave and the regbus peripherals -- is
     // device space: stores there must not be merged, nor loads issued speculatively.
-    cfg.NrNonIdempotentRules  = unsigned'(1);
-    cfg.NonIdempotentAddrBase = 1024'({64'h0000_0000});
-    cfg.NonIdempotentLength   = 1024'({64'h2000_0000});
+    // Except CVA6-RT's cache-SPM windows, memory inside the core: the data SPM at
+    // 0x0180_0000 (32 KiB) and the instruction SPM at 0x01A0_0000 (16 KiB, as in the
+    // execute regions below). As device space, a load from the data SPM could not
+    // issue before the preceding stores had drained (+4 cycles behind a store).
+    // Nothing is mapped at those addresses on a core without SPM.
+    cfg.NrNonIdempotentRules  = unsigned'(3);
+    cfg.NonIdempotentAddrBase = 1024'({64'h01A0_4000, 64'h0180_8000, 64'h0000_0000});
+    cfg.NonIdempotentLength   = 1024'({64'h2000_0000 - 64'h01A0_4000,
+                                       64'h01A0_0000 - 64'h0180_8000,
+                                       64'h0180_0000});
     cfg.NrExecuteRegionRules  = unsigned'(4);
     cfg.ExecuteRegionAddrBase = 1024'({64'h8000_0000, 64'h2000_0000, 64'(56'h01A0_0000), 64'h0001_0000});
     cfg.ExecuteRegionLength   = 1024'({64'h4000_0000, 64'h0010_0000, 64'(56'h0000_4000), 64'h0001_0000});
