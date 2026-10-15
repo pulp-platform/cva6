@@ -260,6 +260,8 @@ module ex_stage
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg_i,
     // Report the PMP addresses - CSR_REGFILE
     input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_i,
+    // PMP entries' NAPOT masks - CSR_REGFILE
+    input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask_i,
     // Information dedicated to RVFI - RVFI
     output lsu_ctrl_t rvfi_lsu_ctrl_o,
     // Information dedicated to RVFI - RVFI
@@ -627,6 +629,7 @@ module ex_stage
       .tinst_i                (lsu_tinst),
       .pmpcfg_i,
       .pmpaddr_i,
+      .pmpaddr_mask_i,
       .rvfi_lsu_ctrl_o,
       .rvfi_mem_paddr_o,
       //Trigger module command signals

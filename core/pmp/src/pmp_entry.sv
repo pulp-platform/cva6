@@ -15,13 +15,16 @@
 module pmp_entry #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter int unsigned PLEN = 56,
-    parameter int unsigned PMP_LEN = 54
+    parameter int unsigned PMP_LEN = 54,
+    // Take the NAPOT mask from conf_mask_i rather than decode it from conf_addr_i
+    parameter bit PrecomputedMask = 1'b0
 ) (
     // Input
     input logic [CVA6Cfg.PLEN-1:0] addr_i,
 
     // Configuration
     input logic [CVA6Cfg.PLEN-3:0] conf_addr_i,
+    input logic [CVA6Cfg.PLEN-1:0] conf_mask_i,
     input logic [CVA6Cfg.PLEN-3:0] conf_addr_prev_i,
     input riscv::pmp_addr_mode_t conf_addr_mode_i,
 
@@ -74,7 +77,7 @@ module pmp_entry #(
         // use the extracted trailing ones
         size = {{(32 - $clog2(CVA6Cfg.PLEN)) {1'b0}}, trail_ones} + 3;
 
-        mask = '1 << size;
+        mask = PrecomputedMask ? conf_mask_i : '1 << size;
         base = ({2'b0, conf_addr_i} << 2) & mask;
         match_o = (addr_i & mask) == base ? 1'b1 : 1'b0;
 
