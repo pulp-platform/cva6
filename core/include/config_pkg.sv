@@ -227,6 +227,10 @@ package config_pkg;
     bit          DcacheEccEnable;
     // Is Error Detection and Correction scrubber integrated in the L1D ?
     bit          DcacheEccScrubberEnable;
+    // Enable hardware cache coherency (ACE) in the HPDCache subsystem
+    bit          DcacheCoherent;
+    // Announce clean evictions and CMO-invalidated lines to a snoop filter
+    bit          DcacheSnoopFilter;
     // User field on data bus enable
     int unsigned DataUserEn;
     // Write-through data cache write buffer depth
@@ -428,6 +432,8 @@ package config_pkg;
     bit DcacheFlushOnFence;
     bit DcacheFlushOnFenceI;
     bit DcacheInvalidateOnFlush;
+    bit DcacheCoherent;
+    bit DcacheSnoopFilter;
 
     bit DcacheEccEnable;
     bit DcacheEccScrubberEnable;

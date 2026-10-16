@@ -175,6 +175,8 @@ package build_config_pkg;
     cfg.DcacheFlushOnFence = CVA6Cfg.DcacheFlushOnFence;
     cfg.DcacheFlushOnFenceI = CVA6Cfg.DcacheFlushOnFenceI;
     cfg.DcacheInvalidateOnFlush = CVA6Cfg.DcacheInvalidateOnFlush;
+    cfg.DcacheCoherent = CVA6Cfg.DcacheCoherent;
+    cfg.DcacheSnoopFilter = CVA6Cfg.DcacheSnoopFilter;
 
     cfg.DcacheEccEnable = CVA6Cfg.DcacheEccEnable;
     cfg.DcacheEccScrubberEnable = CVA6Cfg.DcacheEccScrubberEnable;

@@ -42,6 +42,8 @@ module cva6_hpdcache_wrapper
     parameter type hpdcache_rsp_t = logic,
     parameter type hpdcache_wbuf_timecnt_t = logic,
     parameter type hpdcache_data_be_t = logic,
+    parameter type hpdcache_snoop_req_t = logic,
+    parameter type hpdcache_snoop_resp_data_t = logic,
 
     localparam type hpdcache_nline_t = logic [HPDcacheCfg.nlineWidth-1:0]
 )
@@ -105,6 +107,18 @@ module cva6_hpdcache_wrapper
     output logic [NrHwPrefetchers-1:0][63:0] hwpf_throttle_o,
     output logic [               63:0]       hwpf_status_o,
 
+    input  logic                dcache_snoop_req_valid_i,
+    output logic                dcache_snoop_req_ready_o,
+    input  hpdcache_snoop_req_t dcache_snoop_req_i,
+
+    output logic                               dcache_snoop_resp_meta_valid_o,
+    input  logic                               dcache_snoop_resp_meta_ready_i,
+    output hpdcache_pkg::hpdcache_snoop_meta_t dcache_snoop_resp_meta_o,
+
+    input  logic                      dcache_snoop_resp_data_ready_i,
+    output logic                      dcache_snoop_resp_data_valid_o,
+    output hpdcache_snoop_resp_data_t dcache_snoop_resp_data_o,
+
     input  logic              dcache_mem_req_read_ready_i,
     output logic              dcache_mem_req_read_valid_o,
     output hpdcache_mem_req_t dcache_mem_req_read_o,
@@ -143,11 +157,11 @@ module cva6_hpdcache_wrapper
   hpdcache_rsp_t               dcache_rsp      [HPDCACHE_NREQUESTERS];
   logic dcache_read_miss, dcache_write_miss;
 
-  logic                                   [                1:0] snoop_valid;
-  logic                                   [                1:0] snoop_abort;
-  hpdcache_req_offset_t                   [                1:0] snoop_addr_offset;
-  hpdcache_tag_t                          [                1:0] snoop_addr_tag;
-  logic                                   [                1:0] snoop_phys_indexed;
+  logic                                   [                1:0] hwpf_snoop_valid;
+  logic                                   [                1:0] hwpf_snoop_abort;
+  hpdcache_req_offset_t                   [                1:0] hwpf_snoop_addr_offset;
+  hpdcache_tag_t                          [                1:0] hwpf_snoop_addr_tag;
+  logic                                   [                1:0] hwpf_snoop_phys_indexed;
 
   hwpf_stride_pkg::hwpf_stride_throttle_t [NrHwPrefetchers-1:0] hwpf_throttle_in;
   hwpf_stride_pkg::hwpf_stride_throttle_t [NrHwPrefetchers-1:0] hwpf_throttle_out;
@@ -234,19 +248,19 @@ module cva6_hpdcache_wrapper
     );
   endgenerate
 
-  //  Snoop load port
-  assign snoop_valid[0] = dcache_req_valid[1] & dcache_req_ready[1],
-      snoop_abort[0] = dcache_req_abort[1],
-      snoop_addr_offset[0] = dcache_req[1].addr_offset,
-      snoop_addr_tag[0] = dcache_req_tag[1],
-      snoop_phys_indexed[0] = dcache_req[1].phys_indexed;
+  //  HWPF snoop load port
+  assign hwpf_snoop_valid[0] = dcache_req_valid[1] & dcache_req_ready[1],
+      hwpf_snoop_abort[0] = dcache_req_abort[1],
+      hwpf_snoop_addr_offset[0] = dcache_req[1].addr_offset,
+      hwpf_snoop_addr_tag[0] = dcache_req_tag[1],
+      hwpf_snoop_phys_indexed[0] = dcache_req[1].phys_indexed;
 
-  //  Snoop Store/AMO port
-  assign snoop_valid[1] = dcache_req_valid[NumPorts-1] & dcache_req_ready[NumPorts-1],
-      snoop_abort[1] = dcache_req_abort[NumPorts-1],
-      snoop_addr_offset[1] = dcache_req[NumPorts-1].addr_offset,
-      snoop_addr_tag[1] = dcache_req_tag[NumPorts-1],
-      snoop_phys_indexed[1] = dcache_req[NumPorts-1].phys_indexed;
+  //  HWPF snoop Store/AMO port
+  assign hwpf_snoop_valid[1] = dcache_req_valid[NumPorts-1] & dcache_req_ready[NumPorts-1],
+      hwpf_snoop_abort[1] = dcache_req_abort[NumPorts-1],
+      hwpf_snoop_addr_offset[1] = dcache_req[NumPorts-1].addr_offset,
+      hwpf_snoop_addr_tag[1] = dcache_req_tag[NumPorts-1],
+      hwpf_snoop_phys_indexed[1] = dcache_req[NumPorts-1].phys_indexed;
 
   generate
     for (genvar h = 0; h < NrHwPrefetchers; h++) begin : gen_hwpf_throttle
@@ -282,11 +296,11 @@ module cva6_hpdcache_wrapper
       .hwpf_stride_throttle_o    (hwpf_throttle_out),
       .hwpf_stride_status_o      (hwpf_status_o),
 
-      .snoop_valid_i       (snoop_valid),
-      .snoop_abort_i       (snoop_abort),
-      .snoop_addr_offset_i (snoop_addr_offset),
-      .snoop_addr_tag_i    (snoop_addr_tag),
-      .snoop_phys_indexed_i(snoop_phys_indexed),
+      .snoop_valid_i       (hwpf_snoop_valid),
+      .snoop_abort_i       (hwpf_snoop_abort),
+      .snoop_addr_offset_i (hwpf_snoop_addr_offset),
+      .snoop_addr_tag_i    (hwpf_snoop_addr_tag),
+      .snoop_phys_indexed_i(hwpf_snoop_phys_indexed),
 
       .hpdcache_req_sid_i(hpdcache_req_sid_t'(NumPorts)),
 
@@ -301,26 +315,28 @@ module cva6_hpdcache_wrapper
   );
 
   hpdcache #(
-      .HPDcacheCfg          (HPDcacheCfg),
-      .wbuf_timecnt_t       (hpdcache_wbuf_timecnt_t),
-      .hpdcache_tag_t       (hpdcache_tag_t),
-      .hpdcache_data_word_t (hpdcache_data_word_t),
-      .hpdcache_data_be_t   (hpdcache_data_be_t),
-      .hpdcache_req_offset_t(hpdcache_req_offset_t),
-      .hpdcache_req_data_t  (hpdcache_req_data_t),
-      .hpdcache_req_be_t    (hpdcache_req_be_t),
-      .hpdcache_req_sid_t   (hpdcache_req_sid_t),
-      .hpdcache_req_tid_t   (hpdcache_req_tid_t),
-      .hpdcache_req_t       (hpdcache_req_t),
-      .hpdcache_rsp_t       (hpdcache_rsp_t),
-      .hpdcache_mem_addr_t  (hpdcache_mem_addr_t),
-      .hpdcache_mem_id_t    (hpdcache_mem_id_t),
-      .hpdcache_mem_data_t  (hpdcache_mem_data_t),
-      .hpdcache_mem_be_t    (hpdcache_mem_be_t),
-      .hpdcache_mem_req_t   (hpdcache_mem_req_t),
-      .hpdcache_mem_req_w_t (hpdcache_mem_req_w_t),
-      .hpdcache_mem_resp_r_t(hpdcache_mem_resp_r_t),
-      .hpdcache_mem_resp_w_t(hpdcache_mem_resp_w_t)
+      .HPDcacheCfg               (HPDcacheCfg),
+      .wbuf_timecnt_t            (hpdcache_wbuf_timecnt_t),
+      .hpdcache_tag_t            (hpdcache_tag_t),
+      .hpdcache_data_word_t      (hpdcache_data_word_t),
+      .hpdcache_data_be_t        (hpdcache_data_be_t),
+      .hpdcache_req_offset_t     (hpdcache_req_offset_t),
+      .hpdcache_req_data_t       (hpdcache_req_data_t),
+      .hpdcache_req_be_t         (hpdcache_req_be_t),
+      .hpdcache_req_sid_t        (hpdcache_req_sid_t),
+      .hpdcache_req_tid_t        (hpdcache_req_tid_t),
+      .hpdcache_req_t            (hpdcache_req_t),
+      .hpdcache_rsp_t            (hpdcache_rsp_t),
+      .hpdcache_snoop_req_t      (hpdcache_snoop_req_t),
+      .hpdcache_snoop_resp_data_t(hpdcache_snoop_resp_data_t),
+      .hpdcache_mem_addr_t       (hpdcache_mem_addr_t),
+      .hpdcache_mem_id_t         (hpdcache_mem_id_t),
+      .hpdcache_mem_data_t       (hpdcache_mem_data_t),
+      .hpdcache_mem_be_t         (hpdcache_mem_be_t),
+      .hpdcache_mem_req_t        (hpdcache_mem_req_t),
+      .hpdcache_mem_req_w_t      (hpdcache_mem_req_w_t),
+      .hpdcache_mem_resp_r_t     (hpdcache_mem_resp_r_t),
+      .hpdcache_mem_resp_w_t     (hpdcache_mem_resp_w_t)
   ) i_hpdcache (
       .clk_i,
       .rst_ni,
@@ -336,6 +352,18 @@ module cva6_hpdcache_wrapper
 
       .core_rsp_valid_o(dcache_rsp_valid),
       .core_rsp_o      (dcache_rsp),
+
+      .snoop_req_valid_i(dcache_snoop_req_valid_i),
+      .snoop_req_ready_o(dcache_snoop_req_ready_o),
+      .snoop_req_i      (dcache_snoop_req_i),
+
+      .snoop_rsp_meta_valid_o(dcache_snoop_resp_meta_valid_o),
+      .snoop_rsp_meta_ready_i(dcache_snoop_resp_meta_ready_i),
+      .snoop_rsp_meta_o      (dcache_snoop_resp_meta_o),
+
+      .snoop_rsp_data_ready_i(dcache_snoop_resp_data_ready_i),
+      .snoop_rsp_data_valid_o(dcache_snoop_resp_data_valid_o),
+      .snoop_rsp_data_o      (dcache_snoop_resp_data_o),
 
       .mem_req_read_ready_i(dcache_mem_req_read_ready_i),
       .mem_req_read_valid_o(dcache_mem_req_read_valid_o),
