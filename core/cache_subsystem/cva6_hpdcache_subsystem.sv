@@ -113,6 +113,7 @@ module cva6_hpdcache_subsystem
     output dcache_req_o_t         [NumPorts-1:0] dcache_req_ports_o,
     // Write buffer status to know if empty - EX_STAGE
     output logic                                 wbuffer_empty_o,
+    output logic                                 dcache_busy_o,
     // Write buffer status to know if not non idempotent - EX_STAGE
     output logic                                 wbuffer_not_ni_o,
 
@@ -387,6 +388,7 @@ module cva6_hpdcache_subsystem
       .dcache_dir_cor_err_o,
       .dcache_dir_unc_err_o,
       .wbuffer_empty_o(wbuffer_empty_o),
+      .dcache_busy_o(dcache_busy_o),
       .wbuffer_not_ni_o(wbuffer_not_ni_o),
       .dcache_spm_ways_i(dcache_spm_ways_i),
       .ispm_req_o(d2i_cache_req_out),

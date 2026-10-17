@@ -90,6 +90,7 @@ module cva6_hpdcache_wrapper
 
     // Write buffer status - EX_STAGE
     output logic wbuffer_empty_o,
+    output logic dcache_busy_o,
     output logic wbuffer_not_ni_o,
 
     //  SPM ways configuration
@@ -426,6 +427,7 @@ module cva6_hpdcache_wrapper
       .evt_stall_o            (  /* unused */),
 
       .wbuf_empty_o(wbuffer_empty_o),
+      .ctrl_busy_o (dcache_busy_o),
 
       .cfg_enable_i                       (dcache_enable_i),
       .cfg_wbuf_threshold_i               (3'd2),
