@@ -16,12 +16,12 @@ those who have access to it.
 | &nbsp;&nbsp;&nbsp;&nbsp;[bootrom/](hw/bootrom/) | Boot ROM sources and the generated `cva6tb_bootrom.sv` |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tracer/](hw/tracer/) | RVFI instruction tracer and its DPI backend |
 | [sw/](sw/) | Bare-metal test programs, support library and linker script |
-| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`) and their patches |
+| &nbsp;&nbsp;&nbsp;&nbsp;[deps/](sw/deps/) | External sources fetched on demand (`printf`, `riscv-tests`, `riscv-hyp-tests`, `riscv-arch-test`, Sail) and their patches |
 | &nbsp;&nbsp;&nbsp;&nbsp;[include/](sw/include/) | Headers of the support library and inline CSR helpers |
 | &nbsp;&nbsp;&nbsp;&nbsp;[lib/](sw/lib/) | Support library sources: startup code, console driver |
 | &nbsp;&nbsp;&nbsp;&nbsp;[link/](sw/link/) | Linker script: memory regions and peripheral base addresses |
 | &nbsp;&nbsp;&nbsp;&nbsp;[tests/](sw/tests/) | Test programs, one binary per `.c`/`.S` file |
-| [util/](util/) | Boot ROM generator, regression runners for the tests in `sw/` and `riscv-tests`, spike log comparison, binary trace reader and Perfetto export |
+| [util/](util/) | Boot ROM generator, ACT generation, regression runners for the tests in `sw/`, `riscv-tests` and the ACTs, spike log comparison, binary trace reader and Perfetto export |
 | [verilator/](verilator/) | Verilator build directory and simulation logs |
 | [vsim/](vsim/) | QuestaSim build directory, simulation logs and wave scripts |
 
@@ -232,6 +232,24 @@ The hypervisor tests produce a single image that can be run directly:
 ```sh
 make verilator-run HEXFILE=sw/deps/riscv-hyp-tests/build/cva6/rvh_test.hex MAX_CYCLES=2200000
 ```
+
+### Architectural Certification Tests
+
+[sw/arch-test/](sw/arch-test/) describes this testbench to the
+[ACT4 framework](https://github.com/riscv-non-isa/riscv-arch-test), which generates
+self-checking ELFs for this core and computes their expected results on the Sail reference
+model configured as the core. They cover Zba/Zbb/Zbs, Zcb, Zicond and the privileged corners.
+
+```sh
+make -C sw arch-test CVA6_CONFIG=<cfg> ACT_RV_BINROOT=/path/to/riscv-gcc-15/bin   # clones the tests and Sail, then generates
+make verilator-build CVA6_CONFIG=<cfg> ZERO_SIM_MEM=1 THREADS=1
+NJOBS=8 ./util/run-arch-tests.sh                                                    # runs <cfg>'s ELFs
+```
+
+Generation needs a RISC-V GCC 15 or later and a Ruby 3.2 or later with development headers.
+Each ELF ends by writing the EOC register, so the testbench's own pass/fail protocol is
+the verdict and nothing has to parse a signature. See [sw/arch-test/README.md](sw/arch-test/) for
+the requirements, how the DUT is described, and the configurations covered.
 
 ## Instruction tracing
 

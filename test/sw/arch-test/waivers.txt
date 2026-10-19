@@ -1,0 +1,12 @@
+# Known riscv-arch-test failures that are not core bugs.
+#
+# One line per test: name, the configurations it applies to (comma-separated,
+# no spaces, or * for all), then the reason. run-arch-tests.sh still runs a
+# waived test: a failure is reported as WAIVED and kept out of the verdict, and
+# a pass fails the run until the line is removed, so a waiver cannot outlive
+# its cause.
+
+PMPSm_cfg_A_tor_zero-00  *  Stores, loads and executes at address 0, where the testbench maps its AXI error slave. ACT assumes memory there regardless of the declared memory map, and Sail treats undeclared address 0 as memory. The probe cannot catch a PMP bug: entry 0 and the background entry are both locked RWX, so it only checks that memory exists at 0.
+Sm_mcsr_access-00  cv64a6_imafdch_sv39_hpdcache_wb  With no guest external interrupts (GEILEN = 0), mideleg bit 12 reads zero, and the privileged specification makes the matching bit of hie, which mie.SGEIE aliases, read-only zero ("for bits of mideleg that are zero, the corresponding bits in hideleg, hip, and hie are read-only zeros"). Sail keeps mie.SGEIE writable whenever H is implemented. The test stops at that check, so its later CSR checks do not run.
+Sm_mcsr_walk-01  cv64a6_imafdch_sv39_hpdcache_wb  The same read-only zero mie.SGEIE, found by the bit walk over mie. The test stops at that check, so its later CSR checks do not run.
+Sm_shadow-00  cv64a6_imafdch_sv39_hpdcache_wb  The same read-only zero mie.SGEIE, read back through mie. The test stops at that check, so its later CSR checks do not run.
