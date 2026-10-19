@@ -174,6 +174,10 @@ module store_unit
   logic amo_buffer_valid, amo_buffer_valid_d, amo_buffer_valid_q;
 
   logic store_buffer_ready, amo_buffer_ready;
+  // With an MMU, an AMO accepted in the first stage enters the AMO buffer from
+  // the second stage, one cycle later: while an AMO is in the second stage, it
+  // holds the buffer's only entry.
+  logic amo_buffer_accept;
 
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] trans_id_n, trans_id_q;
 
@@ -216,7 +220,7 @@ module store_unit
       translation_req_o = 1'b1;
       if (!CVA6Cfg.MmuPresent || !stall_translation) begin
         if (CVA6Cfg.RVA && instr_is_amo) begin
-          if (amo_buffer_ready) begin
+          if (amo_buffer_accept) begin
             pop_st_o = 1'b1;
             amo_buffer_valid_d = !flush_i;
             // RETIRE STORE NO MMU
@@ -320,6 +324,7 @@ module store_unit
   assign store_buffer_valid = CVA6Cfg.MmuPresent ? store_buffer_valid_q && !ex_s1 : store_buffer_valid_d;
   assign store_buffer_valid_no_flush = CVA6Cfg.MmuPresent ? store_buffer_valid_no_flush_q && !ex_s1 : store_buffer_valid_no_flush_d;
   assign amo_buffer_valid = CVA6Cfg.MmuPresent ? amo_buffer_valid_q && !ex_s1 : amo_buffer_valid_d;
+  assign amo_buffer_accept = amo_buffer_ready && !(CVA6Cfg.MmuPresent && amo_buffer_valid_q);
 
   // ---------------
   // Store Queue
