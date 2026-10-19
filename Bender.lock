@@ -1,0 +1,46 @@
+packages:
+  axi:
+    revision: 42ca270ebd8bbbc1c64ddc0ca712e722eb9e3f06
+    version: 0.39.11
+    source:
+      Git: https://github.com/pulp-platform/axi.git
+    dependencies:
+    - common_cells
+    - common_verification
+    - tech_cells_generic
+  common_cells:
+    revision: 1281545696eb3fcba50ec5b4275993476a3c710e
+    version: 1.40.0
+    source:
+      Git: https://github.com/pulp-platform/common_cells.git
+    dependencies:
+    - common_verification
+    - tech_cells_generic
+  common_verification:
+    revision: fb1885f48ea46164a10568aeff51884389f67ae3
+    version: 0.2.5
+    source:
+      Git: https://github.com/pulp-platform/common_verification.git
+    dependencies: []
+  fpnew:
+    revision: 532f0f88b45758ae4d39abd58b1489a4ce6f2812
+    version: null
+    source:
+      Git: https://github.com/openhwgroup/cvfpu.git
+    dependencies:
+    - common_cells
+  obi:
+    revision: 0155fc34e900c7c884e081c0a1114a247937ff69
+    version: 0.1.7
+    source:
+      Git: https://github.com/pulp-platform/obi.git
+    dependencies:
+    - common_cells
+    - common_verification
+  tech_cells_generic:
+    revision: 3a3de73632a06826b1bd9c65a0a2e92b32016845
+    version: 0.2.14
+    source:
+      Git: https://github.com/pulp-platform/tech_cells_generic.git
+    dependencies:
+    - common_verification

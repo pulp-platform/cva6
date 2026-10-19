@@ -5,21 +5,27 @@ package:
     - "Michael Schaffner <schaffner@iis.ee.ethz.ch>"
     - "Andreas Kuster <kustera@ethz.ch>"
 
-# WT_DCACHE
+remotes:
+  pulp:
+    url: "https://github.com/pulp-platform"
+    default: true
+
 dependencies:
-  axi: { git: "https://github.com/pulp-platform/axi.git", version: 0.31.0 }
-  common_cells:
-    { git: "https://github.com/pulp-platform/common_cells", version: 1.23.0 }
-  fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 3eb6afe } # branch: develop
-  tech_cells_generic:
-    { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.13 }
+  axi: { version: 0.39.11 }
+  common_cells: { version: 1.40.0 }
+  fpnew: { git: "https://github.com/openhwgroup/cvfpu.git", rev: 532f0f8 } # branch: develop
+  obi: { version: 0.1.7 }
+  tech_cells_generic: { version: 0.2.14 }
 
 export_include_dirs:
   - core/include
+  - core/cache_subsystem/hpdcache/rtl/include
+  - core/cache_subsystem/hpdcache/rtl/src/utils/ecc
 
 sources:
   - include_dirs:
       - core/include
+      - common/local/util
     files:
       - core/include/config_pkg.sv
       # Pick the right configuration by passing the right bender flag. The
@@ -178,27 +184,41 @@ sources:
       - core/cva6_mmu/cva6_ptw.sv
 
       # Packages
+      - core/include/dummy_l15_pkg.sv
       - core/include/wt_cache_pkg.sv
+      - core/include/aes_pkg.sv
+      - core/include/triggers_pkg.sv
 
       # Extension Interface
       - core/cvxif_example/include/cvxif_instr_pkg.sv
       - core/cvxif_fu.sv
+      - core/cvxif_issue_register_commit_if_driver.sv
+      - core/cvxif_compressed_if_driver.sv
       - core/cvxif_example/cvxif_example_coprocessor.sv
       - core/cvxif_example/instr_decoder.sv
+      - core/cvxif_example/compressed_instr_decoder.sv
+      - core/cvxif_example/copro_alu.sv
 
       # Tracing
       - core/cva6_rvfi_probes.sv
       - core/cva6_fifo_v3.sv
+
       # Top-level source files (not necessarily instantiated at the top of the cva6).
+      - core/cva6_top.sv
       - core/cva6.sv
+      - core/cva6_pipeline.sv
+      - core/aes.sv
       - core/alu.sv
       - core/alu_wrapper.sv
       - core/fpu_wrap.sv # depends on fpnew_pkg, above
       - core/branch_unit.sv
       - core/compressed_decoder.sv
+      - core/macro_decoder.sv
+      - core/zcmt_decoder.sv
       - core/controller.sv
       - core/csr_buffer.sv
       - core/csr_regfile.sv
+      - core/trigger_module.sv
       - core/decoder.sv
       - core/ex_stage.sv
       - core/instr_realign.sv
@@ -222,6 +242,13 @@ sources:
       - core/commit_stage.sv
       - core/axi_shim.sv
 
+      # Dual-core lockstep
+      - core/dcls_comparator.sv
+      - core/dcls_logic.sv
+      - core/dcls_common.sv
+      - core/dcls_common_regfile.sv
+      - core/dcls_common_bht.sv
+
       # Frontend (i.e., fetch, decode, dispatch)
       - core/frontend/btb.sv
       - core/frontend/bht.sv
@@ -230,34 +257,101 @@ sources:
       - core/frontend/instr_scan.sv
       - core/frontend/instr_queue.sv
       - core/frontend/frontend.sv
-      # Cache subsystem(s)
+
+      # Memory subsystems: OBI adapter, HPDcache data and instruction caches
+      - core/cache_subsystem/cva6_obi_adapter_subsystem.sv
       - core/cache_subsystem/axi_adapter.sv
+
+      # HPDCache sources
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_pkg.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_req_read_arbiter.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_req_write_arbiter.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_demux.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_lfsr.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sync_buffer.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_fifo_reg.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_fifo_reg_initialized.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_fxarb.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_rrarb.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_mux.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_decoder.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_1hot_to_binary.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_1hot_encoder.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_prio_bin_encoder.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wmask.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_regbank_wbyteenable_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_regbank_wmask_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_data_downsize.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_data_upsize.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_data_resize.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_pkg.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_arb.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_wrapper.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_amo.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cmo.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_core_arbiter.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_ctrl.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_ctrl_pe.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_memctrl.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_cbuf.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_miss_handler.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_mshr.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_rtab.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_uncached.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_plru.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_random.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_victim_sel.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_wbuf.sv
+      - core/cache_subsystem/hpdcache/rtl/src/hpdcache_flush.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_pkg.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_36_29_dec.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_36_29_enc.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_39_32_dec.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_39_32_enc.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_55_48_dec.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_55_48_enc.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_72_64_dec.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/ecc/prim_secded_72_64_enc.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_resp_demux.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_to_axi_read.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_to_l15.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_l15_req_arbiter.sv
+      - core/cache_subsystem/hpdcache/rtl/src/utils/hpdcache_l15_resp_demux.sv
+
+      # HPDCache integration
+      - core/cache_subsystem/cva6_hpdcache_subsystem_l15_adapter.sv
+      - core/cache_subsystem/cva6_hpdcache_subsystem.sv
+      - core/cache_subsystem/cva6_hpdcache_subsystem_axi_arbiter.sv
+      - core/cache_subsystem/cva6_hpdcache_if_adapter.sv
+      - core/cache_subsystem/cva6_hpdcache_wrapper.sv
+      - core/cache_subsystem/cva6_hpicache_if_adapter.sv
+      - core/cache_subsystem/cva6_hpicache_wrapper.sv
+
+      # HPDCache SRAM models
+      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_ecc_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_ecc_1rw.sv
+      - core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wmask_ecc_1rw.sv
 
       # Physical Memory Protection
       - core/pmp/src/pmp.sv
       - core/pmp/src/pmp_entry.sv
+      - core/pmp/src/pmp_data_if.sv
 
-      - include_dirs:
-        - common/local/util
-        files:
-          - common/local/util/sram.sv
-
-      - target: not(all(fpga, xilinx))
-        include_dirs:
-          - common/local/util
-        files:
-          - common/local/util/tc_sram_wrapper.sv
-
-      - target: all(fpga, xilinx)
-        include_dirs:
-          - common/local/util
-        files:
-          - common/local/util/tc_sram_fpga_wrapper.sv
+      # SRAM wrappers
+      - common/local/util/tc_sram_wrapper.sv
+      - common/local/util/tc_sram_wrapper_cache_techno.sv
+      - common/local/util/sram.sv
+      - common/local/util/sram_cache.sv
 
       - target: not(synthesis)
-        include_dirs:
-          - core/include
-          - common/local/util
         files:
           # Tracer (behavioral code, not RTL)
           - core/include/instr_tracer_pkg.sv
