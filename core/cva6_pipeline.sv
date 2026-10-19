@@ -14,6 +14,7 @@
 
 `include "ypb_types.svh"
 `include "rvfi_types.svh"
+`include "perf_types.svh"
 `include "cvxif_types.svh"
 
 module cva6_pipeline
@@ -24,6 +25,9 @@ module cva6_pipeline
 
     // RVFI PROBES
     parameter type rvfi_probes_t = logic,
+
+    // PERFORMANCE PROBES
+    parameter type perf_probes_t = `PERF_PROBES_T(CVA6Cfg),
 
     // YPB Types
     parameter type ypb_fetch_req_t = logic,
@@ -79,6 +83,8 @@ module cva6_pipeline
     input logic debug_req_i,
     // Probes to build RVFI, can be left open when not used - RVFI
     output rvfi_probes_t rvfi_probes_o,
+    // Probes for performance analysis, can be left open when not used - PERF
+    output perf_probes_t perf_probes_o,
     // CVXIF request - SUBSYSTEM
     output cvxif_req_t cvxif_req_o,
     // CVXIF response - SUBSYSTEM
@@ -532,6 +538,10 @@ CVA6Cfg.NrCommitPorts
   logic dcache_miss_cache_perf;
   logic icache_miss_cache_perf;
   logic stall_issue;
+  // Performance probes
+  logic [CVA6Cfg.NrIssuePorts-1:0] perf_issue_valid, perf_fu_busy, perf_raw, perf_raw_in_group;
+  logic [CVA6Cfg.NrIssuePorts-1:0] perf_fu_busy_in_group;
+  fu_t [CVA6Cfg.NrIssuePorts-1:0] perf_fu, perf_raw_fu;
   // --------------
   // CTRL <-> *
   // --------------
@@ -843,10 +853,38 @@ CVA6Cfg.NrCommitPorts
       .rvfi_commit_pointer_o     (rvfi_commit_pointer),
       .rvfi_rs1_o                (rvfi_rs1),
       .rvfi_rs2_o                (rvfi_rs2),
+      // Performance probes
+      .perf_issue_valid_o        (perf_issue_valid),
+      .perf_fu_o                 (perf_fu),
+      .perf_fu_busy_o            (perf_fu_busy),
+      .perf_raw_o                (perf_raw),
+      .perf_raw_in_group_o       (perf_raw_in_group),
+      .perf_raw_fu_o             (perf_raw_fu),
+      .perf_fu_busy_in_group_o   (perf_fu_busy_in_group),
       .orig_instr_aes_bits       (orig_instr_aes),
       .dcls_common_regfile_data_i(common_regfile_rdata),
       .dcls_common_regfile_ctrl_o(common_regfile_ctrl)
   );
+
+  assign perf_probes_o = '{
+          decoded_valid: issue_entry_valid_id_issue,
+          issue_valid: perf_issue_valid,
+          issued: issue_instr_issue_id,
+          fu: perf_fu,
+          fu_busy: perf_fu_busy,
+          raw: perf_raw,
+          raw_in_group: perf_raw_in_group,
+          raw_fu: perf_raw_fu,
+          fu_busy_in_group: perf_fu_busy_in_group,
+          // the issue stage has no stall from outside
+          issue_stall:
+          1'b0,
+          flush_frontend: flush_ctrl_if,
+          mispredict: resolved_branch.valid && resolved_branch.is_mispredict,
+          icache_miss: icache_miss_i,
+          icache_valid: ypb_fetch_rsp_i.rvalid,
+          dcache_miss: dcache_miss_i
+      };
 
   if (CVA6Cfg.DclsEn & CVA6Cfg.DclsCommonRegfile) begin
     assign dcls_to_common_o.regfile_inputs = common_regfile_ctrl;

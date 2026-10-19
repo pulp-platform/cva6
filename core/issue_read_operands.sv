@@ -133,6 +133,16 @@ module issue_read_operands
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs1_o,
     // Information dedicated to RVFI - RVFI
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs2_o,
+    // Functional unit of the instruction is busy - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_fu_busy_o,
+    // An operand of the instruction is not ready (read after write) - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_raw_o,
+    // That operand comes from the older instruction of the same issue group - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_raw_in_group_o,
+    // Functional unit of the instruction producing that operand - PERF_PROBES
+    output ariane_pkg::fu_t [CVA6Cfg.NrIssuePorts-1:0] perf_raw_fu_o,
+    // The functional unit is busy only because the older instruction of the same issue group takes it - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_fu_busy_in_group_o,
     // Original instruction bits for AES
     output logic [5:0] orig_instr_aes_bits,
     // DCLS
@@ -651,6 +661,53 @@ module issue_read_operands
               issue_instr_i[0].rd == issue_instr_i[1].result[REG_ADDR_SIZE-1:0] : 1'b0) begin
         stall_raw[1] = 1'b1;
       end
+    end
+  end
+
+  // Why an instruction is not issued, for performance analysis: the functional
+  // unit is busy, or an operand is not ready, and then which unit produces it.
+  assign perf_fu_busy_o = fu_busy;
+  assign perf_raw_o     = stall_raw;
+  always_comb begin : perf_raw_source
+    perf_raw_in_group_o = '0;
+    perf_raw_fu_o       = '{default: ariane_pkg::NONE};
+    for (int unsigned i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
+      if (stall_rs1[i]) perf_raw_fu_o[i] = fwd_i.sbe[idx_hzd_rs1[i]].fu;
+      else if (stall_rs2[i]) perf_raw_fu_o[i] = fwd_i.sbe[idx_hzd_rs2[i]].fu;
+      else if (stall_rs3[i]) perf_raw_fu_o[i] = fwd_i.sbe[idx_hzd_rs3[i]].fu;
+    end
+    // Without a stalled source operand, the second instruction can only be
+    // waiting for the result of the first one.
+    if (CVA6Cfg.SuperscalarEn && stall_raw[1] && !(stall_rs1[1] || stall_rs2[1] || stall_rs3[1])) begin
+      perf_raw_in_group_o[1] = 1'b1;
+      perf_raw_fu_o[1]       = issue_instr_i[0].fu;
+    end
+  end
+
+  // The second instruction's unit is busy only because of the first one of the
+  // group if it would be free given the units' state before the group,
+  // fus_busy[0]. This mirrors the selection of fu_busy, for an ALU instruction
+  // either ALU being free.
+  always_comb begin : perf_fu_busy_source
+    logic busy_before_group;
+    busy_before_group       = 1'b0;
+    perf_fu_busy_in_group_o = '0;
+    if (CVA6Cfg.SuperscalarEn) begin
+      case (issue_instr_i[1].fu)
+        NONE:      busy_before_group = fus_busy[0].none;
+        ALU:       busy_before_group = fus_busy[0].alu && fus_busy[0].alu2;
+        CTRL_FLOW: busy_before_group = fus_busy[0].ctrl_flow;
+        CSR:       busy_before_group = fus_busy[0].csr;
+        MULT:      busy_before_group = fus_busy[0].mult;
+        LOAD:      busy_before_group = fus_busy[0].load;
+        STORE:     busy_before_group = fus_busy[0].store;
+        CVXIF:     busy_before_group = fus_busy[0].cvxif;
+        AES:       busy_before_group = fus_busy[0].aes;
+        FPU:       busy_before_group = CVA6Cfg.FpPresent && fus_busy[0].fpu;
+        FPU_VEC:   busy_before_group = CVA6Cfg.FpPresent && fus_busy[0].fpu_vec;
+        default:   busy_before_group = 1'b0;
+      endcase
+      perf_fu_busy_in_group_o[1] = fu_busy[1] && !busy_before_group;
     end
   end
 

@@ -165,6 +165,20 @@ module issue_stage
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs1_o,
     // Information dedicated to RVFI - RVFI
     output logic [CVA6Cfg.NrIssuePorts-1:0][CVA6Cfg.XLEN-1:0] rvfi_rs2_o,
+    // Instruction offered for issue, the scoreboard having room for it - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_issue_valid_o,
+    // Functional unit of the instruction offered for issue - PERF_PROBES
+    output ariane_pkg::fu_t [CVA6Cfg.NrIssuePorts-1:0] perf_fu_o,
+    // Functional unit of the instruction is busy - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_fu_busy_o,
+    // An operand of the instruction is not ready (read after write) - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_raw_o,
+    // That operand comes from the older instruction of the same issue group - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_raw_in_group_o,
+    // Functional unit of the instruction producing that operand - PERF_PROBES
+    output ariane_pkg::fu_t [CVA6Cfg.NrIssuePorts-1:0] perf_raw_fu_o,
+    // The functional unit is busy only because the older instruction of the same issue group takes it - PERF_PROBES
+    output logic [CVA6Cfg.NrIssuePorts-1:0] perf_fu_busy_in_group_o,
     // Original instruction bits for AES
     output logic [5:0] orig_instr_aes_bits,
     // DCLS
@@ -187,6 +201,11 @@ module issue_stage
   logic              [CVA6Cfg.NrIssuePorts-1:0][31:0] orig_instr_sb_iro;
   logic              [CVA6Cfg.NrIssuePorts-1:0]       issue_instr_valid_sb_iro;
   logic              [CVA6Cfg.NrIssuePorts-1:0]       issue_ack_iro_sb;
+
+  assign perf_issue_valid_o = issue_instr_valid_sb_iro;
+  for (genvar i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin : gen_perf_fu
+    assign perf_fu_o[i] = issue_instr_sb_iro[i].fu;
+  end
 
   logic x_transaction_accepted_iro_sb, x_issue_writeback_iro_sb;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_iro_sb;
@@ -307,6 +326,11 @@ module issue_stage
       .stall_issue_o,
       .rvfi_rs1_o              (rvfi_rs1_o),
       .rvfi_rs2_o              (rvfi_rs2_o),
+      .perf_fu_busy_o          (perf_fu_busy_o),
+      .perf_raw_o              (perf_raw_o),
+      .perf_raw_in_group_o     (perf_raw_in_group_o),
+      .perf_raw_fu_o           (perf_raw_fu_o),
+      .perf_fu_busy_in_group_o (perf_fu_busy_in_group_o),
       .orig_instr_aes_bits     (orig_instr_aes_bits),
       .dcls_common_regfile_data_i,
       .dcls_common_regfile_ctrl_o

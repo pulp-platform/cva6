@@ -8,6 +8,7 @@
 // Original Author: Valentin Thomazic (valentin.thomazic@thalesgroup.com)
 
 `include "rvfi_types.svh"
+`include "perf_types.svh"
 `include "cvxif_types.svh"
 `include "ypb_types.svh"
 
@@ -19,6 +20,9 @@ module cva6_top
 
     // RVFI PROBES
     parameter type rvfi_probes_t = logic,
+
+    // PERFORMANCE PROBES
+    parameter type perf_probes_t = `PERF_PROBES_T(CVA6Cfg),
 
     // NOC Types AXI bus or several OBI bus
     parameter type noc_req_t  = logic,
@@ -99,6 +103,8 @@ module cva6_top
     input logic debug_req_i,
     // Probes to build RVFI, can be left open when not used - RVFI
     output rvfi_probes_t rvfi_probes_o,
+    // Probes for performance analysis, can be left open when not used - PERF
+    output perf_probes_t perf_probes_o,
     // CVXIF request - SUBSYSTEM
     output cvxif_req_t cvxif_req_o,
     // CVXIF response - SUBSYSTEM
@@ -166,6 +172,7 @@ module cva6_top
     cva6 #(
         .CVA6Cfg                   (CVA6Cfg),
         .rvfi_probes_t             (rvfi_probes_t),
+        .perf_probes_t             (perf_probes_t),
         .noc_req_t                 (noc_req_t),
         .noc_resp_t                (noc_resp_t),
         .regfile_inputs_t          (regfile_inputs_t),
@@ -182,6 +189,7 @@ module cva6_top
         .time_irq_i(time_irq_i),
         .debug_req_i(debug_req_i),
         .rvfi_probes_o(rvfi_probes_o),
+        .perf_probes_o(perf_probes_o),
         .cvxif_req_o(cvxif_req_o),
         .cvxif_resp_i(cvxif_resp_i),
         .noc_req_o(noc_req_o),
@@ -192,6 +200,7 @@ module cva6_top
     cva6 #(
         .CVA6Cfg                   (CVA6Cfg),
         .rvfi_probes_t             (rvfi_probes_t),
+        .perf_probes_t             (perf_probes_t),
         .noc_req_t                 (noc_req_t),
         .noc_resp_t                (noc_resp_t),
         .regfile_inputs_t          (regfile_inputs_t),
@@ -208,6 +217,7 @@ module cva6_top
         .time_irq_i(main_inputs_delayed.time_irq),
         .debug_req_i(main_inputs_delayed.debug_req),
         .rvfi_probes_o(),
+        .perf_probes_o(),
         .cvxif_req_o(shadow_outputs.cvxif_req),
         .cvxif_resp_i(main_inputs_delayed.cvxif_resp),
         .noc_req_o(shadow_outputs.noc_req),
@@ -219,6 +229,7 @@ module cva6_top
     cva6 #(
         .CVA6Cfg      (CVA6Cfg),
         .rvfi_probes_t(rvfi_probes_t),
+        .perf_probes_t(perf_probes_t),
         .noc_req_t    (noc_req_t),
         .noc_resp_t   (noc_resp_t)
     ) i_cva6 (
@@ -231,6 +242,7 @@ module cva6_top
         .time_irq_i(time_irq_i),
         .debug_req_i(debug_req_i),
         .rvfi_probes_o(rvfi_probes_o),
+        .perf_probes_o(perf_probes_o),
         .cvxif_req_o(cvxif_req_o),
         .cvxif_resp_i(cvxif_resp_i),
         .noc_req_o(noc_req_o),
