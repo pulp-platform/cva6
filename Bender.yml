@@ -179,6 +179,10 @@ sources:
         files:
           - config/target/cv64a6_imafdc_sv39_hpdcache_wb/rtl_cfg_pkg.sv
 
+      - target: cv64a6_splus
+        files:
+          - config/target/cv64a6_splus/rtl_cfg_pkg.sv
+
       # General config infrastructure
       - core/include/riscv_pkg.sv
       - core/include/ariane_pkg.sv
