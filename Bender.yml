@@ -171,6 +171,10 @@ sources:
         files:
           - config/target/summit_grandparadis/rtl_cfg_pkg.sv
 
+      - target: cv64a6_imafdch_sv39_hpdcache_wb
+        files:
+          - config/target/cv64a6_imafdch_sv39_hpdcache_wb/rtl_cfg_pkg.sv
+
       # General config infrastructure
       - core/include/riscv_pkg.sv
       - core/include/ariane_pkg.sv
