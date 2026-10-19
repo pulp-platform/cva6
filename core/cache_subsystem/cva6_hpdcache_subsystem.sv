@@ -702,19 +702,34 @@ module cva6_hpdcache_subsystem
 
   a_invalid_instruction_fetch :
   assert property (
-    @(posedge clk_i) disable iff (~rst_ni) (ypb_fetch_rsp_o.rvalid && ypb_fetch_req_i.rready) |-> (|ypb_fetch_rsp_o.rdata) !== 1'hX)
+    @(posedge clk_i) disable iff (~rst_ni)
+    (ypb_fetch_rsp_o.rvalid && ypb_fetch_req_i.rready && !ypb_fetch_rsp_o.err) |-> !$isunknown(
+      ypb_fetch_rsp_o.rdata
+  ))
   else
-    $warning(1, "[l1 icache] FETCH reading invalid instructions: data=%08X", ypb_fetch_rsp_o.rdata);
+    $warning(
+        1,
+        "[l1 icache] FETCH reading invalid instructions: data=%08X",
+        $sampled(
+            ypb_fetch_rsp_o.rdata
+        )
+    );
 
   a_invalid_read_amo :
   assert property (
-    @(posedge clk_i) disable iff (~rst_ni) (ypb_amo_rsp_o.rvalid && ypb_amo_req_i.rready) |-> (|ypb_amo_rsp_o.rdata) !== 1'hX)
-  else $warning(1, "[l1 dcache] AMO reading invalid data: data=%08X", ypb_amo_rsp_o.rdata);
+    @(posedge clk_i) disable iff (~rst_ni) (ypb_amo_rsp_o.rvalid && ypb_amo_req_i.rready) |-> !$isunknown(
+      ypb_amo_rsp_o.rdata
+  ))
+  else
+    $warning(1, "[l1 dcache] AMO reading invalid data: data=%08X", $sampled(ypb_amo_rsp_o.rdata));
 
   a_invalid_read_load :
   assert property (
-    @(posedge clk_i) disable iff (~rst_ni) (ypb_load_rsp_o.rvalid && ypb_load_req_i.rready) |-> (|ypb_load_rsp_o.rdata) !== 1'hX)
-  else $warning(1, "[l1 dcache] LOAD reading invalid data: data=%08X", ypb_amo_rsp_o.rdata);
+    @(posedge clk_i) disable iff (~rst_ni) (ypb_load_rsp_o.rvalid && ypb_load_req_i.rready) |-> !$isunknown(
+      ypb_load_rsp_o.rdata
+  ))
+  else
+    $warning(1, "[l1 dcache] LOAD reading invalid data: data=%08X", $sampled(ypb_load_rsp_o.rdata));
 
   //  a_invalid_read_mmu_ptw :
   //  assert property (
@@ -738,26 +753,42 @@ module cva6_hpdcache_subsystem
 
   a_invalid_write_store :
   assert property (
-    @(posedge clk_i) disable iff (~rst_ni) (ypb_store_req_i.preq && ypb_store_rsp_o.pgnt) |-> (|ypb_store_req_i.wdata) !== 1'hX)
+    @(posedge clk_i) disable iff (~rst_ni) (ypb_store_req_i.preq && ypb_store_rsp_o.pgnt) |-> !$isunknown(
+      ypb_store_req_i.wdata
+  ))
   else
     $warning(
         1,
         "[l1 dcache] STORE writing invalid data: paddr=%016X, be=%02X, data=%016X",
-        ypb_store_req_i.paddr,
-        ypb_store_req_i.be,
-        ypb_store_req_i.wdata
+        $sampled(
+            ypb_store_req_i.paddr
+        ),
+        $sampled(
+            ypb_store_req_i.be
+        ),
+        $sampled(
+            ypb_store_req_i.wdata
+        )
     );
 
   a_invalid_write_amo :
   assert property (
-    @(posedge clk_i) disable iff (~rst_ni) (ypb_amo_req_i.preq && ypb_amo_rsp_o.pgnt) |-> (|ypb_amo_req_i.wdata) !== 1'hX)
+    @(posedge clk_i) disable iff (~rst_ni) (ypb_amo_req_i.preq && ypb_amo_rsp_o.pgnt) |-> !$isunknown(
+      ypb_amo_req_i.wdata
+  ))
   else
     $warning(
         1,
         "[l1 dcache] AMO writing invalid data: paddr=%016X, be=%02X, data=%016X",
-        ypb_amo_req_i.paddr,
-        ypb_amo_req_i.be,
-        ypb_amo_req_i.wdata
+        $sampled(
+            ypb_amo_req_i.paddr
+        ),
+        $sampled(
+            ypb_amo_req_i.be
+        ),
+        $sampled(
+            ypb_amo_req_i.wdata
+        )
     );
 `endif
   //  }}}
