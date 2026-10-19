@@ -391,6 +391,11 @@ module frontend
 
   logic kill_req_d, kill_req_q;
   logic ex_s1;
+  // A fetch whose instructions are still to come back. The fault of a later
+  // fetch waits for them, so that it reaches the instruction queue after them.
+  logic fetch_pending;
+  // The retired fetch is the one the translation response is about
+  logic fetch_ex_retire;
 
   typedef enum logic [1:0] {
     TRANSPARENT,
@@ -398,6 +403,8 @@ module frontend
   } ypb_a_state_e;
   ypb_a_state_e ypb_a_state_d, ypb_a_state_q;
 
+  assign fetch_pending = |(fetchbuf_valid_q & ~fetchbuf_flushed_q);
+  assign fetch_ex_retire = CVA6Cfg.MmuPresent ? ex_rvalid : arsp_i.fetch_valid;
   assign fetchbuf_full = &fetchbuf_valid_q && !(FETCHBUF_FALLTHROUGH && fetchbuf_r && ypb_a_state_q == TRANSPARENT);
 
 
@@ -532,8 +539,9 @@ module frontend
       rvalid    = !bp_valid && !flush_i;
       ex_rvalid = 1'b0;
       // RETIRE EXCEPTION (low priority)
-    end else if (CVA6Cfg.MmuPresent && ex_s1) begin
-      vaddr_rvalid = vaddr_q;
+    end else if (CVA6Cfg.MmuPresent && ex_s1 && !fetch_pending) begin
+      // The MMU answers for the address it is presented with in the same cycle
+      vaddr_rvalid = npc_fetch_address;
       rvalid    = arsp_i.fetch_valid && !bp_valid && !flush_i && !was_mispredicted;
       ex_rvalid = arsp_i.fetch_valid; //1'b1;
       pop_fetch = arsp_i.fetch_valid; // release lsu_bypass fifo
@@ -764,12 +772,14 @@ module frontend
           fetch_gva_q    <= 1'b0;
         end
 
-        // Map the only three exceptions which can occur in the frontend to a two bit enum
-        if (CVA6Cfg.MmuPresent && arsp_i.fetch_valid && arsp_i.fetch_exception.cause == riscv::INSTR_GUEST_PAGE_FAULT) begin
+        // Map the only three exceptions which can occur in the frontend to a two bit enum.
+        // With an MMU, the translation response belongs to the request being presented, so
+        // it only applies to the fault entry, not to the instructions of an earlier fetch.
+        if (CVA6Cfg.MmuPresent && fetch_ex_retire && arsp_i.fetch_exception.cause == riscv::INSTR_GUEST_PAGE_FAULT) begin
           fetch_ex_valid_q <= ariane_pkg::FE_INSTR_GUEST_PAGE_FAULT;
-        end else if (CVA6Cfg.MmuPresent && arsp_i.fetch_valid && arsp_i.fetch_exception.cause == riscv::INSTR_PAGE_FAULT) begin
+        end else if (CVA6Cfg.MmuPresent && fetch_ex_retire && arsp_i.fetch_exception.cause == riscv::INSTR_PAGE_FAULT) begin
           fetch_ex_valid_q <= ariane_pkg::FE_INSTR_PAGE_FAULT;
-        end else if (CVA6Cfg.NrPMPEntries != 0 && arsp_i.fetch_valid && arsp_i.fetch_exception.cause == riscv::INSTR_ACCESS_FAULT) begin
+        end else if (CVA6Cfg.NrPMPEntries != 0 && fetch_ex_retire && arsp_i.fetch_exception.cause == riscv::INSTR_ACCESS_FAULT) begin
           fetch_ex_valid_q <= ariane_pkg::FE_INSTR_ACCESS_FAULT;
         end else begin
           fetch_ex_valid_q <= ariane_pkg::FE_NONE;
