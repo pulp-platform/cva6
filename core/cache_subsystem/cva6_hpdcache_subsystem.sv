@@ -180,14 +180,17 @@ module cva6_hpdcache_subsystem
     userCfg.ways = CVA6Cfg.ICACHE_SET_ASSOC;
     userCfg.clWords = CVA6Cfg.ICACHE_LINE_WIDTH / userCfg.wordWidth;
     userCfg.reqWords = CVA6Cfg.FETCH_WIDTH / userCfg.wordWidth;
-    userCfg.reqTransIdWidth = 1;
+    //  One more bit than the fetch buffer index: the flush keeps all-ones.
+    userCfg.reqTransIdWidth = $clog2(CVA6Cfg.NrFetchBufEntries) + 1;
     userCfg.reqSrcIdWidth = 1;
     userCfg.victimSel = hpdcache_pkg::HPDCACHE_VICTIM_RANDOM;
     userCfg.dataWaysPerRamWord = __minu(CVA6Cfg.ICACHE_SET_ASSOC, 128 / userCfg.wordWidth);
     userCfg.dataSetsPerRam = userCfg.sets;
     userCfg.accessWords = __maxu(CVA6Cfg.AxiDataWidth / userCfg.wordWidth, userCfg.reqWords);
     userCfg.mshrSets = 1;
-    userCfg.mshrWays = 1;
+    //  One refill per fetch buffer entry: a killed fetch's refill does not
+    //  hold up the miss of the next fetch.
+    userCfg.mshrWays = CVA6Cfg.NrFetchBufEntries;
     userCfg.mshrWaysPerRamWord = userCfg.mshrWays;
     userCfg.mshrSetsPerRam = userCfg.mshrSets;
     userCfg.mshrRamByteEnable = 1'b0;

@@ -366,11 +366,15 @@ module frontend
 
   logic [CVA6Cfg.PLEN-1:0] paddr;
 
+  // The HPDcache answers fetches out of order, a hit before an earlier miss:
+  // only one outstanding fetch is still wanted at a time, the others are
+  // killed fetches whose responses are dropped.
+  localparam logic ONE_LIVE_FETCH = (CVA6Cfg.MemSubsystem == config_pkg::MEM_HPDCACHE_AXI);
   // to support a throughput of one fetch per cycle, if the number of entries
-  // of the fetch buffer is 1, implement a fall-through mode. This however
-  // adds a combinational path between the request and response interfaces
-  // towards the cache.
-  localparam logic FETCHBUF_FALLTHROUGH = (CVA6Cfg.NrFetchBufEntries == 1);
+  // of the fetch buffer is 1, or a fetch waits for the one before it,
+  // implement a fall-through mode. This however adds a combinational path
+  // between the request and response interfaces towards the cache.
+  localparam logic FETCHBUF_FALLTHROUGH = (CVA6Cfg.NrFetchBufEntries == 1) || ONE_LIVE_FETCH;
   localparam int unsigned REQ_ID_BITS = CVA6Cfg.NrFetchBufEntries > 1 ? $clog2(
       CVA6Cfg.NrFetchBufEntries
   ) : 1;
@@ -383,7 +387,7 @@ module frontend
   logic fetchbuf_empty, fetchbuf_full;
   fetchbuf_id_t fetchbuf_free_index;
   logic fetchbuf_w, fetchbuf_w_q;
-  fetchbuf_id_t fetchbuf_windex, fetchbuf_windex_q;
+  fetchbuf_id_t fetchbuf_windex;
   logic         fetchbuf_r;
   fetchbuf_t    fetchbuf_rdata;
   fetchbuf_id_t fetchbuf_rindex;
@@ -403,6 +407,17 @@ module frontend
   ypb_a_state_e ypb_a_state_d, ypb_a_state_q;
 
   assign fetch_pending = |(fetchbuf_valid_q & ~fetchbuf_flushed_q);
+
+  // A wanted fetch still outstanding after this cycle: neither answered nor
+  // killed in it. With ONE_LIVE_FETCH it holds the next fetch back.
+  logic [CVA6Cfg.NrFetchBufEntries-1:0] fetchbuf_live_next;
+  logic stall_live;
+  always_comb begin : fetchbuf_live
+    fetchbuf_live_next = fetchbuf_valid_q & ~fetchbuf_flushed_q;
+    if (fetchbuf_r) fetchbuf_live_next[fetchbuf_rindex] = 1'b0;
+    if (kill_s2) fetchbuf_live_next[fetchbuf_last_id_q] = 1'b0;
+  end
+  assign stall_live = ONE_LIVE_FETCH && |fetchbuf_live_next;
   assign fetch_ex_retire = CVA6Cfg.MmuPresent ? ex_rvalid : arsp_i.fetch_valid;
   assign fetchbuf_full = &fetchbuf_valid_q && !(FETCHBUF_FALLTHROUGH && fetchbuf_r && ypb_a_state_q == TRANSPARENT);
 
@@ -436,9 +451,9 @@ module frontend
     if (flush_i) begin
       fetchbuf_flushed_d = '1;
     end
-    //  Free read entry (in the case of fall-through mode, free the entry
-    //  only if there is no pending fetch)
-    if (fetchbuf_r && ypb_a_state_q == TRANSPARENT && (!FETCHBUF_FALLTHROUGH || !fetchbuf_w)) begin
+    //  Free the answered entry; in fall-through mode a fetch written in the
+    //  same cycle takes it again below.
+    if (fetchbuf_r) begin
       fetchbuf_valid_d[fetchbuf_rindex] = 1'b0;
     end
     // Flush on bp_valid
@@ -524,7 +539,7 @@ module frontend
     if (!CVA6Cfg.MmuPresent || ypb_fetch_rsp_i.vgnt) begin
       // halt_frontend_i: no fetch while fence.i flushes the data cache. It is
       // held before the fetch buffer, whose entries only a response frees.
-      if (!(stall_ni || stall_ypb || stall_instr_queue || stall_translation || fetchbuf_full || halt_frontend_i)) begin
+      if (!(stall_ni || stall_ypb || stall_instr_queue || stall_translation || fetchbuf_full || stall_live || halt_frontend_i)) begin
         fetchbuf_w  = !kill_s1 && !flush_i; // record request into outstanding fetch fifo and trigger YPB physical request
         pop_fetch = arsp_i.fetch_valid;  // release lsu_bypass fifo
       end
@@ -566,7 +581,9 @@ module frontend
   assign ypb_fetch_req_o.be = '1;
   assign ypb_fetch_req_o.size = CVA6Cfg.FETCH_ALIGN_BITS;
   assign ypb_fetch_req_o.wdata = '0;
-  assign ypb_fetch_req_o.aid = (!CVA6Cfg.MmuPresent && (ypb_a_state_q == TRANSPARENT)) ? fetchbuf_windex : fetchbuf_windex_q;
+  // The fetch buffer entry of the request: written in this cycle, or held
+  // while the request waits for its grant.
+  assign ypb_fetch_req_o.aid = (ypb_a_state_q == TRANSPARENT) ? fetchbuf_windex : fetchbuf_last_id_q;
   assign ypb_fetch_req_o.atop = ariane_pkg::AMO_NONE;
   assign ypb_fetch_req_o.cbo_op = ariane_pkg::CBO_NONE;
   assign ypb_fetch_req_o.cacheable = paddr_is_cacheable;
@@ -612,7 +629,6 @@ module frontend
     if (~rst_ni) begin
       ypb_a_state_q <= TRANSPARENT;
       paddr_q <= '0;
-      fetchbuf_windex_q <= '0;
       fetchbuf_w_q <= '0;
       vaddr_q <= vaddr_d;
     end else begin
@@ -621,7 +637,6 @@ module frontend
       end
       ypb_a_state_q <= ypb_a_state_d;
       if (!ex_s1) begin
-        fetchbuf_windex_q <= fetchbuf_windex;
         fetchbuf_w_q <= (CVA6Cfg.MmuPresent && !arsp_i.fetch_valid) ? fetchbuf_w : fetchbuf_w_q;
       end
       vaddr_q <= vaddr_d;

@@ -67,7 +67,9 @@ package build_config_pkg;
     cfg.AxiIdWidth = CVA6Cfg.AxiIdWidth;
     cfg.AxiUserWidth = CVA6Cfg.AxiUserWidth;
     cfg.NrLoadBufEntries = CVA6Cfg.NrLoadBufEntries;
-    cfg.NrFetchBufEntries = 1;
+    //  The HPDcache answers fetches out of order: a second fetch buffer entry
+    //  lets the frontend fetch on while a killed fetch's refill is outstanding.
+    cfg.NrFetchBufEntries = (CVA6Cfg.MemSubsystem == config_pkg::MEM_HPDCACHE_AXI) ? 2 : 1;
     cfg.RVF = CVA6Cfg.RVF;
     cfg.RVD = CVA6Cfg.RVD;
     cfg.XF16 = CVA6Cfg.XF16;

@@ -165,6 +165,10 @@ module cva6_hpicache_if_adapter
     end
   end
 
+  //  The fetch buffer entry; the all-ones identifier is the flush's.
+  logic [HPDcacheCfg.u.reqTransIdWidth-1:0] fetch_tid;
+  assign fetch_tid = ypb_fetch_req_i.aid[HPDcacheCfg.u.reqTransIdWidth-1:0];
+
   assign hpicache_req_fetch = '{
           addr_offset: get_icache_addr_index(ypb_fetch_req_i.paddr),
           wdata: ypb_fetch_req_i.wdata,
@@ -172,7 +176,7 @@ module cva6_hpicache_if_adapter
           be: ypb_fetch_req_i.be,
           size: ypb_fetch_req_i.size,
           sid: '0,
-          tid: '0,
+          tid: fetch_tid,
           need_rsp: 1'b1,
           phys_indexed: 1'b0,
           addr_tag: '0,  // sent in the next cycle
@@ -201,7 +205,9 @@ module cva6_hpicache_if_adapter
       };
 
   assign hpicache_req_valid_o = forward_fetch | forward_flush;
-  assign hpicache_req = forward_flush ? hpicache_req_flush : hpicache_req_fetch; //flush has higher priority
+  //  A fetch can meet the flush, for instance one held for its grant while the
+  //  cache writes a refill: the flush goes first, the fetch is granted after it.
+  assign hpicache_req = forward_flush ? hpicache_req_flush : hpicache_req_fetch;
   //  The abort applies to the fetch granted in the previous cycle only: the
   //  flush is sent in the same two phases and is never aborted.
   assign hpicache_req_abort_o = fetch_gnt_q && ypb_fetch_req_i.kill_req;
@@ -226,12 +232,6 @@ module cva6_hpicache_if_adapter
   //  Assertions
   //  {{{
 `ifndef HPDCACHE_ASSERT_OFF
-  forward_one_request_assert :
-  assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1) ($onehot0(
-      {forward_fetch, forward_flush}
-  )))
-  else $error("Only one request shall be forwarded");
-
   v_and_p_request_active_assert :
   assert property (@(posedge clk_i) disable iff (rst_ni !== 1'b1)
       (ypb_fetch_req_i.preq |-> ypb_fetch_req_i.vreq))
