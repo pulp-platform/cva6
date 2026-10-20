@@ -138,6 +138,33 @@ module cva6_hpicache_if_adapter
 
   assign forward_fetch = ypb_fetch_req_i.preq;
 
+  //  A fetch is sent in two phases, so that the frontend can still abort it:
+  //  the index with the request, the tag and the PMA in the next cycle,
+  //  together with the abort. The index comes from the physical address.
+  //  An aborted fetch never reaches the miss handler.
+  logic fetch_gnt_q;
+  hpdcache_tag_t fetch_tag_q;
+  hpdcache_pkg::hpdcache_pma_t fetch_pma_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : fetch_tag_ff
+    if (!rst_ni) begin
+      fetch_gnt_q <= 1'b0;
+      fetch_tag_q <= '0;
+      fetch_pma_q <= '0;
+    end else begin
+      fetch_gnt_q <= ypb_fetch_rsp_o.pgnt;
+      if (ypb_fetch_rsp_o.pgnt) begin
+        fetch_tag_q <= get_icache_addr_tag(ypb_fetch_req_i.paddr);
+        fetch_pma_q <= '{
+            bufferable: ypb_fetch_req_i.bufferable,
+            uncacheable: !ypb_fetch_req_i.cacheable,
+            io: 1'b0,
+            wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO
+        };
+      end
+    end
+  end
+
   assign hpicache_req_fetch = '{
           addr_offset: get_icache_addr_index(ypb_fetch_req_i.paddr),
           wdata: ypb_fetch_req_i.wdata,
@@ -147,14 +174,9 @@ module cva6_hpicache_if_adapter
           sid: '0,
           tid: '0,
           need_rsp: 1'b1,
-          phys_indexed: 1'b1,
-          addr_tag: get_icache_addr_tag(ypb_fetch_req_i.paddr),
-          pma: '{
-              bufferable: ypb_fetch_req_i.bufferable,
-              uncacheable: !ypb_fetch_req_i.cacheable,
-              io: 1'b0,
-              wr_policy_hint: hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO
-          }
+          phys_indexed: 1'b0,
+          addr_tag: '0,  // sent in the next cycle
+          pma: '0  // sent in the next cycle
       };
 
 
@@ -180,17 +202,18 @@ module cva6_hpicache_if_adapter
 
   assign hpicache_req_valid_o = forward_fetch | forward_flush;
   assign hpicache_req = forward_flush ? hpicache_req_flush : hpicache_req_fetch; //flush has higher priority
-  assign hpicache_req_abort_o = 1'b0;  // unused on physically indexed requests
-  assign hpicache_req_tag_o = '0;  // unused on physically indexed requests
-  assign hpicache_req_pma_o.bufferable = 1'b0;
-  assign hpicache_req_pma_o.uncacheable = 1'b0;
-  assign hpicache_req_pma_o.io = 1'b0;
-  assign hpicache_req_pma_o.wr_policy_hint = hpdcache_pkg::HPDCACHE_WR_POLICY_AUTO;
+  //  The abort applies to the fetch granted in the previous cycle only: the
+  //  flush is sent in the same two phases and is never aborted.
+  assign hpicache_req_abort_o = fetch_gnt_q && ypb_fetch_req_i.kill_req;
+  assign hpicache_req_tag_o = fetch_tag_q;
+  assign hpicache_req_pma_o = fetch_pma_q;
   assign hpicache_req_o = hpicache_req;
   //  }}}
 
   //  Response forwarding
   //  {{{
+  //  An aborted fetch is answered too: the frontend drops the response of a
+  //  fetch it killed, and frees its fetch buffer entry with it.
   logic ypb_fetch_valid;
   assign ypb_fetch_valid = hpicache_rsp_valid_i && (hpicache_rsp_i.tid != '1);
   assign ypb_fetch_rsp_o.pgnt = hpicache_req_ready_i & ypb_fetch_req_i.preq & !forward_flush;

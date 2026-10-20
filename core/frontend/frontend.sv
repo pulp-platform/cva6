@@ -389,13 +389,12 @@ module frontend
   fetchbuf_id_t fetchbuf_rindex;
   fetchbuf_id_t fetchbuf_last_id_q;
 
-  logic kill_req_d, kill_req_q;
-  logic ex_s1;
+  logic         ex_s1;
   // A fetch whose instructions are still to come back. The fault of a later
   // fetch waits for them, so that it reaches the instruction queue after them.
-  logic fetch_pending;
+  logic         fetch_pending;
   // The retired fetch is the one the translation response is about
-  logic fetch_ex_retire;
+  logic         fetch_ex_retire;
 
   typedef enum logic [1:0] {
     TRANSPARENT,
@@ -496,7 +495,9 @@ module frontend
   // also if we killed the first stage we also need to kill the second stage (inclusive flush)
   assign kill_s2 = kill_s1 | bp_valid;
 
-  assign ypb_fetch_req_o.kill_req = kill_req_q || kill_s2 || ex_s1;
+  // Abort the fetch granted in the previous cycle: kill_s2 drops its response
+  // and flushes its fetch buffer entry.
+  assign ypb_fetch_req_o.kill_req = kill_s2;
 
   assign data_rvalid = fetchbuf_r && !fetchbuf_flushed_q[fetchbuf_rindex] && !kill_s2;
 
@@ -509,7 +510,6 @@ module frontend
 
   always_comb begin : p_fsm_common
     // default assignmen
-    kill_req_d = 1'b0;
     fetchbuf_w = 1'b0;
     //response
     vaddr_rvalid = npc_fetch_address;
@@ -524,9 +524,7 @@ module frontend
     if (!CVA6Cfg.MmuPresent || ypb_fetch_rsp_i.vgnt) begin
       // halt_frontend_i: no fetch while fence.i flushes the data cache. It is
       // held before the fetch buffer, whose entries only a response frees.
-      if (stall_ni || stall_ypb || stall_instr_queue || stall_translation || fetchbuf_full || halt_frontend_i) begin
-        kill_req_d = CVA6Cfg.MmuPresent ? 1'b1 :  1'b0; // MmuPresent only : next cycle is s2 but we need to kill because not ready to sent tag
-      end else begin
+      if (!(stall_ni || stall_ypb || stall_instr_queue || stall_translation || fetchbuf_full || halt_frontend_i)) begin
         fetchbuf_w  = !kill_s1 && !flush_i; // record request into outstanding fetch fifo and trigger YPB physical request
         pop_fetch = arsp_i.fetch_valid;  // release lsu_bypass fifo
       end
@@ -614,7 +612,6 @@ module frontend
     if (~rst_ni) begin
       ypb_a_state_q <= TRANSPARENT;
       paddr_q <= '0;
-      kill_req_q <= '0;
       fetchbuf_windex_q <= '0;
       fetchbuf_w_q <= '0;
       vaddr_q <= vaddr_d;
@@ -623,7 +620,6 @@ module frontend
         paddr_q <= paddr;
       end
       ypb_a_state_q <= ypb_a_state_d;
-      kill_req_q <= kill_req_d;
       if (!ex_s1) begin
         fetchbuf_windex_q <= fetchbuf_windex;
         fetchbuf_w_q <= (CVA6Cfg.MmuPresent && !arsp_i.fetch_valid) ? fetchbuf_w : fetchbuf_w_q;
