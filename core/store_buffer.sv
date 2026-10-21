@@ -239,7 +239,10 @@ module store_buffer
       if (commit_i && (commit_write_pointer_q == speculative_read_pointer_q) && !inflight_full) begin
         ypb_store_req_o.preq = ((!CVA6Cfg.StoreAckOnGrant || spec_is_cbo) && pending_rvalid_q) ? '0 : 1'b1;
         direct_req_from_speculative = 1'b1;
-        if (ypb_store_rsp_i.pgnt) pending_rvalid_n = 1'b1;
+        // Only a request that waits for its response leaves it pending: a
+        // store done on its grant goes no further than this cycle.
+        if (ypb_store_rsp_i.pgnt && (!CVA6Cfg.StoreAckOnGrant || spec_is_cbo))
+          pending_rvalid_n = 1'b1;
       end
     end
 
