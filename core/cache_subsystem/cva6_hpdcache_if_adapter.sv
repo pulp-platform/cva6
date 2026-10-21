@@ -448,6 +448,14 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
               }
           };
 
+      //  A store asks for a response when the store buffer waits for it: a
+      //  CMO always, a store without StoreAckOnGrant or tracked in flight.
+      //  Every other response would reach the flush and the CMOs, which take
+      //  the next response with this identifier as theirs.
+      logic store_need_rsp;
+      assign store_need_rsp = (store_op != hpdcache_pkg::HPDCACHE_REQ_STORE) ||
+                              !CVA6Cfg.StoreAckOnGrant || (CVA6Cfg.NrStoreInFlight > 0);
+
       assign hpdcache_req_store = '{
               addr_offset: get_paddr_index(ypb_store_req_i.paddr),
               wdata: ypb_store_req_i.wdata,
@@ -456,7 +464,7 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
               size: ypb_store_req_i.size,
               sid: hpdcache_req_sid_i,
               tid: '0,
-              need_rsp: 1'b1,
+              need_rsp: store_need_rsp,
               phys_indexed: 1'b1,
               addr_tag: get_paddr_tag(ypb_store_req_i.paddr),
               pma: '{

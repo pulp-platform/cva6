@@ -327,7 +327,10 @@ package build_config_pkg;
     cfg.ObiZcmtbusCfg.OptionalCfg.RChkWidth = 1;
 
     cfg.MemSubsystem = CVA6Cfg.MemSubsystem;
-    cfg.StoreAckOnGrant = (CVA6Cfg.MemSubsystem == config_pkg::MEM_OBI);
+    //  A store is done on its grant on both memory subsystems: the OBI bus and
+    //  the HPDcache keep a granted store ahead of every later request, so a
+    //  load that follows it reads its data.
+    cfg.StoreAckOnGrant = 1'b1;
     // Loads take two phases when the MMU registers their address before the
     // physical phase.
     cfg.TwoPhaseReq = CVA6Cfg.MmuPresent;
