@@ -23,6 +23,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 export OSEDA="oseda -2026.04"
+# The environment Verilator models are built and run in, for the scripts that
+# drive them from the host
+export SIM_ENV="${OSEDA}"
 export RISCV=/usr/pack/riscv-1.0-kgf/riscv64-gcc-14.2.0
 export PATH="${RISCV}/bin:/usr/sepp/bin:/usr/local/bin:${PATH}"
 export VERILATOR="${OSEDA} verilator"

@@ -35,9 +35,10 @@ configuration package with those fields replaced, generated under the sweep's
 directory and built once. Points that differ only in simulation arguments share
 it, and so do later invocations, as long as the package, the build options and
 the tracked sources are unchanged. Models are built with $VERILATOR, else with
-Verilator under $OSEDA, the command prefix of the simulation environment
-(empty by default), and each point is run with run-bench.py under the same
-prefix; then all of them are compared with compare-runs.py.
+Verilator under $SIM_ENV, the command prefix of the environment Verilator
+simulations are built and run in (empty by default; util/iis-env.sh sets it),
+and each point is run with run-bench.py under the same prefix; then all of them
+are compared with compare-runs.py.
 
 Everything goes to verilator/bench/sweeps/<name>/: models/<model>/ (package and
 build), runs/<point>/ (run-bench.py's results), compare/ (compare-runs.py's),
@@ -73,9 +74,9 @@ from pathlib import Path
 
 TEST_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = TEST_DIR.parent
-OSEDA = os.environ.get("OSEDA", "").split()
-# The Verilator that builds the models: $VERILATOR, else the one under $OSEDA
-VERILATOR = os.environ.get("VERILATOR") or shlex.join([*OSEDA, "verilator"])
+SIM_ENV = os.environ.get("SIM_ENV", "").split()
+# The Verilator that builds the models: $VERILATOR, else the one under $SIM_ENV
+VERILATOR = os.environ.get("VERILATOR") or shlex.join([*SIM_ENV, "verilator"])
 # Simulations per point and Verilator jobs per model, with a runner
 RUNNER_JOBS = 16
 RUNNER_VERILATOR_JOBS = 8
@@ -310,7 +311,7 @@ def main():
             return f"point {label}: reusing {run_dir}"
         # A result left from an earlier run must not pass for this one's
         results.unlink(missing_ok=True)
-        cmd = [*OSEDA, str(TEST_DIR / "util" / "run-bench.py"), "run",
+        cmd = [*SIM_ENV, str(TEST_DIR / "util" / "run-bench.py"), "run",
                "--sim", str(model["dir"] / "build" / "Vtest"), "--out", str(run_dir),
                "--tag", label, "--config", description, "--sim-args", sim_args,
                "-j", str(jobs)]
@@ -318,7 +319,7 @@ def main():
             cmd += ["--filter", *sweep["benchmarks"]]
         if sweep.get("max_cycles"):
             cmd += ["--max-cycles", str(sweep["max_cycles"])]
-        print(f"point {label}: {shlex.join(cmd[len(OSEDA):])}", flush=True)
+        print(f"point {label}: {shlex.join(cmd[len(SIM_ENV):])}", flush=True)
         if runner:
             cmd = [*runner, "--cores", str(jobs), "--", *cmd]
         proc = subprocess.run(cmd, capture_output=True, text=True)
