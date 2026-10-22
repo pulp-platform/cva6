@@ -710,17 +710,14 @@ module frontend
     // 3. Control flow change request
     if (is_mispredict) begin
       npc_d = resolved_branch_i.target_address;
-      fetch_address = resolved_branch_i.target_address;
     end
     // 4. Return from environment call
     if (eret_i) begin
       npc_d = epc_i;
-      fetch_address = epc_i;
     end
     // 5. Exception/Interrupt
     if (ex_valid_i) begin
       npc_d = trap_vector_base_i;
-      fetch_address = trap_vector_base_i;
     end
     // 6. Pipeline Flush because of CSR side effects
     // On a pipeline flush start fetching from the next address
@@ -733,7 +730,6 @@ module frontend
     // IMPROVEMENT: This adder can at least be merged with the one in the csr_regfile stage
     if (set_pc_commit_i) begin
       npc_d = pc_commit_i + (halt_i ? '0 : {{CVA6Cfg.VLEN - 3{1'b0}}, 3'b100});
-      fetch_address = pc_commit_i + (halt_i ? '0 : {{CVA6Cfg.VLEN - 3{1'b0}}, 3'b100});
     end
     // 7. Debug
     // enter debug on a hard-coded base-address
