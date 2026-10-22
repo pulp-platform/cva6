@@ -322,13 +322,25 @@ scriptdir="$(dirname -- "${BASH_SOURCE[0]}")"
 export bindir="$(realpath -m "${scriptdir}/../sw/deps/riscv-tests/build/isa")"
 export logdir="$(realpath -m "${scriptdir}/../verilator/logs")"
 export simbin="$(realpath -m "${scriptdir}/../verilator/build/Vtest")"
+# Extra plusargs, e.g. SIM_ARGS="+cosim_rule=..."
+export SIM_ARGS="${SIM_ARGS:-}"
+
+# COSIM=1 adds what a co-simulated run needs: the boot ROM the reference starts
+# in, and the rule sets for the ways this corpus legitimately diverges from a
+# reference model. Override COSIM_RULES to check one of them strictly.
+if [ "${COSIM:-0}" = "1" ]; then
+    bootrom="$(realpath -m "${scriptdir}/../hw/bootrom/cva6tb_bootrom.bin")"
+    COSIM_RULES="${COSIM_RULES:-misa-ro,lrsc,ids,deleg}"
+    SIM_ARGS="+cosim_bootrom=${bootrom} +cosim_rules=${COSIM_RULES} ${SIM_ARGS}"
+    export SIM_ARGS
+fi
 
 run_short_test () {
     t="$1"
     hexfile="${bindir}/${t}.hex"
     logfile="${logdir}/${t}.log"
     echo "Running test \"${t}\""
-    ${simbin} +binary="${hexfile}" +RetCodeSuccess=1 +MaxCycles=250000 > ${logfile}
+    ${simbin} +binary="${hexfile}" +RetCodeSuccess=1 +MaxCycles=250000 ${SIM_ARGS} > ${logfile}
 }
 
 run_long_test () {
@@ -336,19 +348,21 @@ run_long_test () {
     hexfile="${bindir}/${t}.hex"
     logfile="${logdir}/${t}.log"
     echo "Running test \"${t}\""
-    ${simbin} +binary="${hexfile}" +RetCodeSuccess=1 +MaxCycles=2000000 > ${logfile}
+    ${simbin} +binary="${hexfile}" +RetCodeSuccess=1 +MaxCycles=2000000 ${SIM_ARGS} > ${logfile}
 }
 
 run_short_tests () {
     mkdir -p ${logdir}
     export -f run_short_test
-    printf '%s\n' "$@" | xargs -n1 -P ${NJOBS} bash -c 'run_short_test $1' _
+    # xargs reports a non-zero status if any test did; `|| true` keeps `set -e`
+    # from ending the script, so check_results still prints the summary.
+    printf '%s\n' "$@" | xargs -n1 -P ${NJOBS} bash -c 'run_short_test $1' _ || true
 }
 
 run_long_tests () {
     mkdir -p ${logdir}
     export -f run_long_test
-    printf '%s\n' "$@" | xargs -n1 -P ${NJOBS} bash -c 'run_long_test $1' _
+    printf '%s\n' "$@" | xargs -n1 -P ${NJOBS} bash -c 'run_long_test $1' _ || true
 }
 
 check_results() {

@@ -23,14 +23,14 @@
 // Both conditions keep being evaluated, so a pc or symbol trigger reopens the
 // window every time execution passes through it.
 
-#ifndef CVA6TB_TRACER_RV_TRIGGER_H
-#define CVA6TB_TRACER_RV_TRIGGER_H
+#ifndef CVA6TB_RV_TRIGGER_H
+#define CVA6TB_RV_TRIGGER_H
 
 #include <cstdint>
 
 #include "rv_symbols.h"
 
-namespace cva6tb_tracer {
+namespace cva6tb_rv {
 
 class condition_t {
  public:
@@ -62,6 +62,6 @@ class window_t {
   bool        open_ = true;  // no start condition means open from the beginning
 };
 
-}  // namespace cva6tb_tracer
+}  // namespace cva6tb_rv
 
-#endif  // CVA6TB_TRACER_RV_TRIGGER_H
+#endif  // CVA6TB_RV_TRIGGER_H
