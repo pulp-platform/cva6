@@ -23,7 +23,7 @@ ASIC_BUILD           ?= $(if $(wildcard $(ASIC_DIR)/$(ASIC_TECH)/.git),$(ASIC_DI
 # The design: the cva6 tree every Bender and RTL command reads, and its
 # configuration, a Bender target of cva6
 CVA6_ROOT        ?= $(abspath $(ASIC_DIR)/..)
-CVA6_CONFIG      ?= cv64a6_imafdchxhclic_sv39_hpdcache_wb
+CVA6_CONFIG      ?= cv64a6_rt_hpdcache
 BENDER           ?= bender
 BENDER_DEFINES   ?=
 BENDER_TARGETS   ?= -t $(CVA6_CONFIG) -t rtl -t cva6 -t asic -t cva6_asic
