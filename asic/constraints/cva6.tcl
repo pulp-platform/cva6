@@ -2,7 +2,7 @@
 # Solderpad Hardware License, Version 0.51, see LICENSE for details.
 # SPDX-License-Identifier: SHL-0.51
 #
-# Parameters of the timing intent of synth_top (cva6.sdc). A flow sets the
+# Parameters of the timing intent of cva6_asic_top (cva6.sdc). A flow sets the
 # period and the margin, and the technology its constants and the object
 # lookups the SDC uses (asic_inputs_except), before it sources this file and
 # the SDC:
@@ -21,6 +21,6 @@ if {![info exists ASIC_SETUP_UNCERTAINTY]} { set ASIC_SETUP_UNCERTAINTY 0.05 }
 if {![info exists ASIC_IO_DELAY]}          { set ASIC_IO_DELAY 0.05 }
 if {![info exists ASIC_IO_MULTICYCLE]}     { set ASIC_IO_MULTICYCLE 3 }
 
-# The clock and the reset ports of synth_top
+# The clock and the reset ports of cva6_asic_top
 set ASIC_CLOCK_PORTS {clk_i}
 set ASIC_RESET_PORTS {rst_ni}

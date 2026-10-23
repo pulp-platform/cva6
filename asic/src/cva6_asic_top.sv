@@ -5,7 +5,7 @@
 // The implementation wrapper of the ASIC flow: CVA6 with its AXI, interrupt
 // and debug ports, in the configuration its package defines.
 
-package synth_package;
+package cva6_asic_pkg;
 
   // The configuration as its package defines it, nothing changed on top, so
   // that the implemented design is the one simulated with the same package.
@@ -85,8 +85,8 @@ package synth_package;
 
 endpackage
 
-module synth_top
-  import synth_package::*;
+module cva6_asic_top
+  import cva6_asic_pkg::*;
 (
   input  logic        clk_i,
   input  logic        rst_ni,

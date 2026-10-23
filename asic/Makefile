@@ -16,7 +16,9 @@
 ASIC_DIR             := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 ASIC_TECH            ?= gf22
 ASIC_CONSTRAINTS_DIR := $(ASIC_DIR)/constraints
-ASIC_BUILD           ?= $(ASIC_DIR)/build
+# The root of the default run directories: inside the technology's clone, since
+# run outputs carry technology data; asic/build when there is no clone
+ASIC_BUILD           ?= $(if $(wildcard $(ASIC_DIR)/$(ASIC_TECH)/.git),$(ASIC_DIR)/$(ASIC_TECH)/build,$(ASIC_DIR)/build)
 
 # The design: the cva6 tree every Bender and RTL command reads, and its
 # configuration, a Bender target of cva6
@@ -25,7 +27,7 @@ CVA6_CONFIG      ?= cv64a6_imafdchxhclic_sv39_hpdcache_wb
 BENDER           ?= bender
 BENDER_DEFINES   ?=
 BENDER_TARGETS   ?= -t $(CVA6_CONFIG) -t rtl -t cva6 -t asic -t cva6_asic
-TOP_DESIGN       ?= synth_top
+TOP_DESIGN       ?= cva6_asic_top
 
 # The clock period [ps]: the period the design is implemented at, and the
 # default of both stages' periods. Synthesis over-constrains it, with a margin
@@ -242,7 +244,7 @@ spef:
 # GF22_COMMIT. gf22-init clones it, and does nothing to a clone that is already
 # there; gf22-update moves a clone to GF22_COMMIT, unless it has local changes.
 GF22_REMOTE ?= git@iis-git.ee.ethz.ch:ezelioli/cva6-gf22.git
-GF22_COMMIT ?= a5c4b2cbecfc6092c6d3b207e213abadde792fd8
+GF22_COMMIT ?= 65e9435c7fb5b896e8cad0feca61cd691428606f
 GF22_CLONE  := $(ASIC_DIR)/gf22
 
 .PHONY: gf22-init gf22-update
