@@ -323,3 +323,8 @@ sources:
       - target: all(cva6tb, test_simple)
         files:
           - test/hw/cva6tb_test_simple.sv
+
+      - target: cva6_asic
+        files:
+          # The implementation wrapper of the ASIC flow (asic/)
+          - asic/src/synth_top.sv
