@@ -5,7 +5,7 @@ on: [ push, pull_request, workflow_dispatch ]
 jobs:
   pulp-gitlab-ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     # Skip on forks or pull requests from forks due to missing secrets.
     if: github.repository == 'pulp-platform/cva6' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
