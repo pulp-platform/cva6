@@ -5,7 +5,7 @@ init:
   stage: nonfree
   script:
     - git clone git@iis-git.ee.ethz.ch:pulp-restricted/cva6-nonfree.git nonfree
-    - cd nonfree && git checkout 33484c0204220ceb8c26d40c1180cb6e0d66bada
+    - cd nonfree && git checkout 7e07695c23300bfa35d879db967a4929f930cb61
   artifacts:
     paths: [ nonfree/ci.yml ]
 
