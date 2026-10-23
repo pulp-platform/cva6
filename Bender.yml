@@ -327,4 +327,4 @@ sources:
       - target: cva6_asic
         files:
           # The implementation wrapper of the ASIC flow (asic/)
-          - asic/src/synth_top.sv
+          - asic/src/cva6_asic_top.sv

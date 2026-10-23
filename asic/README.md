@@ -10,11 +10,11 @@ repository of its own, which is not open; `asic/Makefile` clones it into
 | Path | Content |
 | --- | --- |
 | [Makefile](Makefile) | Knobs, SRAM inventory, run records and the stages; one section per technology with its pinned repository |
-| [src/](src/) | `synth_top`, the implementation wrapper (Bender target `cva6_asic`) |
-| [constraints/](constraints/) | The timing intent of `synth_top` in SDC (`cva6.sdc`) and its parameters (`cva6.tcl`) |
+| [src/](src/) | `cva6_asic_top`, the implementation wrapper (Bender target `cva6_asic`) |
+| [constraints/](constraints/) | The timing intent of `cva6_asic_top` in SDC (`cva6.sdc`) and its parameters (`cva6.tcl`) |
 | [scripts/](scripts/) | `sram_inventory.py`: the SRAMs of a configuration, elaborated with slang |
 | `<tech>/` | The technology's flow, cloned by `make <tech>-init` (ignored by git) |
-| `build/` | Default run directories (ignored by git) |
+| `<tech>/build/` | Default run directories, inside the technology's clone |
 
 ## Usage
 

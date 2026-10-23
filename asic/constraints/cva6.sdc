@@ -2,7 +2,7 @@
 # Solderpad Hardware License, Version 0.51, see LICENSE for details.
 # SPDX-License-Identifier: SHL-0.51
 #
-# Timing intent of synth_top. Synthesis and place and route both read it, each
+# Timing intent of cva6_asic_top. Synthesis and place and route both read it, each
 # at its own period; it names ports only, so it holds for the RTL and for the
 # netlist alike. Parameters and their defaults: cva6.tcl. Times are given in ps
 # and scaled to the libraries' time unit.
