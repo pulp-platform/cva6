@@ -1,0 +1,32 @@
+# Copyright 2026 PULP Platform
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+name: pulp-gitlab-bench
+
+on:
+  pull_request:
+    paths-ignore: [ 'docs/**', '**.md' ]
+  workflow_dispatch:
+
+jobs:
+  # The GitLab pipeline of every commit holds the benchmark check as manual jobs:
+  # start them and report them as their own check, with their cycle report.
+  bench-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    # Skip on forks or pull requests from forks due to missing secrets.
+    if: github.repository == 'pulp-platform/cva6' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: Run the benchmark check
+        env:
+          GITLAB_DOMAIN: iis-git.ee.ethz.ch
+          GITLAB_REPO: github-mirror/cva6
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        # Pull request SHAs point to a merge commit that is not mirrored
+        run: >
+          python3 .github/scripts/bench-check.py
+          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
