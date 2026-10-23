@@ -1,0 +1,4 @@
+# The technology flows, cloned into asic/<tech> (see Makefile)
+/gf22/
+# Default run directories
+/build/
