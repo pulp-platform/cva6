@@ -3,14 +3,15 @@
 // SPDX-License-Identifier: SHL-0.51
 //
 // The implementation wrapper of the ASIC flow: CVA6 with its AXI, interrupt
-// and debug ports, in the configuration its package defines.
+// and debug ports, in the configuration its package defines, with the memory
+// attributes of the testbench SoC (test/hw/cva6tb_cfg_pkg.sv).
 
 package cva6_asic_pkg;
 
-  // The configuration as its package defines it, nothing changed on top, so
-  // that the implemented design is the one simulated with the same package.
+  // The configuration the testbench SoC builds from the same package, so that
+  // the implemented core is the one the testbench runs
   localparam config_pkg::cva6_user_cfg_t CVA6UserCfg = cva6_config_pkg::cva6_cfg;
-  localparam config_pkg::cva6_cfg_t          CVA6Cfg = build_config_pkg::build_config(CVA6UserCfg);
+  localparam config_pkg::cva6_cfg_t          CVA6Cfg = cva6tb_cfg_pkg::gen_cva6_cfg(CVA6UserCfg);
 
   localparam type axi_ar_chan_t = struct packed {
     logic [CVA6Cfg.AxiIdWidth-1:0]   id;
