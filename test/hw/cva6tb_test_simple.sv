@@ -7,15 +7,17 @@
 // Basic testbench pre-loading a binary and polling the EOC register for success.
 // Times out after a specified number of cycles.
 
-module test;
+module test #(
+  /// The clock period [ps]: for the ASIC implementation of the core, the one it
+  /// is implemented at
+  parameter int unsigned ClkPeriodPs = 1000
+);
 
   import ariane_pkg::*;
   import cva6tb_pkg::*;
   import cva6tb_regs_pkg::EOCRegOffset;
 
-  // localparam time         ClkPeriod = 1ns;
   // localparam time         RtcPeriod = 1us;
-  localparam int unsigned ClkPeriodPs = 1000;
   localparam int unsigned RtcPeriodPs = 1000000;
   localparam int unsigned RstCycles = 10;
 
@@ -62,7 +64,9 @@ module test;
     .rst_no       (             )
   );
 
-  cva6tb_soc i_dut (
+  cva6tb_soc #(
+    .ClkPeriodPs     ( ClkPeriodPs )
+  ) i_dut (
     .clk_i           ( clk       ),
     .rst_ni          ( rst_n     ),
     .rtc_i           ( rtc       ),
