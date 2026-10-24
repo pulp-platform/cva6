@@ -8,6 +8,7 @@
 #   synth           synthesis (synth-elab: up to its checks; synth-analyze: its file list)
 #   pnr             place and route
 #   spef            parasitics of a completed place-and-route run
+#   sim             simulation of the RTL top or a netlist in test/'s testbench
 # The technology flows are not open. Each lives in a repository of its own,
 # cloned into asic/<tech> at the commit pinned in its section below
 # (`make -C asic <tech>-init`); this file includes its <tech>.mk, which runs the
@@ -236,6 +237,49 @@ spef:
 	@echo "================================================================="
 	@$(MAKE) --no-print-directory $(ASIC_TECH)-spef
 
+##############
+# Simulation #
+##############
+
+# Simulation of cva6_asic_top in test/'s testbench with QuestaSim (test/,
+# ASIC_TOP=1): the RTL top, or a netlist of it (ASIC_SIM_NETLIST) with the
+# technology's simulation models, compiled into the library `gate` by a script
+# its makefile writes (<tech>-sim-models writes $(ASIC_SIM_DIR)/models.tcl),
+# without delays. It runs in test/'s Python environment, as test/ does, and
+# QUESTA, as in test/, selects QuestaSim. Each run builds the simulation
+# afresh in ASIC_SIM_DIR, whose sim.log ends with the testbench's verdict,
+# **SIMULATION PASSED** or **SIMULATION FAILED**.
+ASIC_SIM_DIR        ?= $(ASIC_BUILD)/sim
+ASIC_SIM_NETLIST    ?=
+# The program, a hex file of test/'s software build, and the testbench's
+# plusargs
+ASIC_SIM_BINARY     ?= $(CVA6_ROOT)/test/sw/out/hello.hex
+ASIC_SIM_MAX_CYCLES ?= 100000
+ASIC_SIM_ARGS       ?=
+# The clock period [ps]: the implemented one, so that recorded activity has its
+# toggle rates. For a netlist, that of the run that wrote it (params.json beside
+# its directory: place and route, else synthesis), else CLK_PERIOD.
+ASIC_SIM_PARAMS     := $(if $(ASIC_SIM_NETLIST),$(abspath $(dir $(ASIC_SIM_NETLIST))../params.json))
+ASIC_SIM_CLK_PERIOD ?= $(or $(shell python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(p.get("pnr_clk_period_ps", p.get("clk_period_ps", "")))' $(ASIC_SIM_PARAMS) 2>/dev/null),$(CLK_PERIOD))
+# 1: record the switching activity of each workload phase a program marks
+# (SAIF), into saif/ of ASIC_SIM_DIR (test/vsim/saif.tcl)
+ASIC_SIM_SAIF       ?= 0
+
+.PHONY: sim
+
+sim: $(if $(ASIC_SIM_NETLIST),$(ASIC_TECH)-sim-models)
+	mkdir -p $(ASIC_SIM_DIR)
+	rm -f $(ASIC_SIM_DIR)/vsim_compile.tcl
+	@echo "================================================================="
+	@echo "SIMULATING $(if $(ASIC_SIM_NETLIST),THE NETLIST $(abspath $(ASIC_SIM_NETLIST)),THE RTL OF $(TOP_DESIGN))"
+	@echo "PROGRAM: $(abspath $(ASIC_SIM_BINARY))   CLOCK PERIOD: $(ASIC_SIM_CLK_PERIOD) ps"
+	@echo "================================================================="
+	$(MAKE) -C $(CVA6_ROOT)/test vsim-build vsim-run CVA6_CONFIG=$(CVA6_CONFIG) ZERO_SIM_MEM=1 \
+	  ASIC_TOP=1 NETLIST=$(if $(ASIC_SIM_NETLIST),$(abspath $(ASIC_SIM_NETLIST))) \
+	  NETLIST_MODELS=$(ASIC_SIM_DIR)/models.tcl VSIM_BUILD_DIR=$(ASIC_SIM_DIR) \
+	  CLK_PERIOD_PS=$(ASIC_SIM_CLK_PERIOD) SAIF=$(ASIC_SIM_SAIF) HEXFILE=$(abspath $(ASIC_SIM_BINARY)) \
+	  MAX_CYCLES=$(ASIC_SIM_MAX_CYCLES) SIM_ARGS="$(ASIC_SIM_ARGS)" 2>&1 | tee $(ASIC_SIM_DIR)/sim.log
+
 ########
 # GF22 #
 ########
@@ -244,7 +288,7 @@ spef:
 # GF22_COMMIT. gf22-init clones it, and does nothing to a clone that is already
 # there; gf22-update moves a clone to GF22_COMMIT, unless it has local changes.
 GF22_REMOTE ?= git@iis-git.ee.ethz.ch:ezelioli/cva6-gf22.git
-GF22_COMMIT ?= 65e9435c7fb5b896e8cad0feca61cd691428606f
+GF22_COMMIT ?= c522e0b60aca76b75193e2b6590c1b4163f7f3df
 GF22_CLONE  := $(ASIC_DIR)/gf22
 
 .PHONY: gf22-init gf22-update
