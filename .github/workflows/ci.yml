@@ -4,7 +4,10 @@
 
 # Run functional regression checks
 name: ci
-on: [pull_request, workflow_dispatch]
+on:
+  pull_request:
+    paths-ignore: [ 'test/**', 'docs/**', '**.md' ]
+  workflow_dispatch:
 
 jobs:
   build-riscv-tests:

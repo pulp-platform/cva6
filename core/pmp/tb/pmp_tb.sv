@@ -45,6 +45,7 @@ module pmp_tb;
       .priv_lvl_i   (riscv::PRIV_LVL_U),
       .conf_addr_i  (conf_addr),
       .conf_i       (conf),
+      .conf_mask_i  ('0),
       .allow_o      (allow)
   );
 
