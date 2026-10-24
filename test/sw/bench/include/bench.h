@@ -9,7 +9,10 @@
 // core itself counts. Each also retires a marker instruction, a custom-use
 // HINT (slti x0, x0, <id>) that executes as a nop on any RISC-V hart but shows
 // up in the RVFI retirement stream, so a testbench-side observer can measure
-// the same region without trusting the core's counters.
+// the same region without trusting the core's counters. The region is also a
+// workload phase on the testbench's marker register (BENCH_MARKER_ROI_START
+// while it runs, 0 outside), outside the counted instructions: a testbench
+// without RVFI, such as that of a netlist, windows its measurements on it.
 
 #pragma once
 

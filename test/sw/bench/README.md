@@ -38,7 +38,10 @@ and `minstret`, and the program prints the deltas as
 Each hook also retires a marker, `slti x0, x0, 1` at the start and `slti x0, x0, 2` at the stop.
 This is a custom-use HINT: a nop on any RISC-V hart, but visible in the RVFI retirement stream,
 so a testbench-side observer can measure the same region without relying on the core's own
-counters.
+counters. Outside the counted instructions, the hooks also set the testbench's workload phase
+marker (offset `0xc` of the platform control registers) to 1 at the start and to 0 at the stop:
+a testbench without RVFI, such as the netlist simulation of the ASIC flow, windows its
+measurements on it.
 
 A benchmark passes when the testbench reports `**SIMULATION PASSED**` (its `main` returned 0,
 which all but CoreMark do only when their results verify), it printed the region's counters, and,

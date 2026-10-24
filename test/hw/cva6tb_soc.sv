@@ -89,6 +89,14 @@ module cva6tb_soc
 
   logic [63:0]                       rtc_timer_time;
 
+  // The workload phase marker programs write (cva6tb_regs): simulation scripts
+  // window their measurements on it, and every change is printed with its time
+  logic [31:0]                       marker;
+
+  always @(marker) begin
+    if (rst_n === 1'b1) log($sformatf("[MARKER] 0x%08h", marker));
+  end
+
   function automatic void load_sim_spm(string binary_path);
     log("Preloading AXI SPM");
     $readmemh(binary_path, i_axi_spm.mem);
@@ -486,7 +494,8 @@ module cva6tb_soc
     .boot_mode_i ( boot_mode_i    ),
     .reg_req_i   ( reg_pcr_req    ),
     .reg_rsp_o   ( reg_pcr_rsp    ),
-    .irq_o       ( sw_xeip        )
+    .irq_o       ( sw_xeip        ),
+    .marker_o    ( marker         )
   );
 
   // Sim console
