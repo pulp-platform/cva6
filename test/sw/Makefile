@@ -108,6 +108,9 @@ arch-test: | $(ACT_DIR)/ $(SAIL_DIR)/bin/sail_riscv_sim
 arch-test-clean:
 	rm -rf $(ACT_DIR)/work $(addprefix $(ACT_DIR)/config/cores/,$(notdir $(wildcard $(SW_DIR)/arch-test/cv*)))
 
+# Benchmarks (bench/README.md): make bench, results under out/bench.
+include $(SW_DIR)/bench/bench.mk
+
 .PHONY: deps
 deps: $(DEPS_DIR)/printf
 

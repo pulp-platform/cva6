@@ -5,7 +5,10 @@
 # Author: Nils Wistoff <nwistoff@iis.ee.ethz.ch>
 
 name: integration
-on: [ pull_request, workflow_dispatch ]
+on:
+  pull_request:
+    paths-ignore: [ 'test/**', 'docs/**', '**.md' ]
+  workflow_dispatch:
 
 jobs:
   cheshire-integration:

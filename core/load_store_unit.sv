@@ -177,6 +177,8 @@ module load_store_unit
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0]                   pmpcfg_i,
     // PMP address - CSR_REGFILE
     input logic           [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_i,
+    // PMP entries' NAPOT masks - CSR_REGFILE
+    input logic           [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask_i,
 
     // RVFI information - RVFI
     output lsu_ctrl_t                    rvfi_lsu_ctrl_o,
@@ -459,7 +461,8 @@ module load_store_unit
       .ld_st_priv_lvl_i    (ld_st_priv_lvl_i),
       .ld_st_v_i           (ld_st_v_i),
       .pmpcfg_i            (pmpcfg_i),
-      .pmpaddr_i           (pmpaddr_i)
+      .pmpaddr_i           (pmpaddr_i),
+      .pmpaddr_mask_i      (pmpaddr_mask_i)
   );
 
   // ------------------

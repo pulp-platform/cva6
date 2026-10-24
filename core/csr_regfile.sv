@@ -229,6 +229,8 @@ module csr_regfile
     output riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg_o,
     // PMP addresses - ACC_DISPATCHER
     output logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_o,
+    // PMP entries' NAPOT masks, decoded as pmpaddr is written - PMP
+    output logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask_o,
     // TO_BE_COMPLETED - PERF_COUNTERS
     output logic [31:0] mcountinhibit_o,
     // RVFI
@@ -504,6 +506,36 @@ module csr_regfile
       locked_tlb_entries_o[i].valid       = tlb_lock_pte_q[i].v & (tlb_lock_vpn_q[i].size != PTE_INVALID) & tlb_lock_id_q[i].valid;
     end
   end
+
+  // The NAPOT mask of each PMP entry, decoded from the value written into
+  // pmpaddr and registered with it: the checks (pmp_data_if) then compare
+  // under the mask rather than decode it on every access.
+  function automatic logic [CVA6Cfg.PLEN-1:0] pmp_napot_mask(logic [CVA6Cfg.PLEN-3:0] addr);
+    // a NAPOT region spans 2^(3 + trailing ones of pmpaddr) bytes
+    logic ones;
+    ones = 1'b1;
+    pmp_napot_mask = '1;
+    pmp_napot_mask[2:0] = '0;
+    for (int b = 0; b < CVA6Cfg.PLEN - 3; b++) begin
+      ones = ones & addr[b];
+      if (ones) pmp_napot_mask[b+3] = 1'b0;
+    end
+  endfunction
+
+  logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask_q;
+  always_ff @(posedge clk_i or negedge rst_ni) begin : pmpaddr_mask_ff
+    if (~rst_ni) begin
+      pmpaddr_mask_q <= '0;
+      for (int i = 0; i < CVA6Cfg.NrPMPEntries; i++) begin
+        pmpaddr_mask_q[i] <= pmp_napot_mask(CVA6Cfg.PMPAddrRstVal[i][CVA6Cfg.PLEN-3:0]);
+      end
+    end else begin
+      for (int i = 0; i < CVA6Cfg.NrPMPEntries; i++) begin
+        pmpaddr_mask_q[i] <= pmp_napot_mask(pmpaddr_next[i]);
+      end
+    end
+  end
+  assign pmpaddr_mask_o = pmpaddr_mask_q;
 
   riscv::fcsr_t fcsr_q, fcsr_d;
   jvt_t jvt_q, jvt_d;
