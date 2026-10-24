@@ -38,7 +38,11 @@ module pmp_data_if
     input logic ld_st_v_i,
     // PMP
     input riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg_i,
-    input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_i
+    input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr_i,
+    // The entries' NAPOT masks, decoded by csr_regfile as pmpaddr is written:
+    // the fetch and data checks compare under them, which keeps the decoding
+    // (a count of trailing ones, a shift) off the fetch and load paths
+    input logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask_i
 );
   // virtual address causing the exception
   logic [CVA6Cfg.XLEN-1:0] fetch_vaddr_xlen, lsu_vaddr_xlen;
@@ -105,7 +109,8 @@ module pmp_data_if
 
   // Instruction fetch
   pmp #(
-      .CVA6Cfg(CVA6Cfg)
+      .CVA6Cfg        (CVA6Cfg),
+      .PrecomputedMask(1'b1)
   ) i_pmp_if (
       .addr_i       (icache_areq_i.fetch_paddr),
       .priv_lvl_i   (priv_lvl_i),
@@ -114,6 +119,7 @@ module pmp_data_if
       // Configuration
       .conf_addr_i  (pmpaddr_i),
       .conf_i       (pmpcfg_i),
+      .conf_mask_i  (pmpaddr_mask_i),
       .allow_o      (pmp_if_allow)
   );
 
@@ -160,7 +166,8 @@ module pmp_data_if
 
   // Load/store PMP check
   pmp #(
-      .CVA6Cfg(CVA6Cfg)
+      .CVA6Cfg        (CVA6Cfg),
+      .PrecomputedMask(1'b1)
   ) i_pmp_data (
       .addr_i       (lsu_paddr_i),
       .priv_lvl_i   (ld_st_priv_lvl_i),
@@ -168,6 +175,7 @@ module pmp_data_if
       // Configuration
       .conf_addr_i  (pmpaddr_i),
       .conf_i       (pmpcfg_i),
+      .conf_mask_i  (pmpaddr_mask_i),
       .allow_o      (data_allow_o)
   );
 

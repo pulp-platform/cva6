@@ -87,6 +87,10 @@ sources:
         files:
           - core/include/cv64a6_splus_config_pkg.sv
 
+      - target: cv64a6_splusplus
+        files:
+          - core/include/cv64a6_splusplus_config_pkg.sv
+
       - target: cv32a6_imac_sv0
         files:
           - core/include/cv32a6_imac_sv0_config_pkg.sv
@@ -126,7 +130,7 @@ sources:
           - core/cva6_clic_controller.sv
 
       # MMU
-      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdc_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdch_sv39_wb, cv64a6_imafdchsclic_sv39, cv64a6_imafdchsclic_sv39_wb, cv64a6_imafdchsclic_sv39_hpdcache_wb, cv64a6_imafdchxhclic_sv39_wb, cv64a6_imafdchxhclic_sv39_hpdcache_wb, cv64a6_splus, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32)
+      - target: any(cv64a6_imafdcv_sv39, cv64a6_imafdc_sv39, cv64a6_imafdc_sv39_wb, cv64a6_imafdch_sv39, cv64a6_imafdc_sv39_hpdcache, cv64a6_imafdc_sv39_hpdcache_wb, cv64a6_imafdch_sv39_wb, cv64a6_imafdchsclic_sv39, cv64a6_imafdchsclic_sv39_wb, cv64a6_imafdchsclic_sv39_hpdcache_wb, cv64a6_imafdchxhclic_sv39_wb, cv64a6_imafdchxhclic_sv39_hpdcache_wb, cv64a6_splus, cv64a6_splusplus, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32)
         files:
           - core/cva6_mmu/cva6_tlb.sv
           - core/cva6_mmu/cva6_shared_tlb.sv
@@ -314,11 +318,19 @@ sources:
           - test/hw/cva6tb_axi_sim_mem.sv
           - test/hw/cva6tb_soc.sv
 
+      - target: any(tracer, perf)
+        files:
+          # RVFI generation, consumed by both the tracer and the cycle accounting
+          - core/cva6_rvfi.sv
+
       - target: tracer
         files:
-          # RVFI generation and the instruction tracer that consumes it
-          - core/cva6_rvfi.sv
           - test/hw/tracer/cva6tb_tracer.sv
+
+      - target: perf
+        files:
+          # The cycle accounting of benchmarks, which consumes RVFI
+          - test/hw/cva6tb_perf.sv
 
       - target: all(cva6tb, test_simple)
         files:
