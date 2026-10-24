@@ -73,6 +73,9 @@ PERF          ?= 0
 NETLIST        ?=
 NETLIST_MODELS ?=
 NETLIST_VOPT   ?=
+# QuestaSim: an SDF of NETLIST, whose typical delays the netlist then simulates
+# with; empty simulates it without delays
+SDF            ?=
 ASIC_TOP       ?= $(if $(NETLIST),1,0)
 # The clock period [ps]; empty keeps the testbench's 1000
 CLK_PERIOD_PS  ?=
@@ -244,7 +247,21 @@ VSIM_FLAGS :=
 # in this library alone proves the netlist complete, so every module of the
 # core comes from the netlist or the models.
 ifneq ($(NETLIST),)
-VOPT_FLAGS += -L gate +nospecify +notimingchecks $(if $(NETLIST_VOPT),-f $(abspath $(NETLIST_VOPT))) -G/test/i_dut/CoreRstDelayPs=1
+VOPT_FLAGS += -L gate +notimingchecks $(if $(NETLIST_VOPT),-f $(abspath $(NETLIST_VOPT))) -G/test/i_dut/CoreRstDelayPs=1
+# With an SDF, cells and wires take its typical delays; each interconnect delay
+# applies at its load pin, and as every net of a netlist has a single driver,
+# each load keeps its own delay. The SDF's timing checks have no counterpart
+# in the simulation (vsim-SDF-3262, -12090), and neither have the interconnects
+# between two ports of the netlist's top (feedthroughs, vsim-SDF-3259), whose
+# delay is the SoC's at the core's ports. The SoC changes the core's inputs
+# at mid-cycle, after the clock edge has reached its flip-flops through the
+# clock tree.
+ifneq ($(SDF),)
+VOPT_FLAGS += -sdftyp /test/i_dut/i_cva6=$(abspath $(SDF)) -suppress 3259,3262,12090 -G/test/i_dut/TAppl=0.5
+VSIM_FLAGS += -suppress 3259,3262,12090
+else
+VOPT_FLAGS += +nospecify
+endif
 endif
 # Netlists and activity files count time in ps
 ifneq ($(NETLIST)$(filter 1,$(SAIF)),)
