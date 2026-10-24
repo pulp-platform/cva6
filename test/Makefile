@@ -66,11 +66,13 @@ PERF          ?= 0
 # The core: 0 the RTL core, 1 the ASIC flow's implementation wrapper
 # (asic/src/cva6_asic_top.sv), which has neither RVFI nor the performance
 # probes. On QuestaSim, NETLIST gives a netlist of it instead of its RTL,
-# simulated without delays, and NETLIST_MODELS the script that compiles the
-# technology's simulation models of the netlist into the library `gate` (the
+# simulated without delays, NETLIST_MODELS the script that compiles the
+# technology's simulation models of the netlist into the library `gate`, and
+# NETLIST_VOPT a file of further vopt arguments the models need, if any (the
 # ASIC flow runs this: make -C asic sim).
 NETLIST        ?=
 NETLIST_MODELS ?=
+NETLIST_VOPT   ?=
 ASIC_TOP       ?= $(if $(NETLIST),1,0)
 # The clock period [ps]; empty keeps the testbench's 1000
 CLK_PERIOD_PS  ?=
@@ -242,7 +244,7 @@ VSIM_FLAGS :=
 # in this library alone proves the netlist complete, so every module of the
 # core comes from the netlist or the models.
 ifneq ($(NETLIST),)
-VOPT_FLAGS += -L gate +nospecify +notimingchecks
+VOPT_FLAGS += -L gate +nospecify +notimingchecks $(if $(NETLIST_VOPT),-f $(abspath $(NETLIST_VOPT))) -G/test/i_dut/CoreRstDelayPs=1
 endif
 # Netlists and activity files count time in ps
 ifneq ($(NETLIST)$(filter 1,$(SAIF)),)

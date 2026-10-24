@@ -244,8 +244,9 @@ spef:
 # Simulation of cva6_asic_top in test/'s testbench with QuestaSim (test/,
 # ASIC_TOP=1): the RTL top, or a netlist of it (ASIC_SIM_NETLIST) with the
 # technology's simulation models, compiled into the library `gate` by a script
-# its makefile writes (<tech>-sim-models writes $(ASIC_SIM_DIR)/models.tcl),
-# without delays. It runs in test/'s Python environment, as test/ does, and
+# its makefile writes (<tech>-sim-models writes $(ASIC_SIM_DIR)/models.tcl,
+# and the further vopt arguments the models need, ASIC_TECH_SIM_VOPT), without
+# delays. It runs in test/'s Python environment, as test/ does, and
 # QUESTA, as in test/, selects QuestaSim. Each run builds the simulation
 # afresh in ASIC_SIM_DIR, whose sim.log ends with the testbench's verdict,
 # **SIMULATION PASSED** or **SIMULATION FAILED**.
@@ -276,7 +277,7 @@ sim: $(if $(ASIC_SIM_NETLIST),$(ASIC_TECH)-sim-models)
 	@echo "================================================================="
 	$(MAKE) -C $(CVA6_ROOT)/test vsim-build vsim-run CVA6_CONFIG=$(CVA6_CONFIG) ZERO_SIM_MEM=1 \
 	  ASIC_TOP=1 NETLIST=$(if $(ASIC_SIM_NETLIST),$(abspath $(ASIC_SIM_NETLIST))) \
-	  NETLIST_MODELS=$(ASIC_SIM_DIR)/models.tcl VSIM_BUILD_DIR=$(ASIC_SIM_DIR) \
+	  NETLIST_MODELS=$(ASIC_SIM_DIR)/models.tcl NETLIST_VOPT=$(ASIC_TECH_SIM_VOPT) VSIM_BUILD_DIR=$(ASIC_SIM_DIR) \
 	  CLK_PERIOD_PS=$(ASIC_SIM_CLK_PERIOD) SAIF=$(ASIC_SIM_SAIF) HEXFILE=$(abspath $(ASIC_SIM_BINARY)) \
 	  MAX_CYCLES=$(ASIC_SIM_MAX_CYCLES) SIM_ARGS="$(ASIC_SIM_ARGS)" 2>&1 | tee $(ASIC_SIM_DIR)/sim.log
 
@@ -288,7 +289,7 @@ sim: $(if $(ASIC_SIM_NETLIST),$(ASIC_TECH)-sim-models)
 # GF22_COMMIT. gf22-init clones it, and does nothing to a clone that is already
 # there; gf22-update moves a clone to GF22_COMMIT, unless it has local changes.
 GF22_REMOTE ?= git@iis-git.ee.ethz.ch:ezelioli/cva6-gf22.git
-GF22_COMMIT ?= c522e0b60aca76b75193e2b6590c1b4163f7f3df
+GF22_COMMIT ?= 044f94207d3d974f01fb8ff508372d92a9ce483a
 GF22_CLONE  := $(ASIC_DIR)/gf22
 
 .PHONY: gf22-init gf22-update
@@ -314,6 +315,7 @@ ASIC_TECH_DIRTY    = $(GF22_DIRTY)
 ASIC_TECH_MEM_CUTS = $(GF22_MEM_CUTS)
 ASIC_TECH_FP_W     = $(GF22_FP_W)
 ASIC_TECH_FP_H     = $(GF22_FP_H)
+ASIC_TECH_SIM_VOPT = $(GF22_SIM_VOPT)
 endif
 ifneq ($(GF22_REV),$(GF22_COMMIT))
 $(info NOTE: $(GF22_CLONE) is at $(GF22_REV), not at GF22_COMMIT $(GF22_COMMIT))

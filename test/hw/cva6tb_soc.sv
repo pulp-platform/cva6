@@ -17,7 +17,12 @@ module cva6tb_soc
   /// fraction of the clock period after the clock edge: after the edge has
   /// reached the core's flip-flops through its clock tree in a simulation with
   /// delays
-  parameter real         TAppl       = 0.1
+  parameter real         TAppl       = 0.1,
+  /// When the reset reaches the ASIC implementation of the core after the SoC
+  /// [ps]: a netlist's flip-flops take their asynchronous reset or set when it
+  /// changes, so for a netlist it changes after the simulator has given them
+  /// their initial values at time 0 (test/Makefile sets 1 with NETLIST)
+  parameter int unsigned CoreRstDelayPs = 0
 ) (
   input  logic                      clk_i,
   input  logic                      rst_ni,
@@ -221,7 +226,7 @@ module cva6tb_soc
   // same structs. A netlist's flip-flops change their outputs in the time step
   // of the clock edge, so the core's outputs reach the SoC 1 ps later, after the
   // SoC's flip-flops have sampled them; the SoC's outputs reach the core TAppl
-  // of the period after the edge.
+  // of the period after the edge, and the reset CoreRstDelayPs after the SoC.
   localparam realtime ApplDelay = TAppl * ClkPeriodPs * 1ps;
 
   if ($bits(axi_mst_req_t) != $bits(cva6_asic_pkg::noc_req_t) ||
@@ -229,6 +234,7 @@ module cva6tb_soc
     $error("cva6_asic_top's AXI port differs from the testbench SoC's");
   end
 
+  logic                            core_rst_n;
   logic [$bits(axi_mst_req_t)-1:0] core_req;
   logic [$bits(axi_mst_rsp_t)-1:0] core_rsp;
   logic                      [1:0] core_irq;
@@ -240,6 +246,11 @@ module cva6tb_soc
   logic                      [1:0] core_clic_irq_priv;
   logic                      [5:0] core_clic_irq_vsid;
 
+  if (CoreRstDelayPs > 0) begin : gen_core_rst_delay
+    assign #(CoreRstDelayPs * 1ps) core_rst_n = rst_n;
+  end else begin : gen_core_rst
+    assign core_rst_n = rst_n;
+  end
   assign #1ps axi_core_req      = core_req;
   assign #1ps clic_irq_ready    = core_clic_irq_ready;
   assign #1ps clic_irq_kill_ack = core_clic_irq_kill_ack;
@@ -259,7 +270,7 @@ module cva6tb_soc
 
   cva6_asic_top i_cva6 (
     .clk_i               ( clk                      ),
-    .rst_ni              ( rst_n                    ),
+    .rst_ni              ( core_rst_n               ),
     .boot_addr_i         ( {32'h0, BootromBaseAddr} ),
     .clic_irq_valid_i    ( core_clic_irq_valid      ),
     .clic_irq_id_i       ( core_clic_irq_id         ),
