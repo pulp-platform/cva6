@@ -138,7 +138,9 @@ Parameters, types and the address map live in [hw/cva6tb_pkg.sv](hw/cva6tb_pkg.s
   read-only boot mode; offset `0x4` is the EOC register: bit 0 signals end of computation,
   bits 31:1 carry the return code. Offset `0x8` drives the core's external interrupt lines,
   ORed with the PLIC's: bit 0 the M-mode one, bit 1 the S-mode one, so a test can raise and
-  lower them directly.
+  lower them directly. Offset `0xc` is the workload phase marker: a program writes a phase's
+  number while it runs and 0 after it (the benchmarks mark their measured region), and the
+  testbench windows its measurements on it.
 - **[cva6tb_sim_console.sv](hw/cva6tb_sim_console.sv)** — byte-write character sink. Writes
   are buffered and flushed to stdout as `[CON]` lines on newline.
 - **[cva6tb_rtc_timer.sv](hw/cva6tb_rtc_timer.sv)** — RTC-driven 64-bit counter with a compare
