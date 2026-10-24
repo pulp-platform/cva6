@@ -111,6 +111,7 @@ as without CLIC.
 | `cv64a6_imafdch_sv39_wb` | write-back | H, B |
 | `cv64a6_imafdc_sv39_hpdcache_wb` | HPDcache | B, Zkn, Zicbom |
 | `cv64a6_splus` | HPDcache | as above, with superscalar issue |
+| `cv64a6_splusplus` | HPDcache | as `cv64a6_splus` |
 | `cv64a6_imafdchxhclic_sv39_wb` | write-back | H, CLIC, virtual CLIC |
 | `cv64a6_imafdchxhclic_sv39_hpdcache_wb` | HPDcache | as above, with Zicbom |
 | `cv64a6_imafdchsclic_sv39_wb` | write-back | H, CLIC |
@@ -119,7 +120,8 @@ as without CLIC.
 Configurations no probe can tell apart share one description. `cv64a6_splus` differs from
 `cv64a6_imafdc_sv39_hpdcache_wb` only in superscalar issue, so its `config.yaml` and `sail.json`
 are links to that configuration's and the two get byte-identical tests: any difference in their
-results points at the superscalar pipeline. Likewise `cv64a6_imafdchsclic_sv39_wb` links to
+results points at the superscalar pipeline. `cv64a6_splusplus` links to the same description: it
+differs from `cv64a6_splus` only in pipeline and predictor sizes. Likewise `cv64a6_imafdchsclic_sv39_wb` links to
 `cv64a6_imafdchxhclic_sv39_wb`, and `cv64a6_imafdchxhclic_sv39_hpdcache_wb` to
 `cv64a6_imafdchsclic_sv39_hpdcache_wb`: each pair differs only in the virtual CLIC, which is not
 visible in any standard CSR.

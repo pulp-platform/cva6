@@ -14,6 +14,7 @@
 
 `include "rvfi_types.svh"
 `include "cvxif_types.svh"
+`include "perf_types.svh"
 
 module cva6
   import ariane_pkg::*;
@@ -30,6 +31,9 @@ module cva6
       rvfi_probes_csr_t   csr;
       rvfi_probes_instr_t instr;
     },
+
+    // PERFORMANCE PROBES
+    parameter type perf_probes_t = `PERF_PROBES_T(CVA6Cfg),
 
     // branchpredict scoreboard entry
     // this is the struct which we will inject into the pipeline to guide the various
@@ -351,6 +355,8 @@ module cva6
     output logic clic_kill_ack_o,  // kill acknowledge
     // Probes to build RVFI, can be left open when not used - RVFI
     output rvfi_probes_t rvfi_probes_o,
+    // Probes for performance analysis, can be left open when not used - PERF
+    output perf_probes_t perf_probes_o,
     // CVXIF request - SUBSYSTEM
     output cvxif_req_t cvxif_req_o,
     // CVXIF response - SUBSYSTEM
@@ -629,6 +635,7 @@ module cva6
   logic single_step_csr_commit;
   riscv::pmpcfg_t [avoid_neg(CVA6Cfg.NrPMPEntries-1):0] pmpcfg;
   logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-3:0] pmpaddr;
+  logic [avoid_neg(CVA6Cfg.NrPMPEntries-1):0][CVA6Cfg.PLEN-1:0] pmpaddr_mask;
   logic [31:0] mcountinhibit_csr_perf;
   //jvt
   jvt_t jvt;
@@ -663,6 +670,10 @@ module cva6
   logic icache_miss_cache_perf;
   logic [NumPorts-1:0][CVA6Cfg.DCACHE_SET_ASSOC-1:0] miss_vld_bits;
   logic stall_issue;
+  // Performance probes
+  logic [CVA6Cfg.NrIssuePorts-1:0] perf_issue_valid, perf_fu_busy, perf_raw, perf_raw_in_group;
+  logic [CVA6Cfg.NrIssuePorts-1:0] perf_fu_busy_in_group;
+  fu_t [CVA6Cfg.NrIssuePorts-1:0] perf_fu, perf_raw_fu;
   // --------------
   // CTRL <-> *
   // --------------
@@ -1010,22 +1021,48 @@ module cva6
       .x_we_i                  (x_we_ex_id),
       .x_rd_i                  (x_rd_ex_id),
 
-      .waddr_i              (waddr_commit_id),
-      .wdata_i              (wdata_commit_id),
-      .we_gpr_i             (we_gpr_commit_id),
-      .we_fpr_i             (we_fpr_commit_id),
-      .commit_instr_o       (commit_instr_id_commit),
-      .commit_drop_o        (commit_drop_id_commit),
-      .commit_ack_i         (commit_ack_commit_id),
+      .waddr_i                (waddr_commit_id),
+      .wdata_i                (wdata_commit_id),
+      .we_gpr_i               (we_gpr_commit_id),
+      .we_fpr_i               (we_fpr_commit_id),
+      .commit_instr_o         (commit_instr_id_commit),
+      .commit_drop_o          (commit_drop_id_commit),
+      .commit_ack_i           (commit_ack_commit_id),
       // Performance Counters
-      .stall_issue_o        (stall_issue),
+      .stall_issue_o          (stall_issue),
       //RVFI
-      .rvfi_issue_pointer_o (rvfi_issue_pointer),
-      .rvfi_commit_pointer_o(rvfi_commit_pointer),
-      .rvfi_rs1_o           (rvfi_rs1),
-      .rvfi_rs2_o           (rvfi_rs2),
-      .orig_instr_aes_bits  (orig_instr_aes)
+      .rvfi_issue_pointer_o   (rvfi_issue_pointer),
+      .rvfi_commit_pointer_o  (rvfi_commit_pointer),
+      .rvfi_rs1_o             (rvfi_rs1),
+      .rvfi_rs2_o             (rvfi_rs2),
+      // Performance probes
+      .perf_issue_valid_o     (perf_issue_valid),
+      .perf_fu_o              (perf_fu),
+      .perf_fu_busy_o         (perf_fu_busy),
+      .perf_raw_o             (perf_raw),
+      .perf_raw_in_group_o    (perf_raw_in_group),
+      .perf_raw_fu_o          (perf_raw_fu),
+      .perf_fu_busy_in_group_o(perf_fu_busy_in_group),
+      .orig_instr_aes_bits    (orig_instr_aes)
   );
+
+  assign perf_probes_o = '{
+          decoded_valid: issue_entry_valid_id_issue,
+          issue_valid: perf_issue_valid,
+          issued: issue_instr_issue_id,
+          fu: perf_fu,
+          fu_busy: perf_fu_busy,
+          raw: perf_raw,
+          raw_in_group: perf_raw_in_group,
+          raw_fu: perf_raw_fu,
+          fu_busy_in_group: perf_fu_busy_in_group,
+          issue_stall: stall_acc_id,
+          flush_frontend: flush_ctrl_if,
+          mispredict: resolved_branch.valid && resolved_branch.is_mispredict,
+          icache_miss: icache_miss_cache_perf,
+          icache_valid: icache_dreq_cache_if.valid,
+          dcache_miss: dcache_miss_cache_perf
+      };
 
   // ---------
   // EX
@@ -1174,6 +1211,7 @@ module cva6
       // PMP
       .pmpcfg_i                     (pmpcfg),
       .pmpaddr_i                    (pmpaddr),
+      .pmpaddr_mask_i               (pmpaddr_mask),
       //RVFI
       .rvfi_lsu_ctrl_o              (rvfi_lsu_ctrl),
       .rvfi_mem_paddr_o             (rvfi_mem_paddr),
@@ -1356,6 +1394,7 @@ module cva6
       .perf_we_o                          (we_csr_perf),
       .pmpcfg_o                           (pmpcfg),
       .pmpaddr_o                          (pmpaddr),
+      .pmpaddr_mask_o                     (pmpaddr_mask),
       .mcountinhibit_o                    (mcountinhibit_csr_perf),
       .mcbie_o                            (mcbie),
       .scbie_o                            (scbie),
