@@ -136,6 +136,7 @@ module cva6_asic_top
     .clic_kill_req_i  ( clic_irq_kill_req_i     ),
     .clic_kill_ack_o  ( clic_irq_kill_ack_o     ),
     .rvfi_probes_o    ( /* Not connected */     ),
+    .perf_probes_o    ( /* Not connected */     ),
     .cvxif_req_o      ( /* Not connected */     ),
     .cvxif_resp_i     ( '0                      ),
     .noc_req_o        ( noc_req_o               ),
