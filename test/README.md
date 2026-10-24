@@ -92,6 +92,10 @@ make verilator-build CVA6_CONFIG=cv64a6_imafdchxhclic_sv39_wb
 | `TRACER` | `0` | Build in the [instruction tracer](hw/tracer/) (`1` also elaborates `cva6_rvfi`) |
 | `LEGACY_TRACE` | `0` | Re-enable CVA6's own built-in tracing (`instr_tracer` under vsim, a `.dasm` dump under Verilator) |
 | `PERF` | `0` | Build in the [cycle accounting](sw/bench/) of benchmarks (`1` also elaborates `cva6_rvfi`) |
+| `ASIC_TOP` | `0` (`1` with `NETLIST`) | `1`: the core is the ASIC flow's implementation wrapper, `cva6_asic_top` (see below) |
+| `NETLIST`, `NETLIST_MODELS` | empty | QuestaSim: a netlist of `cva6_asic_top` and the script compiling the technology's models of it into the library `gate` |
+| `CLK_PERIOD_PS` | empty (1000) | Clock period in ps |
+| `SAIF` | `0` | QuestaSim: `1` records the core's switching activity in each workload phase into `saif/` of the build directory |
 | `BENCH_CHECK_SET` | `full` | Benchmarks `make bench-check` runs: `full` or `quick` (see [sw/bench/](sw/bench/)) |
 | `BENCH_CHECK_STRICT` | `1` | `0`: `make bench-check` reports changed cycles instead of failing |
 | `WAVES` | `0` | Compile in waveform support; then `+fst` at run time actually dumps |
@@ -115,6 +119,18 @@ set with `+MemDelay`) to emulate realistic latency. Accesses to the uncached DRA
 `0x4000_0000` are remapped onto the cached region before reaching the memory model.
 
 Parameters, types and the address map live in [hw/cva6tb_pkg.sv](hw/cva6tb_pkg.sv).
+
+### The ASIC implementation of the core
+
+With `ASIC_TOP=1` the SoC instantiates the ASIC flow's implementation wrapper,
+[../asic/src/cva6_asic_top.sv](../asic/src/cva6_asic_top.sv), in place of the RTL core; it
+has neither RVFI nor the performance probes, so `TRACER` and `PERF` stay off. On QuestaSim,
+`NETLIST` gives a netlist of it, simulated without delays, with the technology's models
+(`NETLIST_MODELS`); the ASIC flow sets these up for its runs (`make -C asic sim`, see
+[../asic/README.md](../asic/README.md)). The wrapper and the testbench build the same
+configuration (`hw/cva6tb_cfg_pkg.sv`), so an implemented core runs the testbench's programs.
+`SAIF=1` records the core's switching activity in each workload phase a program marks
+(`vsim/saif.tcl`).
 
 ### Address map
 
