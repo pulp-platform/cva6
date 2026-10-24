@@ -307,6 +307,12 @@ sources:
           - core/include/instr_tracer_pkg.sv
           - common/local/util/instr_tracer.sv
 
+      - target: any(cva6tb, cva6_asic)
+        files:
+          # The configuration of CVA6 in the testbench SoC, which the ASIC
+          # implementation takes too
+          - test/hw/cva6tb_cfg_pkg.sv
+
       - target: cva6tb
         files:
           - test/hw/cva6tb_pkg.sv
