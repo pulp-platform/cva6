@@ -254,10 +254,12 @@ VOPT_FLAGS += -L gate +notimingchecks $(if $(NETLIST_VOPT),-f $(abspath $(NETLIS
 # in the simulation (vsim-SDF-3262, -12090), and neither have the interconnects
 # between two ports of the netlist's top (feedthroughs, vsim-SDF-3259), whose
 # delay is the SoC's at the core's ports. The SoC changes the core's inputs
-# at mid-cycle, after the clock edge has reached its flip-flops through the
-# clock tree.
+# at 0.3 of the period (TAppl): after the clock edge has reached the core's
+# flip-flops through its clock tree at the typical corner, and early enough for
+# the input paths, which the constraints time from the start of the period at
+# the slow corner, to meet setup.
 ifneq ($(SDF),)
-VOPT_FLAGS += -sdftyp /test/i_dut/i_cva6=$(abspath $(SDF)) -suppress 3259,3262,12090 -G/test/i_dut/TAppl=0.5
+VOPT_FLAGS += -sdftyp /test/i_dut/i_cva6=$(abspath $(SDF)) -suppress 3259,3262,12090 -G/test/i_dut/TAppl=0.3
 VSIM_FLAGS += -suppress 3259,3262,12090
 else
 VOPT_FLAGS += +nospecify
