@@ -73,7 +73,8 @@ module cvxif_fu
     // Hypervisor exception fields
     x_exception_o.tval2 = {CVA6Cfg.GPLEN{1'b0}};
     x_exception_o.tinst = '0;
-    x_exception_o.gva   = 1'b0;
+    x_exception_o.gva = 1'b0;
+    x_exception_o.timing = 1'b0;
   end
 
 endmodule
