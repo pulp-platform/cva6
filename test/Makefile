@@ -63,6 +63,25 @@ TRACE_SYMBOLS ?= $(if $(filter legacy,$(TRACE_FORMAT)),, \
                               $(TEST_DIR)/hw/bootrom/cva6tb_bootrom.elf))
 # Cycle accounting of benchmarks (RVFI and the performance probes)
 PERF          ?= 0
+# The core: 0 the RTL core, 1 the ASIC flow's implementation wrapper
+# (asic/src/cva6_asic_top.sv), which has neither RVFI nor the performance
+# probes. On QuestaSim, NETLIST gives a netlist of it instead of its RTL,
+# simulated without delays, NETLIST_MODELS the script that compiles the
+# technology's simulation models of the netlist into the library `gate`, and
+# NETLIST_VOPT a file of further vopt arguments the models need, if any (the
+# ASIC flow runs this: make -C asic sim).
+NETLIST        ?=
+NETLIST_MODELS ?=
+NETLIST_VOPT   ?=
+# QuestaSim: an SDF of NETLIST, whose typical delays the netlist then simulates
+# with; empty simulates it without delays
+SDF            ?=
+ASIC_TOP       ?= $(if $(NETLIST),1,0)
+# The clock period [ps]; empty keeps the testbench's 1000
+CLK_PERIOD_PS  ?=
+# QuestaSim: 1 records the core's switching activity in each workload phase a
+# program marks (SAIF, vsim/saif.tcl), into saif/ of the build directory
+SAIF           ?= 0
 
 # Goals that must work without a resolved dependency tree.
 NODEPS_GOALS := info default %clean bench-check bench-check-update
@@ -130,6 +149,16 @@ endif
 
 ifeq ($(PERF),1)
 BENDER_FLAGS += -t perf
+endif
+
+ifeq ($(ASIC_TOP),1)
+ifneq ($(filter 1,$(TRACER) $(PERF)),)
+$(error TRACER and PERF need RVFI, which the ASIC implementation wrapper has not (ASIC_TOP=1))
+endif
+BENDER_FLAGS += -t cva6_asic
+endif
+ifneq ($(and $(NETLIST),$(filter-out 1,$(ASIC_TOP))),)
+$(error NETLIST is a netlist of the ASIC implementation wrapper: it needs ASIC_TOP=1)
 endif
 
 ##################################
@@ -200,7 +229,7 @@ bootrom-clean:
 ########## QuestaSim #############
 ##################################
 
-VSIM_BUILD_DIR := $(VSIM_DIR)/build
+VSIM_BUILD_DIR ?= $(VSIM_DIR)/build
 
 # C++ compiler path
 # Caution: Questasim requires this to point to the *actual* compiler install path
@@ -212,8 +241,47 @@ VLOG_FLAGS := -timescale 1ns/1ps -suppress 13314 -suppress 2583
 VOPT_FLAGS := -suppress 3009 -suppress 8386 -suppress 7061 -error 7 -cpppath $(CXX_PATH)
 VSIM_FLAGS :=
 
+# A netlist and the technology's models form their own library, `gate`. The
+# RTL top leaves `work`, so the core binds to the netlist, and every module
+# below it binds within `gate`, its own library. Elaborating the netlist's top
+# in this library alone proves the netlist complete, so every module of the
+# core comes from the netlist or the models.
+ifneq ($(NETLIST),)
+VOPT_FLAGS += -L gate +notimingchecks $(if $(NETLIST_VOPT),-f $(abspath $(NETLIST_VOPT))) -G/test/i_dut/CoreRstDelayPs=1
+# With an SDF, cells and wires take its typical delays; each interconnect delay
+# applies at its load pin, and as every net of a netlist has a single driver,
+# each load keeps its own delay. The SDF's timing checks have no counterpart
+# in the simulation (vsim-SDF-3262, -12090), and neither have the interconnects
+# between two ports of the netlist's top (feedthroughs, vsim-SDF-3259), whose
+# delay is the SoC's at the core's ports. The SoC changes the core's inputs
+# at 0.3 of the period (TAppl): after the clock edge has reached the core's
+# flip-flops through its clock tree at the typical corner, and early enough for
+# the input paths, which the constraints time from the start of the period at
+# the slow corner, to meet setup.
+ifneq ($(SDF),)
+VOPT_FLAGS += -sdftyp /test/i_dut/i_cva6=$(abspath $(SDF)) -suppress 3259,3262,12090 -G/test/i_dut/TAppl=0.3
+VSIM_FLAGS += -suppress 3259,3262,12090
+else
+VOPT_FLAGS += +nospecify
+endif
+endif
+# Netlists and activity files count time in ps
+ifneq ($(NETLIST)$(filter 1,$(SAIF)),)
+VSIM_FLAGS += -t 1ps
+endif
+ifneq ($(CLK_PERIOD_PS),)
+VOPT_FLAGS += -G/test/ClkPeriodPs=$(CLK_PERIOD_PS)
+endif
+# Activity recording reads every net of the core and the testbench's marker
+ifeq ($(SAIF),1)
+VOPT_FLAGS += +acc=npr+$(if $(filter 1,$(ASIC_TOP)),cva6_asic_top,cva6). +acc=r+cva6tb_soc
+VSIM_DO    := source $(VSIM_DIR)/saif.tcl; run -all; quit
+else
+VSIM_DO    := run -all; quit
+endif
+
 ifeq ($(DEBUG),0)
-VSIM_FLAGS += -c -do "run -all; quit"
+VSIM_FLAGS += -c -do "$(VSIM_DO)"
 else
 VOPT_FLAGS += +acc
 VSIM_FLAGS += -wlf cva6tb.wlf -do "log -r /*; run -all"
@@ -229,6 +297,14 @@ ifneq ($(CVA6_CONFIG_PKG),)
 endif
 ifeq ($(TRACER),1)
 	@echo 'vlog -ccflags "-std=c++17 -O2" $(TRACER_SRC)' >> $@
+endif
+ifneq ($(NETLIST),)
+	@echo 'vdel -lib work cva6_asic_top' >> $@
+	@echo 'if {[file isdirectory gate]} {file delete -force gate}' >> $@
+	@echo 'vlib gate' >> $@
+	@echo 'source $(abspath $(NETLIST_MODELS))' >> $@
+	@echo 'vlog -work gate -timescale 1ps/1ps $(abspath $(NETLIST))' >> $@
+	@echo 'vopt -work gate cva6_asic_top -o cva6_asic_top_check' >> $@
 endif
 	@echo 'vopt $(VOPT_FLAGS) test -o test_opt' >> $@
 
@@ -277,7 +353,8 @@ VERILATOR_LOG_DIR   := $(VERILATOR_DIR)/logs
 VERILATOR_FLIST     := $(VERILATOR_DIR)/cva6tb.flist
 VERILATOR_WARNINGS  := -Wall -Wno-fatal -Wno-style -Wno-BLKANDNBLK -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-WIDTHCONCAT -Wno-ASCRANGE -Wno-IMPLICITSTATIC
 VERILATOR_FLAGS     := --binary -j $(VERILATOR_JOBS) --Mdir $(VERILATOR_BUILD_DIR) $(VERILATOR_WARNINGS) -O3 -f $(VERILATOR_FLIST) --assert --timing \
-	$(VERILATOR_TRACE) $(VERILATOR_THREADS) --x-assign fast --x-initial fast
+	$(VERILATOR_TRACE) $(VERILATOR_THREADS) --x-assign fast --x-initial fast \
+	$(if $(CLK_PERIOD_PS),-GClkPeriodPs=$(CLK_PERIOD_PS))
 
 ifeq ($(TRACER),1)
 VERILATOR_FLAGS += $(TRACER_SRC)

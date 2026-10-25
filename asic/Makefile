@@ -8,6 +8,8 @@
 #   synth           synthesis (synth-elab: up to its checks; synth-analyze: its file list)
 #   pnr             place and route
 #   spef            parasitics of a completed place-and-route run
+#   sim             simulation of the RTL top or a netlist in test/'s testbench
+#   power           power of a place-and-route run, with simulated activity
 # The technology flows are not open. Each lives in a repository of its own,
 # cloned into asic/<tech> at the commit pinned in its section below
 # (`make -C asic <tech>-init`); this file includes its <tech>.mk, which runs the
@@ -236,6 +238,82 @@ spef:
 	@echo "================================================================="
 	@$(MAKE) --no-print-directory $(ASIC_TECH)-spef
 
+##############
+# Simulation #
+##############
+
+# Simulation of cva6_asic_top in test/'s testbench with QuestaSim (test/,
+# ASIC_TOP=1): the RTL top, or a netlist of it (ASIC_SIM_NETLIST) with the
+# technology's simulation models, compiled into the library `gate` by a script
+# its makefile writes (<tech>-sim-models writes $(ASIC_SIM_DIR)/models.tcl,
+# and the further vopt arguments the models need, ASIC_TECH_SIM_VOPT), without
+# delays or with those of an SDF (ASIC_SIM_SDF). It runs in test/'s Python
+# environment, as test/ does, and
+# QUESTA, as in test/, selects QuestaSim. Each run builds the simulation
+# afresh in ASIC_SIM_DIR, whose sim.log ends with the testbench's verdict,
+# **SIMULATION PASSED** or **SIMULATION FAILED**.
+ASIC_SIM_DIR        ?= $(ASIC_BUILD)/sim
+ASIC_SIM_NETLIST    ?=
+# The program, a hex file of test/'s software build, and the testbench's
+# plusargs
+ASIC_SIM_BINARY     ?= $(CVA6_ROOT)/test/sw/out/hello.hex
+ASIC_SIM_MAX_CYCLES ?= 100000
+ASIC_SIM_ARGS       ?=
+# The clock period [ps]: the implemented one, so that recorded activity has its
+# toggle rates. For a netlist, that of the run that wrote it (params.json beside
+# its directory: place and route, else synthesis), else CLK_PERIOD.
+ASIC_SIM_PARAMS     := $(if $(ASIC_SIM_NETLIST),$(abspath $(dir $(ASIC_SIM_NETLIST))../params.json))
+ASIC_SIM_CLK_PERIOD ?= $(or $(shell python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(p.get("pnr_clk_period_ps", p.get("clk_period_ps", "")))' $(ASIC_SIM_PARAMS) 2>/dev/null),$(CLK_PERIOD))
+# 1: record the switching activity of each workload phase a program marks
+# (SAIF), into saif/ of ASIC_SIM_DIR (test/vsim/saif.tcl)
+ASIC_SIM_SAIF       ?= 0
+# An SDF of the netlist (place and route writes one beside its netlist): the
+# netlist then simulates with the SDF's typical delays
+ASIC_SIM_SDF        ?=
+
+.PHONY: sim
+
+sim: $(if $(ASIC_SIM_NETLIST),$(ASIC_TECH)-sim-models)
+	mkdir -p $(ASIC_SIM_DIR)
+	rm -f $(ASIC_SIM_DIR)/vsim_compile.tcl
+	@echo "================================================================="
+	@echo "SIMULATING $(if $(ASIC_SIM_NETLIST),THE NETLIST $(abspath $(ASIC_SIM_NETLIST)),THE RTL OF $(TOP_DESIGN))"
+	@echo "PROGRAM: $(abspath $(ASIC_SIM_BINARY))   CLOCK PERIOD: $(ASIC_SIM_CLK_PERIOD) ps"
+	@echo "DELAYS: $(if $(ASIC_SIM_SDF),$(abspath $(ASIC_SIM_SDF)),none)"
+	@echo "================================================================="
+	$(MAKE) -C $(CVA6_ROOT)/test vsim-build vsim-run CVA6_CONFIG=$(CVA6_CONFIG) ZERO_SIM_MEM=1 \
+	  ASIC_TOP=1 NETLIST=$(if $(ASIC_SIM_NETLIST),$(abspath $(ASIC_SIM_NETLIST))) \
+	  NETLIST_MODELS=$(ASIC_SIM_DIR)/models.tcl NETLIST_VOPT=$(ASIC_TECH_SIM_VOPT) VSIM_BUILD_DIR=$(ASIC_SIM_DIR) \
+	  SDF=$(if $(ASIC_SIM_SDF),$(abspath $(ASIC_SIM_SDF))) \
+	  CLK_PERIOD_PS=$(ASIC_SIM_CLK_PERIOD) SAIF=$(ASIC_SIM_SAIF) HEXFILE=$(abspath $(ASIC_SIM_BINARY)) \
+	  MAX_CYCLES=$(ASIC_SIM_MAX_CYCLES) SIM_ARGS="$(ASIC_SIM_ARGS)" 2>&1 | tee $(ASIC_SIM_DIR)/sim.log
+
+#########
+# Power #
+#########
+
+# Power of the place-and-route run in PNR_RUN_DIR at the technology's typical
+# corner, per hierarchy: with the tools' default activity, and with the
+# activity of each SAIF in POWER_SAIF, from simulations of the run's netlist
+# (make sim ASIC_SIM_SAIF=1, with or without its SDF), each reported under its
+# file's name. POWER_SAIF_SCOPE is the core's instance in those files. It
+# needs the run's parasitics (make spef).
+POWER_DIR        ?= $(PNR_RUN_DIR)/power
+POWER_SAIF       ?=
+POWER_SAIF_SCOPE ?= test/i_dut/i_cva6
+
+.PHONY: power
+
+power:
+	@test -d $(PNR_RUN_DIR)/save/6_finish.enc.dat || { \
+	  echo "ERROR: no saved design in $(PNR_RUN_DIR)/save"; \
+	  echo "       power needs a completed 'make -C asic pnr' run."; exit 1; }
+	@echo "================================================================="
+	@echo "POWER OF $(TOP_DESIGN)_$(TIMESTAMP)   ACTIVITY: $(or $(POWER_SAIF),the tools' default)"
+	@echo "================================================================="
+	@$(MAKE) --no-print-directory $(ASIC_TECH)-power POWER_DIR=$(abspath $(POWER_DIR)) \
+	  POWER_SAIF="$(abspath $(POWER_SAIF))" POWER_SAIF_SCOPE=$(POWER_SAIF_SCOPE)
+
 ########
 # GF22 #
 ########
@@ -244,7 +322,7 @@ spef:
 # GF22_COMMIT. gf22-init clones it, and does nothing to a clone that is already
 # there; gf22-update moves a clone to GF22_COMMIT, unless it has local changes.
 GF22_REMOTE ?= git@iis-git.ee.ethz.ch:ezelioli/cva6-gf22.git
-GF22_COMMIT ?= 65e9435c7fb5b896e8cad0feca61cd691428606f
+GF22_COMMIT ?= fad1bd51076fcd76c9383f0967880f416b3e3d51
 GF22_CLONE  := $(ASIC_DIR)/gf22
 
 .PHONY: gf22-init gf22-update
@@ -270,6 +348,7 @@ ASIC_TECH_DIRTY    = $(GF22_DIRTY)
 ASIC_TECH_MEM_CUTS = $(GF22_MEM_CUTS)
 ASIC_TECH_FP_W     = $(GF22_FP_W)
 ASIC_TECH_FP_H     = $(GF22_FP_H)
+ASIC_TECH_SIM_VOPT = $(GF22_SIM_VOPT)
 endif
 ifneq ($(GF22_REV),$(GF22_COMMIT))
 $(info NOTE: $(GF22_CLONE) is at $(GF22_REV), not at GF22_COMMIT $(GF22_COMMIT))

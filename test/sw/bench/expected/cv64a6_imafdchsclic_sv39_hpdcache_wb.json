@@ -3,10 +3,10 @@
   "config": "cv64a6_imafdchsclic_sv39_hpdcache_wb",
   "sim_args": "",
   "measured": {
-    "date": "2026-10-16T13:46:40+00:00",
+    "date": "2026-10-24T18:39:17+00:00",
     "rtl": {
-      "commit": "92471632a82074e9df1ee1b7f34c370bd10c0a03",
-      "branch": "v3/bench-suite",
+      "commit": "594e064acc27607a64246e86174cca308cc18304",
+      "branch": "HEAD",
       "dirty": false
     },
     "software": [
@@ -19,44 +19,44 @@
       "chase loads:   16384",
       "lua:           312b9efaa1061c2c4cad08554dbc1351c3270eef",
       "awfy:          74306fec151070fd07157cefeacf19e7e0bcdc89, iterations: bounce=1 deltablue=1 list=1 queens=1 sieve=1",
-      "bench sources: 626397680cbf7e06fd2b9028011e55921b9d92d9"
+      "bench sources: 594e064acc27607a64246e86174cca308cc18304"
     ]
   },
   "benchmarks": {
     "chase-16k": {
-      "cycles": 49707,
+      "cycles": 49704,
       "instret": 17164
     },
     "chase-256k": {
-      "cycles": 622449,
+      "cycles": 622484,
       "instret": 16907
     },
     "chase-64k": {
-      "cycles": 513730,
+      "cycles": 513233,
       "instret": 16907
     },
     "coremark": {
-      "cycles": 6410722,
+      "cycles": 6410725,
       "instret": 5162509
     },
     "dhrystone": {
-      "cycles": 229367,
+      "cycles": 229365,
       "instret": 195024
     },
     "em-aha-mont64": {
-      "cycles": 2139702,
+      "cycles": 2139672,
       "instret": 1568525
     },
     "em-crc32": {
-      "cycles": 4050381,
+      "cycles": 4050411,
       "instret": 3853263
     },
     "em-cubic": {
-      "cycles": 1536432,
+      "cycles": 1530690,
       "instret": 1133341
     },
     "em-edn": {
-      "cycles": 2915334,
+      "cycles": 2915332,
       "instret": 2473915
     },
     "em-huffbench": {
@@ -64,7 +64,7 @@
       "instret": 2505035
     },
     "em-matmult-int": {
-      "cycles": 2676259,
+      "cycles": 2676257,
       "instret": 2238236
     },
     "em-md5sum": {
@@ -72,51 +72,51 @@
       "instret": 1984658
     },
     "em-minver": {
-      "cycles": 454931,
+      "cycles": 454900,
       "instret": 251216
     },
     "em-nbody": {
-      "cycles": 81223,
+      "cycles": 81193,
       "instret": 21535
     },
     "em-nettle-aes": {
-      "cycles": 4739151,
+      "cycles": 4739149,
       "instret": 4667416
     },
     "em-nettle-sha256": {
-      "cycles": 4087626,
+      "cycles": 4087596,
       "instret": 3983408
     },
     "em-nsichneu": {
-      "cycles": 5063090,
+      "cycles": 5063060,
       "instret": 2250303
     },
     "em-picojpeg": {
-      "cycles": 3940008,
+      "cycles": 3939835,
       "instret": 3457057
     },
     "em-primecount": {
-      "cycles": 3562147,
+      "cycles": 3562117,
       "instret": 1991738
     },
     "em-qrduino": {
-      "cycles": 4049661,
+      "cycles": 4051889,
       "instret": 2966698
     },
     "em-sglib-combined": {
-      "cycles": 3463532,
+      "cycles": 3463533,
       "instret": 2224654
     },
     "em-slre": {
-      "cycles": 2939000,
+      "cycles": 2932370,
       "instret": 2348314
     },
     "em-st": {
-      "cycles": 136424,
+      "cycles": 136422,
       "instret": 69869
     },
     "em-statemate": {
-      "cycles": 1372615,
+      "cycles": 1372585,
       "instret": 1199056
     },
     "em-tarfind": {
@@ -124,47 +124,47 @@
       "instret": 2669420
     },
     "em-ud": {
-      "cycles": 3417340,
+      "cycles": 3417338,
       "instret": 2704798
     },
     "em-wikisort": {
-      "cycles": 1097287,
+      "cycles": 1097180,
       "instret": 882836
     },
     "lua-bounce": {
-      "cycles": 10551139,
-      "instret": 7739164
+      "cycles": 10583314,
+      "instret": 7743701
     },
     "lua-deltablue": {
-      "cycles": 3048576,
-      "instret": 1820629
+      "cycles": 3074697,
+      "instret": 1816896
     },
     "lua-list": {
-      "cycles": 7841805,
-      "instret": 5773552
+      "cycles": 8731943,
+      "instret": 6108064
     },
     "lua-queens": {
-      "cycles": 9642856,
-      "instret": 6864781
+      "cycles": 9426084,
+      "instret": 6787342
     },
     "lua-sieve": {
-      "cycles": 5032219,
+      "cycles": 5031612,
       "instret": 3231396
     },
     "rs-central": {
-      "cycles": 754974,
+      "cycles": 755004,
       "instret": 229437
     },
     "rs-gather": {
-      "cycles": 3551662,
+      "cycles": 3551659,
       "instret": 553043
     },
     "rs-scatter": {
-      "cycles": 2256026,
+      "cycles": 2255902,
       "instret": 454737
     },
     "rs-seq": {
-      "cycles": 1708894,
+      "cycles": 1708870,
       "instret": 241741
     }
   }
