@@ -18,18 +18,24 @@ set_clock_uncertainty -setup [expr {$cva6_setup_uncertainty + $ASIC_SYNTH_MARGIN
 set_clock_uncertainty -hold  [expr {double($ASIC_HOLD_UNCERTAINTY) / $ASIC_PS_PER_UNIT}] [get_clocks CVA6_CLK]
 set_clock_transition         [expr {double($ASIC_CLK_TRANSITION) / $ASIC_PS_PER_UNIT}] [get_clocks CVA6_CLK]
 
-# I/O: ASIC_IO_DELAY of the period outside the block, and ASIC_IO_MULTICYCLE
-# cycles for every I/O path. The exceptions are written from the ports, so that
-# no register is an exception end point. The hold false path takes precedence
-# on input-to-output paths.
-set cva6_inputs [asic_inputs_except [concat $ASIC_CLOCK_PORTS $ASIC_RESET_PORTS]]
+# I/O: ASIC_IO_DELAY of the period outside the block, ASIC_IO_MULTICYCLE cycles
+# for every I/O path, and ASIC_CLIC_MULTICYCLE for the paths from the CLIC's
+# interrupt request. The exceptions are written from the ports, so that no
+# register is an exception end point. The hold false paths take precedence on
+# input-to-output paths.
+set cva6_clic_inputs [get_ports $ASIC_CLIC_PORTS]
+set cva6_inputs [asic_inputs_except [concat $ASIC_CLOCK_PORTS $ASIC_RESET_PORTS $ASIC_CLIC_PORTS]]
 set_input_delay  [expr {$ASIC_IO_DELAY * $cva6_t}] -clock CVA6_CLK $cva6_inputs
+set_input_delay  [expr {$ASIC_IO_DELAY * $cva6_t}] -clock CVA6_CLK $cva6_clic_inputs
 set_output_delay [expr {$ASIC_IO_DELAY * $cva6_t}] -clock CVA6_CLK [all_outputs]
-set_multicycle_path $ASIC_IO_MULTICYCLE                -setup -to [all_outputs]
-set_multicycle_path [expr {$ASIC_IO_MULTICYCLE - 1}]   -hold  -to [all_outputs]
-set_multicycle_path $ASIC_IO_MULTICYCLE                -setup -from $cva6_inputs
-set_multicycle_path [expr {$ASIC_IO_MULTICYCLE - 1}]   -hold  -from $cva6_inputs
+set_multicycle_path $ASIC_IO_MULTICYCLE                  -setup -to [all_outputs]
+set_multicycle_path [expr {$ASIC_IO_MULTICYCLE - 1}]     -hold  -to [all_outputs]
+set_multicycle_path $ASIC_IO_MULTICYCLE                  -setup -from $cva6_inputs
+set_multicycle_path [expr {$ASIC_IO_MULTICYCLE - 1}]     -hold  -from $cva6_inputs
+set_multicycle_path $ASIC_CLIC_MULTICYCLE                -setup -from $cva6_clic_inputs
+set_multicycle_path [expr {$ASIC_CLIC_MULTICYCLE - 1}]   -hold  -from $cva6_clic_inputs
 set_false_path -hold -through $cva6_inputs -through [all_outputs]
+set_false_path -hold -through $cva6_clic_inputs -through [all_outputs]
 
 # Reset: asserted asynchronously, released within one period
 set_max_delay $cva6_t -from [get_ports $ASIC_RESET_PORTS]
