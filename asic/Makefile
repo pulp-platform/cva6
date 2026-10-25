@@ -322,7 +322,7 @@ power:
 # GF22_COMMIT. gf22-init clones it, and does nothing to a clone that is already
 # there; gf22-update moves a clone to GF22_COMMIT, unless it has local changes.
 GF22_REMOTE ?= git@iis-git.ee.ethz.ch:ezelioli/cva6-gf22.git
-GF22_COMMIT ?= fad1bd51076fcd76c9383f0967880f416b3e3d51
+GF22_COMMIT ?= 39b6fd610a1c99eb09bcc9c6ca40ee76c07768e5
 GF22_CLONE  := $(ASIC_DIR)/gf22
 
 .PHONY: gf22-init gf22-update
