@@ -9,7 +9,21 @@
 module cva6tb_soc
   import ariane_pkg::*;
   import cva6tb_pkg::*;
-(
+#(
+  /// The clock period [ps], for the delays at the ports of the ASIC
+  /// implementation of the core
+  parameter int unsigned ClkPeriodPs = 1000,
+  /// When the SoC's outputs reach the ASIC implementation of the core, as a
+  /// fraction of the clock period after the clock edge: after the edge has
+  /// reached the core's flip-flops through its clock tree in a simulation with
+  /// delays
+  parameter real         TAppl       = 0.1,
+  /// When the reset reaches the ASIC implementation of the core after the SoC
+  /// [ps]: a netlist's flip-flops take their asynchronous reset or set when it
+  /// changes, so for a netlist it changes after the simulator has given them
+  /// their initial values at time 0 (test/Makefile sets 1 with NETLIST)
+  parameter int unsigned CoreRstDelayPs = 0
+) (
   input  logic                      clk_i,
   input  logic                      rst_ni,
   input  logic                      rtc_i,
@@ -97,11 +111,29 @@ module cva6tb_soc
   logic dtlb_miss;
   logic [1:0] core_priv_lvl;
 
+`ifdef TARGET_CVA6_ASIC
+  // The ASIC implementation of the core has none of the RTL core's internal
+  // signals
+  assign l1_icache_miss = 1'b0;
+  assign l1_dcache_miss = 1'b0;
+  assign itlb_miss      = 1'b0;
+  assign dtlb_miss      = 1'b0;
+  assign core_priv_lvl  = '0;
+`else
   assign l1_icache_miss = i_cva6.icache_miss_cache_perf;
   assign l1_dcache_miss = i_cva6.dcache_miss_cache_perf;
   assign itlb_miss      = i_cva6.itlb_miss_ex_perf;
   assign dtlb_miss      = i_cva6.dtlb_miss_ex_perf;
   assign core_priv_lvl  = i_cva6.priv_lvl;
+`endif
+
+  // The workload phase marker programs write (cva6tb_regs): simulation scripts
+  // window their measurements on it, and every change is printed with its time
+  logic [31:0]                       marker;
+
+  always @(marker) begin
+    if (rst_n === 1'b1) log($sformatf("[MARKER] 0x%08h", marker));
+  end
 
   function automatic void load_sim_spm(string binary_path);
     log("Preloading AXI SPM");
@@ -213,6 +245,83 @@ module cva6tb_soc
   assign reg_hwmon_req = reg_out_reqs[RegbusHwmonId];
   assign reg_out_rsps[RegbusHwmonId] = reg_hwmon_rsp;
 
+`ifdef TARGET_CVA6_ASIC
+
+  // The ASIC implementation wrapper of the core (asic/src/cva6_asic_top.sv): its
+  // RTL, or a netlist of it (NETLIST). Its AXI port is connected as the packed
+  // vectors a netlist has; the wrapper's AXI structs and the testbench's are the
+  // same structs. A netlist's flip-flops change their outputs in the time step
+  // of the clock edge, so the core's outputs reach the SoC 1 ps later, after the
+  // SoC's flip-flops have sampled them; the SoC's outputs reach the core TAppl
+  // of the period after the edge, and the reset CoreRstDelayPs after the SoC.
+  localparam realtime ApplDelay = TAppl * ClkPeriodPs * 1ps;
+
+  if ($bits(axi_mst_req_t) != $bits(cva6_asic_pkg::noc_req_t) ||
+      $bits(axi_mst_rsp_t) != $bits(cva6_asic_pkg::noc_resp_t)) begin : gen_noc_width_check
+    $error("cva6_asic_top's AXI port differs from the testbench SoC's");
+  end
+
+  logic                            core_rst_n;
+  logic [$bits(axi_mst_req_t)-1:0] core_req;
+  logic [$bits(axi_mst_rsp_t)-1:0] core_rsp;
+  logic                      [1:0] core_irq;
+  logic                            core_ipi, core_time_irq;
+  logic                            core_clic_irq_valid, core_clic_irq_ready;
+  logic                            core_clic_irq_kill_req, core_clic_irq_kill_ack;
+  logic                            core_clic_irq_shv, core_clic_irq_v;
+  logic                      [7:0] core_clic_irq_id, core_clic_irq_level;
+  logic                      [1:0] core_clic_irq_priv;
+  logic                      [5:0] core_clic_irq_vsid;
+  logic                      [1:0] core_clic_irq_rstk;
+
+  if (CoreRstDelayPs > 0) begin : gen_core_rst_delay
+    assign #(CoreRstDelayPs * 1ps) core_rst_n = rst_n;
+  end else begin : gen_core_rst
+    assign core_rst_n = rst_n;
+  end
+  assign #1ps axi_core_req      = core_req;
+  assign #1ps clic_irq_ready    = core_clic_irq_ready;
+  assign #1ps clic_irq_kill_ack = core_clic_irq_kill_ack;
+
+  assign #(ApplDelay) core_rsp               = axi_core_rsp;
+  assign #(ApplDelay) core_irq               = xeip | sw_xeip;
+  assign #(ApplDelay) core_ipi               = msip;
+  assign #(ApplDelay) core_time_irq          = mtip;
+  assign #(ApplDelay) core_clic_irq_valid    = clic_irq_valid;
+  assign #(ApplDelay) core_clic_irq_id       = clic_irq_id;
+  assign #(ApplDelay) core_clic_irq_level    = clic_irq_level;
+  assign #(ApplDelay) core_clic_irq_priv     = clic_irq_priv;
+  assign #(ApplDelay) core_clic_irq_v        = clic_irq_v;
+  assign #(ApplDelay) core_clic_irq_vsid     = clic_irq_vsid;
+  assign #(ApplDelay) core_clic_irq_shv      = clic_irq_shv;
+  assign #(ApplDelay) core_clic_irq_kill_req = clic_irq_kill_req;
+  assign #(ApplDelay) core_clic_irq_rstk     = clic_irq_rstk;
+
+  cva6_asic_top i_cva6 (
+    .clk_i               ( clk                      ),
+    .rst_ni              ( core_rst_n               ),
+    .boot_addr_i         ( {32'h0, BootromBaseAddr} ),
+    .clic_irq_valid_i    ( core_clic_irq_valid      ),
+    .clic_irq_id_i       ( core_clic_irq_id         ),
+    .clic_irq_level_i    ( core_clic_irq_level      ),
+    .clic_irq_priv_i     ( core_clic_irq_priv       ),
+    .clic_irq_v_i        ( core_clic_irq_v          ),
+    .clic_irq_vsid_i     ( core_clic_irq_vsid       ),
+    .clic_irq_shv_i      ( core_clic_irq_shv        ),
+    .clic_irq_rstk_i     ( core_clic_irq_rstk       ),
+    .clic_irq_ready_o    ( core_clic_irq_ready      ),
+    .clic_irq_kill_req_i ( core_clic_irq_kill_req   ),
+    .clic_irq_kill_ack_o ( core_clic_irq_kill_ack   ),
+    .irq_i               ( core_irq                 ),
+    .ipi_i               ( core_ipi                 ),
+    .time_irq_i          ( core_time_irq            ),
+    .debug_req_i         ( 1'b0                     ),
+    .noc_req_o           ( core_req                 ),
+    .noc_resp_i          ( core_rsp                 )
+  );
+
+`else
+
   cva6 #(
     .CVA6Cfg             ( CVA6Cfg                           ),
     .rvfi_probes_instr_t ( rvfi_probes_instr_t               ),
@@ -253,6 +362,8 @@ module cva6tb_soc
     .noc_req_o           ( axi_core_req                      ),
     .noc_resp_i          ( axi_core_rsp                      )
   );
+
+`endif
 
 // RVFI generation is shared: the tracer observes it, the cycle accounting
 // delimits benchmarks with it. Elaborate `cva6_rvfi` once if either consumer is
@@ -505,7 +616,8 @@ module cva6tb_soc
     .boot_mode_i ( boot_mode_i    ),
     .reg_req_i   ( reg_pcr_req    ),
     .reg_rsp_o   ( reg_pcr_rsp    ),
-    .irq_o       ( sw_xeip        )
+    .irq_o       ( sw_xeip        ),
+    .marker_o    ( marker         )
   );
 
   // Sim console

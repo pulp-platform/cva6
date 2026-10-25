@@ -1796,6 +1796,9 @@ module cva6
         CVA6Cfg.DCacheType == config_pkg::HPDCACHE_WT_WB
   )
   begin : gen_cache_hpd
+    // The HPDcache subsystem reports no busy state to the controller
+    assign busy_cache_ctrl = 1'b0;
+
     cva6_hpdcache_subsystem #(
         .CVA6Cfg   (CVA6Cfg),
         .icache_areq_t(icache_areq_t),
