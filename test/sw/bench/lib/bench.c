@@ -9,11 +9,19 @@
 
 extern char __base_regs[];
 
+// The testbench's workload phase marker (cva6tb_regs, MarkerRegOffset)
+#define BENCH_PHASE_MARKER_REG 0xc
+
+static inline void bench_phase_marker(uint32_t phase) {
+    *(volatile uint32_t *)(__base_regs + BENCH_PHASE_MARKER_REG) = phase;
+}
+
 static uint64_t roi_cycle_start, roi_instret_start;
 static uint64_t roi_cycles, roi_instret;
 static int roi_state; // 0: never opened, 1: open, 2: closed
 
 void __attribute__((noinline)) bench_roi_start(void) {
+    bench_phase_marker(BENCH_MARKER_ROI_START);
     BENCH_MARKER(BENCH_MARKER_ROI_START);
     roi_state = 1;
     roi_instret_start = bench_read_minstret();
@@ -24,6 +32,7 @@ void __attribute__((noinline)) bench_roi_stop(void) {
     uint64_t cycle = bench_read_mcycle();
     uint64_t instret = bench_read_minstret();
     BENCH_MARKER(BENCH_MARKER_ROI_STOP);
+    bench_phase_marker(0);
     roi_cycles = cycle - roi_cycle_start;
     roi_instret = instret - roi_instret_start;
     roi_state = 2;
