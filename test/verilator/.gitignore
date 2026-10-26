@@ -10,3 +10,4 @@ cva6tb_trace_hart_*
 models/
 bench/
 fuzz/
+force/

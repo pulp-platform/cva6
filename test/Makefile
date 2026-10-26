@@ -295,6 +295,8 @@ endif
 # Co-simulation: spike, the standalone reference and, with COSIM=1, its part of
 # this build
 include $(TEST_DIR)/hw/cosim/cosim.mk
+# FORCE-RISCV, a second source of programs for co-simulation
+include $(TEST_DIR)/sw/fuzz/fuzz.mk
 
 $(VERILATOR_LOG_DIR):
 	@mkdir -p $(VERILATOR_LOG_DIR)

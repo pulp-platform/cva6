@@ -285,6 +285,12 @@ A seed that diverges keeps its assembly, hex and simulation log under `verilator
 so it can be replayed on its own. See [sw/fuzz/README.md](sw/fuzz/) for what the generator
 covers and what it keeps out of the default mix.
 
+[FORCE-RISCV](https://github.com/openhwgroup/force-riscv) is set up alongside it as a second,
+heavier source of stimulus — an instruction sequence generator that models the ISA, so it reaches
+paging, privilege switching and non-trivial handlers. `make force` builds it and installs the
+cva6tb port; `./util/run-force.sh` runs what it generates. [sw/fuzz/README.md](sw/fuzz/) describes
+the port, how a FORCE program ends, and privilege switching.
+
 ## Instruction tracing
 
 Building with `TRACER=1` adds an RVFI driven instruction tracer that writes one line per

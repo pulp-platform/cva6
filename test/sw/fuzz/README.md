@@ -243,9 +243,116 @@ The obvious extensions, roughly in order of value:
   permission checks make it — a privileged CSR or a gated counter. A deliberate misaligned
   access inside a delegated segment would put `stval` under a comparison it does not get today.
 - **Paging.** The co-simulation already handles Sv39 and the ISA corpus exercises it; generated
-  page tables would exercise it far harder.
+  page tables would exercise it far harder. Translation-aware generation is the expensive part;
+  see *Privilege switching* under FORCE-RISCV below.
 - **PMP, beyond the one open region.** A U-mode segment needs a PMP entry to reach memory at
   all, so there is one now — NAPOT over everything, RWX — which means PMP is matched on every
   U-mode access but only ever one way. Eight entries are forwarded to the reference and the
   granularity is matched, so generated regions with accesses either side of a boundary, and the
   NAPOT readback, would all compare.
+
+## FORCE-RISCV
+
+[FORCE-RISCV](https://github.com/openhwgroup/force-riscv) is an instruction *sequence generator*:
+it models the ISA, so it can build programs with paging, privilege switching and non-trivial
+exception handlers. It is Apache 2.0, needs no UVM, and emits plain ELF. The checking is the
+same: its programs report success and the co-simulation decides.
+
+```sh
+make -C test force                      # clone, build, and install the cva6tb port
+make -C test verilator-build COSIM=1 CVA6_CONFIG=cv64a6_imafdc_sv39_wb
+./util/run-force.sh --count 20
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--count <n>` | How many seeds to run (default 5) |
+| `--seed <n>` | Run one specific seed |
+| `--insns <n>` | Instructions the template asks for (default 2000) |
+| `--switches <n>` | Privilege switches to spread through the body (default 0, see below) |
+| `--jobs <n>` | Parallel simulations (default 8) |
+| `--stop-after <n>` | Retirements to compare before stopping |
+| `--keep` | Keep the artefacts of passing seeds too |
+
+The seed is FORCE's own RNG seed, so a seed that diverges replays:
+`./util/run-force.sh --seed 37 --keep`.
+
+### How a generated program ends
+
+On a budget. FORCE's end-of-test is a branch to itself, which the framework
+expects the simulator to notice, and FORCE's operand solver materialises its own
+address into whichever register a store uses, which rules out an EOC write in
+the template.
+
+`+cosim_stop_after=<n>` makes the co-simulation stop once it has compared that
+many retirements, and a seed passes when the budget was spent with nothing
+diverging. That is the right verdict in any case, since the comparison is the
+checker and the program asserts nothing.
+
+### The port
+
+[`force/`](force/) is five files, three of them because FORCE keeps this configuration in Python:
+
+| File | What it says |
+| --- | --- |
+| [riscv-cva6tb.config](force/riscv-cva6tb.config) | the framework configuration, derived from the current `riscv_rv64.config` |
+| [memory-cva6tb.py](force/memory-cva6tb.py) | physical memory: DRAM only, and only the 256 MiB that exists |
+| [PcConfig.py](force/PcConfig.py) | where reset, boot and the test itself are placed |
+| [register_field_choices-cva6tb.xml](force/register_field_choices-cva6tb.xml) | register fields this core constrains |
+| [cva6tb_random_force.py](force/cva6tb_random_force.py) | the test template: which instructions, and how much privilege switching |
+
+What the port sets:
+
+- **Memory is DRAM only**, the 256 MiB this testbench has; anything above `0x9000_0000` reads
+  back as an AXI error. The configuration is derived from `riscv_rv64.config`, the one the
+  current framework accepts.
+- **The reset PC is in DRAM**, above the boot PC. The testbench decides which memory to preload
+  from the *first* address in the hex image, so the whole image lies in DRAM. Nothing executes at
+  the reset PC: the boot ROM jumps to `0x8000_0000`, which is where FORCE puts its boot code.
+- **Paging is Sv39**, the mode CVA6 implements; `riscv_rv64.config` selects Sv48.
+- **`mstatus`'s reserved span is pinned to zero**, which is what software is supposed to write
+  there; see *mstatus.MBE* below.
+- **The program ends on a budget** — see *How a generated program ends* above.
+
+### Building it
+
+`make force` uses the **host** compiler, the one exception in this testbench: FORCE's vendored
+pybind11 predates GCC 13's stricter `<cstdint>` includes and needs an older GCC. FORCE also
+embeds CPython and builds against its development headers; 3.6 is the version installed here with
+headers, and the one FORCE's own README uses.
+
+FORCE therefore runs on the host too, and so does `./util/run-force.sh`: it generates each program
+there and starts the simulation in `$SIM_ENV`, the environment the model is built in, when that
+is set (see [util/iis-env.sh](../../util/iis-env.sh)). `./util/run-fuzz.sh` runs like the other
+runners, inside the environment the model is built in.
+
+### mstatus.MBE
+
+FORCE randomises `mstatus`'s WPRI span and its boot code writes the result. On this core bit 37
+of that span is `mstatus.MBE`, and CVA6 *implements* it — `mbe` reaches the load and store units,
+which byte-reverse per access size (`store_unit.sv`, `load_unit.sv`). The reference is built
+little-endian and takes that from `cfg_t`. Both are conformant: MBE is WARL and an implementation
+may provide one endianness or both.
+
+Once the bit is set, the two models execute every load and store differently, which a masked CSR
+rule cannot reconcile (see
+[What a masked CSR rule cannot do](../../hw/cosim/README.md#what-a-masked-csr-rule-cannot-do)).
+The port pins the span to zero, so both models run the same program with nothing to change in
+either.
+
+### Privilege switching
+
+**Privilege switching is wired up and off by default** (`--switches <n>`). The template calls
+FORCE's `systemCall` to move between M, S and U, which brings address translation, the `xstatus`
+transitions and the handlers FORCE builds into the comparison; every load and store after a
+switch is a translated one. With translation on, FORCE generates slowly — the cost is in its
+state solving — so switches suit a few deep programs.
+
+| | `gen_random_test.py` | FORCE, M mode | FORCE, with switches |
+| --- | --- | --- | --- |
+| Generation | fast | fast | slow |
+| Reaches | traps, U and S mode, delegation, WARL probing | the M-mode instruction mix | paging, privilege switching, FORCE's handlers |
+| Good for | volume | volume | a few deep programs |
+
+`gen_random_test.py` is the volume generator. FORCE's value is the switches, which reach paging,
+and it is used for a few deep programs.
