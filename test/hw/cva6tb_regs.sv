@@ -11,6 +11,7 @@ package cva6tb_regs_pkg;
   localparam logic [RegAddrWidth-1:0] BootmodeRegOffset = 4'h0; // Boot mode register
   localparam logic [RegAddrWidth-1:0] EOCRegOffset      = 4'h1; // End Of Computation register
   localparam logic [RegAddrWidth-1:0] IrqRegOffset      = 4'h2; // External interrupt lines: bit 0 M-mode, bit 1 S-mode
+  localparam logic [RegAddrWidth-1:0] MarkerRegOffset   = 4'h3; // Workload phase marker: nonzero while a phase runs
 endpackage
 
 module cva6tb_regs #(
@@ -23,7 +24,10 @@ module cva6tb_regs #(
   input  reg_req_t        reg_req_i,
   output reg_rsp_t        reg_rsp_o,
   // External interrupt lines software raises and lowers through IrqRegOffset
-  output logic      [1:0] irq_o
+  output logic      [1:0] irq_o,
+  // The workload phase marker software writes to MarkerRegOffset, for the
+  // testbench to window measurements on
+  output logic     [31:0] marker_o
 );
 
   import cva6tb_regs_pkg::*;
@@ -64,7 +68,8 @@ module cva6tb_regs #(
     end
   end
 
-  assign irq_o = control_regs[IrqRegOffset][1:0];
+  assign irq_o    = control_regs[IrqRegOffset][1:0];
+  assign marker_o = control_regs[MarkerRegOffset];
 
   // Register read/write logic
   always_ff @(posedge clk_i or negedge rst_ni) begin
