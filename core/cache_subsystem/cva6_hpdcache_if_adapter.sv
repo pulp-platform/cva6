@@ -330,6 +330,10 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
 
       flush_fsm_t flush_fsm_q, flush_fsm_d;
 
+      //  Size and word of the atomic request in flight, which its response is
+      //  formatted by: the request port may change once the request is granted.
+      logic amo_rsp_is_word_q, amo_rsp_is_word_hi_q;
+
       logic forward_store, forward_amo, forward_flush;
       logic flush_not_sent;
       hpdcache_pkg::hpdcache_req_op_t store_op;
@@ -518,7 +522,7 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
       //  Response forwarding
       //  {{{
       if (CVA6Cfg.IS_XLEN64) begin : amo_resp_64_gen
-        assign amo_resp_word = amo_is_word_hi
+        assign amo_resp_word = amo_rsp_is_word_hi_q
                              ? hpdcache_rsp_i.rdata[0][32 +: 32]
                              : hpdcache_rsp_i.rdata[0][0  +: 32];
       end else begin : amo_resp_32_gen
@@ -544,7 +548,7 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
       assign ypb_amo_rsp_o.rvalid = ypb_amo_valid;
       assign ypb_amo_rsp_o.rid = '0;
       assign ypb_amo_rsp_o.err = '0;
-      assign ypb_amo_rsp_o.rdata = amo_is_word ? {{32{amo_resp_word[31]}}, amo_resp_word}
+      assign ypb_amo_rsp_o.rdata = amo_rsp_is_word_q ? {{32{amo_resp_word[31]}}, amo_resp_word}
                                                         : hpdcache_rsp_i.rdata[0];
       assign ypb_amo_rsp_o.vgnt = '0;
 
@@ -553,11 +557,17 @@ else if (IsZcmtPort == 1'b1) begin : zcmt_port_gen
       always_ff @(posedge clk_i or negedge rst_ni) begin : amo_pending_ff
         if (!rst_ni) begin
           amo_pending_q <= 1'b0;
+          amo_rsp_is_word_q <= 1'b0;
+          amo_rsp_is_word_hi_q <= 1'b0;
         end else begin
           //  Set when a new atomic request is accepted, held until its response.
           amo_pending_q <=
               (~amo_pending_q &  ypb_amo_req_i.preq & hpdcache_req_ready_i) |
               ( amo_pending_q & ~ypb_amo_valid);
+          if (~amo_pending_q & ypb_amo_req_i.preq & hpdcache_req_ready_i) begin
+            amo_rsp_is_word_q <= amo_is_word;
+            amo_rsp_is_word_hi_q <= amo_is_word_hi;
+          end
         end
       end
 
