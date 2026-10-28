@@ -8,8 +8,6 @@ module cva6_clic_controller #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty,
     parameter type irq_ctrl_t = logic
 ) (
-    input logic clk_i,
-    input logic rst_ni,
     // from CSR file
     input riscv::priv_lvl_t priv_lvl_i,  // current privilege level
     input logic v_i,  // virtualization mode bit
@@ -20,7 +18,6 @@ module cva6_clic_controller #(
     input riscv::intstatus_rv_t mintstatus_i,  // interrupt status
     // from/to CLIC
     input logic clic_irq_valid_i,  // interrupt is valid
-    input logic clic_irq_ready_i,  // interrupt is acknowledged
     input logic [$clog2(CVA6Cfg.CLICNumInterruptSrc)-1:0] clic_irq_id_i,  // interrupt ID
     input logic [7:0] clic_irq_level_i,  // interrupt level
     input riscv::priv_lvl_t clic_irq_priv_i,  // interrupt privilege level
@@ -28,6 +25,8 @@ module cva6_clic_controller #(
     input logic [5:0] clic_irq_vsid_i,  // interrupt Virtual Supervisor ID
     input logic clic_kill_req_i,  // kill request
     output logic clic_kill_ack_o,  // kill acknowledge
+    // from issue stage
+    input logic irq_instr_i,  // an instruction that takes an interrupt is in the pipeline
     // to ID stage
     output logic clic_irq_req_o,
     output logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_o
@@ -140,18 +139,8 @@ module cva6_clic_controller #(
   // ------------
   // Kill Control
   // ------------
-  // Track whether an irq was inserted into the pipeline (accepted) but not acknowlegded yet
-  logic irq_inflight_d, irq_inflight_q;
-  // Set when accepting irq, clear when acknowledging or killing
-  assign irq_inflight_d  = irq_inflight_q ? ~(clic_irq_ready_i | clic_kill_ack_o) : clic_irq_req_o;
-  // Acknowledge kill if no irq is inflight and irq is not accepted this cycle
-  assign clic_kill_ack_o = clic_kill_req_i & ~irq_inflight_q & ~clic_irq_req_o;
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      irq_inflight_q <= 1'b0;
-    end else begin
-      irq_inflight_q <= irq_inflight_d;
-    end
-  end
+  // The CLIC may withdraw the presented interrupt unless the decoder takes it
+  // this cycle or an instruction that takes an interrupt is in the pipeline:
+  // that instruction acknowledges the presented interrupt when it commits.
+  assign clic_kill_ack_o = clic_kill_req_i & ~(clic_irq_req_o & irq_ctrl_i.global_enable) & ~irq_instr_i;
 endmodule
