@@ -752,6 +752,7 @@ module cva6
   // ----------------------
   logic                    clic_irq_req_id;
   logic [CVA6Cfg.XLEN-1:0] clic_irq_cause_id;
+  logic                    irq_instr_issue;
 
   // --------------
   // Frontend
@@ -1028,6 +1029,7 @@ module cva6
       .commit_instr_o         (commit_instr_id_commit),
       .commit_drop_o          (commit_drop_id_commit),
       .commit_ack_i           (commit_ack_commit_id),
+      .irq_instr_o            (irq_instr_issue),
       // Performance Counters
       .stall_issue_o          (stall_issue),
       //RVFI
@@ -1875,8 +1877,6 @@ module cva6
         .CVA6Cfg(CVA6Cfg),
         .irq_ctrl_t(irq_ctrl_t)
     ) i_clic_controller (
-        .clk_i           (clk_i),
-        .rst_ni          (rst_ni),
         // from CSR file
         .priv_lvl_i      (priv_lvl),
         .v_i             (v),
@@ -1887,7 +1887,6 @@ module cva6
         .mintstatus_i    (mintstatus_csr),
         // from/to CLIC
         .clic_irq_valid_i(clic_irq_valid_i),
-        .clic_irq_ready_i(clic_irq_ready_o),
         .clic_irq_id_i   (clic_irq_id_i),
         .clic_irq_level_i(clic_irq_level_i),
         .clic_irq_priv_i (clic_irq_priv_i),
@@ -1895,6 +1894,8 @@ module cva6
         .clic_irq_vsid_i (clic_irq_vsid_i),
         .clic_kill_req_i (clic_kill_req_i),
         .clic_kill_ack_o (clic_kill_ack_o),
+        // from issue stage
+        .irq_instr_i     (irq_instr_issue),
         // to ID stage
         .clic_irq_req_o  (clic_irq_req_id),
         .clic_irq_cause_o(clic_irq_cause_id)
