@@ -282,7 +282,7 @@ module load_unit
 
   logic paddr_nonidempotent;
   assign paddr_nonidempotent = config_pkg::is_inside_nonidempotent_regions(
-      CVA6Cfg, {{52 - CVA6Cfg.PPNW{1'b0}}, dtlb_ppn_i, 12'd0}
+      CVA6Cfg, {{52 - CVA6Cfg.PPNW{1'b0}}, dtlb_ppn_i, lsu_ctrl_i.vaddr[11:0]}
   );
 
   // Check that NI operations follow the necessary conditions
