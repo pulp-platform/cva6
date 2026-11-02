@@ -135,7 +135,7 @@ module cva6_hpicache_if_adapter
   end
   //  }}}
 
-  assign forward_fetch = ypb_fetch_req_i.preq;
+  assign forward_fetch = ypb_fetch_req_i.preq & ~forward_flush;
 
   assign hpicache_req_fetch = '{
           addr_offset: get_icache_addr_index(ypb_fetch_req_i.paddr),
