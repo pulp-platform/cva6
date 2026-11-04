@@ -361,17 +361,17 @@ module wt_dcache_wbuffer
       .LockIn   (1'b1),
       .DataWidth(1)
   ) i_tx_id_rr (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .flush_i('0),
-      .rr_i   ('0),
-      .req_i  (~tx_vld_o),
-      .gnt_o  (),
-      .data_i ('0),
-      .gnt_i  (dirty_rd_en),
-      .req_o  (),
-      .data_o (),
-      .idx_o  (tx_id)
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .clr_i ('0),
+      .rr_i  ('0),
+      .req_i (~tx_vld_o),
+      .gnt_o (),
+      .data_i('0),
+      .gnt_i (dirty_rd_en),
+      .req_o (),
+      .data_o(),
+      .idx_o (tx_id)
   );
 
   ///////////////////////////////////////////////////////
@@ -469,39 +469,39 @@ module wt_dcache_wbuffer
 
   // next dirty word to serve
   cc_rr_arb_tree #(
-      .NumIn   (CVA6Cfg.WtDcacheWbufDepth),
-      .LockIn  (1'b1),
-      .DataType(wbuffer_t)
+      .NumIn (CVA6Cfg.WtDcacheWbufDepth),
+      .LockIn(1'b1),
+      .data_t(wbuffer_t)
   ) i_dirty_rr (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .flush_i('0),
-      .rr_i   ('0),
-      .req_i  (dirty),
-      .gnt_o  (),
-      .data_i (wbuffer_q),
-      .gnt_i  (dirty_rd_en),
-      .req_o  (),
-      .data_o (wbuffer_dirty_mux),
-      .idx_o  (dirty_ptr)
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .clr_i ('0),
+      .rr_i  ('0),
+      .req_i (dirty),
+      .gnt_o (),
+      .data_i(wbuffer_q),
+      .gnt_i (dirty_rd_en),
+      .req_o (),
+      .data_o(wbuffer_dirty_mux),
+      .idx_o (dirty_ptr)
   );
 
   // next word to lookup in the cache
   cc_rr_arb_tree #(
-      .NumIn   (CVA6Cfg.WtDcacheWbufDepth),
-      .DataType(wbuffer_t)
+      .NumIn (CVA6Cfg.WtDcacheWbufDepth),
+      .data_t(wbuffer_t)
   ) i_clean_rr (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .flush_i('0),
-      .rr_i   ('0),
-      .req_i  (tocheck),
-      .gnt_o  (),
-      .data_i (wbuffer_q),
-      .gnt_i  (check_en_d),
-      .req_o  (),
-      .data_o (wbuffer_check_mux),
-      .idx_o  (check_ptr_d)
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .clr_i ('0),
+      .rr_i  ('0),
+      .req_i (tocheck),
+      .gnt_o (),
+      .data_i(wbuffer_q),
+      .gnt_i (check_en_d),
+      .req_o (),
+      .data_o(wbuffer_check_mux),
+      .idx_o (check_ptr_d)
   );
 
   ///////////////////////////////////////////////////////

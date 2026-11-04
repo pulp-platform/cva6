@@ -349,8 +349,9 @@ module wt_dcache_missunit
   ) i_exp_backoff (
       .clk_i,
       .rst_ni,
-      .set_i    (sc_fail),
-      .clr_i    (sc_pass),
+      .clr_i    (1'b0),
+      .set_cnt_i(sc_fail),
+      .clr_cnt_i(sc_pass),
       .is_zero_o(sc_backoff_over)
   );
 

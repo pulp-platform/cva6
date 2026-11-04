@@ -2067,17 +2067,17 @@ module cva6
       .NumIn(CVA6Cfg.NrCommitPorts),
       .DataWidth(64)
   ) i_rr_arb_tree (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .flush_i('0),
-      .rr_i   ('0),
-      .req_i  (~pc_empty),
-      .gnt_o  (pc_pop),
-      .data_i (pc_data),
-      .gnt_i  (piton_pc_vld),
-      .req_o  (piton_pc_vld),
-      .data_o (piton_pc),
-      .idx_o  ()
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .clr_i ('0),
+      .rr_i  ('0),
+      .req_i (~pc_empty),
+      .gnt_o (pc_pop),
+      .data_i(pc_data),
+      .gnt_i (piton_pc_vld),
+      .req_o (piton_pc_vld),
+      .data_o(piton_pc),
+      .idx_o ()
   );
 `endif  // PITON_ARIANE
 

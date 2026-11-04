@@ -171,17 +171,17 @@ module wt_dcache_mem
       .NumIn    (NumPorts),
       .DataWidth(1)
   ) i_rr_arb_tree (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .flush_i('0),
-      .rr_i   ('0),
-      .req_i  (rd_req_masked),
-      .gnt_o  (rd_ack_o),
-      .data_i ('0),
-      .gnt_i  (~wr_cl_vld_i),
-      .req_o  (rd_req),
-      .data_o (),
-      .idx_o  (vld_sel_d)
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .clr_i ('0),
+      .rr_i  ('0),
+      .req_i (rd_req_masked),
+      .gnt_o (rd_ack_o),
+      .data_i('0),
+      .gnt_i (~wr_cl_vld_i),
+      .req_o (rd_req),
+      .data_o(),
+      .idx_o (vld_sel_d)
   );
 
   assign rd_acked = rd_req & ~wr_cl_vld_i;

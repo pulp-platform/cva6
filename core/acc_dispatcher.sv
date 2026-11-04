@@ -219,9 +219,10 @@ module acc_dispatcher
 
   accelerator_req_t acc_req_int;
   cc_spill_register #(
-      .T(accelerator_req_t)
+      .data_t(accelerator_req_t)
   ) i_accelerator_req_register (
       .clk_i  (clk_i),
+      .clr_i  (1'b0),
       .rst_ni (rst_ni),
       .data_i (acc_req),
       .valid_i(acc_req_valid),

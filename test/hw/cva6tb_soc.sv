@@ -372,7 +372,6 @@ module cva6tb_soc
   ) i_axi_xbar (
     .clk_i                 ( clk                    ),
     .rst_ni                ( rst_n                  ),
-    .test_i                ( '0                     ),
     .slv_ports_req_i       ( axi_mst_reqs           ),
     .slv_ports_resp_o      ( axi_mst_rsps           ),
     .mst_ports_req_o       ( axi_slv_reqs           ),

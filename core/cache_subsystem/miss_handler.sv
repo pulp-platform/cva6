@@ -695,11 +695,12 @@ module miss_handler
   logic [$clog2(CVA6Cfg.DCACHE_SET_ASSOC)-1:0] lfsr_bin_raw, cache_ways_bin;
 
   cc_lfsr_8bit #(
-      .WIDTH(CVA6Cfg.DCACHE_SET_ASSOC)
+      .Width(CVA6Cfg.DCACHE_SET_ASSOC)
   ) i_lfsr (
-      .en_i          (lfsr_enable),
-      .refill_way_oh (lfsr_oh_raw),
-      .refill_way_bin(lfsr_bin_raw),
+      .en_i            (lfsr_enable),
+      .clr_i           (1'b0),
+      .refill_way_oh_o (lfsr_oh_raw),
+      .refill_way_bin_o(lfsr_bin_raw),
       .*
   );
 

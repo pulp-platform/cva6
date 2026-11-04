@@ -125,17 +125,17 @@ module wt_axi_adapter
       .AxiVldRdy(1'b1),
       .LockIn   (1'b1)
   ) i_rr_arb_tree (
-      .clk_i  (clk_i),
-      .rst_ni (rst_ni),
-      .flush_i('0),
-      .rr_i   ('0),
-      .req_i  (arb_req),
-      .gnt_o  (arb_ack),
-      .data_i ('0),
-      .gnt_i  (arb_gnt),
-      .req_o  (),
-      .data_o (),
-      .idx_o  (arb_idx)
+      .clk_i (clk_i),
+      .rst_ni(rst_ni),
+      .clr_i ('0),
+      .rr_i  ('0),
+      .req_i (arb_req),
+      .gnt_o (arb_ack),
+      .data_i('0),
+      .gnt_i (arb_gnt),
+      .req_o (),
+      .data_o(),
+      .idx_o (arb_idx)
   );
 
   // request side

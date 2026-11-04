@@ -168,11 +168,12 @@ module std_cache_subsystem
 
   // AR Channel
   cc_stream_arbiter #(
-      .DATA_T(axi_ar_chan_t),
-      .N_INP (3)
+      .data_t(axi_ar_chan_t),
+      .NumInp(3)
   ) i_stream_arbiter_ar (
       .clk_i,
       .rst_ni,
+      .clr_i      (1'b0),
       .inp_data_i ({axi_req_icache.ar, axi_req_bypass.ar, axi_req_data.ar}),
       .inp_valid_i({axi_req_icache.ar_valid, axi_req_bypass.ar_valid, axi_req_data.ar_valid}),
       .inp_ready_o({axi_resp_icache.ar_ready, axi_resp_bypass.ar_ready, axi_resp_data.ar_ready}),
@@ -183,11 +184,12 @@ module std_cache_subsystem
 
   // AW Channel
   cc_stream_arbiter #(
-      .DATA_T(axi_aw_chan_t),
-      .N_INP (3)
+      .data_t(axi_aw_chan_t),
+      .NumInp(3)
   ) i_stream_arbiter_aw (
       .clk_i,
       .rst_ni,
+      .clr_i      (1'b0),
       .inp_data_i ({axi_req_icache.aw, axi_req_bypass.aw, axi_req_data.aw}),
       .inp_valid_i({axi_req_icache.aw_valid, axi_req_bypass.aw_valid, axi_req_data.aw_valid}),
       .inp_ready_o({axi_resp_icache.aw_ready, axi_resp_bypass.aw_ready, axi_resp_data.aw_ready}),
@@ -249,8 +251,8 @@ module std_cache_subsystem
   assign w_select_arbiter = w_fifo_empty ? (axi_req_o.aw_valid ? w_select : 0) : w_select_fifo;
 
   cc_stream_mux #(
-      .DATA_T(axi_w_chan_t),
-      .N_INP (3)
+      .data_t(axi_w_chan_t),
+      .NumInp(3)
   ) i_stream_mux_w (
       .inp_data_i ({axi_req_data.w, axi_req_bypass.w, axi_req_icache.w}),
       .inp_valid_i({axi_req_data.w_valid, axi_req_bypass.w_valid, axi_req_icache.w_valid}),
@@ -283,7 +285,7 @@ module std_cache_subsystem
   end
 
   cc_stream_demux #(
-      .N_OUP(3)
+      .NumOup(3)
   ) i_stream_demux_r (
       .inp_valid_i(axi_resp_i.r_valid),
       .inp_ready_o(axi_req_o.r_ready),
@@ -310,7 +312,7 @@ module std_cache_subsystem
   end
 
   cc_stream_demux #(
-      .N_OUP(3)
+      .NumOup(3)
   ) i_stream_demux_b (
       .inp_valid_i(axi_resp_i.b_valid),
       .inp_ready_o(axi_req_o.b_ready),
