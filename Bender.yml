@@ -19,7 +19,7 @@ dependencies:
   # Required by standalone CVA6 testbench
   apb: { git: "https://github.com/pulp-platform/apb.git", rev: af1d5cb90ee9321321e4e1f7d694fdc259be116e, target: cva6tb } # branch: gwaihir
   axi_riscv_atomics: { git: "https://github.com/pulp-platform/axi_riscv_atomics.git", rev: 6dc05e0b6ac17cddbcd5cae7eb30ac44242fffb0, target: cva6tb } # branch: fix/tie-exists-ports
-  clic: { git: "https://github.com/pulp-platform/clic.git", rev: cebe8220a6bcf010ebef06d8039f03670bbacdb3, target: cva6tb } # branch: gwaihir
+  clic: { git: "https://github.com/pulp-platform/clic.git", rev: 109182208e1a021bcad1f6f2e13313360a8a020b, target: cva6tb } # branch: gwaihir
   clint: { version: 0.2.0, target: cva6tb }
   common_verification: { version: 0.2.5, target: cva6tb }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", rev: 7a797ad07d6282280ea968f732ec8f5d5bb8e719, target: cva6tb } # branch: common-cells-v2
