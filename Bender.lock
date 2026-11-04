@@ -25,12 +25,13 @@ packages:
     - common_cells
     - common_verification
   clic:
-    revision: a05703c66873d55b3c879c661da7fc1014c416db
+    revision: cebe8220a6bcf010ebef06d8039f03670bbacdb3
     version: null
     source:
       Git: https://github.com/pulp-platform/clic.git
     dependencies:
     - common_cells
+    - common_verification
     - register_interface
   clint:
     revision: d5390a805c20f9226758a152ba1645f61da73349
