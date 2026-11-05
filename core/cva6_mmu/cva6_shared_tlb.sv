@@ -838,6 +838,7 @@ module cva6_shared_tlb #(
       end
     end else begin
       assign shared_tag_rd[i] = '0;
+      assign pte[i]           = '0;
     end
   end
 endmodule
