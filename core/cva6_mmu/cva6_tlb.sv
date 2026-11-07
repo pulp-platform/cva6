@@ -609,6 +609,16 @@ CVA6Cfg.LockableTlbWays
     end
   end
 
+  // An entry's tag changes only on a refill or a lock; flushes and unlocking change only
+  // its valid and locked bits
+  logic [TLB_ENTRIES-1:0] tag_we;
+  always_comb begin
+    for (int unsigned i = 0; i < TLB_ENTRIES; i++) begin
+      tag_we[i] = (update_i.valid & replace_en[i]) |
+                  (i < CVA6Cfg.LockableTlbWays && locked_tlb_entries_i[i].valid);
+    end
+  end
+
   // sequential process
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
@@ -617,7 +627,14 @@ CVA6Cfg.LockableTlbWays
       plru_tree_q       <= '{default: 0};
       plru_node_state_q <= {(TLB_ENTRIES - 1) {BOTH}};
     end else begin
-      tags_q            <= tags_n;
+      for (int unsigned i = 0; i < TLB_ENTRIES; i++) begin
+        if (tag_we[i]) begin
+          tags_q[i] <= tags_n[i];
+        end else begin
+          tags_q[i].locked <= tags_n[i].locked;
+          tags_q[i].valid  <= tags_n[i].valid;
+        end
+      end
       content_q         <= content_n;
       plru_tree_q       <= plru_tree_n;
       plru_node_state_q <= plru_node_state_n;
