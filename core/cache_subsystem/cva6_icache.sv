@@ -624,59 +624,92 @@ module cva6_icache
   // memory arrays and regs
   ///////////////////////////////////////////////////////
 
-  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0]                             ram_req;
-  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][   ICACHE_CL_IDX_WIDTH-1:0] ram_addr;
-  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][   ICACHE_MEMORY_WIDTH-1:0] ram_wdata;
-  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][   ICACHE_MEMORY_WIDTH-1:0] ram_rdata;
-  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][ICACHE_MEMORY_BE_WIDTH-1:0] ram_be;
-  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0]                             ram_we;
+  localparam int unsigned ICACHE_LINE_BE_WIDTH = CVA6Cfg.ICACHE_LINE_WIDTH / 8;
+
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0]                                tag_req;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0]                                tag_we;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][      ICACHE_CL_IDX_WIDTH-1:0] tag_addr;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][   CVA6Cfg.ICACHE_TAG_WIDTH:0] tag_wdata;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][   CVA6Cfg.ICACHE_TAG_WIDTH:0] tag_rdata;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0]                                data_req;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0]                                data_we;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][      ICACHE_CL_IDX_WIDTH-1:0] data_addr;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][CVA6Cfg.ICACHE_LINE_WIDTH-1:0] data_wdata;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][CVA6Cfg.ICACHE_LINE_WIDTH-1:0] data_rdata;
+  logic [CVA6Cfg.ICACHE_SET_ASSOC-1:0][     ICACHE_LINE_BE_WIDTH-1:0] data_be;
 
   for (genvar i = 0; i < CVA6Cfg.ICACHE_SET_ASSOC; i++) begin : gen_sram
     always_comb begin
       // Is this a SPM way?
       if (icache_spm_ways_i[i]) begin
-        ram_req[i]   = spm_req[i];
-        ram_we[i]    = spm_we[i];
-        ram_addr[i]  = spm_addr[i];
-        ram_wdata[i] = spm_wdata[i];
-        ram_be[i]    = spm_be[i];
-        vld_rdata[i] = 1'b0;
+        // The SPM data is in the data RAM; SPM writes also clear the tag and valid bit
+        tag_req[i]    = spm_req[i] & spm_we[i];
+        tag_we[i]     = spm_we[i];
+        tag_addr[i]   = spm_addr[i];
+        tag_wdata[i]  = spm_wdata[i][CVA6Cfg.ICACHE_LINE_WIDTH+:CVA6Cfg.ICACHE_TAG_WIDTH+1];
+        data_req[i]   = spm_req[i];
+        data_we[i]    = spm_we[i];
+        data_addr[i]  = spm_addr[i];
+        data_wdata[i] = spm_wdata[i][CVA6Cfg.ICACHE_LINE_WIDTH-1:0];
+        data_be[i]    = spm_be[i][ICACHE_LINE_BE_WIDTH-1:0];
+        vld_rdata[i]  = 1'b0;
       end else begin
-        ram_req[i] = cl_req[i] | vld_req[i];
-        ram_we[i] = cl_we | vld_we;
-        ram_addr[i] = vld_addr;
-        ram_wdata[i] = {{vld_wdata[i], cl_tag_q}, mem_rtrn_i.data};
-        ram_be[i] = {
-          {((CVA6Cfg.ICACHE_TAG_WIDTH + 1 + 7) / 8) {vld_we}},
-          {(CVA6Cfg.ICACHE_LINE_WIDTH / 8) {cl_we}}
-        };
-        vld_rdata[i] = ram_rdata[i][ICACHE_MEMORY_WIDTH-1];
+        // A cache way accesses its tag and data RAMs separately
+        tag_req[i]    = vld_req[i];
+        tag_we[i]     = vld_we;
+        tag_addr[i]   = vld_addr;
+        tag_wdata[i]  = {vld_wdata[i], cl_tag_q};
+        data_req[i]   = cl_req[i];
+        data_we[i]    = cl_we;
+        data_addr[i]  = cl_index;
+        data_wdata[i] = mem_rtrn_i.data;
+        data_be[i]    = '1;
+        vld_rdata[i]  = tag_rdata[i][CVA6Cfg.ICACHE_TAG_WIDTH];
       end
       // The read data is always forwarded to both the cache and SPM controller to save some multiplexers
-      spm_rdata[i] = ram_rdata[i];
-      cl_rdata[i] = ram_rdata[i];  // TODO: only select the first CVA6Cfg.ICACHE_LINE_WIDTH bits?
-      cl_tag_rdata[i] = ram_rdata[i][CVA6Cfg.ICACHE_LINE_WIDTH+:CVA6Cfg.ICACHE_TAG_WIDTH];
+      spm_rdata[i]    = {tag_rdata[i], data_rdata[i]};
+      cl_rdata[i]     = data_rdata[i];
+      cl_tag_rdata[i] = tag_rdata[i][CVA6Cfg.ICACHE_TAG_WIDTH-1:0];
     end
 
-    // Cache/SPM SRAM (tag and data combined)
+    // Tag RAM (tag + valid bit)
+    sram_cache #(
+        .DATA_WIDTH (CVA6Cfg.ICACHE_TAG_WIDTH + 1),
+        .BYTE_ACCESS(0),
+        .TECHNO_CUT (CVA6Cfg.TechnoCut),
+        .NUM_WORDS  (ICACHE_NUM_WORDS)
+    ) tag_sram (
+        .clk_i  (clk_i),
+        .rst_ni (rst_ni),
+        .req_i  (tag_req[i]),
+        .we_i   (tag_we[i]),
+        .addr_i (tag_addr[i]),
+        .wuser_i('0),
+        .wdata_i(tag_wdata[i]),
+        .be_i   ('1),
+        .ruser_o(),
+        .rdata_o(tag_rdata[i])
+    );
+
+    // Data RAM, which also holds the SPM
     sram_cache #(
         .USER_WIDTH (CVA6Cfg.ICACHE_USER_LINE_WIDTH),
-        .DATA_WIDTH (ICACHE_MEMORY_WIDTH),
+        .DATA_WIDTH (CVA6Cfg.ICACHE_LINE_WIDTH),
         .USER_EN    (CVA6Cfg.FETCH_USER_EN),
         .NUM_WORDS  (ICACHE_NUM_WORDS),
         .TECHNO_CUT (CVA6Cfg.TechnoCut),
         .BYTE_ACCESS(1)
-    ) icache_sram (
+    ) data_sram (
         .clk_i  (clk_i),
         .rst_ni (rst_ni),
-        .req_i  (ram_req[i]),
-        .we_i   (ram_we[i]),
-        .addr_i (ram_addr[i]),
+        .req_i  (data_req[i]),
+        .we_i   (data_we[i]),
+        .addr_i (data_addr[i]),
         .wuser_i(mem_rtrn_i.user),
-        .wdata_i(ram_wdata[i]),
-        .be_i   (ram_be[i]),
+        .wdata_i(data_wdata[i]),
+        .be_i   (data_be[i]),
         .ruser_o(cl_ruser[i]),
-        .rdata_o(ram_rdata[i])
+        .rdata_o(data_rdata[i])
     );
   end
 
