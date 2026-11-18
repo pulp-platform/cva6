@@ -11,6 +11,7 @@ package cva6tb_regs_pkg;
   localparam logic [RegAddrWidth-1:0] BootmodeRegOffset = 4'h0; // Boot mode register
   localparam logic [RegAddrWidth-1:0] EOCRegOffset      = 4'h1; // End Of Computation register
   localparam logic [RegAddrWidth-1:0] IrqRegOffset      = 4'h2; // External interrupt lines: bit 0 M-mode, bit 1 S-mode
+  localparam logic [RegAddrWidth-1:0] ReadCntRegOffset  = 4'h4; // Counts its own reads: a read returns the number of earlier ones
 endpackage
 
 module cva6tb_regs #(
@@ -77,6 +78,9 @@ module cva6tb_regs #(
         if (reg_req_i.valid && reg_req_i.write && reg_select[i]) begin
           control_regs[i] <= (control_regs[i] & ~write_mask) | (reg_req_i.wdata & write_mask);
         end
+      end
+      if (reg_req_i.valid && !reg_req_i.write && reg_select[ReadCntRegOffset]) begin
+        control_regs[ReadCntRegOffset] <= control_regs[ReadCntRegOffset] + 32'd1;
       end
       control_regs[BootmodeRegOffset] <= {31'h0, boot_mode_i};
     end
