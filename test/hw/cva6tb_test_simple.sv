@@ -270,4 +270,92 @@ module test;
     fail();
   end
 
+`ifdef CVA6TB_AMO_MON
+  // Per-AMO latency log of the HPDcache configurations, amo_lat.csv: the cycles
+  // from the AMO's arrival at the head of the scoreboard to its request, from
+  // the request to its acceptance by the HPDcache (and the requests of other
+  // ports accepted meanwhile), from the acceptance to the start of the uncached
+  // handler (and the cache work in progress meanwhile), and from there to the
+  // response.
+  localparam int unsigned AmoPort = 3;  // HPDcache requester of the store/AMO port
+  typedef enum logic [1:0] {AMO_IDLE, AMO_RAISED, AMO_ACCEPTED, AMO_IN_UC} amo_state_e;
+  amo_state_e      amo_state;
+  int              amo_fd;
+  longint unsigned amo_cycle, amo_c_head, amo_c_raise, amo_c_accept, amo_c_uc;
+  int unsigned     amo_gnt[3], amo_mshr_cycles, amo_flush_cycles, amo_rtab_cycles;
+  logic [63:0]     amo_addr;
+  logic            amo_head_q;
+  logic            amo_head, amo_req, amo_ack, amo_accept, uc_idle;
+  logic [2:0]      other_accept;
+
+  assign amo_head   = i_dut.i_cva6.commit_stage_i.commit_instr_i[0].valid &&
+                      ariane_pkg::is_amo(i_dut.i_cva6.commit_stage_i.commit_instr_i[0].op);
+  assign amo_req    = i_dut.i_cva6.amo_req.req;
+  assign amo_ack    = i_dut.i_cva6.amo_resp.ack;
+  assign amo_accept = i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.core_req_arbiter_i.core_req_valid_i[AmoPort] &&
+                      i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.core_req_arbiter_i.core_req_ready_o[AmoPort];
+  for (genvar p = 0; p < 3; p++) begin : gen_other_accept
+    assign other_accept[p] = i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.core_req_arbiter_i.core_req_valid_i[p] &&
+                             i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.core_req_arbiter_i.core_req_ready_o[p];
+  end
+  assign uc_idle = i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.uc_ready;
+
+  initial begin
+    amo_fd = $fopen("amo_lat.csv", "w");
+    $fwrite(amo_fd, "addr,head_to_req,req_to_accept,accept_to_uc,uc_to_ack,req_to_ack,");
+    $fwrite(amo_fd, "acc_ptw,acc_load,acc_ctrl,mshr_cycles,flush_cycles,rtab_cycles\n");
+  end
+
+  always_ff @(posedge clk) begin
+    amo_cycle  <= amo_cycle + 1;
+    amo_head_q <= amo_head;
+    if (amo_head && !amo_head_q) amo_c_head <= amo_cycle;
+    unique case (amo_state)
+      AMO_IDLE: begin
+        if (amo_req) begin
+          amo_c_raise      <= amo_cycle;
+          amo_addr         <= i_dut.i_cva6.amo_req.operand_a;
+          amo_mshr_cycles  <= 0;
+          amo_flush_cycles <= 0;
+          amo_rtab_cycles  <= 0;
+          for (int p = 0; p < 3; p++) amo_gnt[p] <= other_accept[p];
+          if (amo_accept) begin
+            amo_c_accept <= amo_cycle;
+            amo_state    <= AMO_ACCEPTED;
+          end else begin
+            amo_state <= AMO_RAISED;
+          end
+        end
+      end
+      AMO_RAISED: begin
+        for (int p = 0; p < 3; p++) amo_gnt[p] <= amo_gnt[p] + other_accept[p];
+        if (amo_accept) begin
+          amo_c_accept <= amo_cycle;
+          amo_state    <= AMO_ACCEPTED;
+        end
+      end
+      AMO_ACCEPTED: begin
+        amo_mshr_cycles  <= amo_mshr_cycles  + !i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.miss_mshr_empty;
+        amo_flush_cycles <= amo_flush_cycles + !i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.flush_empty;
+        amo_rtab_cycles  <= amo_rtab_cycles  + !i_dut.i_cva6.gen_cache_hpd.i_cache_subsystem.i_dcache.i_hpdcache.rtab_empty;
+        if (!uc_idle) begin
+          amo_c_uc  <= amo_cycle;
+          amo_state <= AMO_IN_UC;
+        end
+      end
+      AMO_IN_UC: begin
+        if (amo_ack) begin
+          $fwrite(amo_fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n", amo_addr,
+                  amo_c_raise - amo_c_head, amo_c_accept - amo_c_raise, amo_c_uc - amo_c_accept,
+                  amo_cycle - amo_c_uc, amo_cycle - amo_c_raise, amo_gnt[0], amo_gnt[1], amo_gnt[2],
+                  amo_mshr_cycles, amo_flush_cycles, amo_rtab_cycles);
+          $fflush(amo_fd);
+          amo_state <= AMO_IDLE;
+        end
+      end
+      default: amo_state <= AMO_IDLE;
+    endcase
+  end
+`endif
+
 endmodule

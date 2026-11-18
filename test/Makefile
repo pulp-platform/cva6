@@ -28,6 +28,8 @@ TEST          ?= test_simple
 ALLOWED_TESTS := test_simple
 DEBUG         ?= 0
 WAVES         ?= 0
+# Per-AMO latency log (amo_lat.csv) of the HPDcache configurations
+AMO_MON       ?= 0
 # Verilator threads for the simulation model, a BUILD time choice. The default
 # suits one simulation at a time, which is the usual case.
 # For running many simulations at once, build with THREADS=1 instead.
@@ -120,6 +122,10 @@ endif
 
 ifeq ($(WAVES),1)
 BENDER_FLAGS += -D CVA6TB_WAVES
+endif
+
+ifeq ($(AMO_MON),1)
+BENDER_FLAGS += -D CVA6TB_AMO_MON
 endif
 
 ifneq ($(LEGACY_TRACE),1)
