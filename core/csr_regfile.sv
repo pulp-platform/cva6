@@ -319,6 +319,14 @@ module csr_regfile
   logic [CVA6Cfg.XLEN-1:0] dscratch1_q, dscratch1_d;
   logic [CVA6Cfg.XLEN-1:0] mtvec_q, mtvec_d;
   logic [CVA6Cfg.XLEN-1:0] mtvt_q, mtvt_d;
+  // A CLIC vector table holds one XLEN-bit handler address per interrupt source
+  // and is aligned to its size, at least to 64 bytes, so that the interrupt id
+  // indexes it without an addition
+  localparam int unsigned ClicNumSrc = (CVA6Cfg.CLICNumInterruptSrc > 1) ? CVA6Cfg.CLICNumInterruptSrc : 2;
+  localparam int unsigned ClicIdWidth = $clog2(ClicNumSrc);
+  localparam int unsigned ClicEntryBits = $clog2(CVA6Cfg.XLEN / 8);
+  localparam int unsigned ClicTvtAlign =
+      (ClicIdWidth + ClicEntryBits > 6) ? ClicIdWidth + ClicEntryBits : 6;
   logic [CVA6Cfg.XLEN-1:0] medeleg_q, medeleg_d;
   logic [CVA6Cfg.XLEN-1:0] mideleg_q, mideleg_d;
   logic [CVA6Cfg.XLEN-1:0] mip_q, mip_d;
@@ -1509,7 +1517,8 @@ module csr_regfile
         riscv::CSR_VSTVT: begin
           if (CVA6Cfg.RVXHCLIC) begin
             // Writes are legal but ignored in CLINT mode
-            if (clic_mode_o) vstvt_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+            if (clic_mode_o)
+              vstvt_d = {csr_wdata[CVA6Cfg.XLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
           end else update_access_exception = 1'b1;
         end
         riscv::CSR_VSSCRATCH:
@@ -1623,7 +1632,7 @@ module csr_regfile
           if (CVA6Cfg.RVS && CVA6Cfg.RVSCLIC) begin
             // Writes are legal but ignored in CLINT mode
             if (clic_mode_o) begin
-              stvt_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+              stvt_d = {csr_wdata[CVA6Cfg.XLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
             end
           end else begin
             update_access_exception = 1'b1;
@@ -1978,7 +1987,7 @@ module csr_regfile
           if (CVA6Cfg.RVSCLIC) begin
             // Writes are legal but ignored in CLINT mode
             if (clic_mode_o) begin
-              mtvt_d = {csr_wdata[CVA6Cfg.XLEN-1:8], 8'b0};
+              mtvt_d = {csr_wdata[CVA6Cfg.XLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
             end
           end else begin
             update_access_exception = 1'b1;
@@ -3012,15 +3021,14 @@ module csr_regfile
   // output assignments dependent on privilege mode
   always_comb begin : priv_output
     clic_vec_irq_o = 1'b0;
-    // TODO: xtvt alignment now required to be 512B
-    trap_vector_base_o = (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) ? {mtvt_q[CVA6Cfg.VLEN-1:8], 8'b0} : {mtvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
+    trap_vector_base_o = (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) ? {mtvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}} : {mtvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
     // output user mode stvec
     if (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S) begin
       if (CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i && ex_i.cause[CVA6Cfg.XLEN-1]) begin
         if (CVA6Cfg.RVXHCLIC && trap_to_v) begin
-          trap_vector_base_o = {vstvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+          trap_vector_base_o = {vstvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
         end else begin
-          trap_vector_base_o = {stvt_q[CVA6Cfg.VLEN-1:8], 8'b0};
+          trap_vector_base_o = {stvt_q[CVA6Cfg.VLEN-1:ClicTvtAlign], {ClicTvtAlign{1'b0}}};
         end
       end else if (CVA6Cfg.RVH && trap_to_v) begin
         trap_vector_base_o = {vstvec_q[CVA6Cfg.VLEN-1:2], 2'b0};
@@ -3039,19 +3047,16 @@ module csr_regfile
     // we want to spare the costly addition. Furthermore check to which
     // privilege level we are jumping and whether the vectored mode is
     // activated for _that_ privilege level.
-    // Note for CLIC mode: according to the spec, we should actually jump to the address
-    // stored at trap_vector_base. Since this would have significant HW implications and no
-    // significant benefit, we conciously diverge from the spec here by jumping to
-    // trap_vector_base instead.
     if (ex_i.cause[CVA6Cfg.XLEN-1] && ~clic_mode_o &&
                 (((((CVA6Cfg.RVS || CVA6Cfg.RVU) && trap_to_priv_lvl == riscv::PRIV_LVL_M && (!CVA6Cfg.DirectVecOnly && mtvec_q[0])) || (!CVA6Cfg.RVS && !CVA6Cfg.RVU && (!CVA6Cfg.DirectVecOnly && mtvec_q[0]))))
                || (CVA6Cfg.RVS && trap_to_priv_lvl == riscv::PRIV_LVL_S && !trap_to_v && stvec_q[0]))) begin
       trap_vector_base_o[7:2] = ex_i.cause[5:0];
     end
-    // Vectored interrupts in CLIC mode
+    // Vectored interrupts in CLIC mode: the controller fetches the handler address
+    // from the table entry of the interrupt id
     if (ex_i.cause[CVA6Cfg.XLEN-1] && CVA6Cfg.RVSCLIC && clic_mode_o && clic_irq_shv_i) begin
       clic_vec_irq_o = ex_i.valid;
-      trap_vector_base_o[8:3] = ex_i.cause[5:0];
+      trap_vector_base_o[ClicEntryBits+:ClicIdWidth] = ex_i.cause[ClicIdWidth-1:0];
     end
     if (ex_i.cause[CVA6Cfg.XLEN-1] &&
                 (CVA6Cfg.RVH && trap_to_priv_lvl == riscv::PRIV_LVL_S && trap_to_v && vstvec_q[0]) && ~clic_mode_o) begin
