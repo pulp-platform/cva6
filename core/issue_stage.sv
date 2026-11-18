@@ -162,6 +162,8 @@ module issue_stage
     output logic [CVA6Cfg.NrCommitPorts-1:0] commit_drop_o,
     // Commit acknowledge - COMMIT_STAGE
     input logic [CVA6Cfg.NrCommitPorts-1:0] commit_ack_i,
+    // An instruction that takes an interrupt waits for issue or is in the scoreboard - CLIC_CTRL
+    output logic irq_instr_o,
     // Issue stall - PERF_COUNTERS
     output logic stall_issue_o,
     // Information dedicated to RVFI - RVFI
@@ -217,6 +219,14 @@ module issue_stage
   logic x_transaction_accepted_iro_sb, x_issue_writeback_iro_sb;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_iro_sb;
 
+  logic irq_instr_sb;
+  always_comb begin
+    irq_instr_o = irq_instr_sb;
+    for (int unsigned i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
+      irq_instr_o |= decoded_instr_valid_i[i] && decoded_instr_i[i].ex.valid && decoded_instr_i[i].ex.cause[CVA6Cfg.XLEN-1];
+    end
+  end
+
   // ---------------------------------------------------------
   // 2. Manage instructions in a scoreboard
   // ---------------------------------------------------------
@@ -240,6 +250,7 @@ module issue_stage
       .commit_instr_o,
       .commit_drop_o,
       .commit_ack_i,
+      .irq_instr_o             (irq_instr_sb),
       .decoded_instr_i         (decoded_instr_i),
       .orig_instr_i,
       .decoded_instr_valid_i   (decoded_instr_valid_i),

@@ -45,6 +45,8 @@ module scoreboard #(
     output logic              [CVA6Cfg.NrCommitPorts-1:0] commit_drop_o,
     // Commit acknowledge - COMMIT_STAGE
     input  logic              [CVA6Cfg.NrCommitPorts-1:0] commit_ack_i,
+    // An instruction that takes an interrupt is in the scoreboard - CLIC_CTRL
+    output logic                                          irq_instr_o,
 
     // instruction to put on top of scoreboard e.g.: top pointer
     // we can always put this instruction to the top unless we signal with asserted full_o
@@ -120,6 +122,14 @@ module scoreboard #(
 
   for (genvar i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
     assign issued_instrs_even_odd[i%2][i/2] = mem_q[i].issued;
+  end
+
+  // A cancelled instruction is dropped at commit, so it takes no interrupt
+  always_comb begin
+    irq_instr_o = 1'b0;
+    for (int unsigned i = 0; i < CVA6Cfg.NR_SB_ENTRIES; i++) begin
+      irq_instr_o |= still_issued[i] && mem_q[i].sbe.ex.valid && mem_q[i].sbe.ex.cause[CVA6Cfg.XLEN-1];
+    end
   end
 
   // the issue queue is full don't issue any new instructions
