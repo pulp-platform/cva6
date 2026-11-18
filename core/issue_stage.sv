@@ -199,6 +199,33 @@ module issue_stage
   assign issue_instr_o    = issue_instr_sb_iro[0];
   assign issue_instr_hs_o = issue_instr_valid_sb_iro[0] & issue_ack_iro_sb[0];
 
+  // Set when an AMO issues (an issue cancelled by a flush of unissued
+  // instructions in the same cycle does not count, as in the scoreboard);
+  // cleared by the full flush that follows every AMO, its commit or a trap, and
+  // by the fence.t micro-reset like the scoreboard
+  logic amo_pending_d, amo_pending_q;
+  always_comb begin : amo_pending
+    amo_pending_d = amo_pending_q;
+    if (!flush_unissued_instr_i) begin
+      for (int unsigned i = 0; i < CVA6Cfg.NrIssuePorts; i++) begin
+        if (CVA6Cfg.RVA && issue_ack_iro_sb[i] && is_amo(issue_instr_sb_iro[i].op)) begin
+          amo_pending_d = 1'b1;
+        end
+      end
+    end
+    if (flush_i) begin
+      amo_pending_d = 1'b0;
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_uarch_ni) begin
+    if (!rst_uarch_ni) begin
+      amo_pending_q <= 1'b0;
+    end else begin
+      amo_pending_q <= amo_pending_d;
+    end
+  end
+
   logic x_transaction_accepted_iro_sb, x_issue_writeback_iro_sb;
   logic [CVA6Cfg.TRANS_ID_BITS-1:0] x_id_iro_sb;
 
@@ -288,6 +315,7 @@ module issue_stage
       .tinst_o                 (tinst_o),
       .branch_predict_o,
       .lsu_ready_i,
+      .amo_pending_i           (amo_pending_q),
       .lsu_valid_o,
       .mult_valid_o,
       .fpu_ready_i,

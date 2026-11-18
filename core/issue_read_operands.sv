@@ -77,6 +77,8 @@ module issue_read_operands
     output branchpredict_sbe_t branch_predict_o,
     // Load store unit FU is ready - EX_STAGE
     input logic lsu_ready_i,
+    // An issued AMO has not committed yet - ISSUE_STAGE
+    input logic amo_pending_i,
     // Load store unit FU is valid - EX_STAGE
     output logic [CVA6Cfg.NrIssuePorts-1:0] lsu_valid_o,
     // Mult FU is valid - EX_STAGE
@@ -355,7 +357,9 @@ module issue_read_operands
       fus_busy[0].fpu_vec = 1'b1;
     end
 
-    if (!lsu_ready_i) begin
+    // Instructions younger than an AMO are flushed when it commits: hold back
+    // loads and stores meanwhile, so that they leave the D$ to the AMO
+    if (!lsu_ready_i || amo_pending_i) begin
       fus_busy[0].load  = 1'b1;
       fus_busy[0].store = 1'b1;
     end
