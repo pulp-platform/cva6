@@ -1,0 +1,48 @@
+// Copyright 2026 ETH Zurich and University of Bologna.
+// Solderpad Hardware License, Version 0.51, see LICENSE for details.
+// SPDX-License-Identifier: SHL-0.51
+//
+// Author: Enrico Zelioli <ezelioli@iis.ee.ethz.ch>
+
+addrmap cva6tb_regs {
+    desc = "Platform control registers of the standalone testbench";
+    default regwidth = 32;
+    default accesswidth = 32;
+
+    reg {
+        desc = "Boot mode: where the testbench preloaded the program";
+        field {
+            desc = "0: DRAM, 1: scratchpad";
+            sw = r;
+            hw = w;
+        } spm[0:0];
+    } bootmode @ 0x0;
+
+    reg {
+        desc = "End of computation: the testbench ends the run when eoc is set";
+        field {
+            desc = "End of computation";
+            sw = rw;
+            hw = r;
+        } eoc[0:0] = 0x0;
+        field {
+            desc = "Return code";
+            sw = rw;
+            hw = r;
+        } retcode[31:1] = 0x0;
+    } eoc @ 0x4;
+
+    reg {
+        desc = "External interrupt lines software raises and lowers, ORed with the PLIC's";
+        field {
+            desc = "M-mode external interrupt";
+            sw = rw;
+            hw = r;
+        } meip[0:0] = 0x0;
+        field {
+            desc = "S-mode external interrupt";
+            sw = rw;
+            hw = r;
+        } seip[1:1] = 0x0;
+    } irq @ 0x8;
+};
