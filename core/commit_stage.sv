@@ -108,6 +108,13 @@ module commit_stage
     input logic fence_t_active_i,
     // The handler address of a vectored interrupt is being fetched - CONTROLLER
     input logic vec_irq_busy_i,
+    // The vector table load faulted: its cause, guest physical address, GVA bit
+    // and the table entry address - CONTROLLER
+    input logic vec_fault_i,
+    input logic [CVA6Cfg.XLEN-1:0] vec_fault_cause_i,
+    input logic [CVA6Cfg.GPLEN-1:0] vec_fault_tval2_i,
+    input logic vec_fault_gva_i,
+    input logic [CVA6Cfg.VLEN-1:0] vec_fault_addr_i,
     // Trigger module
     input logic sdtrig_commit_icount_valid_i,
     input logic [$clog2(CVA6Cfg.NrCommitPorts)-1:0] sdtrig_commit_icount_nr_instr_i,
@@ -522,6 +529,19 @@ module commit_stage
       exception_o.valid = 1'b1;
       exception_o.cause = clic_irq_cause_i;
       pc_o = next_commit_pc_i;
+    end
+
+    // A fault on the vector table load is a load fault with epc and tval at the
+    // table entry; interrupts are held meanwhile, so it never meets clic_take
+    if (vec_fault_i) begin
+      exception_o.valid  = 1'b1;
+      exception_o.cause  = vec_fault_cause_i;
+      exception_o.tval   = (CVA6Cfg.TvalEn) ? CVA6Cfg.XLEN'(vec_fault_addr_i) : '0;
+      exception_o.tval2  = CVA6Cfg.RVH ? vec_fault_tval2_i : '0;
+      exception_o.tinst  = '0;
+      exception_o.gva    = CVA6Cfg.RVH && vec_fault_gva_i;
+      exception_o.timing = 1'b0;
+      pc_o               = vec_fault_addr_i;
     end
   end
 

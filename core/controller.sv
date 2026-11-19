@@ -105,6 +105,16 @@ module controller
     input logic vec_ld_valid_i,
     // Vector table entry - EX_STAGE
     input logic [CVA6Cfg.XLEN-1:0] vec_ld_data_i,
+    // The vector table load faulted: its cause, guest physical address and GVA bit - EX_STAGE
+    input logic vec_ld_ex_valid_i,
+    input logic [CVA6Cfg.XLEN-1:0] vec_ld_ex_cause_i,
+    input logic [CVA6Cfg.GPLEN-1:0] vec_ld_ex_tval2_i,
+    input logic vec_ld_ex_gva_i,
+    // Take the fault of the vector table load as a load fault at the table entry - COMMIT_STAGE
+    output logic vec_fault_o,
+    output logic [CVA6Cfg.XLEN-1:0] vec_fault_cause_o,
+    output logic [CVA6Cfg.GPLEN-1:0] vec_fault_tval2_o,
+    output logic vec_fault_gva_o,
     // set the debug pc from CSR - FRONTEND
     input logic set_debug_pc_i,
     // We got a resolved branch, check if we need to flush the front-end - EX_STAGE
@@ -165,13 +175,17 @@ module controller
   typedef enum logic [1:0] {
     VEC_IRQ_IDLE,
     VEC_IRQ_REQ,
-    VEC_IRQ_WAIT_DATA
+    VEC_IRQ_WAIT_DATA,
+    VEC_IRQ_FAULT
   } vec_irq_state_e;
 
   logic vec_irq_halt_frontend;
   vec_irq_state_e vec_irq_state_d, vec_irq_state_q;
   logic [CVA6Cfg.VLEN-1:0] vec_irq_address;
   logic [CVA6Cfg.VLEN-1:0] trap_vector_base_d, trap_vector_base_q;
+  logic [CVA6Cfg.XLEN-1:0] vec_fault_cause_d, vec_fault_cause_q;
+  logic [CVA6Cfg.GPLEN-1:0] vec_fault_tval2_d, vec_fault_tval2_q;
+  logic vec_fault_gva_d, vec_fault_gva_q;
 
   assign trap_vector_base_d = vec_irq_address;
   assign vec_ld_addr_o      = trap_vector_base_q;
@@ -179,14 +193,24 @@ module controller
   // The handler address is the table entry with its low bit cleared
   assign frontend_next_pc_o = {vec_ld_data_i[CVA6Cfg.VLEN-1:1], 1'b0};
   assign vec_irq_busy_o     = (vec_irq_state_q != VEC_IRQ_IDLE);
+  assign vec_fault_o        = (vec_irq_state_q == VEC_IRQ_FAULT);
+  assign vec_fault_cause_o  = vec_fault_cause_q;
+  assign vec_fault_tval2_o  = vec_fault_tval2_q;
+  assign vec_fault_gva_o    = vec_fault_gva_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
       vec_irq_state_q    <= VEC_IRQ_IDLE;
       trap_vector_base_q <= '0;
+      vec_fault_cause_q  <= '0;
+      vec_fault_tval2_q  <= '0;
+      vec_fault_gva_q    <= 1'b0;
     end else begin
       vec_irq_state_q    <= vec_irq_state_d;
       trap_vector_base_q <= trap_vector_base_d;
+      vec_fault_cause_q  <= vec_fault_cause_d;
+      vec_fault_tval2_q  <= vec_fault_tval2_d;
+      vec_fault_gva_q    <= vec_fault_gva_d;
     end
   end
 
@@ -200,6 +224,9 @@ module controller
     vec_irq_halt_frontend = 1'b0;
     vec_irq_address       = trap_vector_base_i;
     vec_irq_state_d       = vec_irq_state_q;
+    vec_fault_cause_d     = vec_fault_cause_q;
+    vec_fault_tval2_d     = vec_fault_tval2_q;
+    vec_fault_gva_d       = vec_fault_gva_q;
     unique case (vec_irq_state_q)
       VEC_IRQ_IDLE: begin
         if (ex_valid_i && clic_vec_irq_i) begin
@@ -218,9 +245,25 @@ module controller
       end
       VEC_IRQ_WAIT_DATA: begin
         vec_irq_halt_frontend = 1'b1;
+        vec_irq_address       = trap_vector_base_q;
         if (vec_ld_valid_i) begin
-          frontend_set_pc_o = 1'b1;
-          vec_irq_state_d   = VEC_IRQ_IDLE;
+          if (vec_ld_ex_valid_i) begin
+            vec_fault_cause_d = vec_ld_ex_cause_i;
+            vec_fault_tval2_d = vec_ld_ex_tval2_i;
+            vec_fault_gva_d   = vec_ld_ex_gva_i;
+            vec_irq_state_d   = VEC_IRQ_FAULT;
+          end else begin
+            frontend_set_pc_o = 1'b1;
+            vec_irq_state_d   = VEC_IRQ_IDLE;
+          end
+        end
+      end
+      // The commit stage takes the fault in this cycle
+      VEC_IRQ_FAULT: begin
+        vec_irq_halt_frontend = 1'b1;
+        vec_irq_address       = trap_vector_base_q;
+        if (ex_valid_i) begin
+          vec_irq_state_d = VEC_IRQ_IDLE;
         end
       end
       default: begin
@@ -541,7 +584,7 @@ module controller
   //pragma translate_off
   vec_irq_no_flush :
   assert property (@(posedge clk_i) disable iff (~rst_ni)
-        (vec_irq_state_q != VEC_IRQ_IDLE) |-> !flush_ex_o)
+        (vec_irq_state_q inside {VEC_IRQ_REQ, VEC_IRQ_WAIT_DATA}) |-> !flush_ex_o)
   else $error("[controller] the LSU is flushed during a vector table load");
   //pragma translate_on
 endmodule

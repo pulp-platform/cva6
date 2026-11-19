@@ -705,6 +705,10 @@ module cva6
   // Vector table load of a hardware-vectored interrupt
   logic vec_ld_req, vec_ld_gnt, vec_ld_valid;
   logic [CVA6Cfg.VLEN-1:0] vec_ld_addr;
+  logic vec_fault;
+  logic [CVA6Cfg.XLEN-1:0] vec_fault_cause;
+  logic [CVA6Cfg.GPLEN-1:0] vec_fault_tval2;
+  logic vec_fault_gva;
 
   icache_areq_t icache_areq_ex_cache;
   icache_arsp_t icache_areq_cache_ex;
@@ -1273,6 +1277,11 @@ module cva6
       .ni_load_sent_i                     (ni_load_sent_ex),
       .fence_t_active_i                   (fence_t_active),
       .vec_irq_busy_i                     (vec_irq_busy),
+      .vec_fault_i                        (vec_fault),
+      .vec_fault_cause_i                  (vec_fault_cause),
+      .vec_fault_tval2_i                  (vec_fault_tval2),
+      .vec_fault_gva_i                    (vec_fault_gva),
+      .vec_fault_addr_i                   (vec_ld_addr),
       .commit_csr_o                       (csr_commit_commit_ex),
       .fence_t_o                          (fence_t_commit_controller),
       .fence_i_o                          (fence_i_commit_controller),
@@ -1536,6 +1545,14 @@ module cva6
       .vec_ld_gnt_i          (vec_ld_gnt),
       .vec_ld_valid_i        (vec_ld_valid),
       .vec_ld_data_i         (load_result_ex_id),
+      .vec_ld_ex_valid_i     (load_exception_ex_id.valid),
+      .vec_ld_ex_cause_i     (load_exception_ex_id.cause),
+      .vec_ld_ex_tval2_i     (load_exception_ex_id.tval2),
+      .vec_ld_ex_gva_i       (load_exception_ex_id.gva),
+      .vec_fault_o           (vec_fault),
+      .vec_fault_cause_o     (vec_fault_cause),
+      .vec_fault_tval2_o     (vec_fault_tval2),
+      .vec_fault_gva_o       (vec_fault_gva),
       .set_debug_pc_i        (set_debug_pc),
       .resolved_branch_i     (resolved_branch),
       .flush_csr_i           (flush_csr_ctrl),
