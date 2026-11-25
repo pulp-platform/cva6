@@ -35,12 +35,15 @@
 
 // Configure `mask` ways of the D-cache as scratchpad. The cache is disabled and
 // flushed around the change, as the RT tests do: ways switching mode must not
-// keep stale cached lines.
+// keep stale cached lines. The fences keep SPM stores just before the disable
+// and SPM loads just after the enable from running with the cache disabled.
+// As one asm string, tests can place SPM accesses right next to it; the mask is
+// operand %[mask].
+#define DSPM_SET_WAYS_ASM \
+    "fence\n csrwi 0x7C1, 0\n fence.i\n csrw 0x5E0, %[mask]\n csrwi 0x7C1, 1\n fence\n"
+
 static inline void dspm_set_ways(uint32_t mask) {
-    asm volatile("csrwi 0x7C1, 0" ::: "memory");
-    asm volatile("fence.i" ::: "memory");
-    asm volatile("csrw  0x5E0, %0" ::"r"(mask) : "memory");
-    asm volatile("csrwi 0x7C1, 1" ::: "memory");
+    asm volatile(DSPM_SET_WAYS_ASM ::[mask] "r"(mask) : "memory");
 }
 
 static inline void ispm_set_ways(uint32_t mask) {
