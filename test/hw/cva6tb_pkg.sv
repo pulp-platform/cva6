@@ -17,21 +17,24 @@ package cva6tb_pkg;
   // before build_config, because it derives NonIdemPotenceEn from them.
   function automatic config_pkg::cva6_cfg_t gen_cva6_cfg(config_pkg::cva6_user_cfg_t user_cfg);
     config_pkg::cva6_user_cfg_t cfg = user_cfg;
+    // The cache-SPM windows of the configuration, below the I-SPM's
+    logic [63:0] dspm_base = 64'(user_cfg.DCacheSpmAddrBase);
+    logic [63:0] dspm_end = 64'(user_cfg.DCacheSpmAddrBase) + 64'(user_cfg.DCacheSpmLength);
+    logic [63:0] ispm_base = 64'(user_cfg.ICacheSpmAddrBase);
+    logic [63:0] ispm_end = 64'(user_cfg.ICacheSpmAddrBase) + 64'(user_cfg.ICacheSpmLength);
     // Everything below the SPM -- the error slave and the regbus peripherals -- is
     // device space: stores there must not be merged, nor loads issued speculatively.
-    // Except CVA6-RT's cache-SPM windows, memory inside the core: the data SPM at
-    // 0x0180_0000 (32 KiB) and the instruction SPM at 0x01A0_0000 (16 KiB, as in the
-    // execute regions below). As device space, a load from the data SPM could not
-    // issue before the preceding stores had drained (+4 cycles behind a store).
-    // Nothing is mapped at those addresses on a core without SPM.
+    // Except CVA6-RT's cache-SPM windows, memory inside the core: the data SPM and
+    // the instruction SPM, which is also executable. As device space, a load from
+    // the data SPM could not issue before the preceding stores had drained (+4
+    // cycles behind a store). Nothing is mapped at those addresses on a core
+    // without SPM.
     cfg.NrNonIdempotentRules  = unsigned'(3);
-    cfg.NonIdempotentAddrBase = 1024'({64'h01A0_4000, 64'h0180_8000, 64'h0000_0000});
-    cfg.NonIdempotentLength   = 1024'({64'h2000_0000 - 64'h01A0_4000,
-                                       64'h01A0_0000 - 64'h0180_8000,
-                                       64'h0180_0000});
+    cfg.NonIdempotentAddrBase = 1024'({ispm_end, dspm_end, 64'h0000_0000});
+    cfg.NonIdempotentLength   = 1024'({64'h2000_0000 - ispm_end, ispm_base - dspm_end, dspm_base});
     cfg.NrExecuteRegionRules  = unsigned'(4);
-    cfg.ExecuteRegionAddrBase = 1024'({64'h8000_0000, 64'h2000_0000, 64'(56'h01A0_0000), 64'h0001_0000});
-    cfg.ExecuteRegionLength   = 1024'({64'h4000_0000, 64'h0010_0000, 64'(56'h0000_4000), 64'h0001_0000});
+    cfg.ExecuteRegionAddrBase = 1024'({64'h8000_0000, 64'h2000_0000, ispm_base, 64'h0001_0000});
+    cfg.ExecuteRegionLength   = 1024'({64'h4000_0000, 64'h0010_0000, 64'(user_cfg.ICacheSpmLength), 64'h0001_0000});
     cfg.NrCachedRegionRules   = unsigned'(2);
     cfg.CachedRegionAddrBase  = 1024'({64'h8000_0000, 64'h2000_0000});
     cfg.CachedRegionLength    = 1024'({64'h4000_0000, 64'h0010_0000});
