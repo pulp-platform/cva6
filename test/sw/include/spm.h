@@ -57,9 +57,8 @@ static inline void ispm_set_ways(uint32_t mask) {
 // currently configured as scratchpad.
 #define SPM_INACTIVE_MAGIC 0xCA11AB1EBADCAB1EULL
 
-// NOTE: configuring *all* ways as scratchpad leaves the cache with no way to
-// refill into, and ordinary cached (DRAM) accesses then misbehave - globals,
-// stack and printf state included. Tests that touch anything outside the SPM
-// must leave at least one way to the cache. Half the ways is the safe default.
+// With every way as scratchpad, cached (DRAM) accesses go to memory uncached
+// (dcache_spm_allways). DSPM_SAFE_WAYS is half of the ways: the tests that use
+// it keep the other half caching their own data.
 #define DSPM_SAFE_WAYS 4
 #define DSPM_SAFE_MASK ((1u << DSPM_SAFE_WAYS) - 1)
