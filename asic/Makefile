@@ -25,7 +25,7 @@ ASIC_BUILD           ?= $(if $(wildcard $(ASIC_DIR)/$(ASIC_TECH)/.git),$(ASIC_DI
 CVA6_ROOT        ?= $(abspath $(ASIC_DIR)/..)
 CVA6_CONFIG      ?= cv64a6_rt_hpdcache
 BENDER           ?= bender
-BENDER_DEFINES   ?=
+BENDER_DEFINES   ?= -D CVA6_ICACHE_BYTE_SIZE=32768
 BENDER_TARGETS   ?= -t $(CVA6_CONFIG) -t rtl -t cva6 -t asic -t cva6_asic
 TOP_DESIGN       ?= cva6_asic_top
 
