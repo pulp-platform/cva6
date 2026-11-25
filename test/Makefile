@@ -18,6 +18,8 @@ VERILATOR ?= verilator
 
 # Target CVA6 configuration
 CVA6_CONFIG   ?= cv64a6_rt_hpdcache
+# I$ size in bytes, for a configuration that reads CVA6_ICACHE_BYTE_SIZE; its default when unset
+CVA6_ICACHE_BYTE_SIZE ?=
 HEXFILE       ?= $(TEST_DIR)/sw/out/hello.hex
 MAX_CYCLES    ?= 10000
 # Main memory delay per AXI channel, 0 to 16, passed as +MemDelay when set
@@ -101,6 +103,10 @@ endif
 
 ifeq ($(TRACER),1)
 BENDER_FLAGS += -t tracer
+endif
+
+ifneq ($(CVA6_ICACHE_BYTE_SIZE),)
+BENDER_FLAGS += -D CVA6_ICACHE_BYTE_SIZE=$(CVA6_ICACHE_BYTE_SIZE)
 endif
 
 # Plusargs set through variables, the testbench's and the tracer's. They follow

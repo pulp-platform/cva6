@@ -15,9 +15,12 @@
 #define DSPM_BASE      0x01800000UL
 #define ISPM_BASE      0x01A00000UL
 #define DCACHE_SIZE    32768UL
+// The I$ size of the hardware build (CVA6_ICACHE_BYTE_SIZE in the Makefiles), in 4 KiB ways
+#ifndef ICACHE_SIZE
 #define ICACHE_SIZE    16384UL
+#endif
 #define DCACHE_WAYS    8
-#define ICACHE_WAYS    4
+#define ICACHE_WAYS    ((ICACHE_SIZE) / 4096)
 #define DSPM_WAY_SIZE  ((DCACHE_SIZE) / (DCACHE_WAYS))
 #define ISPM_WAY_SIZE  ((ICACHE_SIZE) / (ICACHE_WAYS))
 

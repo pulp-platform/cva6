@@ -82,6 +82,7 @@ make verilator-build CVA6_CONFIG=cv64a6_imafdchxhclic_sv39_wb
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `CVA6_CONFIG` | `cv64a6_imafdchsclic_sv39_wb` | CVA6 configuration target passed to Bender; a 64-bit one, with CLIC for the CLIC tests |
+| `CVA6_ICACHE_BYTE_SIZE` | unset | I$ size in bytes for `cv64a6_rt_hpdcache` (4 KiB ways; 16 KiB when unset); set it for the software build too, which passes it to `spm.h` |
 | `HEXFILE` | `sw/out/hello.hex` | Verilog hex image to preload |
 | `MAX_CYCLES` | `10000` | Simulation timeout in core cycles |
 | `MEM_DELAY` | `10` | Main memory delay per AXI channel, 0 to 16, passed as `+MemDelay` |

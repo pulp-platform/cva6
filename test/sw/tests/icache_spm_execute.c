@@ -10,9 +10,6 @@
 #include <stdint.h>
 
 #define ICACHE_SPM_ADDR 0x01A00000UL
-#define ICACHE_SIZE     16384UL
-#define ICACHE_NUM_WAYS 4
-#define ICACHE_WAY_SIZE ((ICACHE_SIZE) / (ICACHE_NUM_WAYS))
 
 uint64_t __attribute__((noinline)) __attribute__((aligned(8))) test_func(uint64_t a, uint64_t b)
 {

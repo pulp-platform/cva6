@@ -21,6 +21,9 @@ RV_OBJCOPY := $(RV_BINROOT)/riscv64-unknown-elf-objcopy
 RV_OBJDUMP := $(RV_BINROOT)/riscv64-unknown-elf-objdump
 
 SW_FLAGS   := -DOT_PLATFORM_RV32 -march=rv64gc_zifencei_zicbom -mabi=lp64d -mstrict-align -O2 -Wall -Wextra -static -ffunction-sections -ffreestanding -fdata-sections -frandom-seed=cheshire -fuse-linker-plugin -flto -Wl,-flto
+# I$ size of the hardware build, for spm.h; spm.h's default when unset
+CVA6_ICACHE_BYTE_SIZE ?=
+SW_FLAGS   += $(if $(CVA6_ICACHE_BYTE_SIZE),-DICACHE_SIZE=$(CVA6_ICACHE_BYTE_SIZE)UL)
 SW_CCFLAGS := $(SW_FLAGS) -ggdb -mcmodel=medany -mexplicit-relocs -fno-builtin -fverbose-asm -pipe
 SW_LDFLAGS := $(SW_FLAGS) -nostartfiles -Wl,--gc-sections -Wl,-L$(LD_DIR)
 
