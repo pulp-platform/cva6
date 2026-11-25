@@ -49,8 +49,14 @@ package cva6_config_pkg;
   localparam CVA6ConfigDataUserEn = 0;
   localparam CVA6ConfigDataUserWidth = 1;
 
+  // I$ size: CVA6_ICACHE_BYTE_SIZE if defined, else 16 KiB. The ways stay 4 KiB,
+  // a page of the virtually indexed cache, so their number follows the size.
+`ifdef CVA6_ICACHE_BYTE_SIZE
+  localparam CVA6ConfigIcacheByteSize = `CVA6_ICACHE_BYTE_SIZE;
+`else
   localparam CVA6ConfigIcacheByteSize = 16384;
-  localparam CVA6ConfigIcacheSetAssoc = 4;
+`endif
+  localparam CVA6ConfigIcacheSetAssoc = CVA6ConfigIcacheByteSize / 4096;
   localparam CVA6ConfigIcacheLineWidth = 128;
   localparam CVA6ConfigDcacheByteSize = 32768;
   localparam CVA6ConfigDcacheSetAssoc = 8;
