@@ -120,6 +120,7 @@ ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_arbiter_flushable.
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_mux.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/stream_demux.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/lzc.sv
+${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/addr_decode.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/rr_arb_tree.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/shift_reg.sv
 ${CVA6_REPO_DIR}/vendor/pulp-platform/common_cells/src/unread.sv
