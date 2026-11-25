@@ -32,4 +32,5 @@ set ASIC_RESET_PORTS {rst_ni}
 # The inputs of the CLIC's interrupt request, which the CLIC holds while it
 # requests
 set ASIC_CLIC_PORTS  {clic_irq_valid_i clic_irq_id_i clic_irq_level_i clic_irq_priv_i
-                      clic_irq_v_i clic_irq_vsid_i clic_irq_shv_i clic_irq_kill_req_i}
+                      clic_irq_v_i clic_irq_vsid_i clic_irq_shv_i clic_irq_rstk_i
+                      clic_irq_kill_req_i}
